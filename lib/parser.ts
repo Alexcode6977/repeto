@@ -17,9 +17,9 @@ export function parseScript(rawText: string): ParsedScript {
     let idCounter = 0;
 
     // Regex patterns
-    // Pattern 1: "ROMÉO :" or "ROMÉO." at start of line
+    // Pattern 1: "ROMÉO :" or "ROMÉO." or "ROMÉO," at start of line
     // Allow hyphens, apostrophes (e.g. JEAN-CLAUDE, D'ANNETTE)
-    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ\s\-\']{3,})[:\.]\s*(.*)/;
+    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ\s\-\']{3,})[:\.,]\s*(.*)/;
 
     // Pattern 2: Uppercase line that looks like a name (short-ish)
     // Allow optional trailing punctuation (e.g. "YVONNE," or "LUCIEN.") and leading/trailing whitespace
@@ -29,8 +29,10 @@ export function parseScript(rawText: string): ParsedScript {
         "SCÈNE", "ACTE", "RIDEAU", "FIN", "TABLEAU", "SCENE",
         "PERSONNAGES", "DISTRIBUTION", "VAUDEVILLE", "COMÉDIE", "DRAME",
         "ON PURGE BÉBÉ", // Specific title
+        "FEU LA MERE DE MADAME", "FEU LA MÈRE DE MADAME", // New title
         "REPRÉSENTÉE", "THÉÂTRE", "PARIS",
-        "PUIS", "LES MEMES", "LES MÊMES", "TOUS", "TOUT"
+        "PUIS", "LES MEMES", "LES MÊMES", "TOUS", "TOUT",
+        "OUI", "NON", "AH", "OH", "EH", "BON", "BIEN" // Interjections safety
     ];
 
 

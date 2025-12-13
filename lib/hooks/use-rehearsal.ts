@@ -62,8 +62,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
 
     // Main Flow Control
-    const processCurrentLine = async () => {
-        const line = script.lines[stateRef.current.currentLineIndex];
+    const processCurrentLine = async (overrideIndex?: number) => {
+        const indexToUse = overrideIndex ?? stateRef.current.currentLineIndex;
+        const line = script.lines[indexToUse];
         if (!line) {
             setStatus("finished");
             return;
@@ -111,7 +112,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
                     setStatus("listening_user"); // Retry
                     setFeedback(null);
-                    processCurrentLine(); // Recursive retry
+                    processCurrentLine(indexToUse); // Recursive retry with same index
                 }
 
             } catch (e) {
@@ -160,7 +161,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             // But we need to know WHOSE turn it was.
             // We can re-run processCurrentLine(). It checks user character and dispatches correctly.
             // If it was "playing_other", it will start speaking again (maybe from start of line, acceptable).
-            processCurrentLine();
+            processCurrentLine(currentLineIndex);
         } else {
             // Pause
             setStatus("paused");
@@ -171,7 +172,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     const start = () => {
         setCurrentLineIndex(0);
-        processCurrentLine(); // Boot loop
+        // We rely on the useEffect below to trigger processCurrentLine(0)
     };
 
     const next = () => {
@@ -193,7 +194,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     useEffect(() => {
         if (status !== "setup" && status !== "finished") {
-            processCurrentLine();
+            processCurrentLine(currentLineIndex);
         }
     }, [currentLineIndex]);
     // Warning: processCurrentLine is not redundant? 
@@ -203,7 +204,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     const retry = () => {
         if (status === "error" || status === "listening_user") {
-            processCurrentLine();
+            processCurrentLine(currentLineIndex);
         }
     };
 

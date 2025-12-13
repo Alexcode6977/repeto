@@ -51,78 +51,102 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
     if (!hasStarted) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[50dvh] space-y-8 animate-in zoom-in-50 duration-500 max-w-xl mx-auto px-6 py-12">
+            <div className="flex flex-col items-center justify-center min-h-[100dvh] p-4 md:p-8 animate-in zoom-in-50 duration-500">
+                <div className="w-full max-w-lg space-y-8">
 
-                <div className="text-center space-y-2">
-                    <h2 className="text-2xl font-bold text-white">
-                        Réglages pour {userCharacter}
-                    </h2>
-                    <p className="text-gray-400">Configurez la sensibilité de la reconnaissance</p>
-                </div>
-
-                {/* Slider UI */}
-                <div className="w-full bg-white/5 p-6 rounded-2xl border border-white/10 space-y-6">
-                    <div className="flex justify-between items-center">
-                        <label className="text-sm font-medium text-gray-300">Tolérance</label>
-                        <span className="text-primary font-bold">{Math.round(threshold * 100)}%</span>
+                    <div className="text-center space-y-2">
+                        <img src="/repeto.png" alt="Repeto" className="w-16 h-16 mx-auto object-contain mb-4 drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
+                        <h2 className="text-3xl font-bold text-white tracking-tight">
+                            Réglages
+                        </h2>
+                        <p className="text-gray-400">Pour <span className="text-white font-medium">{userCharacter}</span></p>
                     </div>
 
-                    <input
-                        type="range"
-                        min="0.70"
-                        max="1.0"
-                        step="0.05"
-                        value={threshold}
-                        onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
-                    />
+                    {/* Settings Card */}
+                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 space-y-8 shadow-2xl">
 
-                    <div className="flex justify-between text-[10px] text-gray-500 uppercase tracking-widest">
-                        <span>Cool</span>
-                        <span>Strict</span>
-                    </div>
-
-                    {/* Dynamic Examples */}
-                    <div className="space-y-3 pt-4 border-t border-white/5">
-                        <p className="text-xs font-medium text-gray-400 uppercase">Exemples</p>
-
-                        <div className="grid gap-2 text-sm">
-                            <div className="flex justify-between items-center p-2 rounded bg-black/20">
-                                <div>
-                                    <span className="text-gray-400 block text-xs">Ciblé</span>
-                                    <span className="text-white">"Je ne veux pas"</span>
-                                </div>
+                        {/* Slider Section */}
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-end">
+                                <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Niveau d'exigence</label>
                                 <div className="text-right">
-                                    <span className="text-gray-400 block text-xs">Compris</span>
-                                    <span className="italic text-gray-300">"Je veux pas"</span>
-                                </div>
-                                <div className={cn("ml-4 font-bold", getExampleStatus(0.80) ? "text-green-400" : "text-red-400")}>
-                                    {getExampleStatus(0.80) ? "OK" : "NON"}
+                                    <span className="text-2xl font-bold text-primary">{Math.round(threshold * 100)}%</span>
                                 </div>
                             </div>
 
-                            <div className="flex justify-between items-center p-2 rounded bg-black/20">
-                                <div>
-                                    <span className="text-gray-400 block text-xs">Ciblé</span>
-                                    <span className="text-white">"Absolument !"</span>
+                            <input
+                                type="range"
+                                min="0.70"
+                                max="1.0"
+                                step="0.05"
+                                value={threshold}
+                                onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                                className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            />
+
+                            <div className="flex justify-between text-xs font-medium text-gray-500 uppercase tracking-widest px-1">
+                                <span>Débutant</span>
+                                <span>Intermédiaire</span>
+                                <span>Expert</span>
+                            </div>
+                        </div>
+
+                        {/* Examples Section */}
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                            <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-4">Test de Tolérance</p>
+
+                            <div className="space-y-3">
+                                {/* Example 1: Elision */}
+                                <div className="group flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors gap-3">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Texte</span>
+                                            <span className="text-sm text-gray-200">"Je ne sais pas"</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Dit</span>
+                                            <span className="text-sm text-gray-300 italic">"Ch'ais pas"</span>
+                                        </div>
+                                    </div>
+                                    <div className={cn(
+                                        "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-center sm:text-right transition-colors",
+                                        getExampleStatus(0.75) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                    )}>
+                                        {getExampleStatus(0.75) ? "Validé" : "Refusé"}
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <span className="text-gray-400 block text-xs">Compris</span>
-                                    <span className="italic text-gray-300">"Absolument"</span>
-                                </div>
-                                <div className={cn("ml-4 font-bold", getExampleStatus(0.90) ? "text-green-400" : "text-red-400")}>
-                                    {getExampleStatus(0.90) ? "OK" : "NON"}
+
+                                {/* Example 2: Missing Word */}
+                                <div className="group flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors gap-3">
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Texte</span>
+                                            <span className="text-sm text-gray-200">"Il faut qu'on y aille"</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Dit</span>
+                                            <span className="text-sm text-gray-300 italic">"Faut qu'on y aille"</span>
+                                        </div>
+                                    </div>
+                                    <div className={cn(
+                                        "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-center sm:text-right transition-colors",
+                                        getExampleStatus(0.85) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                    )}>
+                                        {getExampleStatus(0.85) ? "Validé" : "Refusé"}
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div className="w-full space-y-3">
-                    <Button size="lg" onClick={handleStart} className="w-full text-lg py-6 rounded-xl shadow-[0_0_20px_rgba(var(--primary),0.5)] bg-primary text-white hover:bg-primary/90 transition-transform active:scale-95">
-                        <Play className="mr-2 h-6 w-6" /> Commencer
-                    </Button>
-                    <Button variant="ghost" onClick={onExit} className="w-full text-gray-400 hover:text-white">Annuler</Button>
+                        <Button size="lg" onClick={handleStart} className="w-full text-lg font-bold py-8 rounded-2xl shadow-[0_0_30px_rgba(var(--primary),0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95">
+                            <Play className="mr-3 h-6 w-6 fill-current" />
+                            COMMENCER
+                        </Button>
+
+                        <Button variant="ghost" onClick={onExit} className="w-full text-sm text-gray-500 hover:text-white hover:bg-transparent">
+                            Retour au menu
+                        </Button>
+                    </div>
                 </div>
             </div>
         );
