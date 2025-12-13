@@ -220,12 +220,12 @@ export function parseScript(rawText: string): ParsedScript {
             const similarity = 1.0 - (dist / maxLength);
 
             // Merge if:
-            // - Very similar (> 0.8) e.g. ANNETTE vs ANETTE
-            // - OR candidate contains "DE " + primary (residual prefix cleanup) matches
-            //   (actually regex should have caught prefixes, but just in case)
-            // - OR primary contains candidate? No, usually longer is better? No, more frequent is better.
+            // - Very similar (> 0.85) e.g. ANNETTE vs ANETTE (raised threshold slightly)
+            // - OR candidate matches "DE [PRIMARY]" pattern specifically
 
-            if (similarity > 0.8 || candidate.includes(` ${primary}`) || candidate.endsWith(`'${primary}`)) {
+            const isDePrefix = candidate.match(new RegExp(`^(?:VOIX )?(?:DE |D'|DU )${primary}$`));
+
+            if (similarity > 0.85 || isDePrefix) {
                 // Merge candidate into primary
                 redirectMap[candidate] = primary;
             }
