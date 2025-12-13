@@ -170,15 +170,82 @@ export function parseScript(rawText: string): ParsedScript {
         });
     }
 
+
+    // --- POST-PROCESSING: Fuzzy Merging ---
+
+    // 1. Count occurrences
+    const counts: Record<string, number> = {};
+    scriptLines.forEach(line => {
+        counts[line.character] = (counts[line.character] || 0) + 1;
+    });
+
+    // 2. Identify primary characters (e.g. appeared more than once? or just sort by freq)
+    const sortedChars = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+
+    // Map to redirect merged chars
+    const redirectMap: Record<string, string> = {};
+
+    // Helper calculate similarity (Levenshtein based, simplified version of the lib one)
+    // We can't easily import from lib/similarity inside this purely logic file if it causes issues?
+    // Actually we can, but let's inline a simple one or assume import is fine. 
+    // Let's implement a simple dist here to be safe and self-contained or import if we added it at top.
+    // I will use a simple inline Levenshtein for 2 strings.
+    const levenshtein = (s1: string, s2: string) => {
+        const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+        for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
+        for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
+        for (let j = 1; j <= s2.length; j += 1) {
+            for (let i = 1; i <= s1.length; i += 1) {
+                const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+                track[j][i] = Math.min(track[j][i - 1] + 1, track[j - 1][i] + 1, track[j - 1][i - 1] + indicator);
+            }
+        }
+        return track[s2.length][s1.length];
+    };
+
+    // 3. Merge Loop
+    for (let i = 0; i < sortedChars.length; i++) {
+        const primary = sortedChars[i];
+        if (redirectMap[primary]) continue; // Already merged into something else
+
+        for (let j = i + 1; j < sortedChars.length; j++) {
+            const candidate = sortedChars[j];
+            if (redirectMap[candidate]) continue;
+
+            // Don't merge collective/combined chars automatically
+            if (primary.includes(" et ") || candidate.includes(" et ")) continue;
+
+            const dist = levenshtein(primary, candidate);
+            const maxLength = Math.max(primary.length, candidate.length);
+            const similarity = 1.0 - (dist / maxLength);
+
+            // Merge if:
+            // - Very similar (> 0.8) e.g. ANNETTE vs ANETTE
+            // - OR candidate contains "DE " + primary (residual prefix cleanup) matches
+            //   (actually regex should have caught prefixes, but just in case)
+            // - OR primary contains candidate? No, usually longer is better? No, more frequent is better.
+
+            if (similarity > 0.8 || candidate.includes(` ${primary}`) || candidate.endsWith(`'${primary}`)) {
+                // Merge candidate into primary
+                redirectMap[candidate] = primary;
+            }
+        }
+    }
+
+    // 4. Remap Lines and Rebuild Set
+    const finalCharacters = new Set<string>();
+
+    scriptLines.forEach(line => {
+        if (redirectMap[line.character]) {
+            line.character = redirectMap[line.character];
+        }
+        finalCharacters.add(line.character);
+    });
+
     // Filter final character list for the UI
-    const filteredCharacters = Array.from(characters).filter(c => {
+    const filteredCharacters = Array.from(finalCharacters).filter(c => {
         // Exclude combined characters (contain " et " or " ET ")
         if (c.includes(" et ") || c.includes(" ET ")) return false;
-        // Exclude "VOIX DE" prefix if we want to be strict, or keep them? 
-        // User asked to clean up. Let's keep specific voices but maybe exclude 'VOIX' if generic? 
-        // Actually, "VOIX DE LUCIEN" is a valid role distinct from "LUCIEN"? 
-        // User said "VOIX DE LUCIEN" appeared. Maybe we should map it to "LUCIEN"?
-        // For now, let's just filter clearly combined ones and stage directions.
         return true;
     }).sort();
 

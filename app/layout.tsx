@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className="dark">
       <body className={outfit.className}>
-        <main className="min-h-screen flex flex-col items-center justify-center p-4">
+        <main className="min-h-[100dvh] flex flex-col items-center justify-center p-4">
           {children}
         </main>
       </body>
