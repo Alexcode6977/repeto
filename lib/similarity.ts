@@ -1,3 +1,44 @@
+export function cleanTranscript(text: string): string {
+    let t = text.toLowerCase();
+    const numbers = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze"];
+
+    // Fix time formats (e.g. "4h10" -> "quatre heure dix", "5h" -> "cinq heures")
+    // Match XhY or Xh
+    t = t.replace(/\b(\d{1,2})h(\d{0,2})\b/g, (_match, h, m) => {
+        const hVal = parseInt(h);
+        const hStr = hVal < numbers.length ? numbers[hVal] : h; // "quatre"
+
+        // Handle minutes
+        let mStr = "";
+        if (m) {
+            const mVal = parseInt(m);
+            // "dix" for 10, otherwise keep digits if > 12 (simplified) or mapped if small
+            mStr = " " + (mVal < numbers.length ? numbers[mVal] : m);
+        }
+
+        // Plural "heures" if h > 1 ? Actually spoken is often "quatre heure dix" (singular sounding) but "cinq heures" (plural sounding).
+        // Let's use "heure" generic or "heures". Script usually has "heures".
+        // Example: "quatre heure dix" (singular in script?). User says "4h10".
+        // Let's force "heure" (singular) and let fuzzy match handle the 's' difference (levenshtein is small).
+        return `${hStr} heure${mStr}`;
+    });
+
+    // Replace standalone digits 0-10
+    t = t.replace(/\b(\d)\b/g, (match) => numbers[parseInt(match)] || match);
+
+    // Specific fixes for "On purge bébé"
+    t = t.replace(/les hybrides/g, "les hébrides");
+    t = t.replace(/\bbene\b/g, "ben");
+    t = t.replace(/\bbain\b/g, "ben");
+
+    // Paletot fixes
+    t = t.replace(/\bpalto\b/g, "paletot");
+    t = t.replace(/pas le t[oô]t?/g, "paletot");
+    t = t.replace(/palle taux/g, "paletot");
+
+    return t;
+}
+
 export function calculateSimilarity(str1: string, str2: string): number {
     if (!str1 || !str2) return 0.0;
 
@@ -8,8 +49,9 @@ export function calculateSimilarity(str1: string, str2: string): number {
             .replace(/\s+/g, " ")
             .trim();
 
-    const s1 = normalize(str1);
-    const s2 = normalize(str2);
+    // Clean specific misinterpretations before normal processing
+    const s1 = normalize(cleanTranscript(str1));
+    const s2 = normalize(cleanTranscript(str2));
 
     if (s1 === s2) return 1.0;
 

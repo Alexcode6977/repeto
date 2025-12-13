@@ -37,10 +37,21 @@ export function useSpeech() {
                 recognitionRef.current = new SpeechRecognition();
                 recognitionRef.current.continuous = false;
                 recognitionRef.current.lang = 'fr-FR';
-                recognitionRef.current.interimResults = false;
                 recognitionRef.current.maxAlternatives = 1;
             }
         }
+
+        // Cleanup on unmount
+        return () => {
+            if (synthRef.current) synthRef.current.cancel();
+            if (recognitionRef.current) {
+                try {
+                    recognitionRef.current.stop();
+                } catch {
+                    // ignore
+                }
+            }
+        };
     }, []);
 
     const speak = useCallback((text: string, voice?: SpeechSynthesisVoice): Promise<void> => {

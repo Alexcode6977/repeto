@@ -5,7 +5,7 @@ import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
-import { Mic, MicOff, Play, SkipForward, AlertTriangle, CheckCircle } from "lucide-react";
+import { Mic, MicOff, Play, SkipForward, AlertTriangle, CheckCircle, Pause, Power } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -16,6 +16,9 @@ interface RehearsalModeProps {
 }
 
 export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModeProps) {
+    const [threshold, setThreshold] = useState(0.85); // Default 85%
+    const [hasStarted, setHasStarted] = useState(false);
+
     const {
         currentLine,
         currentLineIndex,
@@ -26,49 +29,100 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         stop,
         lastTranscript,
         retry,
-        validateManually
-    } = useRehearsal({ script, userCharacter });
-
-    const [hasStarted, setHasStarted] = useState(false);
+        validateManually,
+        togglePause,
+        isPaused
+    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold });
 
     const handleStart = () => {
         setHasStarted(true);
         start();
     };
 
+    // Updated Exit Handler
+    const handleExit = () => {
+        stop(); // Force stop audio/recognition
+        onExit();
+    };
+
     const isUserTurn = currentLine?.character === userCharacter;
 
-    // Auto-scroll logic could be added here to keep current line in view
+    const getExampleStatus = (score: number) => score >= threshold;
 
     if (!hasStarted) {
         return (
-            <div className="flex flex-col items-center justify-center h-[50dvh] space-y-8 animate-in zoom-in-50 duration-500 max-w-md mx-auto px-6">
+            <div className="flex flex-col items-center justify-center min-h-[50dvh] space-y-8 animate-in zoom-in-50 duration-500 max-w-xl mx-auto px-6 py-12">
 
-                {/* Speech Bubble */}
-                <div className="relative bg-white text-black p-6 rounded-2xl shadow-xl animate-in fade-in slide-in-from-bottom-4 delay-300">
-                    <p className="text-center font-medium">
-                        Salut ! Je suis <span className="font-bold text-primary">Repeto</span>.<br />
-                        Je ferai les autres voix. <br />
-                        Quand c'est à vous, attendez mon signal et parlez !
-                    </p>
-                    {/* Triangle pointer */}
-                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white rotate-45 transform" />
-                </div>
-
-                <div className="relative w-40 h-40">
-                    <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full" />
-                    <img src="/repeto.png" alt="Repeto" className="relative w-full h-full object-contain animate-bounce-slow" />
-                </div>
-
-                <div className="space-y-4 w-full text-center">
+                <div className="text-center space-y-2">
                     <h2 className="text-2xl font-bold text-white">
-                        Prêt à incarner {userCharacter} ?
+                        Réglages pour {userCharacter}
                     </h2>
+                    <p className="text-gray-400">Configurez la sensibilité de la reconnaissance</p>
+                </div>
 
+                {/* Slider UI */}
+                <div className="w-full bg-white/5 p-6 rounded-2xl border border-white/10 space-y-6">
+                    <div className="flex justify-between items-center">
+                        <label className="text-sm font-medium text-gray-300">Tolérance</label>
+                        <span className="text-primary font-bold">{Math.round(threshold * 100)}%</span>
+                    </div>
+
+                    <input
+                        type="range"
+                        min="0.70"
+                        max="1.0"
+                        step="0.05"
+                        value={threshold}
+                        onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+
+                    <div className="flex justify-between text-[10px] text-gray-500 uppercase tracking-widest">
+                        <span>Cool</span>
+                        <span>Strict</span>
+                    </div>
+
+                    {/* Dynamic Examples */}
+                    <div className="space-y-3 pt-4 border-t border-white/5">
+                        <p className="text-xs font-medium text-gray-400 uppercase">Exemples</p>
+
+                        <div className="grid gap-2 text-sm">
+                            <div className="flex justify-between items-center p-2 rounded bg-black/20">
+                                <div>
+                                    <span className="text-gray-400 block text-xs">Ciblé</span>
+                                    <span className="text-white">"Je ne veux pas"</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-gray-400 block text-xs">Compris</span>
+                                    <span className="italic text-gray-300">"Je veux pas"</span>
+                                </div>
+                                <div className={cn("ml-4 font-bold", getExampleStatus(0.80) ? "text-green-400" : "text-red-400")}>
+                                    {getExampleStatus(0.80) ? "OK" : "NON"}
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center p-2 rounded bg-black/20">
+                                <div>
+                                    <span className="text-gray-400 block text-xs">Ciblé</span>
+                                    <span className="text-white">"Absolument !"</span>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-gray-400 block text-xs">Compris</span>
+                                    <span className="italic text-gray-300">"Absolument"</span>
+                                </div>
+                                <div className={cn("ml-4 font-bold", getExampleStatus(0.90) ? "text-green-400" : "text-red-400")}>
+                                    {getExampleStatus(0.90) ? "OK" : "NON"}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="w-full space-y-3">
                     <Button size="lg" onClick={handleStart} className="w-full text-lg py-6 rounded-xl shadow-[0_0_20px_rgba(var(--primary),0.5)] bg-primary text-white hover:bg-primary/90 transition-transform active:scale-95">
-                        <Play className="mr-2 h-6 w-6" /> C'est parti !
+                        <Play className="mr-2 h-6 w-6" /> Commencer
                     </Button>
-                    <Button variant="ghost" onClick={onExit} className="text-gray-400 hover:text-white">Annuler</Button>
+                    <Button variant="ghost" onClick={onExit} className="w-full text-gray-400 hover:text-white">Annuler</Button>
                 </div>
             </div>
         );
@@ -87,9 +141,22 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                         Ligne {currentLineIndex + 1} / {script.lines.length}
                     </span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={onExit} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30">
-                    QUITTER
-                </Button>
+
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={togglePause}
+                        className={cn("h-8 w-8 hover:bg-white/10", isPaused ? "text-yellow-400" : "text-gray-400")}
+                    >
+                        {isPaused ? <Play className="h-4 w-4 fill-current" /> : <Pause className="h-4 w-4 fill-current" />}
+                    </Button>
+
+                    <Button variant="ghost" size="sm" onClick={handleExit} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30">
+                        <Power className="h-3 w-3 mr-1" />
+                        QUITTER
+                    </Button>
+                </div>
             </div>
 
             {/* Main Script View */}
@@ -135,6 +202,12 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                     <span className="text-[10px] font-bold uppercase">Problème</span>
                                 </div>
                             )}
+                            {status === "paused" && (
+                                <div className="flex items-center gap-2 text-yellow-400">
+                                    <Pause className="h-4 w-4 fill-current" />
+                                    <span className="text-[10px] font-bold uppercase">En Pause</span>
+                                </div>
+                            )}
                             {status === "playing_other" && (
                                 <div className="flex items-center gap-2 text-gray-400">
                                     <div className="h-2 w-2 rounded-full bg-current animate-bounce" />
@@ -145,12 +218,20 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
                         <p className={cn(
                             "text-xl md:text-3xl font-medium leading-relaxed",
-                            isUserTurn ? "text-white" : "text-gray-300 italic"
+                            isUserTurn ? "text-white" : "text-gray-300 italic",
+                            status === "paused" && "opacity-50 blur-[1px] transition-all"
                         )}>
                             {currentLine?.text}
                         </p>
 
                         {/* Feedback UI */}
+                        {status === "paused" && (
+                            <div className="mt-6 flex flex-col items-center justify-center py-8 text-yellow-400/50">
+                                <Pause className="w-12 h-12 mb-2 opacity-50" />
+                                <p className="text-sm font-medium uppercase tracking-widest">Répétition en pause</p>
+                            </div>
+                        )}
+
                         {status === "error" && (
                             <div className="mt-6 p-4 rounded-xl bg-red-950/40 border border-red-500/30 flex flex-col gap-3">
                                 <div className="flex items-center gap-3 text-red-200">
