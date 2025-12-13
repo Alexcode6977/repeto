@@ -172,7 +172,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     const start = () => {
         setCurrentLineIndex(0);
-        // We rely on the useEffect below to trigger processCurrentLine(0)
+        // Explicitly trigger the first line, because useEffect won't run if status is "setup"
+        processCurrentLine(0);
     };
 
     const next = () => {
