@@ -22,7 +22,8 @@ export function parseScript(rawText: string): ParsedScript {
     const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ\s\-\']{3,})[:\.]\s*(.*)/;
 
     // Pattern 2: Uppercase line that looks like a name (short-ish)
-    const characterLineRegex = /^([A-ZÀ-ÖØ-Þ\s\-\']{3,})$/;
+    // Allow optional trailing punctuation (e.g. "YVONNE," or "LUCIEN.") and leading/trailing whitespace
+    const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ\s\-\']{3,})[,.]?\s*$/;
 
     const IGNORED_NAMES = [
         "SCÈNE", "ACTE", "RIDEAU", "FIN", "TABLEAU", "SCENE",
@@ -35,10 +36,12 @@ export function parseScript(rawText: string): ParsedScript {
 
     let lastSpeakers: string[] = []; // Track recently active speakers
 
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        if (line.match(/^\d+$/)) continue; // Ignore page numbers
+    lines.forEach((originalLine) => {
+        // Aggressive cleanup: remove ANY text inside parentheses (residuals) and normalize spaces
+        let line = originalLine.replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim();
+
+        if (!line) return; // Skip empty lines after cleanup
+        if (line.match(/^\d+$/)) return; // Ignore page numbers
 
         let potentialName = "";
         let potentialDialogue = "";
@@ -74,7 +77,7 @@ export function parseScript(rawText: string): ParsedScript {
             // If it's explicitly ignored, we assume it is a stage direction or metadata.
             // We should SKIP it entirely, not treat it as dialogue.
             if (isIgnored) {
-                continue;
+                return;
             }
 
             // Special Handling for "TOUS LES DEUX" / "LES DEUX" / "ENSEMBLE"
@@ -95,24 +98,16 @@ export function parseScript(rawText: string): ParsedScript {
                 // Let's try to match the pattern: VOIX [spaces] [words] [separator like ' DE DU] [NAME]
 
                 if (finalCharacterName.toUpperCase().startsWith("VOIX")) {
-                    // Remove "VOIX" prefix
-                    let clean = finalCharacterName.replace(/^VOIX\s+/i, "");
-                    // Remove common prepositions/adjectives if they don't look like part of the name
-                    // "EXCEDEE" seems like an adjective. "DE" is prep. 
-                    // Loop: while starts with known prep or adjective-looking thing? Hard.
-                    // Try: Strip everything before the last apostrophe or "DE"?
-                    // "VOIX 'ANNETTE" -> strip "VOIX '"
-                    // "VOIX EXCEDEE 'ANNETTE" -> strip "VOIX EXCEDEE '"
+                    // 1. Remove "VOIX" prefix
+                    finalCharacterName = finalCharacterName.replace(/^VOIX\s+/i, "");
 
-                    // Regex: Remove "VOIX" + optional words + [space/'/DE/DU/DES]
-                    // We assume the Name is the Main Entity at the end or distinct.
-                    // Valid name chars: [A-ZÀ-ÖØ-Þ\-]
-                    // Trash chars: [SPACE] ['] [other letters]
-
-                    // Let's try: Replace "VOIX ... (DE|'| )" with empty?
-                    // Aggressive: `^VOIX.*?(?:DE|DU|DES|D'|'|\s)\s*(?=[A-ZÀ-ÖØ-Þ])`
-                    // Matches VOIX followed by anything non-greedy, ending with a separator, looking ahead for a Name char.
-                    finalCharacterName = finalCharacterName.replace(/^VOIX.*?(?:DE|DU|DES|D'|'|\s)\s*(?=[A-ZÀ-ÖØ-Þ])/i, "");
+                    // 2. Normalize complexity (e.g. "EXCEDEE 'ANNETTE" -> "ANNETTE")
+                    // Look for separators: DE, DU, DES, D', '
+                    // We match lazily to find the FIRST separator sequence (preserving "VALET DE CHAMBRE")
+                    const separatorMatch = finalCharacterName.match(/^.*?(?:DE\s+|DU\s+|DES\s+|D'|')\s*(.*)$/i);
+                    if (separatorMatch && separatorMatch[1].trim()) {
+                        finalCharacterName = separatorMatch[1].trim();
+                    }
                 }
 
                 if (isCollective && lastSpeakers.length >= 2) {
@@ -146,7 +141,7 @@ export function parseScript(rawText: string): ParsedScript {
                 if (potentialDialogue) {
                     currentBuffer = potentialDialogue;
                 }
-                continue;
+                return;
             }
         }
 
@@ -158,7 +153,7 @@ export function parseScript(rawText: string): ParsedScript {
                 currentBuffer = line;
             }
         }
-    }
+    });
 
     // Push final buffer
     if (currentCharacter && currentBuffer) {
