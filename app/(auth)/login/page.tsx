@@ -1,11 +1,13 @@
 import { login, signup } from "./actions";
 import { Sparkles, ArrowRight } from "lucide-react";
 
-export default function LoginPage({
+export default async function LoginPage({
     searchParams,
 }: {
-    searchParams: { message?: string; error?: string };
+    searchParams: Promise<{ message?: string; error?: string }>;
 }) {
+    const { message, error } = await searchParams;
+
     return (
         <div className="min-h-[100dvh] flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-950 via-gray-900 to-black text-white relative overflow-hidden">
             {/* Background Ambience */}
@@ -26,14 +28,14 @@ export default function LoginPage({
                 </div>
 
                 <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8 shadow-2xl">
-                    {searchParams.message && (
+                    {message && (
                         <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs text-center font-medium">
-                            {searchParams.message}
+                            {message}
                         </div>
                     )}
-                    {searchParams.error && (
+                    {error && (
                         <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center font-medium">
-                            {searchParams.error}
+                            {error}
                         </div>
                     )}
 
