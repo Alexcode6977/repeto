@@ -1,192 +1,108 @@
-"use client";
-
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Loader2, AlertCircle, Trash2, FileText } from "lucide-react";
-import { useState, useTransition } from "react";
-import { parsePdfAction } from "./actions";
-import { ParsedScript } from "@/lib/types";
-import { ScriptViewer } from "@/components/script-viewer";
-import { RehearsalMode } from "@/components/rehearsal-mode";
-import { useSavedScript } from "@/lib/hooks/use-saved-script";
+import { Sparkles, ArrowRight, Mic, BookOpen, Clock, Brain } from "lucide-react";
 
-export default function Home() {
-  const [isPending, startTransition] = useTransition();
-  const [script, setScript] = useState<ParsedScript | null>(null);
-  const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const { savedScript, isLoading, saveScript, clearScript } = useSavedScript();
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setError(null);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    startTransition(async () => {
-      const result = await parsePdfAction(formData);
-      if ("error" in result) {
-        setError(result.error);
-      } else {
-        setScript(result);
-        saveScript(result); // Save to localStorage
-      }
-    });
-  };
-
-  const handleLoadSaved = () => {
-    if (savedScript) {
-      setScript(savedScript);
-    }
-  };
-
-  const handleClearSaved = () => {
-    clearScript();
-    setScript(null);
-  };
-
-  const handleStartRehearsal = (characterName: string) => {
-    setRehearsalChar(characterName);
-  };
-
-  const handleExitRehearsal = () => {
-    setRehearsalChar(null);
-  };
-
-  if (rehearsalChar && script) {
+export default function LandingPage() {
     return (
-      <RehearsalMode
-        script={script}
-        userCharacter={rehearsalChar}
-        onExit={handleExitRehearsal}
-      />
-    );
-  }
+        <div className="flex flex-col min-h-screen bg-black text-white selection:bg-emerald-500/30">
 
-  if (script) {
-    return (
-      <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
-        <div className="flex gap-4 self-start">
-          <Button
-            variant="ghost"
-            onClick={() => setScript(null)}
-            className="text-gray-400 hover:text-white"
-          >
-            ← Retour
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={handleClearSaved}
-            className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            Supprimer
-          </Button>
-        </div>
-        <ScriptViewer script={script} onConfirm={handleStartRehearsal} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500">
-      <div className="text-center space-y-4 flex flex-col items-center">
-        <div className="relative w-32 h-32 mb-2">
-          <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
-          <img src="/repeto.png" alt="Repeto Mascot" className="relative w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" />
-        </div>
-        <h1 className="text-5xl font-bold tracking-tight text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-          Repeto
-        </h1>
-        <p className="text-lg text-gray-300 font-light">
-          Votre nouveau partenaire de scène.
-        </p>
-      </div>
-
-      <Card className="border-white/10 bg-white/5 backdrop-blur-3xl shadow-2xl">
-        <CardHeader>
-          <CardTitle className="text-center">Commencer</CardTitle>
-          <CardDescription className="text-center">
-            Importez le script de votre pièce (PDF)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid w-full items-center gap-4">
-            {/* Saved Script Button */}
-            {!isLoading && savedScript && (
-              <div className="flex items-center gap-2 p-4 rounded-xl bg-primary/10 border border-primary/30">
-                <button
-                  onClick={handleLoadSaved}
-                  className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
-                >
-                  <div className="p-3 bg-primary/20 rounded-full">
-                    <FileText className="h-6 w-6 text-primary" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-medium text-white">{savedScript.title || "Script sauvegardé"}</p>
-                    <p className="text-xs text-gray-400">{savedScript.characters.length} personnages • {savedScript.lines.length} répliques</p>
-                  </div>
-                  <span className="text-xs text-primary uppercase tracking-widest font-bold">Reprendre</span>
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleClearSaved(); }}
-                  className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-                  title="Supprimer"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-              </div>
-            )}
-
-            <div className="flex flex-col space-y-4">
-              <Button
-                variant="glass"
-                className="h-40 border-dashed border-2 hover:bg-white/10 hover:border-primary/50 transition-all group relative overflow-hidden"
-                disabled={isPending}
-                asChild={!isPending}
-              >
-                {isPending ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <span className="text-sm text-gray-400">Analyse du script...</span>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer flex flex-col items-center justify-center gap-3 z-10 w-full h-full">
-                    <div className="p-3 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-300">
-                      <Upload className="h-8 w-8 text-white/70 group-hover:text-primary transition-colors" />
-                    </div>
-                    <span className="text-sm text-gray-300 font-medium">
-                      {savedScript ? "Importer un nouveau PDF" : "Cliquez pour choisir un PDF"}
-                    </span>
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      className="hidden"
-                      onChange={handleFileChange}
-                    />
-                  </label>
-                )}
-              </Button>
+            {/* Background Ambience */}
+            <div className="fixed inset-0 z-0">
+                <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-emerald-900/10 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-900/10 rounded-full blur-[120px]" />
+                <div className="absolute top-[40%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-white/[0.02] rounded-full blur-[100px]" />
             </div>
-            {error && (
-              <div className="flex items-center gap-2 p-3 text-sm text-red-200 bg-red-500/20 border border-red-500/30 rounded-md animate-in slide-in-from-top-2">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-      <div className="flex justify-center flex-wrap gap-3 text-[10px] text-gray-500 uppercase tracking-widest">
-        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5">100% Gratuit</span>
-        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5">Local</span>
-        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5">Hors ligne</span>
-      </div>
-    </div>
-  );
+            {/* Navigation */}
+            <header className="relative z-10 w-full max-w-6xl mx-auto p-6 flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
+                        <Sparkles className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <span className="font-bold text-xl tracking-tight">Repeto</span>
+                </div>
+                <div className="flex items-center gap-4">
+                    <Link href="/login" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                        Se connecter
+                    </Link>
+                    <Link href="/login">
+                        <Button variant="outline" className="rounded-full border-white/10 hover:bg-white/10 hover:text-white px-6">
+                            Essayer maintenant
+                        </Button>
+                    </Link>
+                </div>
+            </header>
+
+            {/* Hero Section */}
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
+
+                <div className="animate-in fade-in zoom-in duration-700 slide-in-from-bottom-8">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest mb-8">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        Nouvelle Version IA
+                    </div>
+
+                    <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8">
+                        Apprenez vos textes<br />
+                        <span className="bg-gradient-to-r from-emerald-400 via-teal-200 to-white bg-clip-text text-transparent">sans partenaire.</span>
+                    </h1>
+
+                    <p className="max-w-xl mx-auto text-lg text-gray-400 mb-10 leading-relaxed">
+                        Repeto donne vie à votre script. Importez votre PDF et répétez avec une IA qui vous donne la réplique, corrige vos erreurs et s'adapte à votre rythme.
+                    </p>
+
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <Link href="/login">
+                            <Button size="lg" className="rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-8 h-12 shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:shadow-[0_0_50px_rgba(16,185,129,0.5)] transition-all transform hover:-translate-y-1">
+                                Commencer gratuitement
+                                <ArrowRight className="ml-2 w-4 h-4" />
+                            </Button>
+                        </Link>
+                        <Link href="/login">
+                            <Button size="lg" variant="ghost" className="rounded-full text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 px-8 h-12">
+                                Voir la démo
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Features Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mt-24 w-full">
+                    {[
+                        {
+                            icon: BookOpen,
+                            title: "Import Instantané",
+                            desc: "PDF, Word ou texte. Repeto analyse automatiquement les personnages et les répliques."
+                        },
+                        {
+                            icon: Mic,
+                            title: "Répétition Vocale",
+                            desc: "Parlez naturellement. L'IA vous écoute et vous donne la réplique suivante quand vous avez fini."
+                        },
+                        {
+                            icon: Brain,
+                            title: "Réalisme Neural",
+                            desc: "Des voix ultra-réalistes qui expriment des émotions pour une immersion totale."
+                        }
+                    ].map((feature, i) => (
+                        <div key={i} className="p-6 rounded-3xl bg-white/5 border border-white/5 backdrop-blur-sm hover:bg-white/10 transition-colors text-left group">
+                            <div className="w-12 h-12 rounded-2xl bg-black/50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                <feature.icon className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
+                            <p className="text-sm text-gray-400 leading-relaxed">{feature.desc}</p>
+                        </div>
+                    ))}
+                </div>
+
+            </main>
+
+            <footer className="relative z-10 w-full p-6 text-center text-xs text-gray-600 border-t border-white/5">
+                &copy; {new Date().getFullYear()} Repeto. Fait avec passion pour les acteurs.
+            </footer>
+        </div>
+    );
 }
-
