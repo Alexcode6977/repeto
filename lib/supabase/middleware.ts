@@ -40,6 +40,7 @@ export async function updateSession(request: NextRequest) {
     if (
         !user &&
         !request.nextUrl.pathname.startsWith("/login") &&
+        !request.nextUrl.pathname.startsWith("/signup") &&
         !request.nextUrl.pathname.startsWith("/auth") &&
         request.nextUrl.pathname !== "/"
     ) {
@@ -49,11 +50,10 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // If user is logged in but tries to access login page, redirect to Dashboard
-    if (user && request.nextUrl.pathname.startsWith("/login")) {
-        return NextResponse.redirect(new URL("/", request.url));
+    // If user is logged in but tries to access login or signup page, redirect to Dashboard
+    if (user && (request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/signup"))) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
     return response;
 }
-
