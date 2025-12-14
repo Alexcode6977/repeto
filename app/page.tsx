@@ -1,116 +1,126 @@
-
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight, Mic, BookOpen, Drama, Star } from "lucide-react";
+import { Sparkles, ArrowRight, Mic, BookOpen, Podcast, Play, Star } from "lucide-react";
 
 export default function LandingPage() {
     return (
-        <div className="flex flex-col min-h-screen bg-[#0a0505] text-[#f4e4bc] selection:bg-[#c02424]/30 font-serif overflow-x-hidden">
+        <div className="flex flex-col min-h-screen font-sans selection:bg-primary/30 overflow-x-hidden">
 
-            {/* Theater Stage Background */}
+            {/* Cinematic Background */}
             <div className="fixed inset-0 z-0 pointer-events-none">
-                {/* Left Curtain Gradient */}
-                <div className="absolute top-0 left-0 w-[30%] h-full bg-gradient-to-r from-[#1a0505] to-transparent z-10" />
-                {/* Right Curtain Gradient */}
-                <div className="absolute top-0 right-0 w-[30%] h-full bg-gradient-to-l from-[#1a0505] to-transparent z-10" />
-                {/* Top Valence */}
-                <div className="absolute top-[-10%] left-0 w-full h-[30%] bg-[#c02424] opacity-20 blur-[100px] rounded-full z-0" />
-                {/* Spotlight */}
-                <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-[#fff5d6] opacity-5 rounded-full blur-[100px]" />
+                {/* Deep atmospheric glow */}
+                <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] bg-primary/10 rounded-full blur-[120px] opacity-40" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[800px] h-[800px] bg-purple-900/10 rounded-full blur-[120px] opacity-30" />
             </div>
 
             {/* Navigation */}
-            <header className="relative z-50 w-full max-w-7xl mx-auto p-6 md:p-8 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#c02424] border-2 border-[#d4af37] flex items-center justify-center shadow-[0_0_20px_rgba(192,36,36,0.4)]">
-                        <Drama className="w-6 h-6 text-[#fff5d6]" />
+            <header className="relative z-50 w-full max-w-7xl mx-auto p-6 md:p-8 flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
+                <div className="flex items-center gap-3 group cursor-pointer">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
+                        <Sparkles className="w-5 h-5 text-white" />
                     </div>
-                    <span className="text-2xl tracking-tight text-[#fff5d6] font-medium">Repeto</span>
+                    <span className="text-xl tracking-tight font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Repeto</span>
                 </div>
                 <div className="flex items-center gap-6">
-                    <Link href="/login" className="text-sm uppercase tracking-widest text-[#d4af37] hover:text-[#fff5d6] transition-colors font-sans font-bold">
+                    <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-white transition-colors">
                         Se connecter
                     </Link>
-                    <Link href="/login">
-                        <Button className="rounded-full bg-[#c02424] hover:bg-[#a01e1e] text-[#fff5d6] border border-[#d4af37]/50 px-8 py-6 font-sans uppercase tracking-wider text-xs font-bold shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all hover:scale-105">
-                            Entrer en scène
+                    <Link href="/signup">
+                        <Button className="rounded-full bg-white text-black hover:bg-white/90 px-6 py-5 font-semibold text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all transform hover:-translate-y-0.5">
+                            Essayer gratuitement
                         </Button>
                     </Link>
                 </div>
             </header>
 
             {/* Hero Section */}
-            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-0 py-20 text-center w-full max-w-full">
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-0 py-24 text-center w-full max-w-full">
 
-                <div className="animate-in fade-in zoom-in duration-1000 slide-in-from-bottom-12 max-w-5xl mx-auto">
-                    <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] text-xs font-bold uppercase tracking-[0.2em] mb-10 font-sans backdrop-blur-sm">
-                        <Star className="w-3 h-3 fill-current" />
-                        Votre souffleur personnel
-                        <Star className="w-3 h-3 fill-current" />
+                <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in duration-1000 slide-in-from-bottom-8">
+
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md shadow-xl hover:bg-white/10 transition-colors cursor-default">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                        </span>
+                        <span className="text-xs font-medium text-gray-300 tracking-wide">Nouvelle Intelligence Artificielle 2.0</span>
                     </div>
 
-                    <h1 className="text-6xl md:text-8xl lg:text-9xl tracking-tight mb-8 leading-[0.9] text-[#fff5d6] drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">
-                        Ne répétez plus <br />
-                        <span className="italic text-[#c02424] drop-shadow-[0_0_30px_rgba(192,36,36,0.4)]">jamais seul.</span>
+                    <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.1] md:leading-[1.1]">
+                        Apprenez vos textes <br />
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-300 to-white text-glow">
+                            sans partenaire.
+                        </span>
                     </h1>
 
-                    <p className="max-w-2xl mx-auto text-xl md:text-2xl text-[#d4af37]/80 mb-14 leading-relaxed font-light italic">
-                        "Le théâtre, c'est d'abord un texte." <br />
-                        Importez votre pièce. Repeto vous donne la réplique, inlassablement, jusqu'à la perfection.
+                    <p className="max-w-xl mx-auto text-lg md:text-xl text-muted-foreground leading-relaxed font-light">
+                        L'outil de répétition ultime pour les acteurs exigeants. <br className="hidden md:block" />
+                        <strong className="text-white font-medium">Importez votre script</strong>. L'IA vous donne la réplique instantanément.
                     </p>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                        <Link href="/login">
-                            <Button size="lg" className="rounded-none border-2 border-[#d4af37] bg-transparent hover:bg-[#d4af37] text-[#d4af37] hover:text-[#0a0505] px-12 h-16 text-lg font-sans uppercase tracking-widest font-bold transition-all duration-300">
-                                Commencer l'acte I
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                        <Link href="/signup">
+                            <Button size="lg" className="h-14 px-10 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-base btn-glow transition-all transform hover:scale-105">
+                                Commencer maintenant
+                                <ArrowRight className="ml-2 w-5 h-5" />
+                            </Button>
+                        </Link>
+                        <Link href="/signup">
+                            <Button size="lg" variant="ghost" className="h-14 px-8 rounded-full text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group">
+                                <Play className="mr-2 w-4 h-4 fill-current opacity-50 group-hover:opacity-100 transition-opacity" />
+                                Voir la démo
                             </Button>
                         </Link>
                     </div>
                 </div>
 
-                {/* Decorator Line */}
-                <div className="w-full max-w-xs mx-auto h-px bg-gradient-to-r from-transparent via-[#d4af37]/50 to-transparent my-24" />
+                {/* Floating UI Elements (Parallax hint) */}
+                <div className="absolute top-1/4 left-10 hidden lg:block animate-pulse duration-[4000ms] opacity-20">
+                    <BookOpen className="w-24 h-24 text-white -rotate-12" />
+                </div>
+                <div className="absolute bottom-1/4 right-10 hidden lg:block animate-pulse duration-[5000ms] opacity-20">
+                    <Mic className="w-24 h-24 text-primary rotate-12" />
+                </div>
 
                 {/* Features Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 max-w-7xl mx-auto px-6 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto px-6 mt-32 w-full">
                     {[
                         {
                             icon: BookOpen,
-                            title: "Lecture Intelligente",
-                            desc: "Déposez votre PDF. Repeto identifie instantanément votre rôle et vos partenaires."
+                            title: "Import Instantané",
+                            desc: "Déposez votre PDF. Nous structurons tout automatiquement.",
+                            color: "bg-blue-500/10 text-blue-400"
                         },
                         {
-                            icon: Mic,
-                            title: "Le Souffleur",
-                            desc: "Il vous écoute. Il attend. Et il vous lance la réplique suivante au moment exact."
+                            icon: Podcast,
+                            title: "Voix Ultra-Réalistes",
+                            desc: "Des partenaires virtuels qui jouent avec émotion et justesse.",
+                            color: "bg-primary/10 text-primary"
                         },
                         {
-                            icon: Sparkles,
-                            title: "Émotion & Nuance",
-                            desc: "Plus de voix robotiques. Travaillez avec des partenaires virtuels qui jouent vraiment."
+                            icon: Star,
+                            title: "Interactive Flow",
+                            desc: "L'IA vous écoute et vous relance au millimètre près.",
+                            color: "bg-purple-500/10 text-purple-400"
                         }
                     ].map((feature, i) => (
-                        <div key={i} className="flex flex-col items-center text-center p-8 rounded-2xl bg-[#fff5d6]/5 border border-[#d4af37]/10 hover:border-[#d4af37]/30 transition-all hover:bg-[#fff5d6]/10 group">
-                            <div className="w-16 h-16 rounded-full bg-gradient-to-b from-[#c02424] to-[#801818] flex items-center justify-center mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-[#d4af37]/20 group-hover:scale-110 transition-transform duration-500">
-                                <feature.icon className="w-7 h-7 text-[#fff5d6]" />
+                        <div key={i} className="glass p-8 rounded-3xl hover:bg-white/10 transition-all group cursor-default border border-white/5 hover:border-white/20">
+                            <div className={`w-14 h-14 rounded-2xl ${feature.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500`}>
+                                <feature.icon className="w-7 h-7" />
                             </div>
-                            <h3 className="text-2xl text-[#fff5d6] mb-4 font-medium italic">{feature.title}</h3>
-                            <p className="text-lg text-[#d4af37]/70 leading-relaxed font-light">{feature.desc}</p>
+                            <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
+                            <p className="text-base text-muted-foreground leading-relaxed">{feature.desc}</p>
                         </div>
                     ))}
                 </div>
 
             </main>
 
-            <footer className="relative z-10 w-full py-12 text-center border-t border-[#d4af37]/10 mt-12 bg-black/40">
-                <p className="text-[#d4af37]/40 text-sm font-sans uppercase tracking-widest mb-4">
-                    L'outil secret des comédiens
-                </p>
-                <p className="text-[#666] text-xs font-sans">
-                    &copy; {new Date().getFullYear()} Repeto. Tous droits réservés.
+            <footer className="relative z-10 w-full py-12 text-center border-t border-white/5 bg-black/40 backdrop-blur-xl">
+                <p className="text-muted-foreground text-sm">
+                    &copy; {new Date().getFullYear()} Repeto. Conçu pour l'excellence.
                 </p>
             </footer>
         </div>
     );
 }
-

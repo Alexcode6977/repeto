@@ -23,33 +23,39 @@
 }
 
 :root {
-  --background: hsl(240 10% 3.9%);
-  --foreground: hsl(0 0% 98%);
+  /* Premium Dark Mode Palette */
+  --background: hsl(240 5% 6%);
+  /* Very deep charcoal/black */
+  --foreground: hsl(0 0% 95%);
+  /* Soft white, not harsh */
 
-  --card: hsl(240 10% 3.9%);
-  --card-foreground: hsl(0 0% 98%);
+  --card: hsl(240 4% 10%);
+  /* Slightly lighter dark for cards */
+  --card-foreground: hsl(0 0% 95%);
 
-  --popover: hsl(240 10% 3.9%);
-  --popover-foreground: hsl(0 0% 98%);
+  --popover: hsl(240 4% 10%);
+  --popover-foreground: hsl(0 0% 95%);
 
-  --primary: hsl(263.4 70% 50.4%);
-  --primary-foreground: hsl(210 40% 98%);
+  --primary: hsl(158 64% 52%);
+  /* Emerald for primary action (Brand) */
+  --primary-foreground: hsl(145 80% 10%);
 
-  --secondary: hsl(240 3.7% 15.9%);
+  --secondary: hsl(240 3% 15%);
+  /* Subtle gray for secondary actions */
   --secondary-foreground: hsl(0 0% 98%);
 
-  --muted: hsl(240 3.7% 15.9%);
-  --muted-foreground: hsl(240 5% 64.9%);
+  --muted: hsl(240 3% 20%);
+  --muted-foreground: hsl(240 5% 60%);
 
-  --accent: hsl(263.4 70% 50.4%);
-  --accent-foreground: hsl(210 40% 98%);
+  --accent: hsl(158 64% 52%);
+  --accent-foreground: hsl(145 80% 10%);
 
   --destructive: hsl(0 62.8% 30.6%);
   --destructive-foreground: hsl(210 40% 98%);
 
   --border: hsl(240 3.7% 15.9%);
   --input: hsl(240 3.7% 15.9%);
-  --ring: hsl(240 4.9% 83.9%);
+  --ring: hsl(158 64% 52%);
 }
 
 @layer base {
@@ -58,20 +64,22 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    /* Optional: subtle gradient background */
-    background-image: radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
-      radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 1) 0, transparent 50%),
-      radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 1) 0, transparent 50%);
+    @apply bg-background text-foreground antialiased;
+    /* Ultra-subtle cinematic vignette */
+    background-image: radial-gradient(circle at top center, hsl(240, 5%, 12%) 0%, hsl(240, 5%, 6%) 60%);
     background-attachment: fixed;
   }
 }
 
-/* Glassmorphism Utilities */
+/* Premium Utilities */
 @utility glass {
-  @apply bg-white/10 backdrop-blur-md border border-white/20 shadow-xl;
+  @apply bg-white/5 backdrop-blur-lg border border-white/5 shadow-2xl;
 }
 
-@utility glass-card {
-  @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-2xl;
+@utility text-glow {
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+@utility btn-glow {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
 }

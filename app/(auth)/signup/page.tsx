@@ -1,9 +1,8 @@
-import { login } from "../actions";
-import { Sparkles, ArrowRight, Clapperboard } from "lucide-react";
+import { signup } from "../actions";
+import { Sparkles, ArrowRight, Drama } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
-export default async function LoginPage({
+export default async function SignupPage({
     searchParams,
 }: {
     searchParams: Promise<{ message?: string; error?: string }>;
@@ -25,9 +24,9 @@ export default async function LoginPage({
                             </div>
                             <span className="font-bold text-lg tracking-tight">Repeto</span>
                         </Link>
-                        <h1 className="text-3xl font-bold tracking-tight mb-2">Bon retour</h1>
+                        <h1 className="text-3xl font-bold tracking-tight mb-2">Rejoignez la troupe</h1>
                         <p className="text-muted-foreground text-sm">
-                            Entrez vos identifiants pour accéder à votre espace.
+                            Créez votre compte pour commencer à répéter.
                         </p>
                     </div>
 
@@ -60,14 +59,9 @@ export default async function LoginPage({
                             />
                         </div>
                         <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
-                                    Mot de passe
-                                </label>
-                                <Link href="#" className="text-xs font-medium text-primary hover:text-primary/80 transition-colors">
-                                    Oublié ?
-                                </Link>
-                            </div>
+                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
+                                Mot de passe
+                            </label>
                             <input
                                 id="password"
                                 name="password"
@@ -76,28 +70,31 @@ export default async function LoginPage({
                                 className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all placeholder:text-muted-foreground/50 font-medium"
                                 placeholder="••••••••"
                             />
+                            <p className="text-[10px] text-muted-foreground pl-1">
+                                Au moins 8 caractères.
+                            </p>
                         </div>
 
                         <button
-                            formAction={login}
+                            formAction={signup}
                             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-primary/25 active:scale-[0.98] flex items-center justify-center gap-2 group mt-6"
                         >
-                            Se connecter
+                            Créer mon compte
                             <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                         </button>
                     </form>
 
                     {/* Footer */}
                     <div className="pt-4 text-center text-sm text-muted-foreground">
-                        Pas encore de compte ?{" "}
-                        <Link href="/signup" className="text-primary font-semibold hover:underline">
-                            Créer un compte
+                        Déjà un compte ?{" "}
+                        <Link href="/login" className="text-primary font-semibold hover:underline">
+                            Se connecter
                         </Link>
                     </div>
                 </div>
 
                 <div className="mt-auto pt-8 text-center text-xs text-muted-foreground/40">
-                    &copy; {new Date().getFullYear()} Repeto. Tous droits réservés.
+                    &copy; {new Date().getFullYear()} Repeto. Protegé par reCAPTCHA.
                 </div>
             </div>
 
@@ -106,19 +103,20 @@ export default async function LoginPage({
                 {/* Background Image / Gradient */}
                 <div className="absolute inset-0 z-0">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-zinc-950 to-black" />
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-overlay grayscale" />
+                    {/* Different visual for signup - maybe a stage view */}
+                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1503095392237-7362402049e5?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-overlay grayscale" />
                 </div>
 
                 {/* Overlay Content */}
                 <div className="relative z-10 max-w-md text-center p-10 animate-in slide-in-from-right-8 duration-1000 delay-100 fade-in">
-                    <div className="w-20 h-20 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-2xl skew-y-3 transform hover:skew-y-0 transition-all duration-500">
-                        <Clapperboard className="w-10 h-10 text-white/80" />
+                    <div className="w-20 h-20 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-2xl skew-y-[-3deg] transform hover:skew-y-0 transition-all duration-500">
+                        <Drama className="w-10 h-10 text-white/80" />
                     </div>
                     <blockquote className="text-2xl font-medium text-white/90 leading-relaxed italic mb-6">
-                        "Tout le monde est acteur. La seule différence, c'est que certains le savent."
+                        "Agir, c'est être vivant."
                     </blockquote>
                     <cite className="text-white/50 not-italic font-medium uppercase tracking-widest text-sm">
-                        — Marlon Brando
+                        — Émile Zola
                     </cite>
                 </div>
             </div>
