@@ -1,108 +1,116 @@
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight, Mic, BookOpen, Clock, Brain } from "lucide-react";
+import { Sparkles, ArrowRight, Mic, BookOpen, Drama, Star } from "lucide-react";
 
 export default function LandingPage() {
     return (
-        <div className="flex flex-col min-h-screen bg-black text-white selection:bg-emerald-500/30">
+        <div className="flex flex-col min-h-screen bg-[#0a0505] text-[#f4e4bc] selection:bg-[#c02424]/30 font-serif overflow-x-hidden">
 
-            {/* Background Ambience */}
-            <div className="fixed inset-0 z-0">
-                <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-emerald-900/10 rounded-full blur-[120px]" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-blue-900/10 rounded-full blur-[120px]" />
-                <div className="absolute top-[40%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-white/[0.02] rounded-full blur-[100px]" />
+            {/* Theater Stage Background */}
+            <div className="fixed inset-0 z-0 pointer-events-none">
+                {/* Left Curtain Gradient */}
+                <div className="absolute top-0 left-0 w-[30%] h-full bg-gradient-to-r from-[#1a0505] to-transparent z-10" />
+                {/* Right Curtain Gradient */}
+                <div className="absolute top-0 right-0 w-[30%] h-full bg-gradient-to-l from-[#1a0505] to-transparent z-10" />
+                {/* Top Valence */}
+                <div className="absolute top-[-10%] left-0 w-full h-[30%] bg-[#c02424] opacity-20 blur-[100px] rounded-full z-0" />
+                {/* Spotlight */}
+                <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-[#fff5d6] opacity-5 rounded-full blur-[100px]" />
             </div>
 
             {/* Navigation */}
-            <header className="relative z-10 w-full max-w-6xl mx-auto p-6 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30">
-                        <Sparkles className="w-4 h-4 text-emerald-400" />
+            <header className="relative z-50 w-full max-w-7xl mx-auto p-6 md:p-8 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#c02424] border-2 border-[#d4af37] flex items-center justify-center shadow-[0_0_20px_rgba(192,36,36,0.4)]">
+                        <Drama className="w-6 h-6 text-[#fff5d6]" />
                     </div>
-                    <span className="font-bold text-xl tracking-tight">Repeto</span>
+                    <span className="text-2xl tracking-tight text-[#fff5d6] font-medium">Repeto</span>
                 </div>
-                <div className="flex items-center gap-4">
-                    <Link href="/login" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                <div className="flex items-center gap-6">
+                    <Link href="/login" className="text-sm uppercase tracking-widest text-[#d4af37] hover:text-[#fff5d6] transition-colors font-sans font-bold">
                         Se connecter
                     </Link>
                     <Link href="/login">
-                        <Button variant="outline" className="rounded-full border-white/10 hover:bg-white/10 hover:text-white px-6">
-                            Essayer maintenant
+                        <Button className="rounded-full bg-[#c02424] hover:bg-[#a01e1e] text-[#fff5d6] border border-[#d4af37]/50 px-8 py-6 font-sans uppercase tracking-wider text-xs font-bold shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all hover:scale-105">
+                            Entrer en scène
                         </Button>
                     </Link>
                 </div>
             </header>
 
             {/* Hero Section */}
-            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-0 py-20 text-center w-full max-w-full">
 
-                <div className="animate-in fade-in zoom-in duration-700 slide-in-from-bottom-8">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest mb-8">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        Nouvelle Version IA
+                <div className="animate-in fade-in zoom-in duration-1000 slide-in-from-bottom-12 max-w-5xl mx-auto">
+                    <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#d4af37]/10 border border-[#d4af37]/30 text-[#d4af37] text-xs font-bold uppercase tracking-[0.2em] mb-10 font-sans backdrop-blur-sm">
+                        <Star className="w-3 h-3 fill-current" />
+                        Votre souffleur personnel
+                        <Star className="w-3 h-3 fill-current" />
                     </div>
 
-                    <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8">
-                        Apprenez vos textes<br />
-                        <span className="bg-gradient-to-r from-emerald-400 via-teal-200 to-white bg-clip-text text-transparent">sans partenaire.</span>
+                    <h1 className="text-6xl md:text-8xl lg:text-9xl tracking-tight mb-8 leading-[0.9] text-[#fff5d6] drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]">
+                        Ne répétez plus <br />
+                        <span className="italic text-[#c02424] drop-shadow-[0_0_30px_rgba(192,36,36,0.4)]">jamais seul.</span>
                     </h1>
 
-                    <p className="max-w-xl mx-auto text-lg text-gray-400 mb-10 leading-relaxed">
-                        Repeto donne vie à votre script. Importez votre PDF et répétez avec une IA qui vous donne la réplique, corrige vos erreurs et s'adapte à votre rythme.
+                    <p className="max-w-2xl mx-auto text-xl md:text-2xl text-[#d4af37]/80 mb-14 leading-relaxed font-light italic">
+                        "Le théâtre, c'est d'abord un texte." <br />
+                        Importez votre pièce. Repeto vous donne la réplique, inlassablement, jusqu'à la perfection.
                     </p>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                         <Link href="/login">
-                            <Button size="lg" className="rounded-full bg-emerald-600 hover:bg-emerald-500 text-white px-8 h-12 shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:shadow-[0_0_50px_rgba(16,185,129,0.5)] transition-all transform hover:-translate-y-1">
-                                Commencer gratuitement
-                                <ArrowRight className="ml-2 w-4 h-4" />
-                            </Button>
-                        </Link>
-                        <Link href="/login">
-                            <Button size="lg" variant="ghost" className="rounded-full text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 px-8 h-12">
-                                Voir la démo
+                            <Button size="lg" className="rounded-none border-2 border-[#d4af37] bg-transparent hover:bg-[#d4af37] text-[#d4af37] hover:text-[#0a0505] px-12 h-16 text-lg font-sans uppercase tracking-widest font-bold transition-all duration-300">
+                                Commencer l'acte I
                             </Button>
                         </Link>
                     </div>
                 </div>
 
+                {/* Decorator Line */}
+                <div className="w-full max-w-xs mx-auto h-px bg-gradient-to-r from-transparent via-[#d4af37]/50 to-transparent my-24" />
+
                 {/* Features Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mt-24 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 max-w-7xl mx-auto px-6 w-full">
                     {[
                         {
                             icon: BookOpen,
-                            title: "Import Instantané",
-                            desc: "PDF, Word ou texte. Repeto analyse automatiquement les personnages et les répliques."
+                            title: "Lecture Intelligente",
+                            desc: "Déposez votre PDF. Repeto identifie instantanément votre rôle et vos partenaires."
                         },
                         {
                             icon: Mic,
-                            title: "Répétition Vocale",
-                            desc: "Parlez naturellement. L'IA vous écoute et vous donne la réplique suivante quand vous avez fini."
+                            title: "Le Souffleur",
+                            desc: "Il vous écoute. Il attend. Et il vous lance la réplique suivante au moment exact."
                         },
                         {
-                            icon: Brain,
-                            title: "Réalisme Neural",
-                            desc: "Des voix ultra-réalistes qui expriment des émotions pour une immersion totale."
+                            icon: Sparkles,
+                            title: "Émotion & Nuance",
+                            desc: "Plus de voix robotiques. Travaillez avec des partenaires virtuels qui jouent vraiment."
                         }
                     ].map((feature, i) => (
-                        <div key={i} className="p-6 rounded-3xl bg-white/5 border border-white/5 backdrop-blur-sm hover:bg-white/10 transition-colors text-left group">
-                            <div className="w-12 h-12 rounded-2xl bg-black/50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                                <feature.icon className="w-6 h-6 text-emerald-400" />
+                        <div key={i} className="flex flex-col items-center text-center p-8 rounded-2xl bg-[#fff5d6]/5 border border-[#d4af37]/10 hover:border-[#d4af37]/30 transition-all hover:bg-[#fff5d6]/10 group">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-b from-[#c02424] to-[#801818] flex items-center justify-center mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-[#d4af37]/20 group-hover:scale-110 transition-transform duration-500">
+                                <feature.icon className="w-7 h-7 text-[#fff5d6]" />
                             </div>
-                            <h3 className="text-lg font-bold text-white mb-2">{feature.title}</h3>
-                            <p className="text-sm text-gray-400 leading-relaxed">{feature.desc}</p>
+                            <h3 className="text-2xl text-[#fff5d6] mb-4 font-medium italic">{feature.title}</h3>
+                            <p className="text-lg text-[#d4af37]/70 leading-relaxed font-light">{feature.desc}</p>
                         </div>
                     ))}
                 </div>
 
             </main>
 
-            <footer className="relative z-10 w-full p-6 text-center text-xs text-gray-600 border-t border-white/5">
-                &copy; {new Date().getFullYear()} Repeto. Fait avec passion pour les acteurs.
+            <footer className="relative z-10 w-full py-12 text-center border-t border-[#d4af37]/10 mt-12 bg-black/40">
+                <p className="text-[#d4af37]/40 text-sm font-sans uppercase tracking-widest mb-4">
+                    L'outil secret des comédiens
+                </p>
+                <p className="text-[#666] text-xs font-sans">
+                    &copy; {new Date().getFullYear()} Repeto. Tous droits réservés.
+                </p>
             </footer>
         </div>
     );
 }
+
