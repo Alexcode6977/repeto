@@ -5,9 +5,10 @@ import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
-import { Mic, MicOff, Play, SkipForward, AlertTriangle, CheckCircle, Pause, Power } from "lucide-react";
+import { Mic, MicOff, Play, SkipForward, SkipBack, AlertTriangle, CheckCircle, Pause, Power } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+
 
 interface RehearsalModeProps {
     script: ParsedScript;
@@ -18,6 +19,7 @@ interface RehearsalModeProps {
 export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
+    const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">("full");
     const [hasStarted, setHasStarted] = useState(false);
 
     const {
@@ -32,8 +34,12 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         retry,
         validateManually,
         togglePause,
-        isPaused
-    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex });
+        isPaused,
+        previous,
+        voiceAssignments,
+        setVoiceForRole,
+        voices
+    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode });
 
     const handleStart = () => {
         setHasStarted(true);
@@ -53,7 +59,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     if (!hasStarted) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[100dvh] p-4 md:p-8 animate-in zoom-in-50 duration-500">
-                <div className="w-full max-w-lg space-y-8">
+                <div className="w-full max-w-6xl space-y-6">
 
                     <div className="text-center space-y-2">
                         <img src="/repeto.png" alt="Repeto" className="w-16 h-16 mx-auto object-contain mb-4 drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
@@ -63,107 +69,203 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                         <p className="text-gray-400">Pour <span className="text-white font-medium">{userCharacter}</span></p>
                     </div>
 
-                    {/* Settings Card */}
-                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-8 space-y-8 shadow-2xl">
+                    {/* Settings Card - Full Width */}
+                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-2xl">
 
-                        {/* Slider Section */}
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-end">
-                                <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Niveau d'exigence</label>
-                                <div className="text-right">
-                                    <span className="text-2xl font-bold text-primary">{Math.round(threshold * 100)}%</span>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+
+                            {/* LEFT COLUMN: Script Preview */}
+                            <div className="space-y-4">
+                                <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Aperçu de la Pièce</label>
+                                <div className="bg-black/30 rounded-2xl border border-white/5 p-3 md:p-4 h-[300px] md:h-[450px] overflow-y-auto custom-scrollbar space-y-3 md:space-y-4">
+                                    {script.lines.slice(startLineIndex, startLineIndex + 20).map((line, idx) => {
+                                        const isUser = line.character.includes(userCharacter);
+                                        return (
+                                            <div key={line.id} className={cn(
+                                                "p-3 rounded-xl border transition-all",
+                                                isUser
+                                                    ? "bg-primary/10 border-primary/30"
+                                                    : "bg-white/5 border-white/5"
+                                            )}>
+                                                <p className={cn(
+                                                    "text-[10px] font-bold uppercase tracking-widest mb-1",
+                                                    isUser ? "text-primary" : "text-gray-500"
+                                                )}>
+                                                    {line.character}
+                                                </p>
+                                                <p className={cn(
+                                                    "text-sm",
+                                                    isUser ? "text-white" : "text-gray-400 italic"
+                                                )}>
+                                                    {line.text.substring(0, 100)}{line.text.length > 100 ? "..." : ""}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            <input
-                                type="range"
-                                min="0.70"
-                                max="1.0"
-                                step="0.05"
-                                value={threshold}
-                                onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                                className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            />
+                            {/* RIGHT COLUMN: All Settings */}
+                            <div className="space-y-6">
 
-                            <div className="flex justify-between text-xs font-medium text-gray-500 uppercase tracking-widest px-1">
-                                <span>Débutant</span>
-                                <span>Intermédiaire</span>
-                                <span>Expert</span>
+                                {/* Scene Selection - First for Preview Sync */}
+                                {script.scenes && script.scenes.length > 0 && (
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Commencer à</label>
+                                        <select
+                                            className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
+                                            onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
+                                            value={startLineIndex}
+                                        >
+                                            <option value={0}>Début de la pièce</option>
+                                            {script.scenes.map((scene) => (
+                                                <option key={scene.index} value={scene.index}>
+                                                    {scene.title}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {/* Slider Section */}
+                                <div className="space-y-3 pt-4 border-t border-white/5">
+                                    <div className="flex justify-between items-end">
+                                        <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Niveau d'exigence</label>
+                                        <span className="text-xl font-bold text-primary">{Math.round(threshold * 100)}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0.70"
+                                        max="1.0"
+                                        step="0.05"
+                                        value={threshold}
+                                        onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
+                                    />
+                                    <div className="flex justify-between text-[10px] font-medium text-gray-500 uppercase tracking-widest px-1">
+                                        <span>Débutant</span>
+                                        <span>Intermédiaire</span>
+                                        <span>Expert</span>
+                                    </div>
+                                </div>
+
+                                {/* Tolerance Examples - Right after slider */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                                        <div className="text-[10px]">
+                                            <span className="text-gray-500">Texte:</span> <span className="text-gray-200">"Je ne sais pas"</span>
+                                            <span className="text-gray-500 ml-2">→</span> <span className="text-gray-300 italic">"Ch'ais pas"</span>
+                                        </div>
+                                        <div className={cn(
+                                            "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                                            getExampleStatus(0.75) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                        )}>
+                                            {getExampleStatus(0.75) ? "OK" : "KO"}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
+                                        <div className="text-[10px]">
+                                            <span className="text-gray-500">Texte:</span> <span className="text-gray-200">"Il faut qu'on y aille"</span>
+                                            <span className="text-gray-500 ml-2">→</span> <span className="text-gray-300 italic">"Faut qu'on y aille"</span>
+                                        </div>
+                                        <div className={cn(
+                                            "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                                            getExampleStatus(0.85) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                        )}>
+                                            {getExampleStatus(0.85) ? "OK" : "KO"}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Rehearsal Mode Selection */}
+                                <div className="space-y-3 pt-4 border-t border-white/5">
+                                    <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Mode de répétition</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                            { id: "full", label: "Intégrale" },
+                                            { id: "cue", label: "Réplique" },
+                                            { id: "check", label: "Rapide" }
+                                        ].map(m => (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => setRehearsalMode(m.id as typeof rehearsalMode)}
+                                                className={cn(
+                                                    "p-2.5 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all",
+                                                    rehearsalMode === m.id
+                                                        ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+                                                        : "bg-black/20 text-gray-400 border-white/10 hover:bg-white/10"
+                                                )}
+                                            >
+                                                {m.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-center text-gray-500 italic">
+                                        {rehearsalMode === "full" && "Lecture de toutes les répliques."}
+                                        {rehearsalMode === "cue" && "Lecture uniquement de la réplique avant la vôtre."}
+                                        {rehearsalMode === "check" && "Aucune lecture, enchaînez vos répliques."}
+                                    </p>
+                                </div>
+
+                                {/* Voice Distribution Section */}
+                                <div className="space-y-3 pt-4 border-t border-white/5">
+                                    <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Distribution des Voix</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {["ASSISTANT", ...script.characters.filter(c => c !== userCharacter)].map((role) => {
+                                            const assignedVoice = voiceAssignments[role];
+                                            const isAssistant = role === "ASSISTANT";
+                                            const label = isAssistant ? "Assistant" : role;
+
+                                            return (
+                                                <div key={role} className="flex flex-col gap-1 bg-black/20 rounded-lg p-2">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[10px] font-bold text-gray-400 uppercase truncate">{label}</span>
+                                                        {assignedVoice && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const utt = new SpeechSynthesisUtterance("Bonjour !");
+                                                                    utt.voice = assignedVoice;
+                                                                    window.speechSynthesis.speak(utt);
+                                                                }}
+                                                                className="text-primary hover:text-white transition-colors"
+                                                                title="Tester"
+                                                            >
+                                                                <Play className="h-3 w-3" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <select
+                                                        className="w-full bg-white/5 border border-white/10 rounded-lg p-1.5 text-white text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/50"
+                                                        value={assignedVoice?.voiceURI || ""}
+                                                        onChange={(e) => setVoiceForRole(role, e.target.value)}
+                                                    >
+                                                        {voices
+                                                            .filter(v => v.lang.startsWith("fr"))
+                                                            .filter(v => !v.name.toLowerCase().includes("compact") && !v.name.toLowerCase().includes("espeak"))
+                                                            .map(v => (
+                                                                <option key={v.voiceURI} value={v.voiceURI}>
+                                                                    {v.name.replace("Google", "").replace("Microsoft", "").trim()}
+                                                                </option>
+                                                            ))}
+                                                    </select>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
                             </div>
                         </div>
+                    </div>
 
-                        {/* Scene Selection */}
-                        {script.scenes && script.scenes.length > 0 && (
-                            <div className="space-y-4 pt-4 border-t border-white/5">
-                                <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Commencer à</label>
-                                <select
-                                    className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
-                                    onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
-                                    value={startLineIndex}
-                                >
-                                    <option value={0}>Début de la pièce</option>
-                                    {script.scenes.map((scene) => (
-                                        <option key={scene.index} value={scene.index}>
-                                            {scene.title}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
-                        {/* Examples Section */}
-                        <div className="space-y-4 pt-4 border-t border-white/5">
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-4">Test de Tolérance</p>
-
-                            <div className="space-y-3">
-                                {/* Example 1: Elision */}
-                                <div className="group flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors gap-3">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Texte</span>
-                                            <span className="text-sm text-gray-200">"Je ne sais pas"</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Dit</span>
-                                            <span className="text-sm text-gray-300 italic">"Ch'ais pas"</span>
-                                        </div>
-                                    </div>
-                                    <div className={cn(
-                                        "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-center sm:text-right transition-colors",
-                                        getExampleStatus(0.75) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                                    )}>
-                                        {getExampleStatus(0.75) ? "Validé" : "Refusé"}
-                                    </div>
-                                </div>
-
-                                {/* Example 2: Missing Word */}
-                                <div className="group flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors gap-3">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Texte</span>
-                                            <span className="text-sm text-gray-200">"Il faut qu'on y aille"</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500 bg-gray-900/50 px-1.5 py-0.5 rounded">Dit</span>
-                                            <span className="text-sm text-gray-300 italic">"Faut qu'on y aille"</span>
-                                        </div>
-                                    </div>
-                                    <div className={cn(
-                                        "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-center sm:text-right transition-colors",
-                                        getExampleStatus(0.85) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                                    )}>
-                                        {getExampleStatus(0.85) ? "Validé" : "Refusé"}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <Button size="lg" onClick={handleStart} className="w-full text-lg font-bold py-8 rounded-2xl shadow-[0_0_30px_rgba(var(--primary),0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95">
+                    <div className="flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-white/5">
+                        <Button size="lg" onClick={handleStart} className="flex-1 text-lg font-bold py-6 rounded-2xl shadow-[0_0_30px_rgba(var(--primary),0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95">
                             <Play className="mr-3 h-6 w-6 fill-current" />
                             COMMENCER
                         </Button>
 
-                        <Button variant="ghost" onClick={onExit} className="w-full text-sm text-gray-500 hover:text-white hover:bg-transparent">
+                        <Button variant="ghost" onClick={onExit} className="text-sm text-gray-500 hover:text-white hover:bg-transparent">
                             Retour au menu
                         </Button>
                     </div>
@@ -221,7 +323,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
                         className={cn(
-                            "relative p-6 rounded-2xl border transition-colors duration-500",
+                            "relative p-4 md:p-6 rounded-xl md:rounded-2xl border transition-colors duration-500",
                             isUserTurn
                                 ? "bg-primary/10 border-primary/50 shadow-[0_0_30px_rgba(var(--primary),0.15)]"
                                 : "bg-white/5 border-white/10"
@@ -328,10 +430,10 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                 <Button
                     variant="ghost"
                     size="icon"
-                    onClick={skip}
+                    onClick={previous}
                     className="h-12 w-12 rounded-full text-gray-400 hover:text-white hover:bg-white/10"
                 >
-                    <SkipForward className="h-6 w-6" />
+                    <SkipBack className="h-6 w-6" />
                 </Button>
 
                 {status === "listening_user" ? (
@@ -357,8 +459,14 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                     </div>
                 )}
 
-                {/* Spacer for symmetry if needed, or another helper button */}
-                <div className="w-12" />
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={skip}
+                    className="h-12 w-12 rounded-full text-gray-400 hover:text-white hover:bg-white/10"
+                >
+                    <SkipForward className="h-6 w-6" />
+                </Button>
             </div>
         </div>
     );

@@ -36,6 +36,14 @@ export function cleanTranscript(text: string): string {
     t = t.replace(/pas le t[oô]t?/g, "paletot");
     t = t.replace(/palle taux/g, "paletot");
 
+    // Chouilloux fixes (common mishearings)
+    t = t.replace(/choou you/g, "chouilloux");
+    t = t.replace(/chou you/g, "chouilloux");
+    t = t.replace(/choux you/g, "chouilloux");
+    t = t.replace(/shouyo/g, "chouilloux");
+    t = t.replace(/\bchoux\b/g, "chouilloux");
+    t = t.replace(/chou ill?ou/g, "chouilloux");
+
     return t;
 }
 

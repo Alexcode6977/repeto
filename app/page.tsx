@@ -2,18 +2,21 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Loader2, AlertCircle } from "lucide-react";
+import { Upload, Loader2, AlertCircle, Trash2, FileText } from "lucide-react";
 import { useState, useTransition } from "react";
 import { parsePdfAction } from "./actions";
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
+import { useSavedScript } from "@/lib/hooks/use-saved-script";
 
 export default function Home() {
   const [isPending, startTransition] = useTransition();
   const [script, setScript] = useState<ParsedScript | null>(null);
   const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const { savedScript, isLoading, saveScript, clearScript } = useSavedScript();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,8 +32,20 @@ export default function Home() {
         setError(result.error);
       } else {
         setScript(result);
+        saveScript(result); // Save to localStorage
       }
     });
+  };
+
+  const handleLoadSaved = () => {
+    if (savedScript) {
+      setScript(savedScript);
+    }
+  };
+
+  const handleClearSaved = () => {
+    clearScript();
+    setScript(null);
   };
 
   const handleStartRehearsal = (characterName: string) => {
@@ -54,13 +69,23 @@ export default function Home() {
   if (script) {
     return (
       <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
-        <Button
-          variant="ghost"
-          onClick={() => setScript(null)}
-          className="self-start text-gray-400 hover:text-white"
-        >
-          ← Retour
-        </Button>
+        <div className="flex gap-4 self-start">
+          <Button
+            variant="ghost"
+            onClick={() => setScript(null)}
+            className="text-gray-400 hover:text-white"
+          >
+            ← Retour
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleClearSaved}
+            className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Supprimer
+          </Button>
+        </div>
         <ScriptViewer script={script} onConfirm={handleStartRehearsal} />
       </div>
     );
@@ -90,6 +115,32 @@ export default function Home() {
         </CardHeader>
         <CardContent>
           <div className="grid w-full items-center gap-4">
+            {/* Saved Script Button */}
+            {!isLoading && savedScript && (
+              <div className="flex items-center gap-2 p-4 rounded-xl bg-primary/10 border border-primary/30">
+                <button
+                  onClick={handleLoadSaved}
+                  className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
+                >
+                  <div className="p-3 bg-primary/20 rounded-full">
+                    <FileText className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium text-white">{savedScript.title || "Script sauvegardé"}</p>
+                    <p className="text-xs text-gray-400">{savedScript.characters.length} personnages • {savedScript.lines.length} répliques</p>
+                  </div>
+                  <span className="text-xs text-primary uppercase tracking-widest font-bold">Reprendre</span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleClearSaved(); }}
+                  className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                  title="Supprimer"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+
             <div className="flex flex-col space-y-4">
               <Button
                 variant="glass"
@@ -108,7 +159,7 @@ export default function Home() {
                       <Upload className="h-8 w-8 text-white/70 group-hover:text-primary transition-colors" />
                     </div>
                     <span className="text-sm text-gray-300 font-medium">
-                      Cliquez pour choisir un PDF
+                      {savedScript ? "Importer un nouveau PDF" : "Cliquez pour choisir un PDF"}
                     </span>
                     <input
                       type="file"
@@ -138,3 +189,4 @@ export default function Home() {
     </div>
   );
 }
+
