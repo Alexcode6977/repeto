@@ -1,8 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Upload, Loader2, AlertCircle, Trash2, FileText, LayoutGrid, Settings, LogOut, Plus, PlayCircle } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Upload, Loader2, AlertCircle, Trash2, FileText, LogOut } from "lucide-react";
 import { useState, useTransition, useEffect } from "react";
 import { parsePdfAction } from "./actions";
 import { ParsedScript } from "@/lib/types";
@@ -93,163 +93,139 @@ export default function Home() {
 
   if (script) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col items-center gap-6 p-6 animate-in fade-in slide-in-from-bottom-4">
-        {/* Simple Header for Script View */}
-        <div className="w-full max-w-7xl flex items-center justify-between">
+      <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
+        <div className="flex gap-4 self-start">
           <Button
             variant="ghost"
             onClick={() => setScript(null)}
-            className="text-muted-foreground hover:text-white gap-2 pl-0"
+            className="text-gray-400 hover:text-white"
           >
-            <div className="p-1 rounded-full bg-white/10">
-              <LayoutGrid className="h-4 w-4" />
-            </div>
-            Retour au Studio
+            ← Retour
           </Button>
-
           <Button
             variant="ghost"
             onClick={handleClearSaved}
             className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Supprimer ce script
+            Supprimer
           </Button>
         </div>
-
         <ScriptViewer script={script} onConfirm={handleStartRehearsal} />
       </div>
     );
   }
 
-  // --- DASHBOARD MAIN VIEW ---
+  // --- DASHBOARD CLASSIC VIEW ---
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans flex overflow-hidden">
+    <div className="w-full max-w-md space-y-8 animate-in fade-in zoom-in duration-500 relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleLogout}
+        className="absolute -top-12 right-0 text-muted-foreground hover:text-red-400 hover:bg-white/5"
+        title="Déconnexion"
+      >
+        <LogOut className="h-5 w-5" />
+      </Button>
 
-      {/* SIDEBAR (Desktop) */}
-      <aside className="hidden lg:flex w-64 flex-col border-r border-white/5 bg-black/40 backdrop-blur-xl h-screen sticky top-0">
-        <div className="p-8">
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <PlayCircle className="h-5 w-5 text-primary-foreground fill-current" />
-            </div>
-            Repeto
-          </h1>
+      <div className="text-center space-y-4 flex flex-col items-center">
+        {/* Robot Mascot Area */}
+        <div className="relative w-32 h-32 mb-2">
+          {/* Using a glowing div behind the image as before */}
+          <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
+          {/* Note: User image provided shows a robot. Assuming /repeto.png or checking if I need to use the image provided in Step 2098 */}
+          <img src="/repeto.png" alt="Repeto Mascot" className="relative w-full h-full object-contain drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" />
         </div>
+        <h1 className="text-5xl font-bold tracking-tight text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+          Repeto
+        </h1>
+        <p className="text-lg text-gray-300 font-light">
+          Votre nouveau partenaire de scène.
+        </p>
+      </div>
 
-        <nav className="flex-1 px-4 space-y-2">
-          <Button variant="ghost" className="w-full justify-start text-primary bg-primary/10 font-medium">
-            <LayoutGrid className="mr-3 h-5 w-5" />
-            Studio
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-white hover:bg-white/5">
-            <Settings className="mr-3 h-5 w-5" />
-            Paramètres
-          </Button>
-        </nav>
-
-        <div className="p-4 border-t border-white/5">
-          <Button variant="ghost" onClick={handleLogout} className="w-full justify-start text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors">
-            <LogOut className="mr-3 h-5 w-5" />
-            Déconnexion
-          </Button>
-        </div>
-      </aside>
-
-      {/* MAIN CONTENT Area */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto relative">
-
-        {/* Ambient Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none sticky top-0">
-          <div className="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-primary/5 rounded-full blur-[120px] opacity-30" />
-        </div>
-
-        {/* Header */}
-        <header className="relative z-10 p-8 md:p-12 pb-4">
-          <p className="text-sm font-medium text-primary mb-2 uppercase tracking-wider">Studio Personnel</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-            Bonjour, <span className="capitalize">{userName || "Artiste"}</span>.
-          </h2>
-          <p className="text-muted-foreground mt-2 text-lg">Prêt à répéter votre prochaine scène ?</p>
-        </header>
-
-        {/* Scrollable Content */}
-        <div className="relative z-10 flex-1 p-8 md:p-12 pt-4">
-
-          {error && (
-            <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 animate-in slide-in-from-top-2">
-              <AlertCircle className="h-5 w-5" />
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-
-            {/* ADD NEW CARD */}
-            <div className="group relative aspect-[3/4] rounded-3xl border-2 border-dashed border-white/10 hover:border-primary/50 bg-white/5 hover:bg-white/10 transition-all cursor-pointer flex flex-col items-center justify-center gap-4 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-
-              {isPending ? (
-                <div className="flex flex-col items-center gap-3 z-10">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                  <span className="text-sm font-medium text-primary">Analyse en cours...</span>
-                </div>
-              ) : (
-                <>
-                  <div className="p-4 bg-white/5 rounded-full group-hover:scale-110 group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 z-10">
-                    <Plus className="h-8 w-8" />
+      <Card className="glass border-white/10 bg-white/5 backdrop-blur-3xl shadow-2xl">
+        <CardHeader>
+          <CardTitle className="text-center">Commencer</CardTitle>
+          <CardDescription className="text-center">
+            Importez le script de votre pièce (PDF)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid w-full items-center gap-4">
+            {/* Saved Script Button */}
+            {!isLoading && savedScript && (
+              <div className="flex items-center gap-2 p-4 rounded-xl bg-primary/10 border border-primary/30">
+                <button
+                  onClick={handleLoadSaved}
+                  className="flex items-center gap-4 flex-1 hover:opacity-80 transition-opacity"
+                >
+                  <div className="p-3 bg-primary/20 rounded-full">
+                    <FileText className="h-6 w-6 text-primary" />
                   </div>
-                  <span className="text-lg font-medium text-muted-foreground group-hover:text-white transition-colors z-10">Importer un Script</span>
-                  <input
-                    type="file"
-                    accept=".pdf"
-                    className="absolute inset-0 opacity-0 cursor-pointer z-20"
-                    onChange={handleFileChange}
-                    title="Importer un fichier PDF"
-                  />
-                </>
-              )}
-            </div>
-
-            {/* LOADING SKELETON or SAVED SCRIPT CARD */}
-            {isLoading ? (
-              <div className="aspect-[3/4] rounded-3xl bg-white/5 animate-pulse" />
-            ) : savedScript ? (
-              <div
-                onClick={handleLoadSaved}
-                className="group relative aspect-[3/4] rounded-3xl bg-neutral-900 border border-white/5 hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all cursor-pointer overflow-hidden"
-              >
-                {/* Card Content */}
-                <div className="absolute inset-0 p-6 flex flex-col justify-end z-20 bg-gradient-to-t from-black via-black/50 to-transparent">
-                  <div className="mb-4">
-                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/20 text-primary mb-2">
-                      Actif
-                    </div>
-                    <h3 className="text-xl font-bold text-white leading-tight mb-1 line-clamp-2">
-                      {savedScript.title || "Script Sans Titre"}
-                    </h3>
-                    <p className="text-xs text-gray-400">
-                      {savedScript.characters.length} Personnages • {new Date().toLocaleDateString()}
-                    </p>
+                  <div className="flex-1 text-left">
+                    <p className="text-sm font-medium text-white">{savedScript.title || "Script sauvegardé"}</p>
+                    <p className="text-xs text-gray-400">{savedScript.characters.length} personnages • {savedScript.lines.length} répliques</p>
                   </div>
-                  <Button className="w-full gap-2 bg-white text-black hover:bg-primary hover:text-white border-0">
-                    <PlayCircle className="w-4 h-4" />
-                    Reprendre
-                  </Button>
-                </div>
-
-                {/* Decorative Background Icon */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-700 z-0">
-                  <FileText className="w-32 h-32" />
-                </div>
+                  <span className="text-xs text-primary uppercase tracking-widest font-bold">Reprendre</span>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleClearSaved(); }}
+                  className="p-2 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                  title="Supprimer"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
               </div>
-            ) : null}
+            )}
 
+            <div className="flex flex-col space-y-4">
+              <Button
+                variant="ghost" // Using ghost but styled manually to match the glass effect
+                className="h-40 border-dashed border-2 border-white/20 hover:bg-white/10 hover:border-primary/50 transition-all group relative overflow-hidden w-full"
+                disabled={isPending}
+                asChild={!isPending}
+              >
+                {isPending ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <span className="text-sm text-gray-400">Analyse du script...</span>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer flex flex-col items-center justify-center gap-3 z-10 w-full h-full">
+                    <div className="p-3 bg-white/5 rounded-full group-hover:scale-110 transition-transform duration-300">
+                      <Upload className="h-8 w-8 text-white/70 group-hover:text-primary transition-colors" />
+                    </div>
+                    <span className="text-sm text-gray-300 font-medium">
+                      {savedScript ? "Importer un nouveau PDF" : "Cliquez pour choisir un PDF"}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </label>
+                )}
+              </Button>
+            </div>
+            {error && (
+              <div className="flex items-center gap-2 p-3 text-sm text-red-200 bg-red-500/20 border border-red-500/30 rounded-md animate-in slide-in-from-top-2">
+                <AlertCircle className="h-4 w-4" />
+                {error}
+              </div>
+            )}
           </div>
-        </div>
-      </main>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-center flex-wrap gap-3 text-[10px] text-gray-500 uppercase tracking-widest">
+        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5">100% Gratuit</span>
+        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5">Local</span>
+        <span className="px-3 py-1 rounded-full bg-white/5 border border-white/5">Hors ligne</span>
+      </div>
     </div>
   );
 }
-

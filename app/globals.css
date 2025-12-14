@@ -23,39 +23,58 @@
 }
 
 :root {
-  /* Premium Dark Mode Palette */
-  --background: hsl(240 5% 6%);
-  /* Very deep charcoal/black */
-  --foreground: hsl(0 0% 95%);
-  /* Soft white, not harsh */
+  /* Classic Purple/Gradient Palette */
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(240 10% 3.9%);
 
-  --card: hsl(240 4% 10%);
-  /* Slightly lighter dark for cards */
-  --card-foreground: hsl(0 0% 95%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(240 10% 3.9%);
 
-  --popover: hsl(240 4% 10%);
-  --popover-foreground: hsl(0 0% 95%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(240 10% 3.9%);
 
-  --primary: hsl(158 64% 52%);
-  /* Emerald for primary action (Brand) */
-  --primary-foreground: hsl(145 80% 10%);
+  --primary: hsl(267 100% 61%);
+  /* Vibrant Purple */
+  --primary-foreground: hsl(0 0% 98%);
 
-  --secondary: hsl(240 3% 15%);
-  /* Subtle gray for secondary actions */
+  --secondary: hsl(240 4.8% 95.9%);
+  --secondary-foreground: hsl(240 5.9% 10%);
+
+  --muted: hsl(240 4.8% 95.9%);
+  --muted-foreground: hsl(240 3.8% 46.1%);
+
+  --accent: hsl(267 100% 61%);
+  --accent-foreground: hsl(240 5.9% 10%);
+
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 98%);
+
+  --border: hsl(240 5.9% 90%);
+  --input: hsl(240 5.9% 90%);
+  --ring: hsl(267 100% 61%);
+}
+
+.dark {
+  /* Keeping a dark variant if needed, but styling body to match the screenshot */
+  --background: hsl(240 10% 3.9%);
+  --foreground: hsl(0 0% 98%);
+  --card: hsl(240 10% 3.9%);
+  --card-foreground: hsl(0 0% 98%);
+  --popover: hsl(240 10% 3.9%);
+  --popover-foreground: hsl(0 0% 98%);
+  --primary: hsl(267 100% 61%);
+  --primary-foreground: hsl(0 0% 98%);
+  --secondary: hsl(240 3.7% 15.9%);
   --secondary-foreground: hsl(0 0% 98%);
-
-  --muted: hsl(240 3% 20%);
-  --muted-foreground: hsl(240 5% 60%);
-
-  --accent: hsl(158 64% 52%);
-  --accent-foreground: hsl(145 80% 10%);
-
+  --muted: hsl(240 3.7% 15.9%);
+  --muted-foreground: hsl(240 5% 64.9%);
+  --accent: hsl(240 3.7% 15.9%);
+  --accent-foreground: hsl(0 0% 98%);
   --destructive: hsl(0 62.8% 30.6%);
-  --destructive-foreground: hsl(210 40% 98%);
-
+  --destructive-foreground: hsl(0 0% 98%);
   --border: hsl(240 3.7% 15.9%);
   --input: hsl(240 3.7% 15.9%);
-  --ring: hsl(158 64% 52%);
+  --ring: hsl(240 4.9% 83.9%);
 }
 
 @layer base {
@@ -65,21 +84,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    /* Ultra-subtle cinematic vignette */
-    background-image: radial-gradient(circle at top center, hsl(240, 5%, 12%) 0%, hsl(240, 5%, 6%) 60%);
-    background-attachment: fixed;
+    /* Recreating the gradient from the screenshot: Dark purple top, fading to lighter bottom/center */
+    background: radial-gradient(circle at 50% 0%, #2e1065 0%, #000000 60%, #000000 100%);
+    min-height: 100vh;
   }
 }
 
-/* Premium Utilities */
+/* Glassmorphism utility for the card */
 @utility glass {
-  @apply bg-white/5 backdrop-blur-lg border border-white/5 shadow-2xl;
-}
-
-@utility text-glow {
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
-}
-
-@utility btn-glow {
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+  @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl;
 }
