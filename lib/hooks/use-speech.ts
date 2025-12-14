@@ -386,8 +386,29 @@ export function useSpeech() {
 
     const stop = useCallback(() => {
         cancelledRef.current = true;  // Signal to stop the loop
-        if (synthRef.current) synthRef.current.cancel();
-        if (recognitionRef.current) recognitionRef.current.stop();
+
+        // Cancel TTS
+        if (synthRef.current) {
+            try {
+                synthRef.current.cancel();
+            } catch (e) {
+                // Ignore errors on cancel
+            }
+        }
+
+        // Stop recognition with error handling (mobile can throw if not started)
+        if (recognitionRef.current) {
+            try {
+                recognitionRef.current.abort();  // abort is more reliable than stop on mobile
+            } catch (e) {
+                try {
+                    recognitionRef.current.stop();
+                } catch (e2) {
+                    // Ignore - recognition wasn't running
+                }
+            }
+        }
+
         setState("idle");
     }, []);
 
