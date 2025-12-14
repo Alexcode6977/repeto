@@ -313,9 +313,16 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                             {ttsProvider === "browser" && "Voix système gratuites."}
                                             {ttsProvider === "openai" && isPremiumUnlocked && "Voix OpenAI - Sélectionnez ci-dessous."}
                                             {!isPremiumUnlocked && ttsProvider !== "openai" && (
-                                                <span className="text-emerald-400/60 cursor-pointer hover:underline" onClick={() => setShowUnlockModal(true)}>
+                                                <button
+                                                    type="button"
+                                                    className="text-emerald-400/60 hover:text-emerald-400 hover:underline cursor-pointer ml-1 relative z-20"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setShowUnlockModal(true);
+                                                    }}
+                                                >
                                                     Débloquer les voix Premium →
-                                                </span>
+                                                </button>
                                             )}
                                         </p>
                                     </div>
