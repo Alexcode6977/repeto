@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ParsedScript, ScriptLine } from "../types";
 import { useSpeech } from "./use-speech";
+import { useOpenAITTS } from "./use-openai-tts";
 import { calculateSimilarity } from "../similarity";
 
 export type RehearsalStatus =
@@ -13,16 +14,42 @@ export type RehearsalStatus =
     | "paused"
     | "finished";
 
+export type TTSProvider = "browser" | "openai";
+export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+
 interface UseRehearsalProps {
     script: ParsedScript;
     userCharacter: string;
     similarityThreshold?: number;
     initialLineIndex?: number;
     mode?: "full" | "cue" | "check";
+    ttsProvider?: TTSProvider;
+    openaiVoiceAssignments?: Record<string, OpenAIVoice>;
 }
 
-export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full" }: UseRehearsalProps) {
-    const { speak, listen, stop: stopSpeech, state: speechState, voices } = useSpeech();
+export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {} }: UseRehearsalProps) {
+    const browserSpeech = useSpeech();
+    const openaiSpeech = useOpenAITTS();
+
+    // Unified speak function that handles both providers
+    // characterName is used to look up the OpenAI voice assignment
+    const speak = async (text: string, _voice?: SpeechSynthesisVoice, characterName?: string): Promise<void> => {
+        if (ttsProvider === "openai") {
+            // Use the character's assigned OpenAI voice, default to "nova"
+            const assignedVoice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "nova";
+            await openaiSpeech.speak(text, assignedVoice);
+        } else {
+            await browserSpeech.speak(text, _voice);
+        }
+    };
+
+    const { listen, stop: stopSpeech, voices, state: speechState } = browserSpeech;
+
+    // Combined stop function
+    const stopAll = () => {
+        browserSpeech.stop();
+        openaiSpeech.stop();
+    };
 
     const [currentLineIndex, setCurrentLineIndex] = useState(initialLineIndex);
     const [status, setStatus] = useState<RehearsalStatus>("setup");
@@ -243,8 +270,17 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             setStatus("playing_other");
             const voice = voiceAssignments[line.character];
 
-            // Speak the line
-            speak(line.text, voice);
+            // Speak the line and advance when done
+            try {
+                await speak(line.text, voice, line.character);
+                // After speaking completes, advance to next line (if not paused/stopped)
+                if (stateRef.current.status === "playing_other") {
+                    setTimeout(() => next(), 300);  // Small pause for natural pacing
+                }
+            } catch (e) {
+                console.error("Speech failed:", e);
+                next();  // Skip to next on error
+            }
         }
     };
 
@@ -282,7 +318,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         } else {
             // Pause
             setStatus("paused");
-            stopSpeech();
+            stopAll();
         }
     };
 
@@ -295,7 +331,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     const next = () => {
         // Stop any ongoing speech FIRST
-        stopSpeech();
+        stopAll();
 
         const nextIdx = stateRef.current.currentLineIndex + 1;
         if (nextIdx < script.lines.length) {
@@ -337,7 +373,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     const validateManually = () => {
         if (status === "listening_user" || status === "error") {
             // Stop any listening first
-            stopSpeech();
+            stopAll();
             // Brief visual feedback
             setFeedback("correct");
 
@@ -371,7 +407,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         skip: next,
         retry,
         validateManually,
-        stop: stopSpeech,
+        stop: stopAll,
         voices, // Raw voices list
         voiceAssignments, // Assignments
         setVoiceForRole, // Setter

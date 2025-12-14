@@ -168,57 +168,118 @@ export function useSpeech() {
         });
     };
 
-    type Emotion = 'neutral' | 'question' | 'exclamation' | 'hesitation' | 'anger' | 'sadness' | 'joy';
+    type Emotion = 'neutral' | 'question' | 'exclamation' | 'hesitation' | 'anger' | 'sadness' | 'joy' | 'fear' | 'irony' | 'tenderness';
 
     /**
      * Detect the emotional tone of a text segment
+     * Enhanced with theatrical French vocabulary
      */
     const detectEmotion = (text: string): Emotion => {
         const lower = text.toLowerCase();
 
-        // Multiple exclamations = strong emotion
+        // Multiple exclamations or caps = strong emotion (anger/urgency)
         if ((text.match(/!/g) || []).length >= 2) return 'anger';
+        if (text === text.toUpperCase() && text.length > 10) return 'anger';
 
         // Ellipsis = hesitation or sadness
         if (text.includes('...')) return 'hesitation';
 
-        // Question
-        if (text.includes('?')) return 'question';
-
-        // Single exclamation - check for joy vs neutral exclamation
-        if (text.includes('!')) {
-            const joyWords = ['magnifique', 'merveilleux', 'excellent', 'bravo', 'parfait', 'génial', 'super', 'hourra', 'vive'];
-            const angerWords = ['malheur', 'diable', 'damnation', 'sacrebleu', 'morbleu', 'tonnerre', 'idiot', 'imbécile'];
-
-            if (joyWords.some(w => lower.includes(w))) return 'joy';
-            if (angerWords.some(w => lower.includes(w))) return 'anger';
-            return 'exclamation';
+        // Question marks
+        if (text.includes('?')) {
+            // Rhetorical/ironic questions
+            const ironicPatterns = ['vraiment', 'sérieusement', 'vous croyez', 'tu crois', 'n\'est-ce pas'];
+            if (ironicPatterns.some(p => lower.includes(p))) return 'irony';
+            return 'question';
         }
 
-        // Sad words
-        const sadWords = ['hélas', 'malheur', 'triste', 'mort', 'perdu', 'adieu', 'jamais plus'];
+        // Joy/happiness words (expanded list)
+        const joyWords = [
+            'magnifique', 'merveilleux', 'excellent', 'bravo', 'parfait', 'génial', 'super', 'hourra', 'vive',
+            'bonheur', 'heureux', 'heureuse', 'joie', 'ravir', 'ravi', 'ravie', 'enchanter', 'enchanté',
+            'formidable', 'splendide', 'sublime', 'divin', 'adorable', 'chéri', 'chérie', 'amour',
+            'victoire', 'triomphe', 'succès', 'miracle', 'prodige', 'merci'
+        ];
+        if (joyWords.some(w => lower.includes(w))) return 'joy';
+
+        // Anger/frustration words (expanded)
+        const angerWords = [
+            'malheur', 'diable', 'damnation', 'sacrebleu', 'morbleu', 'tonnerre', 'idiot', 'imbécile',
+            'fureur', 'rage', 'colère', 'déteste', 'haïr', 'haine', 'maudit', 'maudite', 'enfer',
+            'scélérat', 'traître', 'misérable', 'infâme', 'monstre', 'démon', 'canaille',
+            'insolent', 'impertinent', 'assez', 'taisez', 'silence', 'sortez', 'dehors'
+        ];
+        if (angerWords.some(w => lower.includes(w))) return 'anger';
+
+        // Sadness words (expanded)
+        const sadWords = [
+            'hélas', 'malheur', 'triste', 'mort', 'perdu', 'adieu', 'jamais plus',
+            'larmes', 'pleurer', 'sanglot', 'douleur', 'souffrir', 'souffrance', 'peine',
+            'abandonner', 'abandonné', 'seul', 'seule', 'solitude', 'désespoir',
+            'mourir', 'fin', 'perdu', 'perdre', 'regret', 'regretter'
+        ];
         if (sadWords.some(w => lower.includes(w))) return 'sadness';
+
+        // Fear words
+        const fearWords = [
+            'peur', 'effroi', 'terreur', 'trembler', 'frémir', 'épouvante',
+            'au secours', 'à l\'aide', 'sauvez', 'fuyez', 'danger', 'menace',
+            'horreur', 'horrible', 'affreux', 'effrayant', 'terrifiant'
+        ];
+        if (fearWords.some(w => lower.includes(w))) return 'fear';
+
+        // Tenderness/love words
+        const tendernessWords = [
+            'mon coeur', 'ma chère', 'mon cher', 'mon amour', 'ma douce', 'tendresse',
+            'caresse', 'embrasser', 'baiser', 'doux', 'douce', 'gentle', 'cher ami'
+        ];
+        if (tendernessWords.some(w => lower.includes(w))) return 'tenderness';
+
+        // Irony/sarcasm indicators
+        const ironyWords = ['certes', 'évidemment', 'bien sûr', 'naturellement', 'sans doute'];
+        if (ironyWords.some(w => lower.includes(w)) && text.includes('!')) return 'irony';
+
+        // Exclamation without specific emotion
+        if (text.includes('!')) return 'exclamation';
 
         return 'neutral';
     };
 
     /**
      * Calculate pause duration after a segment (in ms)
+     * Adds natural variation and context-awareness
      */
     const calculatePause = (text: string): number => {
-        // Longer pause after questions and exclamations
-        if (text.endsWith('?') || text.endsWith('!')) return 400;
+        // Base pause with random variation for natural rhythm
+        const vary = (base: number, variance: number) => base + Math.random() * variance;
 
         // Very long pause after ellipsis (dramatic effect)
-        if (text.includes('...')) return 600;
+        if (text.includes('...')) return vary(550, 150);
 
-        // Semi-colon = medium pause
-        if (text.endsWith(';')) return 300;
+        // Multiple punctuation = dramatic (!! or ?!)
+        if (/[!?]{2,}/.test(text)) return vary(500, 100);
+
+        // Question - thinking pause
+        if (text.endsWith('?')) return vary(380, 80);
+
+        // Exclamation - quick dramatic beat
+        if (text.endsWith('!')) return vary(350, 100);
+
+        // Semi-colon = breath pause
+        if (text.endsWith(';')) return vary(280, 60);
+
+        // Colon = anticipation pause
+        if (text.endsWith(':')) return vary(320, 80);
 
         // Standard sentence end
-        if (text.endsWith('.')) return 350;
+        if (text.endsWith('.')) return vary(320, 80);
 
-        return 200;
+        // Short text = quick transition
+        if (text.length < 30) return vary(180, 60);
+
+        // Long text = needs processing time
+        if (text.length > 100) return vary(400, 100);
+
+        return vary(250, 80);
     };
 
     /**
@@ -282,42 +343,64 @@ export function useSpeech() {
             utterance.lang = "fr-FR";
             if (voice) utterance.voice = voice;
 
-            // Base prosody settings by emotion
+            // Base prosody settings by emotion - optimized for theatrical delivery
             let pitch = 1.0;
             let rate = 1.0;
             let volume = 1.0;
 
             switch (emotion) {
                 case 'question':
-                    pitch = 1.15;  // Rising intonation
-                    rate = 0.95;   // Slightly slower
+                    pitch = 1.12 + (Math.random() * 0.06);  // Rising intonation with variation
+                    rate = 0.92;   // Slightly slower for clarity
                     break;
+
                 case 'exclamation':
-                    pitch = 1.1;
-                    rate = 1.1;
+                    pitch = 1.08 + (Math.random() * 0.08);
+                    rate = 1.05 + (Math.random() * 0.1);
                     volume = 1.0;
                     break;
+
                 case 'anger':
-                    pitch = 0.9;   // Lower, more intense
-                    rate = 1.2;    // Faster
+                    pitch = 0.85 + (Math.random() * 0.1);   // Lower, more intense
+                    rate = 1.15 + (Math.random() * 0.15);   // Fast and aggressive
                     volume = 1.0;
                     break;
+
                 case 'joy':
-                    pitch = 1.2;   // Higher, brighter
-                    rate = 1.1;
+                    pitch = 1.18 + (Math.random() * 0.1);   // Higher, brighter, varied
+                    rate = 1.05 + (Math.random() * 0.1);
                     break;
+
                 case 'hesitation':
-                    pitch = 0.95;
-                    rate = 0.8;    // Much slower
+                    pitch = 0.95 + (Math.random() * 0.05);
+                    rate = 0.75 + (Math.random() * 0.1);    // Very slow, uncertain
                     break;
+
                 case 'sadness':
-                    pitch = 0.85;  // Lower
-                    rate = 0.85;   // Slower
+                    pitch = 0.82 + (Math.random() * 0.06);  // Lower, somber
+                    rate = 0.78 + (Math.random() * 0.08);   // Slow, heavy
                     break;
-                default:
-                    // Neutral - slight variance for natural feel
+
+                case 'fear':
+                    pitch = 1.1 + (Math.random() * 0.15);   // Higher, tense
+                    rate = 1.1 + (Math.random() * 0.2);     // Fast, breathless
+                    break;
+
+                case 'irony':
                     pitch = 1.0 + (Math.random() * 0.1 - 0.05);
-                    rate = 0.95 + (Math.random() * 0.1);
+                    rate = 0.88;   // Deliberate, measured
+                    break;
+
+                case 'tenderness':
+                    pitch = 1.05 + (Math.random() * 0.08);  // Soft, warm
+                    rate = 0.85 + (Math.random() * 0.05);   // Slow, gentle
+                    volume = 0.9;  // Slightly softer
+                    break;
+
+                default:
+                    // Neutral - varied for natural feel
+                    pitch = 0.98 + (Math.random() * 0.1);
+                    rate = 0.92 + (Math.random() * 0.12);
             }
 
             utterance.pitch = pitch;
