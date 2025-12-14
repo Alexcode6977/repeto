@@ -652,77 +652,71 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                 </div>
             </div>
 
+
             {/* Premium Unlock Modal */}
-            <AnimatePresence>
-                {showUnlockModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-                        onClick={() => setShowUnlockModal(false)}
+            {showUnlockModal && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+                    onClick={() => setShowUnlockModal(false)}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.2)]"
                     >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-gradient-to-br from-gray-900 to-gray-950 border border-emerald-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.2)]"
-                        >
-                            <div className="flex justify-between items-center mb-4">
-                                <div className="flex items-center gap-2">
-                                    <Sparkles className="h-5 w-5 text-emerald-400" />
-                                    <h3 className="text-lg font-bold text-white">Débloquer Premium</h3>
-                                </div>
-                                <button
-                                    onClick={() => setShowUnlockModal(false)}
-                                    className="text-gray-500 hover:text-white"
-                                >
-                                    <X className="h-5 w-5" />
-                                </button>
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center gap-2">
+                                <Sparkles className="h-5 w-5 text-emerald-400" />
+                                <h3 className="text-lg font-bold text-white">Débloquer Premium</h3>
                             </div>
-
-                            <p className="text-gray-400 text-sm mb-4">
-                                Entrez votre code pour débloquer les voix Premium OpenAI.
-                            </p>
-
-                            <input
-                                type="text"
-                                placeholder="XXXX-XXXX-XXXX-XXXX"
-                                value={unlockCode}
-                                onChange={(e) => {
-                                    setUnlockCode(e.target.value.toUpperCase());
-                                    setUnlockError(false);
-                                }}
-                                onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-                                className={cn(
-                                    "w-full bg-black/50 border rounded-xl p-3 text-white text-center font-mono tracking-widest placeholder:text-gray-600 focus:outline-none focus:ring-2",
-                                    unlockError
-                                        ? "border-red-500 focus:ring-red-500/50"
-                                        : "border-white/10 focus:ring-emerald-500/50"
-                                )}
-                            />
-
-                            {unlockError && (
-                                <p className="text-red-400 text-xs mt-2 text-center">
-                                    Code invalide. Vérifiez votre code et réessayez.
-                                </p>
-                            )}
-
                             <button
-                                onClick={handleUnlock}
-                                className="w-full mt-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold py-3 rounded-xl hover:from-emerald-500 hover:to-teal-500 transition-all shadow-lg"
+                                onClick={() => setShowUnlockModal(false)}
+                                className="text-gray-500 hover:text-white p-2"
                             >
-                                Débloquer
+                                <X className="h-5 w-5" />
                             </button>
+                        </div>
 
-                            <p className="text-gray-600 text-[10px] text-center mt-3">
-                                Pas de code ? Contactez le support.
+                        <p className="text-gray-400 text-sm mb-4">
+                            Entrez votre code pour débloquer les voix Premium OpenAI.
+                        </p>
+
+                        <input
+                            autoFocus
+                            type="text"
+                            placeholder="CODE-ICI"
+                            value={unlockCode}
+                            onChange={(e) => {
+                                setUnlockCode(e.target.value.toUpperCase());
+                                setUnlockError(false);
+                            }}
+                            onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+                            className={cn(
+                                "w-full bg-black/50 border rounded-xl p-4 text-white text-center font-mono text-lg tracking-widest placeholder:text-gray-600 focus:outline-none focus:ring-2 mb-4",
+                                unlockError
+                                    ? "border-red-500 focus:ring-red-500/50"
+                                    : "border-white/10 focus:ring-emerald-500/50"
+                            )}
+                        />
+
+                        {unlockError && (
+                            <p className="text-red-400 text-xs mb-4 text-center">
+                                Code invalide. Essayez: SCEN3-PRMT-X7K9-2024
                             </p>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                        )}
+
+                        <button
+                            onClick={handleUnlock}
+                            className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-500 transition-all shadow-lg active:scale-[0.98]"
+                        >
+                            Débloquer
+                        </button>
+
+                        <p className="text-gray-600 text-[10px] text-center mt-4">
+                            Pas de code ? Contactez le support.
+                        </p>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
