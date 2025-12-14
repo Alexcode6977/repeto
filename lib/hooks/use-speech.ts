@@ -15,6 +15,7 @@ export function useSpeech() {
 
     const recognitionRef = useRef<any>(null);
     const synthRef = useRef<SpeechSynthesis | null>(null);
+    const cancelledRef = useRef<boolean>(false);  // Track if speech was cancelled
 
     // Initialize Speech capabilities
     useEffect(() => {
@@ -117,8 +118,9 @@ export function useSpeech() {
                 return;
             }
 
-            // Cancel any ongoing speech
+            // Cancel any ongoing speech and reset cancelled flag
             synthRef.current.cancel();
+            cancelledRef.current = false;
             setState("speaking");
 
             // Split text into segments for more natural delivery
@@ -126,10 +128,20 @@ export function useSpeech() {
             const segments = segmentText(text);
 
             for (let i = 0; i < segments.length; i++) {
+                // Check if cancelled before each segment
+                if (cancelledRef.current) {
+                    break;
+                }
+
                 const segment = segments[i];
                 if (!segment.text.trim()) continue;
 
                 await speakSegment(segment.text, voice, segment.emotion);
+
+                // Check if cancelled after speaking
+                if (cancelledRef.current) {
+                    break;
+                }
 
                 // Natural pause between segments (sentences)
                 if (i < segments.length - 1) {
@@ -373,6 +385,7 @@ export function useSpeech() {
     }, []);
 
     const stop = useCallback(() => {
+        cancelledRef.current = true;  // Signal to stop the loop
         if (synthRef.current) synthRef.current.cancel();
         if (recognitionRef.current) recognitionRef.current.stop();
         setState("idle");

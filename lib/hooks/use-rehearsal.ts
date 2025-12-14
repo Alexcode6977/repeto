@@ -294,6 +294,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
     const next = () => {
+        // Stop any ongoing speech FIRST
+        stopSpeech();
+
         const nextIdx = stateRef.current.currentLineIndex + 1;
         if (nextIdx < script.lines.length) {
             setCurrentLineIndex(nextIdx);
@@ -308,59 +311,22 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
     const previous = () => {
+        // Stop any ongoing speech FIRST
+        stopSpeech();
+
         const prevIdx = Math.max(0, stateRef.current.currentLineIndex - 1);
         setCurrentLineIndex(prevIdx);
-        // If we were finished, coming back should reactivate us
-        if (status === "finished") {
-            setStatus("setup"); // Wait for useEffect to pick it up?
-            // Actually useEffect checks valid status.
-            // If we set index, we should probably ensure status is valid.
-            // Let's set it to 'listening_user' or 'playing_other' depending on whose turn it is?
-            // Simplest is to rely on the effect but ensure status != finished.
-            // But effect skips if status == setup.
-            // Let's just force a standard state like setup/idle and let effect take over?
-            // Actually, the effect: if (status !== "setup" && status !== "finished") process...
-            // So if we are currently finished, we must change status.
-            // Let's set it to "setup" then... wait, effect skips setup.
-            // We should set it to "idle" (not a valid status) or just call process?
-            // Let's explicitly re-process.
-            // But wait, changing index triggers effect.
-            // If we change status to "paused" it might work?
-            // Let's change status to "playing_other" (safe fallback) or just let processCurrentLine handle it?
-            // But processCurrentLine isn't called if status is finished.
-            // Hack: setStatus("setup") then setTimeout(() => setStatus("playing..."))? No.
 
-            // Correct logic:
-            // 1. Set Index.
-            // 2. Set Status to "playing_other" (temporarily) so effect runs?
-            // Or better: explicit call.
-            // But explicit call might conflict with effect.
-
-            // Simplest: 
-            // setStatus("playing_other"); // Just to break "finished" lock.
-            // The effect [currentLineIndex] will run because index changed. 
-            // AND we need status != finished.
-        } else if (status === "paused") {
-            // Stay paused? Or resume? user didn't ask.
-            // Let's assume we want to hear the line.
-            statusRef.current = "playing_other"; // logic hack
-            setStatus("playing_other"); // force active
-        }
+        // Explicitly call processCurrentLine after a micro-delay
+        setTimeout(() => {
+            processCurrentLine(prevIdx);
+        }, 100);
     };
 
-    // Re-trigger process when index changes, BUT only if we are "live"
-    // This is the tricky part of async React state.
-    // Let's simplify: exposed 'next' just updates index. A robust effect handles "what do do at this index".
-
-    useEffect(() => {
-        if (status !== "setup" && status !== "finished") {
-            processCurrentLine(currentLineIndex);
-        }
-    }, [currentLineIndex]);
-    // Warning: processCurrentLine is not redundant? 
-    // If we advance index, the effect runs. 
-    // If it's user turn, it calls listen(). 
-    // If it's other turn, it calls speak().
+    // NOTE: We removed the useEffect([currentLineIndex]) that was here.
+    // It caused double execution because next() and validateManually 
+    // already call processCurrentLine explicitly with setTimeout.
+    // The explicit calls are more reliable for handling race conditions.
 
     const retry = () => {
         if (status === "error" || status === "listening_user") {
@@ -370,14 +336,27 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     const validateManually = () => {
         if (status === "listening_user" || status === "error") {
-            // Stop any listening
+            // Stop any listening first
             stopSpeech();
-            // Mark as correct and move on
+            // Brief visual feedback
             setFeedback("correct");
+
+            // Wait for feedback to show, then advance
+            // next() has its own 100ms delay before processCurrentLine
             setTimeout(() => {
                 setFeedback(null);
-                next();
-            }, 500);
+                // Update index and explicitly process
+                const nextIdx = stateRef.current.currentLineIndex + 1;
+                if (nextIdx < script.lines.length) {
+                    setCurrentLineIndex(nextIdx);
+                    // Longer delay to ensure recognition can restart after being stopped
+                    setTimeout(() => {
+                        processCurrentLine(nextIdx);
+                    }, 200);
+                } else {
+                    setStatus("finished");
+                }
+            }, 300);
         }
     };
 
