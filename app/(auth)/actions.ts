@@ -37,5 +37,5 @@ export async function signup(formData: FormData) {
     }
 
     revalidatePath("/", "layout");
-    redirect("/login?message=Vérifiez votre email pour confirmer l'inscription");
+    redirect("/auth/check-email");
 }
