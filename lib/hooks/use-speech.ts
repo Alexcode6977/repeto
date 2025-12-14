@@ -104,8 +104,14 @@ export function useSpeech() {
             };
 
             utterance.onerror = (e) => {
+                // Ignore errors caused by canceling/skipping (expected behavior)
+                if (e.error === 'interrupted' || e.error === 'canceled') {
+                    // Do not reset state to idle here, as a new speech might have already started
+                    resolve();
+                    return;
+                }
                 console.error("Speech synthesis error", e);
-                setState("idle"); // reset on error
+                setState("idle"); // reset on valid error
                 resolve();
             };
 
