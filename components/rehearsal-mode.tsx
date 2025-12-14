@@ -11,7 +11,27 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Premium unlock code - generated complex code
+// Premium unlock code - generated complex code
 const PREMIUM_CODE = "SCEN3-PRMT-X7K9-2024";
+
+// Helper for Portals
+const Portal = ({ children }: { children: React.ReactNode }) => {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!mounted) return null;
+
+    // Use document.body directly to bypass any framework wrappers
+    return typeof document !== "undefined"
+        ? require("react-dom").createPortal(children, document.body)
+        : null;
+};
+
+
 
 
 interface RehearsalModeProps {
@@ -655,67 +675,79 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
             {/* Premium Unlock Modal */}
             {showUnlockModal && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
-                    onClick={() => setShowUnlockModal(false)}
-                >
+                <Portal>
                     <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.2)]"
+                        className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
+                        onClick={() => setShowUnlockModal(false)}
                     >
-                        <div className="flex justify-between items-center mb-4">
-                            <div className="flex items-center gap-2">
-                                <Sparkles className="h-5 w-5 text-emerald-400" />
-                                <h3 className="text-lg font-bold text-white">Débloquer Premium</h3>
-                            </div>
-                            <button
-                                onClick={() => setShowUnlockModal(false)}
-                                className="text-gray-500 hover:text-white p-2"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <p className="text-gray-400 text-sm mb-4">
-                            Entrez votre code pour débloquer les voix Premium OpenAI.
-                        </p>
-
-                        <input
-                            autoFocus
-                            type="text"
-                            placeholder="CODE-ICI"
-                            value={unlockCode}
-                            onChange={(e) => {
-                                setUnlockCode(e.target.value.toUpperCase());
-                                setUnlockError(false);
-                            }}
-                            onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-                            className={cn(
-                                "w-full bg-black/50 border rounded-xl p-4 text-white text-center font-mono text-lg tracking-widest placeholder:text-gray-600 focus:outline-none focus:ring-2 mb-4",
-                                unlockError
-                                    ? "border-red-500 focus:ring-red-500/50"
-                                    : "border-white/10 focus:ring-emerald-500/50"
-                            )}
-                        />
-
-                        {unlockError && (
-                            <p className="text-red-400 text-xs mb-4 text-center">
-                                Code invalide. Essayez: SCEN3-PRMT-X7K9-2024
-                            </p>
-                        )}
-
-                        <button
-                            onClick={handleUnlock}
-                            className="w-full bg-emerald-600 text-white font-bold py-3.5 rounded-xl hover:bg-emerald-500 transition-all shadow-lg active:scale-[0.98]"
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] animate-in zoom-in-95 duration-200"
                         >
-                            Débloquer
-                        </button>
+                            <div className="flex justify-between items-center mb-6">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                        <Sparkles className="h-5 w-5 text-emerald-400" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-white">Débloquer Premium</h3>
+                                </div>
+                                <button
+                                    onClick={() => setShowUnlockModal(false)}
+                                    className="text-gray-500 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
 
-                        <p className="text-gray-600 text-[10px] text-center mt-4">
-                            Pas de code ? Contactez le support.
-                        </p>
+                            <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                                Entrez votre code d'accès pour débloquer les voix AI neuronales d'OpenAI.
+                            </p>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Code d'accès</label>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        placeholder="SCEN3-..."
+                                        value={unlockCode}
+                                        onChange={(e) => {
+                                            setUnlockCode(e.target.value.toUpperCase());
+                                            setUnlockError(false);
+                                        }}
+                                        onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+                                        className={cn(
+                                            "w-full bg-black/50 border rounded-xl p-4 text-white text-center font-mono text-lg tracking-widest placeholder:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black transition-all",
+                                            unlockError
+                                                ? "border-red-500 focus:ring-red-500/50"
+                                                : "border-white/10 focus:ring-emerald-500/50"
+                                        )}
+                                    />
+                                </div>
+
+                                {unlockError && (
+                                    <div className="flex items-center gap-2 justify-center text-red-400 bg-red-500/10 p-2 rounded-lg">
+                                        <AlertTriangle className="h-3 w-3" />
+                                        <p className="text-xs font-medium">Code invalide</p>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleUnlock}
+                                    className="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98] mt-2"
+                                >
+                                    Débloquer
+                                </button>
+                            </div>
+
+                            <div className="mt-6 pt-6 border-t border-white/5">
+                                <p className="text-gray-600 text-[10px] text-center">
+                                    Besoin d'un code ? <a href="#" className="text-gray-400 underline hover:text-emerald-400">Contactez le support</a>
+                                </p>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </Portal>
             )}
         </>
     );
