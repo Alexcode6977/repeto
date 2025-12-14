@@ -2,7 +2,80 @@
 
 import { parseScript } from "@/lib/parser";
 import { ParsedScript } from "@/lib/types";
+import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+
 const pdf = require("pdf-parse/lib/pdf-parse.js");
+
+export async function saveScript(script: ParsedScript) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const { error } = await supabase
+        .from("scripts")
+        .insert({
+            user_id: user.id,
+            title: script.title || "Untitled Script",
+            content: script,
+        });
+
+    if (error) {
+        console.error("Error saving script:", error);
+        throw new Error("Failed to save script");
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/profile");
+}
+
+export async function getScripts() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from("scripts")
+        .select("id, title, content, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching scripts:", error);
+        return [];
+    }
+
+    // Map DB result to a structure usable by frontend
+    return data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        ...row.content, // Spread the stored ParsedScript content
+        created_at: row.created_at
+    }));
+}
+
+export async function deleteScript(id: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const { error } = await supabase
+        .from("scripts")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+    if (error) {
+        console.error("Error deleting script:", error);
+        throw new Error("Failed to delete script");
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/profile");
+}
 
 export async function parsePdfAction(formData: FormData): Promise<ParsedScript | { error: string }> {
     console.log("[Action] Parsing PDF with Structural Reconstruction (No Filtering)...");
