@@ -1,4 +1,4 @@
-import { ScriptLine, ParsedScript } from "./types";
+import { ScriptLine, ParsedScript, ScriptScene } from "./types";
 
 /**
  * Heuristic parser for theater scripts.
@@ -10,6 +10,7 @@ export function parseScript(rawText: string): ParsedScript {
     const lines = cleanText.split(/\r?\n/);
 
     const scriptLines: ScriptLine[] = [];
+    const scenes: ScriptScene[] = [];
     const characters = new Set<string>();
 
     let currentCharacter = "";
@@ -26,7 +27,7 @@ export function parseScript(rawText: string): ParsedScript {
     const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ\s\-\']{3,})[,.]?\s*$/;
 
     const IGNORED_NAMES = [
-        "SCÈNE", "ACTE", "RIDEAU", "FIN", "TABLEAU", "SCENE",
+        "RIDEAU", "FIN",
         "PERSONNAGES", "DISTRIBUTION", "VAUDEVILLE", "COMÉDIE", "DRAME",
         "ON PURGE BÉBÉ", // Specific title
         "FEU LA MERE DE MADAME", "FEU LA MÈRE DE MADAME", // New title
@@ -45,6 +46,24 @@ export function parseScript(rawText: string): ParsedScript {
         if (!line) return; // Skip empty lines after cleanup
         if (line.match(/^\d+$/)) return; // Ignore page numbers
 
+        // Check for Scene Header (SCENE I, ACTE II, TABLEAU 3, SCENE PREMIERE)
+        const sceneMatch = line.match(/^(?:SCÈNE|SCENE|ACTE|TABLEAU)\s+(?:[IVX0-9]+|PREMIERE|PREMIÈRE)/i);
+        if (sceneMatch) {
+            scriptLines.push({
+                id: String(idCounter++),
+                character: "SCENE",
+                text: line,
+                type: "scene_heading",
+            });
+            scenes.push({
+                index: scriptLines.length - 1,
+                title: line
+            });
+            currentCharacter = ""; // Reset context
+            currentBuffer = "";
+            return;
+        }
+
         let potentialName = "";
         let potentialDialogue = "";
         let isCharacterMatch = false;
@@ -53,7 +72,19 @@ export function parseScript(rawText: string): ParsedScript {
         const prefixMatch = line.match(characterPrefixRegex);
         if (prefixMatch) {
             potentialName = prefixMatch[1].trim();
-            potentialDialogue = prefixMatch[2];
+            const afterName = prefixMatch[2].trim();
+
+            // Heuristic: If text after name starts with Lowercase, it is likely a DIDASCALIE (Stage Direction).
+            // e.g. "YVONNE, couchée." -> "couchée." is direction.
+            // e.g. "LUCIEN, entrant." -> "entrant." is direction.
+            // e.g. "YVONNE, C'est moi." -> "C'est moi." is dialogue (Uppercase).
+            if (afterName && /^[a-zà-öø-þ]/.test(afterName)) {
+                // It's a stage direction. We ignore it for the dialogue buffer.
+                // Ideally we could store it as type='stage_direction' but for now we just don't add it to speech.
+                potentialDialogue = "";
+            } else {
+                potentialDialogue = afterName;
+            }
 
             // Heuristic: Characters usually have short names.
             if (potentialName.length < 30) {
@@ -241,7 +272,8 @@ export function parseScript(rawText: string): ParsedScript {
 
     // Filter final character list for the UI
     const filteredCharacters = Array.from(finalCharacters).filter(c => {
-        // Exclude combined characters (contain " et " or " ET ")
+        // Exclude internal types or combined characters
+        if (c === "SCENE") return false;
         if (c.includes(" et ") || c.includes(" ET ")) return false;
         return true;
     }).sort();
@@ -249,5 +281,6 @@ export function parseScript(rawText: string): ParsedScript {
     return {
         lines: scriptLines,
         characters: filteredCharacters,
+        scenes,
     };
 }

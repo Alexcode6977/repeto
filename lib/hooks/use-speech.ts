@@ -68,9 +68,33 @@ export function useSpeech() {
             utterance.lang = "fr-FR";
             if (voice) utterance.voice = voice;
 
-            // Slight randomization to make it feel more natural? Maybe later.
-            utterance.rate = 1.1; // Slightly faster for fluidity
-            utterance.pitch = 1.0;
+            // Dynamic Intonation Logic (Heuristics)
+            let pitch = 1.0;
+            let rate = 1.0;
+
+            const isQuestion = text.includes("?");
+            const isExclamation = text.includes("!");
+            const isEllipsis = text.includes("...");
+            const isAllCaps = text === text.toUpperCase() && text.length > 5;
+
+            if (isEllipsis) {
+                // Hesitation / Sadness / Thinking
+                rate = 0.85;
+                pitch = 0.9;
+            } else if (isExclamation || isAllCaps) {
+                // Excitement / Anger / Shouting
+                rate = 1.15;
+                pitch = 1.1;
+            } else if (isQuestion) {
+                // Question
+                pitch = 1.1;
+            }
+
+            // Slight random variance for organic feel
+            rate = rate + (Math.random() * 0.1 - 0.05);
+
+            utterance.rate = rate;
+            utterance.pitch = pitch;
 
             setState("speaking");
 

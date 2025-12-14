@@ -17,12 +17,13 @@ interface UseRehearsalProps {
     script: ParsedScript;
     userCharacter: string;
     similarityThreshold?: number;
+    initialLineIndex?: number;
 }
 
-export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85 }: UseRehearsalProps) {
+export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0 }: UseRehearsalProps) {
     const { speak, listen, stop: stopSpeech, state: speechState, voices } = useSpeech();
 
-    const [currentLineIndex, setCurrentLineIndex] = useState(0);
+    const [currentLineIndex, setCurrentLineIndex] = useState(initialLineIndex);
     const [status, setStatus] = useState<RehearsalStatus>("setup");
     const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
     const [lastTranscript, setLastTranscript] = useState("");
@@ -85,11 +86,23 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
                 // Normalization for partial matching (fallback)
                 const nScript = line.text.toLowerCase();
-                const nTrans = transcript.toLowerCase();
+                const nTrans = transcript.toLowerCase().trim();
+
+                // Voice Command: "Passe", "Passer", "Suivante"
+                const skipCommands = ["passe", "passer", "je passe", "suivante", "suite", "je ne sais pas", "joker"];
+                // Check if the user said ONLY a command (or very close to it)
+                const isSkipCommand = skipCommands.some(cmd => nTrans === cmd || nTrans.replace(/[.,!]/g, "") === cmd);
+
                 // Allow partial match if line is short (handle "Non" vs "Non non")
                 const isPartialMatch = nScript.length < 30 && (nScript.includes(nTrans) || nTrans.includes(nScript)) && nTrans.length >= 2;
 
-                if (similarity >= similarityThreshold || isPartialMatch) {
+                if (isSkipCommand) {
+                    console.log("Voice Command Detected: SKIP");
+                    setFeedback("correct"); // Visual feedback that command was understood/accepted
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    setFeedback(null);
+                    next();
+                } else if (similarity >= similarityThreshold || isPartialMatch) {
                     setFeedback("correct");
 
                     // User requested NO confirmation audio and immediate chaining
@@ -171,9 +184,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
 
     const start = () => {
-        setCurrentLineIndex(0);
+        setCurrentLineIndex(initialLineIndex);
         // Explicitly trigger the first line, because useEffect won't run if status is "setup"
-        processCurrentLine(0);
+        processCurrentLine(initialLineIndex);
     };
 
     const next = () => {

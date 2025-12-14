@@ -17,6 +17,7 @@ interface RehearsalModeProps {
 
 export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
+    const [startLineIndex, setStartLineIndex] = useState(0);
     const [hasStarted, setHasStarted] = useState(false);
 
     const {
@@ -32,7 +33,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         validateManually,
         togglePause,
         isPaused
-    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold });
+    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex });
 
     const handleStart = () => {
         setHasStarted(true);
@@ -90,6 +91,25 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                 <span>Expert</span>
                             </div>
                         </div>
+
+                        {/* Scene Selection */}
+                        {script.scenes && script.scenes.length > 0 && (
+                            <div className="space-y-4 pt-4 border-t border-white/5">
+                                <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Commencer à</label>
+                                <select
+                                    className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
+                                    onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
+                                    value={startLineIndex}
+                                >
+                                    <option value={0}>Début de la pièce</option>
+                                    {script.scenes.map((scene) => (
+                                        <option key={scene.index} value={scene.index}>
+                                            {scene.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         {/* Examples Section */}
                         <div className="space-y-4 pt-4 border-t border-white/5">
