@@ -309,22 +309,26 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                                 )}
                                             </button>
                                         </div>
-                                        <p className="text-[10px] text-center text-gray-500 italic">
-                                            {ttsProvider === "browser" && "Voix système gratuites."}
-                                            {ttsProvider === "openai" && isPremiumUnlocked && "Voix OpenAI - Sélectionnez ci-dessous."}
+                                        <div className="text-[10px] text-center text-gray-500 italic mt-2 flex flex-col items-center gap-2">
+                                            <span>
+                                                {ttsProvider === "browser" && "Voix système gratuites."}
+                                                {ttsProvider === "openai" && isPremiumUnlocked && "Voix OpenAI - Sélectionnez ci-dessous."}
+                                            </span>
+
                                             {!isPremiumUnlocked && ttsProvider !== "openai" && (
                                                 <button
                                                     type="button"
-                                                    className="text-emerald-400/60 hover:text-emerald-400 hover:underline cursor-pointer ml-1 relative z-20"
+                                                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-xs font-medium transition-all cursor-pointer relative z-20 flex items-center gap-1.5"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         setShowUnlockModal(true);
                                                     }}
                                                 >
-                                                    Débloquer les voix Premium →
+                                                    <Sparkles className="h-3 w-3" />
+                                                    Débloquer les voix Premium
                                                 </button>
                                             )}
-                                        </p>
+                                        </div>
                                     </div>
                                 )}
 
