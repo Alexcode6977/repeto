@@ -44,12 +44,18 @@ export default function Home() {
   // Load User & Scripts on Mount
   useEffect(() => {
     const init = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setUserName(user.email.split('@')[0]);
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email) {
+          setUserName(user.email.split('@')[0]);
+        }
+      } catch (e) {
+        console.error("Client Init Error:", e);
+        setError("Erreur de connexion. Veuillez rafraîchir.");
       }
 
+      // Always try to fetch scripts even if auth user fetch failed (middleware should have protected us anyway)
       refreshScripts();
     };
     init();
