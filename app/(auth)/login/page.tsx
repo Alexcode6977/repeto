@@ -28,19 +28,19 @@ export default async function LoginPage({
                     {/* Header */}
                     <div className="text-center relative z-10">
                         <Link href="/" className="inline-flex items-center gap-2 mb-8 group justify-center">
-                            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-                                <Sparkles className="h-6 w-6 text-primary-foreground" />
+                            <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+                                <Sparkles className="h-5 w-5 md:h-6 md:w-6 text-primary-foreground" />
                             </div>
                         </Link>
-                        <h1 className="text-4xl font-bold tracking-tight mb-3 text-white">Bon retour</h1>
-                        <p className="text-muted-foreground text-lg">
+                        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3 text-white">Bon retour</h1>
+                        <p className="text-muted-foreground text-base md:text-lg">
                             Entrez vos identifiants pour accéder à votre espace.
                         </p>
                     </div>
 
                     {/* Messages */}
                     {message && (
-                        <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-base font-medium animate-in zoom-in-95 text-center">
+                        <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm md:text-base font-medium animate-in zoom-in-95 text-center">
                             <Sparkles className="w-5 h-5 inline-block mr-2 mb-1" />
                             {message}
                         </div>

@@ -14,19 +14,19 @@ export default function LandingPage() {
             </div>
 
             {/* Navigation */}
-            <header className="relative z-50 w-full max-w-7xl mx-auto p-6 md:p-8 flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
-                <div className="flex items-center gap-3 group cursor-pointer">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
-                        <Sparkles className="w-5 h-5 text-white" />
+            <header className="relative z-50 w-full max-w-7xl mx-auto p-4 md:p-8 flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
+                <div className="flex items-center gap-2 md:gap-3 group cursor-pointer">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
+                        <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-white" />
                     </div>
-                    <span className="text-xl tracking-tight font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Repeto</span>
+                    <span className="text-lg md:text-xl tracking-tight font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Repeto</span>
                 </div>
-                <div className="flex items-center gap-6">
-                    <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-white transition-colors">
+                <div className="flex items-center gap-3 md:gap-6">
+                    <Link href="/login" className="hidden md:block text-sm font-medium text-muted-foreground hover:text-white transition-colors">
                         Se connecter
                     </Link>
                     <Link href="/signup">
-                        <Button className="rounded-full bg-white text-black hover:bg-white/90 px-6 py-5 font-semibold text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all transform hover:-translate-y-0.5">
+                        <Button className="rounded-full bg-white text-black hover:bg-white/90 px-4 py-4 md:px-6 md:py-5 font-semibold text-xs md:text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all transform hover:-translate-y-0.5">
                             Essayer gratuitement
                         </Button>
                     </Link>
@@ -34,29 +34,29 @@ export default function LandingPage() {
             </header>
 
             {/* Hero Section */}
-            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-0 py-24 text-center w-full max-w-full">
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-0 py-16 md:py-24 text-center w-full max-w-full">
 
-                <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in duration-1000 slide-in-from-bottom-8">
+                <div className="max-w-4xl mx-auto space-y-6 md:space-y-8 animate-in fade-in zoom-in duration-1000 slide-in-from-bottom-8">
 
 
 
-                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.1] md:leading-[1.1]">
+                    <h1 className="text-4xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.2] md:leading-[1.1]">
                         Apprenez vos textes <br />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-300 to-white text-glow">
                             sans partenaire.
                         </span>
                     </h1>
 
-                    <p className="max-w-xl mx-auto text-lg md:text-xl text-muted-foreground leading-relaxed font-light">
+                    <p className="max-w-xl mx-auto text-base md:text-xl text-muted-foreground leading-relaxed font-light px-4 md:px-0">
                         L'outil de répétition ultime pour les acteurs exigeants. <br className="hidden md:block" />
                         <strong className="text-white font-medium">Importez votre script</strong>. L'IA vous donne la réplique instantanément.
                     </p>
 
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-                        <Link href="/signup">
-                            <Button size="lg" className="h-14 px-10 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-base btn-glow transition-all transform hover:scale-105">
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 pt-4">
+                        <Link href="/signup" className="w-full sm:w-auto">
+                            <Button size="lg" className="w-full sm:w-auto h-12 md:h-14 px-8 md:px-10 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-sm md:text-base btn-glow transition-all transform hover:scale-105">
                                 Commencer maintenant
-                                <ArrowRight className="ml-2 w-5 h-5" />
+                                <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5" />
                             </Button>
                         </Link>
                         <Link href="/signup">
