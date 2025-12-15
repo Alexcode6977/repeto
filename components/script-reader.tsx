@@ -22,7 +22,7 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1a1a] text-white font-sans overflow-hidden">
             {/* Header - Title only */}
-            <div className="flex-none p-4 border-b border-white/10 bg-black/80 flex items-center gap-3">
+            <div className="flex-none px-4 pt-8 pb-4 border-b border-white/10 bg-black/80 flex items-center gap-3">
                 <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-white/10 rounded-full text-white">
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
@@ -33,26 +33,26 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
             </div>
 
             {/* Toggle Bar - SEPARATE ROW */}
-            <div className="flex-none px-4 py-3 bg-black/60 border-b border-white/5 flex justify-center">
-                <div className="flex items-center gap-0 bg-neutral-800 rounded-full p-1 border border-white/20">
+            <div className="flex-none px-4 py-4 bg-black/60 border-b border-white/5 flex justify-center">
+                <div className="flex items-center gap-0 bg-neutral-800 rounded-full p-1.5 border border-white/20 shadow-lg">
                     <button
                         onClick={() => setHighlightStyle("box")}
                         className={cn(
-                            "flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all",
-                            highlightStyle === "box" ? "bg-white text-black" : "text-gray-400 hover:text-white"
+                            "flex items-center gap-2 px-6 py-3 rounded-full text-base font-bold transition-all",
+                            highlightStyle === "box" ? "bg-white text-black shadow-md" : "text-gray-400 hover:text-white"
                         )}
                     >
-                        <Layout className="w-4 h-4" />
+                        <Layout className="w-5 h-5" />
                         Encadré
                     </button>
                     <button
                         onClick={() => setHighlightStyle("text")}
                         className={cn(
-                            "flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all",
-                            highlightStyle === "text" ? "bg-yellow-400 text-black" : "text-gray-400 hover:text-white"
+                            "flex items-center gap-2 px-6 py-3 rounded-full text-base font-bold transition-all",
+                            highlightStyle === "text" ? "bg-yellow-400 text-black shadow-md" : "text-gray-400 hover:text-white"
                         )}
                     >
-                        <Highlighter className="w-4 h-4" />
+                        <Highlighter className="w-5 h-5" />
                         Surligné
                     </button>
                 </div>
