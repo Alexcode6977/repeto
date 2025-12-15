@@ -41,7 +41,6 @@ export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
             <div className="space-y-2">
                 <div className="flex justify-between items-center text-white/80">
                     <h3 className="text-lg font-semibold">Aperçu du script</h3>
-                    <h3 className="text-lg font-semibold">Aperçu du script</h3>
                     {selectedChar && (
                         <div className="flex gap-2 animate-in fade-in zoom-in">
                             <Button
