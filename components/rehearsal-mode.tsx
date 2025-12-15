@@ -4,17 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { synthesizeSpeech } from "@/app/actions/tts";
+import { getVoiceStatus, unlockPremium } from "@/app/actions/voice";
 import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
-import { Mic, MicOff, Play, SkipForward, SkipBack, AlertTriangle, CheckCircle, Pause, Power, Loader2, Lock, Sparkles, X } from "lucide-react";
+import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
-
-// Premium unlock code - generated complex code
-// Premium unlock code - generated complex code
-const PREMIUM_CODE = "SCEN3-PRMT-X7K9-2024";
 
 // Helper for Portals
 const Portal = ({ children }: { children: React.ReactNode }) => {
@@ -33,9 +29,6 @@ const Portal = ({ children }: { children: React.ReactNode }) => {
         : null;
 };
 
-
-
-
 interface RehearsalModeProps {
     script: ParsedScript;
     userCharacter: string;
@@ -49,30 +42,50 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     const [hasStarted, setHasStarted] = useState(false);
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai">("browser");
 
-    // Premium unlock state
+    // Premium / Credits State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
+    const [credits, setCredits] = useState(0);
+    const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+
     const [showUnlockModal, setShowUnlockModal] = useState(false);
     const [unlockCode, setUnlockCode] = useState("");
     const [unlockError, setUnlockError] = useState(false);
+    const [isUnlocking, setIsUnlocking] = useState(false);
 
-    // Check localStorage for premium unlock on mount
+    // Fetch Premium Status on Mount
     useEffect(() => {
-        const unlocked = localStorage.getItem("repeto_premium_unlocked");
-        if (unlocked === "true") {
-            setIsPremiumUnlocked(true);
-        }
+        const fetchStatus = async () => {
+            try {
+                const status = await getVoiceStatus();
+                setIsPremiumUnlocked(status.isPremium);
+                setCredits(status.credits);
+            } catch (error) {
+                console.error("Failed to fetch voice status", error);
+            } finally {
+                setIsLoadingStatus(false);
+            }
+        };
+        fetchStatus();
     }, []);
 
-    // Function to unlock premium
-    const handleUnlock = () => {
-        if (unlockCode.toUpperCase().replace(/\s/g, "") === PREMIUM_CODE.replace(/-/g, "")) {
-            setIsPremiumUnlocked(true);
-            localStorage.setItem("repeto_premium_unlocked", "true");
-            setShowUnlockModal(false);
-            setUnlockError(false);
-            setTtsProvider("openai");  // Auto-switch to premium
-        } else {
+    // Function to unlock premium via Server Action
+    const handleUnlock = async () => {
+        setIsUnlocking(true);
+        setUnlockError(false);
+        try {
+            const result = await unlockPremium(unlockCode);
+            if (result.success) {
+                setIsPremiumUnlocked(true);
+                setShowUnlockModal(false);
+                setTtsProvider("openai"); // Auto-switch to premium
+            } else {
+                setUnlockError(true);
+            }
+        } catch (e) {
+            console.error(e);
             setUnlockError(true);
+        } finally {
+            setIsUnlocking(false);
         }
     };
 
@@ -89,13 +102,25 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         setTestingVoice(role);
         try {
             const result = await synthesizeSpeech("Bonjour, je suis votre partenaire de répétition !", voice);
+
+            if ("error" in result) {
+                if (result.error === "QUOTA_EXCEEDED") {
+                    setShowUnlockModal(true);
+                } else {
+                    console.error("TTS Error:", result.error);
+                }
+                setTestingVoice(null);
+                return;
+            }
+
             if ("audio" in result) {
                 const audio = new Audio(result.audio);
                 audio.onended = () => setTestingVoice(null);
                 await audio.play();
-            } else {
-                console.error("TTS Error:", result.error);
-                setTestingVoice(null);
+                // Optimistically update credits
+                if (!isPremiumUnlocked) {
+                    setCredits(prev => Math.max(0, prev - 1));
+                }
             }
         } catch (e) {
             console.error("Test failed:", e);
@@ -220,372 +245,111 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
     if (!hasStarted) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[100dvh] p-4 md:p-8 animate-in zoom-in-50 duration-500">
-                <div className="w-full max-w-6xl space-y-6">
+            <div className="flex flex-col items-center justify-center min-h-[100dvh] p-4 md:p-8 animate-in zoom-in-95 duration-500 overflow-y-auto w-full">
+                <div className="w-full max-w-md md:max-w-4xl space-y-8 flex flex-col items-center">
 
-                    <div className="text-center space-y-2">
-                        <img src="/repeto.png" alt="Repeto" className="w-16 h-16 mx-auto object-contain mb-4 drop-shadow-[0_0_15px_rgba(var(--primary),0.3)]" />
-                        <h2 className="text-3xl font-bold text-white tracking-tight">
-                            Réglages
-                        </h2>
-                        <p className="text-gray-400">Pour <span className="text-white font-medium">{userCharacter}</span></p>
-                    </div>
-
-                    {/* Settings Card - Full Width */}
-                    <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 shadow-2xl">
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-
-                            {/* LEFT COLUMN: Script Preview */}
-                            <div className="space-y-4">
-                                <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Aperçu de la Pièce</label>
-                                <div className="bg-black/30 rounded-2xl border border-white/5 p-3 md:p-4 h-[300px] md:h-[450px] overflow-y-auto custom-scrollbar space-y-3 md:space-y-4">
-                                    {script.lines.slice(startLineIndex, startLineIndex + 20).map((line, idx) => {
-                                        const isUser = line.character.includes(userCharacter);
-                                        return (
-                                            <div key={line.id} className={cn(
-                                                "p-3 rounded-xl border transition-all",
-                                                isUser
-                                                    ? "bg-primary/10 border-primary/30"
-                                                    : "bg-white/5 border-white/5"
-                                            )}>
-                                                <p className={cn(
-                                                    "text-[10px] font-bold uppercase tracking-widest mb-1",
-                                                    isUser ? "text-primary" : "text-gray-500"
-                                                )}>
-                                                    {line.character}
-                                                </p>
-                                                <p className={cn(
-                                                    "text-sm",
-                                                    isUser ? "text-white" : "text-gray-400 italic"
-                                                )}>
-                                                    {getVisibleText(line.text, line.character === userCharacter).substring(0, 100)}
-                                                    {getVisibleText(line.text, line.character === userCharacter).length > 100 ? "..." : ""}
-                                                </p>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* RIGHT COLUMN: All Settings */}
-                            <div className="space-y-6">
-
-                                {/* Scene Selection - First for Preview Sync */}
-                                {script.scenes && script.scenes.length > 0 && (
-                                    <div className="space-y-3">
-                                        <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Commencer à</label>
-                                        <select
-                                            className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
-                                            onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
-                                            value={startLineIndex}
-                                        >
-                                            <option value={0}>Début de la pièce</option>
-                                            {script.scenes.map((scene) => (
-                                                <option key={scene.index} value={scene.index}>
-                                                    {scene.title}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {/* Visibility Mode Selection (NEW) */}
-                                <div className="space-y-3 pt-4 border-t border-white/5">
-                                    <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Affichage de vos répliques</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {[
-                                            { id: "visible", label: "Visible" },
-                                            { id: "hint", label: "Indices" },
-                                            { id: "hidden", label: "Caché" }
-                                        ].map(v => (
-                                            <button
-                                                key={v.id}
-                                                onClick={() => setLineVisibility(v.id as typeof lineVisibility)}
-                                                className={cn(
-                                                    "p-2.5 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all",
-                                                    lineVisibility === v.id
-                                                        ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]"
-                                                        : "bg-black/20 text-gray-400 border-white/10 hover:bg-white/10"
-                                                )}
-                                            >
-                                                {v.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <p className="text-[10px] text-center text-gray-500 italic">
-                                        {lineVisibility === "visible" && "Texte complet."}
-                                        {lineVisibility === "hint" && "2 premiers mots uniquement."}
-                                        {lineVisibility === "hidden" && "Texte masqué pour mémorisation."}
-                                    </p>
-                                </div>
-
-                                {/* Slider Section */}
-                                <div className="space-y-3 pt-4 border-t border-white/5">
-                                    <div className="flex justify-between items-end">
-                                        <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Niveau d'exigence</label>
-                                        <span className="text-xl font-bold text-primary">{Math.round(threshold * 100)}%</span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="0.70"
-                                        max="1.0"
-                                        step="0.05"
-                                        value={threshold}
-                                        onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary focus:outline-none"
-                                    />
-                                    <div className="flex justify-between text-[10px] font-medium text-gray-500 uppercase tracking-widest px-1">
-                                        <span>Débutant</span>
-                                        <span>Intermédiaire</span>
-                                        <span>Expert</span>
-                                    </div>
-                                </div>
-
-                                {/* Tolerance Examples - Right after slider */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                                        <div className="text-[10px]">
-                                            <span className="text-gray-500">Texte:</span> <span className="text-gray-200">"Je ne sais pas"</span>
-                                            <span className="text-gray-500 ml-2">→</span> <span className="text-gray-300 italic">"Ch'ais pas"</span>
-                                        </div>
-                                        <div className={cn(
-                                            "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
-                                            getExampleStatus(0.75) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                                        )}>
-                                            {getExampleStatus(0.75) ? "OK" : "KO"}
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                                        <div className="text-[10px]">
-                                            <span className="text-gray-500">Texte:</span> <span className="text-gray-200">"Il faut qu'on y aille"</span>
-                                            <span className="text-gray-500 ml-2">→</span> <span className="text-gray-300 italic">"Faut qu'on y aille"</span>
-                                        </div>
-                                        <div className={cn(
-                                            "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
-                                            getExampleStatus(0.85) ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
-                                        )}>
-                                            {getExampleStatus(0.85) ? "OK" : "KO"}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Rehearsal Mode Selection */}
-                                <div className="space-y-3 pt-4 border-t border-white/5">
-                                    <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Mode de répétition</label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {[
-                                            { id: "full", label: "Intégrale" },
-                                            { id: "cue", label: "Réplique" },
-                                            { id: "check", label: "Rapide" }
-                                        ].map(m => (
-                                            <button
-                                                key={m.id}
-                                                onClick={() => setRehearsalMode(m.id as typeof rehearsalMode)}
-                                                className={cn(
-                                                    "p-2.5 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all",
-                                                    rehearsalMode === m.id
-                                                        ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]"
-                                                        : "bg-black/20 text-gray-400 border-white/10 hover:bg-white/10"
-                                                )}
-                                            >
-                                                {m.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <p className="text-[10px] text-center text-gray-500 italic">
-                                        {rehearsalMode === "full" && "Lecture de toutes les répliques."}
-                                        {rehearsalMode === "cue" && "Lecture uniquement de la réplique avant la vôtre."}
-                                        {rehearsalMode === "check" && "Aucune lecture, enchaînez vos répliques."}
-                                    </p>
-                                </div>
-
-                                {/* TTS Provider Selection */}
-                                {rehearsalMode !== "check" && (
-                                    <div className="space-y-3 pt-4 border-t border-white/5">
-                                        <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Voix</label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            <button
-                                                onClick={() => setTtsProvider("browser")}
-                                                className={cn(
-                                                    "p-2.5 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all",
-                                                    ttsProvider === "browser"
-                                                        ? "bg-gray-700 text-white border-gray-600"
-                                                        : "bg-black/20 text-gray-400 border-white/10 hover:bg-white/10"
-                                                )}
-                                            >
-                                                🔊 Standard
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    if (isPremiumUnlocked) {
-                                                        setTtsProvider("openai");
-                                                    } else {
-                                                        setShowUnlockModal(true);
-                                                    }
-                                                }}
-                                                className={cn(
-                                                    "p-2.5 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all flex items-center justify-center gap-1.5",
-                                                    ttsProvider === "openai" && isPremiumUnlocked
-                                                        ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                                                        : !isPremiumUnlocked
-                                                            ? "bg-black/30 text-gray-500 border-white/5 hover:bg-white/5 cursor-pointer"
-                                                            : "bg-black/20 text-gray-400 border-white/10 hover:bg-white/10"
-                                                )}
-                                            >
-                                                {isPremiumUnlocked ? (
-                                                    <>
-                                                        <Sparkles className="h-3 w-3" />
-                                                        Premium (AI)
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Lock className="h-3 w-3" />
-                                                        Premium
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                        <div className="text-[10px] text-center text-gray-500 italic mt-2 flex flex-col items-center gap-2">
-                                            <span>
-                                                {ttsProvider === "browser" && "Voix système gratuites."}
-                                                {ttsProvider === "openai" && isPremiumUnlocked && "Voix OpenAI - Sélectionnez ci-dessous."}
-                                            </span>
-
-                                            {!isPremiumUnlocked && ttsProvider !== "openai" && (
-                                                <button
-                                                    type="button"
-                                                    className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg px-3 py-1.5 text-xs font-medium transition-all cursor-pointer relative z-20 flex items-center gap-1.5"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setShowUnlockModal(true);
-                                                    }}
-                                                >
-                                                    <Sparkles className="h-3 w-3" />
-                                                    Débloquer les voix Premium
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Voice Distribution Section */}
-                                <div className="space-y-3 pt-4 border-t border-white/5">
-                                    <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">
-                                        Distribution des Voix {ttsProvider === "openai" && <span className="text-emerald-400">(AI)</span>}
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {["ASSISTANT", ...script.characters.filter(c => c !== userCharacter)].map((role) => {
-                                            const assignedBrowserVoice = voiceAssignments[role];
-                                            const assignedOpenaiVoice = openaiVoiceAssignments[role] || "nova";
-                                            const isAssistant = role === "ASSISTANT";
-                                            const label = isAssistant ? "Assistant" : role;
-
-                                            const openaiVoices = [
-                                                { id: "nova", label: "Nova ♀" },
-                                                { id: "shimmer", label: "Shimmer ♀" },
-                                                { id: "alloy", label: "Alloy" },
-                                                { id: "echo", label: "Echo ♂" },
-                                                { id: "onyx", label: "Onyx ♂" },
-                                                { id: "fable", label: "Fable" },
-                                            ];
-
-                                            return (
-                                                <div key={role} className="flex flex-col gap-1 bg-black/20 rounded-lg p-2">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[10px] font-bold text-gray-400 uppercase truncate">{label}</span>
-                                                        {/* Browser voice test button */}
-                                                        {ttsProvider === "browser" && assignedBrowserVoice && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    const utt = new SpeechSynthesisUtterance("Bonjour !");
-                                                                    utt.voice = assignedBrowserVoice;
-                                                                    window.speechSynthesis.speak(utt);
-                                                                }}
-                                                                className="text-primary hover:text-white transition-colors"
-                                                                title="Tester"
-                                                            >
-                                                                <Play className="h-3 w-3" />
-                                                            </button>
-                                                        )}
-                                                        {/* OpenAI voice test button */}
-                                                        {ttsProvider === "openai" && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    testOpenAIVoice(role, assignedOpenaiVoice);
-                                                                }}
-                                                                disabled={testingVoice !== null}
-                                                                className={cn(
-                                                                    "text-emerald-400 hover:text-white transition-colors",
-                                                                    testingVoice === role && "animate-pulse"
-                                                                )}
-                                                                title="Tester la voix AI"
-                                                            >
-                                                                {testingVoice === role ? (
-                                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                                ) : (
-                                                                    <Play className="h-3 w-3" />
-                                                                )}
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Browser voices */}
-                                                    {ttsProvider === "browser" && (
-                                                        <select
-                                                            className="w-full bg-white/5 border border-white/10 rounded-lg p-1.5 text-white text-[10px] focus:outline-none focus:ring-1 focus:ring-primary/50"
-                                                            value={assignedBrowserVoice?.voiceURI || ""}
-                                                            onChange={(e) => setVoiceForRole(role, e.target.value)}
-                                                        >
-                                                            {voices
-                                                                .filter(v => v.lang.startsWith("fr"))
-                                                                .filter(v => !v.name.toLowerCase().includes("compact") && !v.name.toLowerCase().includes("espeak"))
-                                                                .map(v => (
-                                                                    <option key={v.voiceURI} value={v.voiceURI}>
-                                                                        {v.name.replace("Google", "").replace("Microsoft", "").trim()}
-                                                                    </option>
-                                                                ))}
-                                                        </select>
-                                                    )}
-
-                                                    {/* OpenAI voices */}
-                                                    {ttsProvider === "openai" && (
-                                                        <select
-                                                            className="w-full bg-emerald-600/20 border border-emerald-500/30 rounded-lg p-1.5 text-white text-[10px] focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
-                                                            value={assignedOpenaiVoice}
-                                                            onChange={(e) => setOpenaiVoiceAssignments(prev => ({
-                                                                ...prev,
-                                                                [role]: e.target.value as OpenAIVoice
-                                                            }))}
-                                                        >
-                                                            {openaiVoices.map(v => (
-                                                                <option key={v.id} value={v.id}>
-                                                                    {v.label}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                            </div>
+                    {/* Header - Minimalist */}
+                    <div className="text-center space-y-4 pt-10 md:pt-0">
+                        <div className="relative inline-block">
+                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse-glow" />
+                            <img src="/repeto.png" alt="Repeto" className="relative w-24 h-24 md:w-28 md:h-28 mx-auto object-contain drop-shadow-2xl" />
+                        </div>
+                        <div>
+                            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
+                                En scène
+                            </h2>
+                            <p className="text-gray-400 text-lg">Vous jouez <span className="text-white font-bold">{userCharacter}</span></p>
                         </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-white/5">
-                        <Button size="lg" onClick={handleStart} className="flex-1 text-lg font-bold py-6 rounded-2xl shadow-[0_0_30px_rgba(var(--primary),0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95">
-                            <Play className="mr-3 h-6 w-6 fill-current" />
+                    {/* Settings Container - Clean Stack */}
+                    <div className="w-full space-y-6 md:space-y-8 px-2 md:px-0">
+                        {/* 1. Start Point */}
+                        {script.scenes && script.scenes.length > 0 && (
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Départ</label>
+                                <select
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-lg focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none"
+                                    onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
+                                    value={startLineIndex}
+                                >
+                                    <option value={0}>Début de la pièce</option>
+                                    {script.scenes.map((scene) => (
+                                        <option key={scene.index} value={scene.index}>
+                                            {scene.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* 2. Text Visibility - Big Toggles */}
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Vos Répliques</label>
+                            <div className="grid grid-cols-3 gap-3">
+                                {[
+                                    { id: "visible", label: "Visibles" },
+                                    { id: "hint", label: "Indices" },
+                                    { id: "hidden", label: "Cachées" }
+                                ].map(v => (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => setLineVisibility(v.id as typeof lineVisibility)}
+                                        className={cn(
+                                            "py-4 rounded-2xl text-sm font-bold transition-all touch-manipulation",
+                                            lineVisibility === v.id
+                                                ? "bg-white text-black shadow-lg scale-105"
+                                                : "bg-white/5 text-gray-400 border border-white/5 active:scale-95"
+                                        )}
+                                    >
+                                        {v.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 3. Rehearsal Mode */}
+                        <div className="space-y-3">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Mode de lecture</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                {[
+                                    { id: "full", label: "Intégrale", sub: "Tout le cast" },
+                                    { id: "cue", label: "Réplique", sub: "Juste avant vous" },
+                                ].map(m => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setRehearsalMode(m.id as typeof rehearsalMode)}
+                                        className={cn(
+                                            "p-4 rounded-2xl text-left transition-all touch-manipulation border",
+                                            rehearsalMode === m.id
+                                                ? "bg-primary/20 border-primary/50"
+                                                : "bg-white/5 border-white/5 active:scale-95"
+                                        )}
+                                    >
+                                        <span className={cn("block text-sm font-bold mb-1", rehearsalMode === m.id ? "text-white" : "text-gray-300")}>{m.label}</span>
+                                        <span className="block text-[10px] text-gray-500 uppercase tracking-wider">{m.sub}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 4. Start Button - Massive */}
+                        <Button
+                            size="lg"
+                            onClick={handleStart}
+                            className="w-full text-xl font-bold py-8 rounded-[2rem] shadow-[0_0_40px_rgba(124,58,237,0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95 mt-4 animate-in-up"
+                            style={{ animationDelay: "200ms" }}
+                        >
+                            <Play className="mr-3 h-8 w-8 fill-current" />
                             COMMENCER
                         </Button>
 
-                        <Button variant="ghost" onClick={onExit} className="text-sm text-gray-500 hover:text-white hover:bg-transparent">
-                            Retour au menu
-                        </Button>
+                        <div className="text-center pb-8">
+                            <button onClick={onExit} className="text-sm font-medium text-gray-500 hover:text-white transition-colors underline decoration-transparent hover:decoration-white/30 underline-offset-4">
+                                Retour au menu
+                            </button>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -594,279 +358,227 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
     return (
         <>
-            <div className="w-full h-[100dvh] flex flex-col overflow-hidden max-w-3xl mx-auto md:h-[80vh] md:rounded-2xl md:border md:border-white/5 md:bg-black/20 md:backdrop-blur-sm">
-                {/* Header / Status Bar */}
-                <div className="flex-none flex justify-between items-center p-4 border-b border-white/5 bg-black/40 backdrop-blur-md z-10">
-                    <div className="flex items-center gap-2">
-                        <img src="/repeto.png" alt="Repeto" className="w-8 h-8 object-contain opacity-80" />
-                        <span className="text-xs font-mono text-gray-400 uppercase tracking-widest hidden md:inline">
-                            Repeto
-                        </span>
-                        <span className="text-xs font-mono text-gray-600 uppercase tracking-widest ml-2">
-                            Ligne {currentLineIndex + 1} / {script.lines.length}
-                        </span>
-                    </div>
+            {/* Outer Responsive Wrapper */}
+            <div className="fixed inset-0 bg-black/95 md:bg-black/80 md:backdrop-blur-xl flex items-center justify-center z-50">
+                {/* Mobile: Full Screen | Desktop: Centered Card */}
+                <div className="w-full h-[100dvh] md:h-[85vh] md:max-w-3xl md:rounded-3xl md:border md:border-white/10 md:shadow-2xl md:bg-black/40 md:backdrop-blur-sm flex flex-col overflow-hidden bg-black text-white relative transition-all duration-300">
 
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={togglePause}
-                            className={cn("h-8 w-8 hover:bg-white/10", isPaused ? "text-yellow-400" : "text-gray-400")}
-                        >
-                            {isPaused ? <Play className="h-4 w-4 fill-current" /> : <Pause className="h-4 w-4 fill-current" />}
-                        </Button>
+                    {/* Background Ambient Glow */}
+                    <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
 
-                        <Button variant="ghost" size="sm" onClick={handleExit} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30">
-                            <Power className="h-3 w-3 mr-1" />
-                            <span className="hidden md:inline">QUITTER</span>
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Main Script View */}
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 scroll-smooth pb-32">
-                    {/* Show previous context (last 2 lines) */}
-                    {script.lines.slice(Math.max(0, currentLineIndex - 2), currentLineIndex).map((line) => (
-                        <div key={line.id} className="opacity-40 blur-[0.5px] scale-95 origin-left conversation-line">
-                            <p className="text-[10px] md:text-sm font-bold text-gray-500 mb-1 uppercase tracking-wider">{line.character}</p>
-                            <p className="text-sm md:text-base text-gray-300">{getVisibleText(line.text, line.character === userCharacter)}</p>
+                    {/* Header / Status Bar - Minimalist Transparent */}
+                    <div className="flex-none flex justify-between items-center p-6 z-10">
+                        <div className="flex items-center gap-3">
+                            <div className={cn("px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border", isPaused ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" : "bg-white/5 text-gray-400 border-white/10")}>
+                                {isPaused ? "Pause" : `Ligne ${currentLineIndex + 1}`}
+                            </div>
                         </div>
-                    ))}
 
-                    {/* Current Active Line */}
-                    <AnimatePresence mode="wait">
-                        <motion.div
-                            key={currentLine?.id}
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                            className={cn(
-                                "relative p-4 md:p-6 rounded-xl md:rounded-2xl border transition-colors duration-500",
-                                isUserTurn
-                                    ? "bg-primary/10 border-primary/50 shadow-[0_0_30px_rgba(var(--primary),0.15)]"
-                                    : "bg-white/5 border-white/10"
-                            )}
-                        >
-                            <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-4">
+                            <button onClick={togglePause} className="text-gray-400 hover:text-white p-2">
+                                {isPaused ? <Play className="w-6 h-6 fill-current" /> : <Pause className="w-6 h-6" />}
+                            </button>
+                            <button onClick={handleExit} className="text-gray-400 hover:text-red-400 p-2">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Main Script View - Central Focus */}
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-8 relative">
+
+                        {/* Previous Line Context (Faded) */}
+                        <div className="space-y-4 w-full opacity-30 blur-[1px] transition-all duration-500 min-h-[60px] flex flex-col justify-end">
+                            {script.lines.slice(Math.max(0, currentLineIndex - 1), currentLineIndex).map((line) => (
+                                <div key={line.id} className="text-center">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">{line.character}</p>
+                                    <p className="text-lg leading-tight font-serif text-gray-300">{getVisibleText(line.text, line.character === userCharacter)}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* ACTIVE LINE - HERO */}
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={currentLine?.id}
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 1.1, filter: "blur(10px)" }}
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                className="w-full text-center relative z-20"
+                            >
                                 <span className={cn(
-                                    "text-[10px] font-bold tracking-widest uppercase px-3 py-1 rounded-full",
-                                    isUserTurn ? "bg-primary text-white" : "bg-gray-700 text-gray-300"
+                                    "inline-block mb-4 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-[0.2em] shadow-lg",
+                                    isUserTurn
+                                        ? "bg-white text-black"
+                                        : "bg-gray-800 text-gray-400 border border-gray-700"
                                 )}>
                                     {currentLine?.character}
                                 </span>
-                                {status === "listening_user" && (
-                                    <div className="flex items-center gap-2 text-primary animate-pulse">
-                                        <div className="h-2 w-2 rounded-full bg-current" />
-                                        <span className="text-[10px] font-bold uppercase">Je vous écoute</span>
-                                    </div>
-                                )}
+
+                                <p className={cn(
+                                    "text-3xl md:text-5xl font-bold leading-tight md:leading-snug transition-all duration-300",
+                                    isUserTurn ? "text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "text-gray-400 font-serif italic"
+                                )}>
+                                    {status === "listening_user" && (
+                                        <span className="absolute -left-4 md:-left-8 top-2 w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                                    )}
+                                    {getVisibleText(currentLine?.text, isUserTurn)}
+                                </p>
+
+                                {/* Error State Message */}
                                 {status === "error" && (
-                                    <div className="flex items-center gap-2 text-red-400">
-                                        <AlertTriangle className="h-4 w-4" />
-                                        <span className="text-[10px] font-bold uppercase">Problème</span>
-                                    </div>
+                                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-400 text-sm font-medium mt-4 uppercase tracking-wider flex items-center justify-center gap-2">
+                                        <AlertTriangle className="w-4 h-4" /> Je ne vous entends pas
+                                    </motion.p>
                                 )}
-                                {status === "paused" && (
-                                    <div className="flex items-center gap-2 text-yellow-400">
-                                        <Pause className="h-4 w-4 fill-current" />
-                                        <span className="text-[10px] font-bold uppercase">En Pause</span>
-                                    </div>
-                                )}
-                                {status === "playing_other" && (
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <div className="h-2 w-2 rounded-full bg-current animate-bounce" />
-                                        <span className="text-[10px] uppercase">Lecture...</span>
-                                    </div>
-                                )}
-                            </div>
+                            </motion.div>
+                        </AnimatePresence>
 
-                            {/* MASKED TEXT LOGIC */}
-                            <p className={cn(
-                                "text-xl md:text-3xl font-medium leading-relaxed",
-                                isUserTurn ? "text-white" : "text-gray-300 italic",
-                                status === "paused" && "opacity-50 blur-[1px] transition-all"
-                            )}>
-                                {getVisibleText(currentLine?.text, isUserTurn)}
-                            </p>
-
-                            {/* Feedback UI */}
-                            {status === "paused" && (
-                                <div className="mt-6 flex flex-col items-center justify-center py-8 text-yellow-400/50">
-                                    <Pause className="w-12 h-12 mb-2 opacity-50" />
-                                    <p className="text-sm font-medium uppercase tracking-widest">Répétition en pause</p>
+                        {/* Next Line Preview (Faded) */}
+                        <div className="w-full opacity-20 scale-95 min-h-[40px]">
+                            {script.lines.slice(currentLineIndex + 1, currentLineIndex + 2).map((line) => (
+                                <div key={line.id} className="text-center">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest mb-1 opacity-70">{line.character}</p>
+                                    <p className="text-base truncate font-serif text-gray-400">{getVisibleText(line.text, line.character === userCharacter)}</p>
                                 </div>
-                            )}
-
-                            {status === "error" && (
-                                <div className="mt-6 p-4 rounded-xl bg-red-950/40 border border-red-500/30 flex flex-col gap-3">
-                                    <div className="flex items-center gap-3 text-red-200">
-                                        <img src="/repeto.png" alt="Sad Repeto" className="w-10 h-10 opacity-80 grayscale contrast-125" />
-                                        <p className="text-sm font-medium">Je ne vous entends pas...</p>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <Button size="sm" variant="destructive" onClick={retry} className="w-full">
-                                            Réessayer
-                                        </Button>
-                                        <Button size="sm" variant="outline" className="w-full border-red-500/30 hover:bg-red-500/20 text-red-200" onClick={validateManually}>
-                                            Passer
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {feedback === "incorrect" && (
-                                <div className="mt-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 space-y-2 flex gap-4 items-start">
-                                    <img src="/repeto.png" alt="Repeto" className="w-12 h-12 shrink-0 object-contain drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
-                                    <div>
-                                        <div className="flex items-center gap-2 text-red-400 font-bold text-sm uppercase tracking-wide mb-1">
-                                            Pas tout à fait...
-                                        </div>
-                                        <p className="text-sm text-red-200/80">Vous avez dit : <span className="italic text-white">"{lastTranscript}"</span></p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {feedback === "correct" && (
-                                <div className="mt-6 p-4 rounded-xl bg-green-500/10 border border-green-500/30 flex items-center gap-4 text-green-400">
-                                    <img src="/repeto.png" alt="Happy Repeto" className="w-12 h-12 object-contain drop-shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                                    <p className="text-sm font-bold uppercase tracking-wide">Excellent !</p>
-                                </div>
-                            )}
-                        </motion.div>
-                    </AnimatePresence>
-
-                    {/* Show next preview (1 line) */}
-                    {script.lines.slice(currentLineIndex + 1, currentLineIndex + 2).map((line) => (
-                        <div key={line.id} className="opacity-30 scale-90 origin-left mt-8">
-                            <p className="text-[10px] md:text-sm font-bold text-gray-500 mb-1 uppercase tracking-wider">{line.character}</p>
-                            <p className="text-sm md:text-base text-gray-500 truncate">{getVisibleText(line.text, line.character === userCharacter)}</p>
+                            ))}
                         </div>
-                    ))}
-                </div>
 
-                {/* Controls Fixed Bottom */}
-                <div className="flex-none p-6 pb-8 md:p-6 flex items-center justify-center gap-6 bg-gradient-to-t from-black via-black/90 to-transparent z-20 absolute bottom-0 left-0 right-0 md:relative md:bg-none md:border-t md:border-white/5">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={previous}
-                        className="h-12 w-12 rounded-full text-gray-400 hover:text-white hover:bg-white/10"
-                    >
-                        <SkipBack className="h-6 w-6" />
-                    </Button>
+                    </div>
 
-                    {status === "listening_user" ? (
-                        <div className="flex flex-col items-center gap-2 relative">
-                            {/* Glow effect */}
-                            <div className="absolute inset-0 bg-primary/30 blur-3xl animate-pulse rounded-full" />
+                    {/* Controls - Bottom Layout */}
+                    <div className="flex-none pb-12 pt-4 px-8 flex items-center justify-between relative z-30">
 
-                            <Button
-                                variant="default"
-                                size="icon"
-                                className="relative h-20 w-20 rounded-full bg-primary hover:bg-primary/90 shadow-2xl border-4 border-black/50 transform active:scale-95 transition-all"
+                        {/* Back Button */}
+                        <button
+                            onClick={previous}
+                            className="p-4 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/10 active:scale-90 transition-all"
+                        >
+                            <SkipBack className="w-6 h-6" />
+                        </button>
+
+                        {/* CENTRAL ORB - MIC / ACTION */}
+                        <div className="relative group">
+                            {/* Living Glow */}
+                            <div className={cn(
+                                "absolute inset-0 bg-primary blur-2xl rounded-full transition-all duration-500",
+                                status === "listening_user" ? "opacity-60 scale-150 animate-pulse-glow" : "opacity-0 scale-100"
+                            )} />
+
+                            <button
                                 onClick={validateManually}
+                                className={cn(
+                                    "relative w-24 h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl border-4",
+                                    isUserTurn
+                                        ? "bg-white border-white scale-110 shadow-[0_0_50px_rgba(255,255,255,0.4)]"
+                                        : "bg-gray-900 border-gray-800 text-gray-500"
+                                )}
                             >
-                                <Mic className="h-8 w-8 text-white" />
-                            </Button>
-                            <span className="absolute -bottom-8 whitespace-nowrap text-[10px] font-medium text-gray-500 uppercase tracking-widest opacity-60">
-                                Appuyer pour valider
-                            </span>
-                        </div>
-                    ) : (
-                        <div className="h-20 w-20 flex items-center justify-center rounded-full border border-white/10 bg-white/5">
-                            <div className="h-2 w-2 rounded-full bg-gray-600 animate-pulse" />
-                        </div>
-                    )}
+                                {status === "listening_user" ? (
+                                    <Mic className="w-10 h-10 text-black animate-pulse" />
+                                ) : status === "playing_other" ? (
+                                    <div className="flex gap-1 h-8 items-center">
+                                        <div className="w-1.5 h-8 bg-primary rounded-full animate-[bounce_1s_infinite_0ms]" />
+                                        <div className="w-1.5 h-6 bg-primary rounded-full animate-[bounce_1s_infinite_200ms]" />
+                                        <div className="w-1.5 h-8 bg-primary rounded-full animate-[bounce_1s_infinite_400ms]" />
+                                    </div>
+                                ) : (
+                                    <Play className="w-10 h-10 ml-1" />
+                                )}
+                            </button>
 
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={skip}
-                        className="h-12 w-12 rounded-full text-gray-400 hover:text-white hover:bg-white/10"
-                    >
-                        <SkipForward className="h-6 w-6" />
-                    </Button>
+                            {isUserTurn && (
+                                <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-widest text-white/50 whitespace-nowrap">
+                                    Appuyer pour valider
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
 
             {/* Premium Unlock Modal */}
-            {showUnlockModal && (
-                <Portal>
-                    <div
-                        className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
-                        onClick={() => setShowUnlockModal(false)}
-                    >
+            {
+                showUnlockModal && (
+                    <Portal>
                         <div
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] animate-in zoom-in-95 duration-200"
+                            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
+                            onClick={() => setShowUnlockModal(false)}
                         >
-                            <div className="flex justify-between items-center mb-6">
-                                <div className="flex items-center gap-2">
-                                    <div className="p-2 bg-emerald-500/10 rounded-lg">
-                                        <Sparkles className="h-5 w-5 text-emerald-400" />
+                            <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] animate-in zoom-in-95 duration-200"
+                            >
+                                <div className="flex justify-between items-center mb-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-emerald-500/10 rounded-lg">
+                                            <Sparkles className="h-5 w-5 text-emerald-400" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-white">Débloquer Premium</h3>
                                     </div>
-                                    <h3 className="text-lg font-bold text-white">Débloquer Premium</h3>
-                                </div>
-                                <button
-                                    onClick={() => setShowUnlockModal(false)}
-                                    className="text-gray-500 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
-                                >
-                                    <X className="h-5 w-5" />
-                                </button>
-                            </div>
-
-                            <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                                Entrez votre code d'accès pour débloquer les voix AI neuronales d'OpenAI.
-                            </p>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Code d'accès</label>
-                                    <input
-                                        autoFocus
-                                        type="text"
-                                        placeholder="SCEN3-..."
-                                        value={unlockCode}
-                                        onChange={(e) => {
-                                            setUnlockCode(e.target.value.toUpperCase());
-                                            setUnlockError(false);
-                                        }}
-                                        onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-                                        className={cn(
-                                            "w-full bg-black/50 border rounded-xl p-4 text-white text-center font-mono text-lg tracking-widest placeholder:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black transition-all",
-                                            unlockError
-                                                ? "border-red-500 focus:ring-red-500/50"
-                                                : "border-white/10 focus:ring-emerald-500/50"
-                                        )}
-                                    />
+                                    <button
+                                        onClick={() => setShowUnlockModal(false)}
+                                        className="text-gray-500 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+                                    >
+                                        <X className="h-5 w-5" />
+                                    </button>
                                 </div>
 
-                                {unlockError && (
-                                    <div className="flex items-center gap-2 justify-center text-red-400 bg-red-500/10 p-2 rounded-lg">
-                                        <AlertTriangle className="h-3 w-3" />
-                                        <p className="text-xs font-medium">Code invalide</p>
-                                    </div>
-                                )}
-
-                                <button
-                                    onClick={handleUnlock}
-                                    className="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98] mt-2"
-                                >
-                                    Débloquer
-                                </button>
-                            </div>
-
-                            <div className="mt-6 pt-6 border-t border-white/5">
-                                <p className="text-gray-600 text-[10px] text-center">
-                                    Besoin d'un code ? <a href="#" className="text-gray-400 underline hover:text-emerald-400">Contactez le support</a>
+                                <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                                    Vous n'avez plus de crédits gratuits (50). Entrez votre code d'accès pour débloquer les voix AI neuronales en illimité.
                                 </p>
+
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Code d'accès</label>
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            placeholder="SCEN3-..."
+                                            value={unlockCode}
+                                            onChange={(e) => {
+                                                setUnlockCode(e.target.value.toUpperCase());
+                                                setUnlockError(false);
+                                            }}
+                                            onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
+                                            className={cn(
+                                                "w-full bg-black/50 border rounded-xl p-4 text-white text-center font-mono text-lg tracking-widest placeholder:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black transition-all",
+                                                unlockError
+                                                    ? "border-red-500 focus:ring-red-500/50"
+                                                    : "border-white/10 focus:ring-emerald-500/50"
+                                            )}
+                                        />
+                                    </div>
+
+                                    {unlockError && (
+                                        <div className="flex items-center gap-2 justify-center text-red-400 bg-red-500/10 p-2 rounded-lg">
+                                            <AlertTriangle className="h-3 w-3" />
+                                            <p className="text-xs font-medium">Code invalide ou erreur</p>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleUnlock}
+                                        disabled={isUnlocking}
+                                        className="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
+                                    >
+                                        {isUnlocking && <Loader2 className="h-4 w-4 animate-spin" />}
+                                        {isUnlocking ? "Vérification..." : "Débloquer"}
+                                    </button>
+                                </div>
+
+                                <div className="mt-6 pt-6 border-t border-white/5">
+                                    <p className="text-gray-600 text-[10px] text-center">
+                                        Besoin d'un code ? <a href="#" className="text-gray-400 underline hover:text-emerald-400">Contactez le support</a>
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </Portal>
-            )}
+                    </Portal>
+                )
+            }
 
             {/* Feedback Modal */}
             <FeedbackModal
