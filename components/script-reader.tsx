@@ -95,21 +95,22 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                                     </span>
                                 </div>
 
-                                {/* Text content */}
-                                {highlightStyle === "text" && isUser ? (
-                                    <p className="text-lg md:text-xl leading-relaxed">
-                                        <span className="bg-yellow-400 text-black px-2 py-1 rounded font-bold inline leading-loose">
-                                            {line.text}
-                                        </span>
-                                    </p>
-                                ) : (
-                                    <p className={cn(
-                                        "text-lg md:text-xl leading-relaxed",
-                                        isUser ? "text-yellow-100 font-medium" : "text-gray-300"
+                                {/* Text content - FORCED YELLOW HIGHLIGHT */}
+                                <p
+                                    className="text-lg md:text-xl leading-relaxed"
+                                    style={
+                                        highlightStyle === "text" && isUser
+                                            ? { backgroundColor: '#facc15', color: '#000', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'inline' }
+                                            : undefined
+                                    }
+                                >
+                                    <span className={cn(
+                                        isUser && highlightStyle !== "text" ? "text-yellow-100 font-medium" : "",
+                                        !isUser ? "text-gray-300" : ""
                                     )}>
                                         {line.text}
-                                    </p>
-                                )}
+                                    </span>
+                                </p>
                             </div>
                         );
                     })}
