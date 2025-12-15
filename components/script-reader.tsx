@@ -16,8 +16,15 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
     const scrollRef = useRef<HTMLDivElement>(null);
     const [highlightStyle, setHighlightStyle] = useState<"box" | "text">("box");
 
-    // Count user lines for numbering
-    let userLineCounter = 0;
+    // Pre-calculate line numbers for user character
+    const userLineNumbers = new Map<string, number>();
+    let counter = 0;
+    script.lines.forEach((line) => {
+        if (line.character === userCharacter) {
+            counter++;
+            userLineNumbers.set(line.id, counter);
+        }
+    });
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1a1a] text-white font-sans overflow-hidden">
@@ -63,12 +70,7 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                 <div className="max-w-3xl mx-auto space-y-4 pb-32">
                     {script.lines.map((line) => {
                         const isUser = line.character === userCharacter;
-
-                        // Increment counter for user lines
-                        if (isUser) {
-                            userLineCounter++;
-                        }
-                        const lineNumber = isUser ? userLineCounter : null;
+                        const lineNumber = userLineNumbers.get(line.id);
 
                         return (
                             <div
