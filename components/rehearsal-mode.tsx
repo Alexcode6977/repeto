@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { synthesizeSpeech } from "@/app/actions/tts";
@@ -9,6 +9,8 @@ import { Card, CardContent } from "./ui/card";
 import { Mic, MicOff, Play, SkipForward, SkipBack, AlertTriangle, CheckCircle, Pause, Power, Loader2, Lock, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { FeedbackModal, FeedbackData } from "./feedback-modal";
+import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 
 // Premium unlock code - generated complex code
 // Premium unlock code - generated complex code
@@ -122,13 +124,69 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
     const handleStart = () => {
         setHasStarted(true);
+        sessionStartRef.current = Date.now();
         start();
     };
 
-    // Updated Exit Handler
+    // Session tracking
+    const sessionStartRef = useRef<number>(Date.now());
+    const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [pendingExit, setPendingExit] = useState(false);
+
+    // Calculate session stats
+    const getSessionStats = () => {
+        const durationSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+        const userLines = script.lines.filter(l => l.character === userCharacter);
+        const completionPercentage = userLines.length > 0
+            ? Math.round((currentLineIndex / script.lines.length) * 100)
+            : 0;
+
+        return {
+            scriptTitle: script.title || "Script sans titre",
+            characterName: userCharacter,
+            durationSeconds,
+            linesRehearsed: currentLineIndex,
+            completionPercentage,
+            settings: {
+                textMode: lineVisibility,
+                rehearsalMode,
+                threshold,
+                ttsProvider,
+            },
+        };
+    };
+
+    // Updated Exit Handler - Shows feedback modal first
     const handleExit = () => {
         stop(); // Force stop audio/recognition
-        onExit();
+        if (hasStarted && currentLineIndex > 0) {
+            // Only show feedback if they actually rehearsed something
+            setShowFeedbackModal(true);
+            setPendingExit(true);
+        } else {
+            onExit();
+        }
+    };
+
+    // Handle feedback submission
+    const handleFeedbackSubmit = async (feedbackData: FeedbackData) => {
+        const sessionStats = getSessionStats();
+        await submitFeedback({
+            scriptId: (script as any).id,
+            ...sessionStats,
+            rating: feedbackData.rating,
+            whatWorked: feedbackData.whatWorked,
+            whatDidntWork: feedbackData.whatDidntWork,
+            improvementIdeas: feedbackData.improvementIdeas,
+        });
+    };
+
+    // Handle modal close
+    const handleFeedbackClose = () => {
+        setShowFeedbackModal(false);
+        if (pendingExit) {
+            onExit();
+        }
     };
 
     const isUserTurn = currentLine?.character === userCharacter;
@@ -799,6 +857,14 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                     </div>
                 </Portal>
             )}
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+                isOpen={showFeedbackModal}
+                onClose={handleFeedbackClose}
+                onSubmit={handleFeedbackSubmit}
+                sessionData={getSessionStats()}
+            />
         </>
     );
 }
