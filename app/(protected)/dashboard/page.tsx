@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
 import { useState, useTransition, useEffect } from "react";
-import { parsePdfAction, saveScript, getScripts, deleteScript } from "./actions"; // Imported new actions
+import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById } from "./actions"; // Imported getScriptById
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
@@ -12,16 +12,25 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 // Extend ParsedScript to include DB fields
-type SavedScript = ParsedScript & { id: string; created_at: string };
+// type SavedScript = ParsedScript & { id: string; created_at: string };
+// NEW TYPE: Lightweight metadata for the list
+type ScriptMetadata = {
+  id: string;
+  title: string;
+  created_at: string;
+  characterCount: number;
+  lineCount: number;
+};
 
 export default function Home() {
   const [isPending, startTransition] = useTransition();
   const [script, setScript] = useState<ParsedScript | null>(null); // Current active script for viewer
-  const [scriptsList, setScriptsList] = useState<SavedScript[]>([]); // List of all scripts
+  const [scriptsList, setScriptsList] = useState<ScriptMetadata[]>([]); // List of all scripts (metadata only)
   const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false); // New loading state for detail fetch
 
   // Import / Rename State
   const [tempScript, setTempScript] = useState<ParsedScript | null>(null);
@@ -47,7 +56,7 @@ export default function Home() {
   const refreshScripts = async () => {
     try {
       const fetchedScripts = await getScripts();
-      setScriptsList(fetchedScripts as unknown as SavedScript[]);
+      setScriptsList(fetchedScripts);
     } catch (err) {
       console.error("Failed to fetch scripts", err);
     } finally {
@@ -87,10 +96,6 @@ export default function Home() {
     // Close modal immediately for UX responsiveness (optimistic UI could be better but this is fine)
     setImportModalOpen(false);
 
-    // We manually toggle loading state implicitly via UI feedback if needed, 
-    // but here we just wait for the action.
-    // Actually, let's wrap in a transition or just await since we are outside the transition bucket of the file input now.
-
     try {
       await saveScript(finalScript);
       await refreshScripts();
@@ -100,8 +105,21 @@ export default function Home() {
     }
   };
 
-  const handleLoadScript = (s: SavedScript) => {
-    setScript(s);
+  const handleLoadScript = async (s: ScriptMetadata) => {
+    setIsLoadingDetail(true);
+    setError(null);
+    try {
+      const fullScript = await getScriptById(s.id);
+      if (fullScript) {
+        setScript(fullScript as unknown as ParsedScript); // Cast because we added ID/created_at
+      } else {
+        setError("Impossible de charger le script.");
+      }
+    } catch (err) {
+      setError("Erreur lors du chargement du script.");
+    } finally {
+      setIsLoadingDetail(false);
+    }
   };
 
   const handleDeleteScript = async (e: React.MouseEvent, id: string) => {
@@ -111,7 +129,9 @@ export default function Home() {
     try {
       await deleteScript(id);
       const updated = await getScripts();
-      setScriptsList(updated as unknown as SavedScript[]);
+      setScriptsList(updated);
+      // We can't easily check 'script.id' because 'script' type is ParsedScript (no ID officially in type but it's there)
+      // Let's just reset if open. crude but effective safely.
       if (script && (script as any).id === id) {
         setScript(null);
       }
@@ -244,7 +264,7 @@ export default function Home() {
                     {s.title || "Script Sans Titre"}
                   </h3>
                   <p className="text-sm text-gray-400">
-                    {s.characters.length} rôles • {s.lines.length} répliques
+                    {s.characterCount} rôles • {s.lineCount} répliques
                   </p>
                 </div>
 

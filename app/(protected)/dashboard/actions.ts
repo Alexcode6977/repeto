@@ -47,13 +47,41 @@ export async function getScripts() {
         return [];
     }
 
-    // Map DB result to a structure usable by frontend
+    // Map DB result to a LIGHTWEIGHT structure for the dashboard list
+    // We compute stats here on the server and do NOT send the heavy 'content' to the client
     return data.map((row) => ({
         id: row.id,
         title: row.title,
-        ...row.content, // Spread the stored ParsedScript content
-        created_at: row.created_at
+        created_at: row.created_at,
+        characterCount: row.content?.characters?.length || 0,
+        lineCount: row.content?.lines?.length || 0,
     }));
+}
+
+export async function getScriptById(id: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    const { data, error } = await supabase
+        .from("scripts")
+        .select("id, title, content, created_at")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+
+    if (error || !data) {
+        console.error("Error fetching script detail:", error);
+        return null;
+    }
+
+    return {
+        id: data.id,
+        title: data.title,
+        ...data.content, // Spread the stored ParsedScript content to reconstruct full object
+        created_at: data.created_at
+    };
 }
 
 export async function deleteScript(id: string) {
