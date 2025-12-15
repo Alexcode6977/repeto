@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut } from "lucide-react";
+import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
 import { useState, useTransition, useEffect } from "react";
 import { parsePdfAction, saveScript, getScripts, deleteScript } from "./actions"; // Imported new actions
 import { ParsedScript } from "@/lib/types";
@@ -23,6 +23,11 @@ export default function Home() {
   const [userName, setUserName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Import / Rename State
+  const [tempScript, setTempScript] = useState<ParsedScript | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [customTitle, setCustomTitle] = useState("");
+
   const router = useRouter();
 
   // Load User & Scripts on Mount
@@ -34,19 +39,21 @@ export default function Home() {
         setUserName(user.email.split('@')[0]);
       }
 
-      // Fetch scripts
-      try {
-        const fetchedScripts = await getScripts();
-        // We need to cast here because the server action returns a mapped object
-        setScriptsList(fetchedScripts as unknown as SavedScript[]);
-      } catch (err) {
-        console.error("Failed to fetch scripts", err);
-      } finally {
-        setIsLoading(false);
-      }
+      refreshScripts();
     };
     init();
   }, []);
+
+  const refreshScripts = async () => {
+    try {
+      const fetchedScripts = await getScripts();
+      setScriptsList(fetchedScripts as unknown as SavedScript[]);
+    } catch (err) {
+      console.error("Failed to fetch scripts", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,20 +69,35 @@ export default function Home() {
       if ("error" in result) {
         setError(result.error);
       } else {
-        // 1. Save to DB
-        try {
-          await saveScript(result);
-          // 2. Refresh List
-          const updated = await getScripts();
-          setScriptsList(updated as unknown as SavedScript[]);
-          // 3. Open Viewer immediately
-          // setScript(result); // Optional: Auto-open? Maybe user prefers to see it in list first.
-          // Let's NOT auto-open for now, just show it added.
-        } catch (err) {
-          setError("Erreur lors de la sauvegarde du script.");
-        }
+        // Intercept: Don't save yet. Open modal.
+        setTempScript(result);
+        setCustomTitle(result.title || "Nouveau Script");
+        setImportModalOpen(true);
       }
+      // Reset input value to allow re-selecting same file if needed
+      e.target.value = "";
     });
+  };
+
+  const confirmSaveScript = async () => {
+    if (!tempScript) return;
+
+    const finalScript = { ...tempScript, title: customTitle };
+
+    // Close modal immediately for UX responsiveness (optimistic UI could be better but this is fine)
+    setImportModalOpen(false);
+
+    // We manually toggle loading state implicitly via UI feedback if needed, 
+    // but here we just wait for the action.
+    // Actually, let's wrap in a transition or just await since we are outside the transition bucket of the file input now.
+
+    try {
+      await saveScript(finalScript);
+      await refreshScripts();
+      setTempScript(null);
+    } catch (e) {
+      setError("Erreur lors de la sauvegarde.");
+    }
   };
 
   const handleLoadScript = (s: SavedScript) => {
@@ -88,10 +110,9 @@ export default function Home() {
 
     try {
       await deleteScript(id);
-      // Refresh List
       const updated = await getScripts();
       setScriptsList(updated as unknown as SavedScript[]);
-      if (script && (script as any).id === id) { // If deleting currently open script
+      if (script && (script as any).id === id) {
         setScript(null);
       }
     } catch (err) {
@@ -143,7 +164,7 @@ export default function Home() {
   }
 
   return (
-    <div className="w-full space-y-12 animate-in fade-in zoom-in duration-500 pb-20">
+    <div className="w-full space-y-12 animate-in fade-in zoom-in duration-500 pb-20 relative">
 
       {/* Header Section */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
@@ -260,7 +281,54 @@ export default function Home() {
         )}
 
       </div>
+
+      {/* Rename Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[#1a1a1a] border border-white/10 p-6 rounded-3xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 my-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 text-white/50 hover:text-white"
+              onClick={() => { setImportModalOpen(false); setTempScript(null); }}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+
+            <div className="mb-6 text-center">
+              <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
+                <Edit3 className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Nommer votre script</h2>
+              <p className="text-gray-400 text-sm mt-1">
+                Choisissez un titre pour retrouver facilement ce script dans votre bibliothèque.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Titre du script</label>
+                <input
+                  type="text"
+                  value={customTitle}
+                  onChange={(e) => setCustomTitle(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="Ex: Roméo et Juliette"
+                  autoFocus
+                />
+              </div>
+
+              <Button
+                onClick={confirmSaveScript}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 rounded-xl text-lg"
+              >
+                Confirmer et Importer
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
-
