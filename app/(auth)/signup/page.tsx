@@ -13,7 +13,7 @@ export default async function SignupPage({
         <div className="min-h-screen w-full flex bg-background text-foreground font-sans overflow-hidden">
 
             {/* LEFT SIDE - FORM */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 relative z-10 animate-in slide-in-from-left-8 duration-700 fade-in">
+            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 md:p-8 relative z-10 animate-in slide-in-from-left-8 duration-700 fade-in">
 
                 <div className="w-full max-w-sm space-y-8">
                     {/* Header */}

@@ -215,7 +215,7 @@ export default function Home() {
               ) : (
                 <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
               )}
-              <span className="relative z-10">{isPending ? "Analyse..." : "Importer un Script"}</span>
+              <span className="relative z-10"><span className="md:hidden">Importer</span><span className="hidden md:inline">Importer un Script</span></span>
               <input
                 type="file"
                 accept=".pdf"

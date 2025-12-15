@@ -40,7 +40,7 @@ export default function LandingPage() {
 
 
 
-                    <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.1] md:leading-[1.1]">
+                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.1] md:leading-[1.1]">
                         Apprenez vos textes <br />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-300 to-white text-glow">
                             sans partenaire.

@@ -55,7 +55,7 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 {/* Scripts Stat */}
-                <div className="p-8 rounded-3xl bg-white/5 border border-white/10 flex items-center gap-6 relative overflow-hidden group hover:border-primary/50 transition-colors">
+                <div className="p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 flex items-center gap-6 relative overflow-hidden group hover:border-primary/50 transition-colors">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-primary/20 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-primary/30 transition-colors" />
 
                     <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
@@ -70,7 +70,7 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Time Stat */}
-                <div className="p-8 rounded-3xl bg-white/5 border border-white/10 flex items-center gap-6 relative overflow-hidden group hover:border-purple-500/50 transition-colors">
+                <div className="p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 flex items-center gap-6 relative overflow-hidden group hover:border-purple-500/50 transition-colors">
                     <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/20 blur-3xl rounded-full -mr-10 -mt-10 group-hover:bg-purple-500/30 transition-colors" />
 
                     <div className="p-4 rounded-2xl bg-white/5 border border-white/5">
@@ -87,7 +87,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Personal Info / Settings Placeholder */}
-            <div className="p-8 rounded-3xl bg-black/20 border border-white/5 space-y-6">
+            <div className="p-6 md:p-8 rounded-3xl bg-black/20 border border-white/5 space-y-6">
                 <h3 className="text-xl font-semibold text-white">Informations Personnelles</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">

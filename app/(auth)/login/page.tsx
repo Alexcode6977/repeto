@@ -21,7 +21,7 @@ export default async function LoginPage({
             {/* MAIN FORM CONTAINER - Centered & Big */}
             <div className="w-full max-w-xl z-10 animate-in zoom-in-95 duration-500 fade-in">
 
-                <div className="space-y-8 backdrop-blur-3xl bg-white/5 border border-white/10 p-8 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden">
+                <div className="space-y-8 backdrop-blur-3xl bg-white/5 border border-white/10 p-6 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden">
                     {/* Glossy overlay */}
                     <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
 

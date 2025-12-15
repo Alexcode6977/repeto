@@ -550,7 +550,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
                         <Button variant="ghost" size="sm" onClick={handleExit} className="text-xs text-red-400 hover:text-red-300 hover:bg-red-950/30">
                             <Power className="h-3 w-3 mr-1" />
-                            QUITTER
+                            <span className="hidden md:inline">QUITTER</span>
                         </Button>
                     </div>
                 </div>
