@@ -204,7 +204,11 @@ export default function Home() {
   }
 
   return (
-    <div className="w-full space-y-12 animate-in fade-in zoom-in duration-500 pb-20 relative">
+    <div className="w-full space-y-12 pb-20 relative">
+      {/* DEBUG OVERLAY - TO BE REMOVED */}
+      <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-xs font-mono z-[9999] p-1 text-center">
+        DEBUG: Dashboard Mounted. Supabase URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Present' : 'Missing'}
+      </div>
 
       {/* Header Section */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
