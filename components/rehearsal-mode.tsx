@@ -191,7 +191,8 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                                     "text-sm",
                                                     isUser ? "text-white" : "text-gray-400 italic"
                                                 )}>
-                                                    {line.text.substring(0, 100)}{line.text.length > 100 ? "..." : ""}
+                                                    {getVisibleText(line.text, line.character === userCharacter).substring(0, 100)}
+                                                    {getVisibleText(line.text, line.character === userCharacter).length > 100 ? "..." : ""}
                                                 </p>
                                             </div>
                                         );
@@ -561,7 +562,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                     {script.lines.slice(Math.max(0, currentLineIndex - 2), currentLineIndex).map((line) => (
                         <div key={line.id} className="opacity-40 blur-[0.5px] scale-95 origin-left conversation-line">
                             <p className="text-[10px] md:text-sm font-bold text-gray-500 mb-1 uppercase tracking-wider">{line.character}</p>
-                            <p className="text-sm md:text-base text-gray-300">{line.text}</p>
+                            <p className="text-sm md:text-base text-gray-300">{getVisibleText(line.text, line.character === userCharacter)}</p>
                         </div>
                     ))}
 
@@ -671,7 +672,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                     {script.lines.slice(currentLineIndex + 1, currentLineIndex + 2).map((line) => (
                         <div key={line.id} className="opacity-30 scale-90 origin-left mt-8">
                             <p className="text-[10px] md:text-sm font-bold text-gray-500 mb-1 uppercase tracking-wider">{line.character}</p>
-                            <p className="text-sm md:text-base text-gray-500 truncate">{line.text}</p>
+                            <p className="text-sm md:text-base text-gray-500 truncate">{getVisibleText(line.text, line.character === userCharacter)}</p>
                         </div>
                     ))}
                 </div>

@@ -8,6 +8,7 @@ import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById } f
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
+import { ScriptReader } from "@/components/script-reader";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -27,6 +28,7 @@ export default function Home() {
   const [script, setScript] = useState<ParsedScript | null>(null); // Current active script for viewer
   const [scriptsList, setScriptsList] = useState<ScriptMetadata[]>([]); // List of all scripts (metadata only)
   const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"viewer" | "reader" | "rehearsal">("viewer"); // NEW state
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
@@ -140,12 +142,14 @@ export default function Home() {
     }
   };
 
-  const handleStartRehearsal = (characterName: string) => {
+  const handleConfirmSelection = (characterName: string, mode: 'reader' | 'rehearsal') => {
     setRehearsalChar(characterName);
+    setViewMode(mode);
   };
 
-  const handleExitRehearsal = () => {
+  const handleExitView = () => {
     setRehearsalChar(null);
+    setViewMode("viewer");
   };
 
   const handleLogout = async () => {
@@ -156,12 +160,22 @@ export default function Home() {
 
   // --- VIEWS ---
 
-  if (rehearsalChar && script) {
+  if (rehearsalChar && script && viewMode === "rehearsal") {
     return (
       <RehearsalMode
         script={script}
         userCharacter={rehearsalChar}
-        onExit={handleExitRehearsal}
+        onExit={handleExitView}
+      />
+    );
+  }
+
+  if (rehearsalChar && script && viewMode === "reader") {
+    return (
+      <ScriptReader
+        script={script}
+        userCharacter={rehearsalChar}
+        onExit={handleExitView}
       />
     );
   }
@@ -178,7 +192,7 @@ export default function Home() {
             ← Retour
           </Button>
         </div>
-        <ScriptViewer script={script} onConfirm={handleStartRehearsal} />
+        <ScriptViewer script={script} onConfirm={handleConfirmSelection} />
       </div>
     );
   }

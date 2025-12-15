@@ -3,12 +3,13 @@
 import { ScriptLine, ParsedScript } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
+import { BookOpen, Play } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface ScriptViewerProps {
     script: ParsedScript;
-    onConfirm: (character: string) => void;
+    onConfirm: (character: string, mode: 'reader' | 'rehearsal') => void;
 }
 
 export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
@@ -40,10 +41,22 @@ export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
             <div className="space-y-2">
                 <div className="flex justify-between items-center text-white/80">
                     <h3 className="text-lg font-semibold">Aperçu du script</h3>
+                    <h3 className="text-lg font-semibold">Aperçu du script</h3>
                     {selectedChar && (
-                        <Button onClick={() => onConfirm(selectedChar)} className="animate-in fade-in zoom-in">
-                            Confirmer : {selectedChar}
-                        </Button>
+                        <div className="flex gap-2 animate-in fade-in zoom-in">
+                            <Button
+                                onClick={() => onConfirm(selectedChar, 'reader')}
+                                variant="secondary"
+                                className="bg-yellow-500/10 text-yellow-200 hover:bg-yellow-500/20 border border-yellow-500/20"
+                            >
+                                <BookOpen className="w-4 h-4 mr-2" />
+                                Lire
+                            </Button>
+                            <Button onClick={() => onConfirm(selectedChar, 'rehearsal')}>
+                                <Play className="w-4 h-4 mr-2" />
+                                Répéter
+                            </Button>
+                        </div>
                     )}
                 </div>
 
