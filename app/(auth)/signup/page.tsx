@@ -1,5 +1,5 @@
 import { signup } from "../actions";
-import { Sparkles, ArrowRight, Drama } from "lucide-react";
+import { Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export default async function SignupPage({
@@ -10,43 +10,51 @@ export default async function SignupPage({
     const { message, error } = await searchParams;
 
     return (
-        <div className="min-h-screen w-full flex bg-background text-foreground font-sans overflow-hidden">
+        <div className="min-h-screen w-full flex items-center justify-center bg-background text-foreground font-sans p-6 overflow-hidden relative">
 
-            {/* LEFT SIDE - FORM */}
-            <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 md:p-8 relative z-10 animate-in slide-in-from-left-8 duration-700 fade-in">
+            {/* Background Ambient Effects */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-primary/20 blur-[120px] rounded-full opacity-40 mix-blend-screen" />
+                <div className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-purple-600/20 blur-[120px] rounded-full opacity-40 mix-blend-screen" />
+            </div>
 
-                <div className="w-full max-w-sm space-y-8">
+            {/* MAIN FORM CONTAINER - Centered & Big */}
+            <div className="w-full max-w-xl z-10 animate-in zoom-in-95 duration-500 fade-in">
+
+                <div className="space-y-8 backdrop-blur-3xl bg-white/5 border border-white/10 p-6 md:p-12 rounded-3xl shadow-2xl relative overflow-hidden">
+                    {/* Glossy overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+
                     {/* Header */}
-                    <div className="text-center lg:text-left">
-                        <Link href="/" className="inline-flex items-center gap-2 mb-8 group">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-                                <Sparkles className="h-4 w-4 text-primary-foreground" />
+                    <div className="text-center relative z-10">
+                        <Link href="/" className="inline-flex items-center gap-2 mb-8 group justify-center">
+                            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+                                <Sparkles className="h-6 w-6 text-primary-foreground" />
                             </div>
-                            <span className="font-bold text-lg tracking-tight">Repeto</span>
                         </Link>
-                        <h1 className="text-3xl font-bold tracking-tight mb-2">Rejoignez la troupe</h1>
-                        <p className="text-muted-foreground text-sm">
+                        <h1 className="text-4xl font-bold tracking-tight mb-3 text-white">Rejoignez la troupe</h1>
+                        <p className="text-muted-foreground text-lg">
                             Créez votre compte pour commencer à répéter.
                         </p>
                     </div>
 
                     {/* Messages */}
                     {message && (
-                        <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium animate-in zoom-in-95">
-                            <Sparkles className="w-4 h-4 inline-block mr-2 mb-0.5" />
+                        <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-base font-medium animate-in zoom-in-95 text-center">
+                            <Sparkles className="w-5 h-5 inline-block mr-2 mb-1" />
                             {message}
                         </div>
                     )}
                     {error && (
-                        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-red-400 text-sm font-medium animate-in zoom-in-95">
+                        <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-red-400 text-base font-medium animate-in zoom-in-95 text-center">
                             {error}
                         </div>
                     )}
 
                     {/* Form */}
-                    <form className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
+                    <form className="space-y-6 relative z-10">
+                        <div className="space-y-3">
+                            <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
                                 Email
                             </label>
                             <input
@@ -54,12 +62,12 @@ export default async function SignupPage({
                                 name="email"
                                 type="email"
                                 required
-                                className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all placeholder:text-muted-foreground/50 font-medium"
+                                className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-lg text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all placeholder:text-muted-foreground/50 font-medium"
                                 placeholder="nom@exemple.com"
                             />
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
+                        <div className="space-y-3">
+                            <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
                                 Mot de passe
                             </label>
                             <input
@@ -67,25 +75,26 @@ export default async function SignupPage({
                                 name="password"
                                 type="password"
                                 required
-                                className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all placeholder:text-muted-foreground/50 font-medium"
+                                minLength={6}
+                                className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-lg text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all placeholder:text-muted-foreground/50 font-medium"
                                 placeholder="••••••••"
                             />
-                            <p className="text-[10px] text-muted-foreground pl-1">
-                                Au moins 8 caractères.
+                            <p className="text-xs text-muted-foreground pl-1">
+                                Au moins 6 caractères.
                             </p>
                         </div>
 
                         <button
                             formAction={signup}
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-primary/25 active:scale-[0.98] flex items-center justify-center gap-2 group mt-6"
+                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg py-4 rounded-2xl transition-all shadow-lg shadow-primary/25 active:scale-[0.98] flex items-center justify-center gap-2 group mt-8"
                         >
                             Créer mon compte
-                            <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                         </button>
                     </form>
 
                     {/* Footer */}
-                    <div className="pt-4 text-center text-sm text-muted-foreground">
+                    <div className="pt-6 text-center text-base text-muted-foreground relative z-10">
                         Déjà un compte ?{" "}
                         <Link href="/login" className="text-primary font-semibold hover:underline">
                             Se connecter
@@ -93,31 +102,8 @@ export default async function SignupPage({
                     </div>
                 </div>
 
-                <div className="mt-auto pt-8 text-center text-xs text-muted-foreground/40">
-                    &copy; {new Date().getFullYear()} Repeto. Protegé par reCAPTCHA.
-                </div>
-            </div>
-
-            {/* RIGHT SIDE - CINEMATIC IMAGE */}
-            <div className="hidden lg:flex w-1/2 relative bg-black items-center justify-center overflow-hidden">
-                {/* Background Image / Gradient */}
-                <div className="absolute inset-0 z-0">
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-zinc-950 to-black" />
-                    {/* Different visual for signup - maybe a stage view */}
-                    <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1503095392237-7362402049e5?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-overlay grayscale" />
-                </div>
-
-                {/* Overlay Content */}
-                <div className="relative z-10 max-w-md text-center p-10 animate-in slide-in-from-right-8 duration-1000 delay-100 fade-in">
-                    <div className="w-20 h-20 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-2xl skew-y-[-3deg] transform hover:skew-y-0 transition-all duration-500">
-                        <Drama className="w-10 h-10 text-white/80" />
-                    </div>
-                    <blockquote className="text-2xl font-medium text-white/90 leading-relaxed italic mb-6">
-                        "Agir, c'est être vivant."
-                    </blockquote>
-                    <cite className="text-white/50 not-italic font-medium uppercase tracking-widest text-sm">
-                        — Émile Zola
-                    </cite>
+                <div className="mt-8 text-center text-sm text-muted-foreground/40">
+                    &copy; {new Date().getFullYear()} Repeto. Tous droits réservés.
                 </div>
             </div>
 
