@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { User, LogOut } from "lucide-react";
+import { User, Shield } from "lucide-react";
 import { redirect } from "next/navigation";
+
+const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 
 export default async function ProtectedLayout({
     children,
@@ -14,6 +16,8 @@ export default async function ProtectedLayout({
     if (!user) {
         redirect("/login");
     }
+
+    const isAdmin = user.email === ADMIN_EMAIL;
 
     return (
         <div className="min-h-screen bg-transparent flex flex-col font-sans">
@@ -28,7 +32,19 @@ export default async function ProtectedLayout({
                     <span className="text-xl font-bold tracking-tight text-white group-hover:text-primary transition-colors">Repeto</span>
                 </Link>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                    {/* Admin Button - Only visible for admin */}
+                    {isAdmin && (
+                        <Link href="/admin">
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors cursor-pointer">
+                                <Shield className="w-4 h-4 text-red-400" />
+                                <span className="text-sm font-bold text-red-400 hidden md:inline-block">
+                                    Admin
+                                </span>
+                            </div>
+                        </Link>
+                    )}
+
                     <Link href="/profile">
                         <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer">
                             <User className="w-4 h-4 text-primary" />
