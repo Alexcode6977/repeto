@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ParsedScript } from "@/lib/types";
 import { Button } from "./ui/button";
-import { ArrowLeft, BookOpen, Settings2, Highlighter, Layout } from "lucide-react";
+import { ArrowLeft, BookOpen, Settings2, Highlighter, Layout, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ScriptReaderProps {
@@ -41,7 +41,7 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
 
                 <div className="flex items-center gap-2">
                     {/* Style Toggle (Desktop) */}
-                    <div className="hidden md:flex bg-white/5 rounded-full p-1 border border-white/5">
+                    <div className="hidden md:flex bg-white/10 rounded-full p-1 border border-white/10 shadow-inner">
                         <button
                             onClick={() => setHighlightStyle("box")}
                             className={cn(
@@ -64,9 +64,10 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                         </button>
                     </div>
 
-                    <div className="md:hidden flex items-center gap-2 text-xs text-gray-500 uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-full border border-white/5" onClick={() => setShowSettings(!showSettings)}>
+                    <div className="md:hidden cursor-pointer flex items-center gap-2 text-xs font-bold text-white bg-white/10 px-4 py-2 rounded-full border border-white/10 hover:bg-white/20 transition-all active:scale-95" onClick={() => setShowSettings(!showSettings)}>
                         {highlightStyle === "box" ? <Layout className="w-3 h-3" /> : <Highlighter className="w-3 h-3" />}
                         <span className="ml-1">{highlightStyle === "box" ? "Cadre" : "Surligné"}</span>
+                        <ChevronDown className="w-3 h-3 ml-1 opacity-50" />
                     </div>
                 </div>
 
