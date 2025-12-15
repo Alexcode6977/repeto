@@ -84,8 +84,8 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                             >
                                 {/* Character name with line number */}
                                 <div className="flex items-center gap-2 mb-2">
-                                    {isUser && lineNumber && (
-                                        <span className="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                    {lineNumber && (
+                                        <span className="text-yellow-400 text-[11px] font-bold">
                                             #{lineNumber}
                                         </span>
                                     )}
