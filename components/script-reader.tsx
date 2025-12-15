@@ -30,13 +30,13 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                     </div>
                 </div>
 
-                {/* TOGGLE BUTTONS - ALWAYS VISIBLE */}
-                <div className="flex items-center gap-1 bg-black rounded-full p-1 border border-white/20">
+                {/* TOGGLE BUTTONS - FIXED LAYOUT */}
+                <div className="flex items-center gap-0 bg-neutral-900 rounded-full p-1 border border-white/20 flex-shrink-0">
                     <button
                         onClick={() => setHighlightStyle("box")}
                         className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-all",
-                            highlightStyle === "box" ? "bg-white text-black" : "text-gray-300 hover:text-white"
+                            "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap",
+                            highlightStyle === "box" ? "bg-white text-black" : "text-gray-400 hover:text-white"
                         )}
                     >
                         <Layout className="w-4 h-4" />
@@ -45,8 +45,8 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                     <button
                         onClick={() => setHighlightStyle("text")}
                         className={cn(
-                            "flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-all",
-                            highlightStyle === "text" ? "bg-yellow-500 text-black" : "text-gray-300 hover:text-white"
+                            "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap",
+                            highlightStyle === "text" ? "bg-yellow-400 text-black" : "text-gray-400 hover:text-white"
                         )}
                     >
                         <Highlighter className="w-4 h-4" />
@@ -81,7 +81,7 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                                 <p className={cn(
                                     "text-lg md:text-xl leading-relaxed",
                                     isUser && highlightStyle === "text"
-                                        ? "bg-yellow-500 text-black px-2 py-1 rounded-md inline font-bold"
+                                        ? "bg-yellow-400 text-black px-3 py-1 rounded font-bold"
                                         : isUser ? "text-yellow-100 font-medium" : "text-gray-300"
                                 )}>
                                     {line.text}
