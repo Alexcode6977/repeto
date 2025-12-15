@@ -38,13 +38,7 @@ export default function LandingPage() {
 
                 <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in duration-1000 slide-in-from-bottom-8">
 
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md shadow-xl hover:bg-white/10 transition-colors cursor-default">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                        </span>
-                        <span className="text-xs font-medium text-gray-300 tracking-wide">Nouvelle Intelligence Artificielle 2.0</span>
-                    </div>
+
 
                     <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.1] md:leading-[1.1]">
                         Apprenez vos textes <br />
