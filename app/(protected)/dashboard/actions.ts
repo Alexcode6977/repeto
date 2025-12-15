@@ -5,7 +5,7 @@ import { ParsedScript } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
-const pdf = require("pdf-parse/lib/pdf-parse.js");
+// pdf-parse required inside action
 
 export async function saveScript(script: ParsedScript) {
     const supabase = await createClient();
@@ -107,6 +107,10 @@ export async function deleteScript(id: string) {
 
 export async function parsePdfAction(formData: FormData): Promise<ParsedScript | { error: string }> {
     console.log("[Action] Parsing PDF with Structural Reconstruction (No Filtering)...");
+
+    // Lazy load pdf-parse to avoid top-level import issues in Next.js bundles
+    const pdf = require("pdf-parse/lib/pdf-parse.js");
+
     const file = formData.get("file") as File;
 
     if (!file) {

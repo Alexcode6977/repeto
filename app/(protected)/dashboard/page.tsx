@@ -264,7 +264,7 @@ export default function Home() {
               className="group relative aspect-[4/5] bg-white/5 border border-white/10 rounded-3xl overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300"
             >
               {/* Card Background gradient */}
-              <div className="absolute inset-0 bg-linear-to-b from-transparent to-black/80 z-10" />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10" />
 
               {/* Icon / Preview */}
               <div className="absolute inset-0 flex items-center justify-center opacity-30 group-hover:scale-110 transition-transform duration-700">
