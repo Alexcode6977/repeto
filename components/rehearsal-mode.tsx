@@ -74,6 +74,9 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         }
     };
 
+    // Line Visibility State
+    const [lineVisibility, setLineVisibility] = useState<"visible" | "hint" | "hidden">("visible");
+
     // OpenAI voice assignments per character
     type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
     const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, OpenAIVoice>>({});
@@ -131,6 +134,21 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     const isUserTurn = currentLine?.character === userCharacter;
 
     const getExampleStatus = (score: number) => score >= threshold;
+
+    // Helper for visibility masking
+    const getVisibleText = (text: string | undefined, isUser: boolean) => {
+        if (!text) return "";
+        if (!isUser || lineVisibility === "visible") return text;
+
+        if (lineVisibility === "hint") {
+            const words = text.split(" ");
+            if (words.length <= 2) return text;
+            return `${words[0]} ${words[1]} ...`;
+        }
+
+        // Hidden
+        return "..............."; // Visual placeholder
+    };
 
     if (!hasStarted) {
         return (
@@ -202,6 +220,36 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                         </select>
                                     </div>
                                 )}
+
+                                {/* Visibility Mode Selection (NEW) */}
+                                <div className="space-y-3 pt-4 border-t border-white/5">
+                                    <label className="text-sm font-medium text-gray-300 uppercase tracking-widest">Affichage de vos répliques</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                            { id: "visible", label: "Visible" },
+                                            { id: "hint", label: "Indices" },
+                                            { id: "hidden", label: "Caché" }
+                                        ].map(v => (
+                                            <button
+                                                key={v.id}
+                                                onClick={() => setLineVisibility(v.id as typeof lineVisibility)}
+                                                className={cn(
+                                                    "p-2.5 rounded-xl text-xs font-bold uppercase tracking-wide border transition-all",
+                                                    lineVisibility === v.id
+                                                        ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+                                                        : "bg-black/20 text-gray-400 border-white/10 hover:bg-white/10"
+                                                )}
+                                            >
+                                                {v.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-center text-gray-500 italic">
+                                        {lineVisibility === "visible" && "Texte complet."}
+                                        {lineVisibility === "hint" && "2 premiers mots uniquement."}
+                                        {lineVisibility === "hidden" && "Texte masqué pour mémorisation."}
+                                    </p>
+                                </div>
 
                                 {/* Slider Section */}
                                 <div className="space-y-3 pt-4 border-t border-white/5">
@@ -564,12 +612,13 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                 )}
                             </div>
 
+                            {/* MASKED TEXT LOGIC */}
                             <p className={cn(
                                 "text-xl md:text-3xl font-medium leading-relaxed",
                                 isUserTurn ? "text-white" : "text-gray-300 italic",
                                 status === "paused" && "opacity-50 blur-[1px] transition-all"
                             )}>
-                                {currentLine?.text}
+                                {getVisibleText(currentLine?.text, isUserTurn)}
                             </p>
 
                             {/* Feedback UI */}
