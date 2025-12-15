@@ -23,7 +23,7 @@ export default async function ProtectedLayout({
         <div className="min-h-screen bg-transparent flex flex-col font-sans">
             {/* Shared Header */}
             <header className="w-full p-6 flex items-center justify-between z-50">
-                <Link href="/" className="flex items-center gap-2 group">
+                <Link href="/dashboard" className="flex items-center gap-2 group">
                     {/* Small Logo */}
                     <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
                         <div className="w-6 h-6 rounded-full bg-primary blur-md absolute opacity-50" />

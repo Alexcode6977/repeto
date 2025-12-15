@@ -159,8 +159,17 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                                                 >
                                                     <span className={cn(
                                                         isUser && highlightStyle !== "text" ? "text-yellow-100 font-medium" : "",
-                                                        !isUser ? "text-gray-300" : ""
-                                                    )}>
+                                                        !isUser ? "text-gray-300" : "",
+                                                        // Fix for highlighted mode on desktop: force styling via class if inline fails, but inline takes precedence.
+                                                        // Adding a specific class for 'text' mode to ensure visibility
+                                                        isUser && highlightStyle === "text" ? "bg-yellow-400 text-black px-1 rounded box-decoration-clone" : ""
+                                                    )}
+                                                        style={
+                                                            highlightStyle === "text" && isUser
+                                                                ? { backgroundColor: '#facc15', color: '#000000', padding: '4px 8px', borderRadius: '4px', display: 'inline', WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone' }
+                                                                : undefined
+                                                        }
+                                                    >
                                                         {line.text}
                                                     </span>
                                                 </p>

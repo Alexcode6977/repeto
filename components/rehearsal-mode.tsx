@@ -6,7 +6,7 @@ import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { synthesizeSpeech } from "@/app/actions/tts";
 import { getVoiceStatus, unlockPremium } from "@/app/actions/voice";
 import { Button } from "./ui/button";
-import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins } from "lucide-react";
+import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
@@ -311,26 +311,168 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                         {/* 3. Rehearsal Mode */}
                         <div className="space-y-3">
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Mode de lecture</label>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-3 gap-2">
                                 {[
                                     { id: "full", label: "Intégrale", sub: "Tout le cast" },
                                     { id: "cue", label: "Réplique", sub: "Juste avant vous" },
+                                    { id: "check", label: "Filage", sub: "Vos lignes (Rapide)" },
                                 ].map(m => (
                                     <button
                                         key={m.id}
                                         onClick={() => setRehearsalMode(m.id as typeof rehearsalMode)}
                                         className={cn(
-                                            "p-4 rounded-2xl text-left transition-all touch-manipulation border",
+                                            "p-3 rounded-2xl text-left transition-all touch-manipulation border",
                                             rehearsalMode === m.id
                                                 ? "bg-primary/20 border-primary/50"
                                                 : "bg-white/5 border-white/5 active:scale-95"
                                         )}
                                     >
-                                        <span className={cn("block text-sm font-bold mb-1", rehearsalMode === m.id ? "text-white" : "text-gray-300")}>{m.label}</span>
-                                        <span className="block text-[10px] text-gray-500 uppercase tracking-wider">{m.sub}</span>
+                                        <span className={cn("block text-xs font-bold mb-1 truncate", rehearsalMode === m.id ? "text-white" : "text-gray-300")}>{m.label}</span>
+                                        <span className="block text-[9px] text-gray-500 uppercase tracking-tight leading-tight">{m.sub}</span>
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* 4. Advanced Settings (Restored) */}
+                        <div className="pt-4 border-t border-white/5 space-y-6">
+                            {/* Sensitivity -> Renamed to Tolerance */}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Barre de Tolérance</label>
+                                    <span className="text-xs font-mono text-primary">{Math.round(threshold * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="0.95"
+                                    step="0.05"
+                                    value={threshold}
+                                    onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-500 font-medium px-1">
+                                    <span>Relax</span>
+                                    <span>Strict</span>
+                                </div>
+                            </div>
+
+                            {/* TTS Provider */}
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1">Voix de lecture</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => setTtsProvider("browser")}
+                                        className={cn(
+                                            "py-3 rounded-xl text-xs font-bold transition-all border",
+                                            ttsProvider === "browser"
+                                                ? "bg-white/10 border-white/30 text-white"
+                                                : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5"
+                                        )}
+                                    >
+                                        Standard (Navigateur)
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            if (isPremiumUnlocked) {
+                                                setTtsProvider("openai");
+                                            } else {
+                                                setShowUnlockModal(true);
+                                            }
+                                        }}
+                                        className={cn(
+                                            "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
+                                            ttsProvider === "openai"
+                                                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                                                : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5"
+                                        )}
+                                    >
+                                        {!isPremiumUnlocked ? <Lock className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+                                        Neural AI
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Voice Distribution (Standard Browser) */}
+                            {ttsProvider === "browser" && script.characters && (
+                                <div className="space-y-4 pt-2 animate-in slide-in-from-top-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 block">Distribution des Rôles (Standard)</label>
+                                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2 no-scrollbar">
+                                        {script.characters.filter(c => c !== userCharacter).map((char) => (
+                                            <div key={char} className="flex items-center gap-2 bg-white/5 p-2 rounded-lg border border-white/5">
+                                                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-300 shrink-0">
+                                                    {char.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold text-gray-300 truncate">{char}</p>
+                                                    <select
+                                                        className="w-full bg-transparent text-[10px] text-gray-500 focus:outline-none cursor-pointer"
+                                                        value={voiceAssignments[char]?.voiceURI || ""}
+                                                        onChange={(e) => setVoiceForRole(char, e.target.value)}
+                                                    >
+                                                        {voices.filter(v => v.lang.startsWith("fr")).map(v => (
+                                                            <option key={v.voiceURI} value={v.voiceURI} className="bg-black text-white">
+                                                                {v.name}
+                                                            </option>
+                                                        ))}
+                                                        {voices.length === 0 && <option className="bg-black text-white">Défaut (Navigateur)</option>}
+                                                    </select>
+                                                </div>
+                                                <button
+                                                    onClick={async () => {
+                                                        const voice = voiceAssignments[char];
+                                                        if (voice) {
+                                                            const ut = new SpeechSynthesisUtterance("Bonjour, je suis prêt.");
+                                                            ut.voice = voice;
+                                                            window.speechSynthesis.speak(ut);
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white text-[10px] font-bold border border-white/10 flex items-center gap-1.5 transition-colors"
+                                                >
+                                                    <Play className="w-3 h-3 fill-current" />
+                                                    Tester
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Voice Distribution (Neural AI) */}
+                            {ttsProvider === "openai" && isPremiumUnlocked && script.characters && (
+                                <div className="space-y-4 pt-2 animate-in slide-in-from-top-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest ml-1 block">Distribution des Rôles (Neural AI)</label>
+                                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2 no-scrollbar">
+                                        {script.characters.filter(c => c !== userCharacter).map((char) => (
+                                            <div key={char} className="flex items-center gap-2 bg-white/5 p-2 rounded-lg border border-white/5">
+                                                <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-[10px] font-bold text-gray-300 shrink-0">
+                                                    {char.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold text-gray-300 truncate">{char}</p>
+                                                    <select
+                                                        className="w-full bg-transparent text-[10px] text-gray-500 focus:outline-none cursor-pointer"
+                                                        value={openaiVoiceAssignments[char] || "nova"}
+                                                        onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
+                                                    >
+                                                        {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
+                                                            <option key={v} value={v} className="bg-black text-white">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <button
+                                                    onClick={() => testOpenAIVoice(char, openaiVoiceAssignments[char] || "nova")}
+                                                    disabled={testingVoice === char}
+                                                    className="px-3 py-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-emerald-400 disabled:opacity-50 text-[10px] font-bold border border-white/10 flex items-center gap-1.5 transition-colors"
+                                                >
+                                                    {testingVoice === char ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
+                                                    Tester
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* 4. Start Button - Massive */}
