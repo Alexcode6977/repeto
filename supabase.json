@@ -1,0 +1,218 @@
+[
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "script_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "script_title",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "character_name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "duration_seconds",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "lines_rehearsed",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "completion_percentage",
+        "data_type": "numeric",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "settings",
+        "data_type": "jsonb",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "rating",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "what_worked",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "what_didnt_work",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "improvement_ideas",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "device_type",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "app_version",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "status",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "'pending'::text",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "resolved_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_feedback",
+        "column_name": "admin_notes",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "scripts",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "scripts",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "scripts",
+        "column_name": "title",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "scripts",
+        "column_name": "content",
+        "data_type": "jsonb",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "scripts",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    }
+]
