@@ -189,6 +189,16 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         }
     };
 
+    // AUTO-TRIGGER: Detect when script is finished and show feedback
+    useEffect(() => {
+        if (status === "finished" && hasStarted && !showFeedbackModal) {
+            // Script completed! Show feedback modal
+            stop();
+            setShowFeedbackModal(true);
+            setPendingExit(true);
+        }
+    }, [status, hasStarted, showFeedbackModal, stop]);
+
     const isUserTurn = currentLine?.character === userCharacter;
 
     const getExampleStatus = (score: number) => score >= threshold;
