@@ -30,16 +30,19 @@ export async function saveScript(script: ParsedScript) {
     revalidatePath("/profile");
 }
 
+const ADMIN_EMAIL = "alex69.sartre@gmail.com";
+
 export async function getScripts() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return [];
 
+    // Fetch User's scripts OR Public scripts
     const { data, error } = await supabase
         .from("scripts")
-        .select("id, title, content, created_at")
-        .eq("user_id", user.id)
+        .select("id, title, content, created_at, user_id, is_public")
+        .or(`user_id.eq.${user.id},is_public.eq.true`)
         .order("created_at", { ascending: false });
 
     if (error) {
@@ -47,15 +50,33 @@ export async function getScripts() {
         return [];
     }
 
-    // Map DB result to a LIGHTWEIGHT structure for the dashboard list
-    // We compute stats here on the server and do NOT send the heavy 'content' to the client
     return data.map((row) => ({
         id: row.id,
         title: row.title,
         created_at: row.created_at,
         characterCount: row.content?.characters?.length || 0,
         lineCount: row.content?.lines?.length || 0,
+        is_public: row.is_public || false,
+        is_owner: row.user_id === user.id,
     }));
+}
+
+export async function togglePublicStatus(scriptId: string, currentStatus: boolean) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user || user.email !== ADMIN_EMAIL) {
+        throw new Error("Unauthorized: Only Admin can manage library.");
+    }
+
+    const { error } = await supabase
+        .from("scripts")
+        .update({ is_public: !currentStatus })
+        .eq("id", scriptId);
+
+    if (error) throw new Error("Failed to update public status");
+
+    revalidatePath("/dashboard");
 }
 
 export async function getScriptById(id: string) {
@@ -64,23 +85,28 @@ export async function getScriptById(id: string) {
 
     if (!user) throw new Error("Unauthorized");
 
+    // Allow access if owner OR if public
     const { data, error } = await supabase
         .from("scripts")
-        .select("id, title, content, created_at")
+        .select("id, title, content, created_at, user_id, is_public")
         .eq("id", id)
-        .eq("user_id", user.id)
         .single();
 
     if (error || !data) {
-        console.error("Error fetching script detail:", error);
         return null;
+    }
+
+    // Security Check: Must be owner OR script must be public
+    if (data.user_id !== user.id && !data.is_public) {
+        throw new Error("Unauthorized access to this script.");
     }
 
     return {
         id: data.id,
         title: data.title,
-        ...data.content, // Spread the stored ParsedScript content to reconstruct full object
-        created_at: data.created_at
+        ...data.content,
+        created_at: data.created_at,
+        is_public: data.is_public
     };
 }
 
@@ -90,11 +116,18 @@ export async function deleteScript(id: string) {
 
     if (!user) throw new Error("Unauthorized");
 
+    // Check if script is public before deleting
+    const { data: script } = await supabase.from("scripts").select("is_public, user_id").eq("id", id).single();
+
+    if (script?.is_public && user.email !== ADMIN_EMAIL) {
+        throw new Error("Cannot delete a public library script.");
+    }
+
     const { error } = await supabase
         .from("scripts")
         .delete()
         .eq("id", id)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id); // Standard users can only delete their own. Admin usually owns the public ones anyway.
 
     if (error) {
         console.error("Error deleting script:", error);

@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
 import { useState, useTransition, useEffect } from "react";
-import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById } from "./actions"; // Imported getScriptById
+import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus } from "./actions"; // Imported togglePublicStatus
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
 import { ScriptReader } from "@/components/script-reader";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { Globe, Lock } from "lucide-react"; // Import Globe/Lock icons
 
 // Extend ParsedScript to include DB fields
 // type SavedScript = ParsedScript & { id: string; created_at: string };
@@ -21,7 +22,11 @@ type ScriptMetadata = {
   created_at: string;
   characterCount: number;
   lineCount: number;
+  is_public: boolean;
+  is_owner: boolean;
 };
+
+const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 
 export default function Home() {
   const [isPending, startTransition] = useTransition();
@@ -31,6 +36,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<"viewer" | "reader" | "rehearsal">("viewer"); // NEW state
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>(""); // Need email for admin check
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false); // New loading state for detail fetch
 
@@ -49,6 +55,7 @@ export default function Home() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.email) {
           setUserName(user.email.split('@')[0]);
+          setUserEmail(user.email);
         }
       } catch (e) {
         console.error("Client Init Error:", e);
@@ -144,9 +151,24 @@ export default function Home() {
         setScript(null);
       }
     } catch (err) {
-      setError("Impossible de supprimer le script.");
+      setError("Impossible de supprimer le script (Droits insuffisants ?).");
     }
   };
+
+  const handleTogglePublic = async (e: React.MouseEvent, s: ScriptMetadata) => {
+    e.stopPropagation();
+    try {
+      // Optimistic update
+      const newStatus = !s.is_public;
+      setScriptsList(prev => prev.map(item => item.id === s.id ? { ...item, is_public: newStatus } : item));
+
+      await togglePublicStatus(s.id, s.is_public);
+      await refreshScripts(); // Refresh to be safe
+    } catch (e) {
+      setError("Erreur lors de la mise à jour du statut publique.");
+      refreshScripts(); // Revert
+    }
+  }
 
   const handleConfirmSelection = (characterName: string, mode: 'reader' | 'rehearsal') => {
     setRehearsalChar(characterName);
@@ -267,14 +289,22 @@ export default function Home() {
             <div
               key={s.id}
               onClick={() => handleLoadScript(s)}
-              className="group relative aspect-[4/5] bg-white/5 border border-white/10 rounded-3xl overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300"
+              className={`group relative aspect-[4/5] bg-white/5 border border-white/10 rounded-3xl overflow-hidden cursor-pointer hover:border-primary/50 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-300 ${s.is_public ? 'border-amber-500/30' : ''}`}
             >
               {/* Card Background gradient */}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10" />
 
+              {/* Public Badge */}
+              {s.is_public && (
+                <div className="absolute top-4 right-4 z-20 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 shadow-lg">
+                  <Globe className="w-3 h-3" />
+                  Bibliothèque
+                </div>
+              )}
+
               {/* Icon / Preview */}
               <div className="absolute inset-0 flex items-center justify-center opacity-30 group-hover:scale-110 transition-transform duration-700">
-                <FileText className="w-32 h-32 text-white/20" />
+                <FileText className={`w-32 h-32 ${s.is_public ? 'text-amber-500/20' : 'text-white/20'}`} />
               </div>
 
               {/* Content */}
@@ -293,14 +323,31 @@ export default function Home() {
                     <Play className="w-4 h-4 mr-2 fill-current" />
                     Répéter
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-white rounded-xl"
-                    onClick={(e) => handleDeleteScript(e, s.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+
+                  {/* Delete Button - Only for Owner or Admin */}
+                  {(s.is_owner || userEmail === ADMIN_EMAIL) && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-white rounded-xl"
+                      onClick={(e) => handleDeleteScript(e, s.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+
+                  {/* Admin Toggle Public Button */}
+                  {userEmail === ADMIN_EMAIL && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`rounded-xl ${s.is_public ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-gray-400'}`}
+                      onClick={(e) => handleTogglePublic(e, s)}
+                      title={s.is_public ? "Retirer de la bibliothèque" : "Mettre dans la bibliothèque"}
+                    >
+                      {s.is_public ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
