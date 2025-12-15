@@ -438,31 +438,107 @@ export function useSpeech() {
             setState("listening");
             setTranscript("");
 
+            let finalTranscript = "";
+            let interimTranscript = "";
+            let silenceTimeout: NodeJS.Timeout | null = null;
+            const SILENCE_DELAY = 2500; // 2.5 seconds of silence before finalizing
+
+            // Enable continuous mode and interim results for longer utterances
+            recognitionRef.current.continuous = true;
+            recognitionRef.current.interimResults = true;
+
+            const resetSilenceTimer = () => {
+                if (silenceTimeout) {
+                    clearTimeout(silenceTimeout);
+                }
+                silenceTimeout = setTimeout(() => {
+                    // User has stopped speaking for SILENCE_DELAY ms
+                    // Finalize with whatever we have
+                    try {
+                        recognitionRef.current.stop();
+                    } catch (e) {
+                        // Already stopped
+                    }
+                    const result = (finalTranscript + " " + interimTranscript).trim();
+                    if (result) {
+                        resolve(result);
+                    }
+                }, SILENCE_DELAY);
+            };
+
             recognitionRef.current.onresult = (event: any) => {
-                const last = event.results.length - 1;
-                const text = event.results[last][0].transcript;
-                setTranscript(text);
-                resolve(text);
+                // Reset silence timer on any result
+                resetSilenceTimer();
+
+                // Process all results
+                let interim = "";
+                let final = "";
+
+                for (let i = 0; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    if (result.isFinal) {
+                        final += result[0].transcript + " ";
+                    } else {
+                        interim += result[0].transcript + " ";
+                    }
+                }
+
+                finalTranscript = final.trim();
+                interimTranscript = interim.trim();
+
+                // Update visible transcript with both final and interim
+                const combinedTranscript = (finalTranscript + " " + interimTranscript).trim();
+                setTranscript(combinedTranscript);
             };
 
             recognitionRef.current.onerror = (event: any) => {
+                if (silenceTimeout) clearTimeout(silenceTimeout);
+
+                // "no-speech" is not really an error, just no input detected
+                if (event.error === "no-speech") {
+                    resolve(finalTranscript.trim() || interimTranscript.trim() || "");
+                    return;
+                }
+
+                // "aborted" means we stopped it manually
+                if (event.error === "aborted") {
+                    resolve(finalTranscript.trim() || interimTranscript.trim() || "");
+                    return;
+                }
+
                 console.error("Speech recognition error", event.error);
                 setState("error");
                 reject(event.error);
             };
 
             recognitionRef.current.onend = () => {
-                // If we haven't resolved yet (e.g. no speech detected), we might want to handle that.
-                // But usually onresult fires first if successful.
-                // We'll set state back to idle externally or here if needed.
+                if (silenceTimeout) clearTimeout(silenceTimeout);
+                // Recognition ended - return what we have
+                const result = (finalTranscript + " " + interimTranscript).trim();
+                if (result) {
+                    resolve(result);
+                }
+                // If empty, the silence timeout would have already resolved or it will timeout
             };
 
             try {
                 recognitionRef.current.start();
+                // Start the initial silence timer
+                resetSilenceTimer();
             } catch (e) {
+                if (silenceTimeout) clearTimeout(silenceTimeout);
                 // Sometimes it's already started
-                recognitionRef.current.stop();
-                setTimeout(() => recognitionRef.current.start(), 100);
+                try {
+                    recognitionRef.current.stop();
+                } catch (e2) { /* ignore */ }
+                setTimeout(() => {
+                    try {
+                        recognitionRef.current.start();
+                        resetSilenceTimer();
+                    } catch (e3) {
+                        reject("Failed to start recognition");
+                    }
+                }, 100);
             }
         });
     }, []);

@@ -16,11 +16,16 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
     const scrollRef = useRef<HTMLDivElement>(null);
     const [highlightStyle, setHighlightStyle] = useState<"box" | "text">("box");
 
+    // Helper to check if user is in this line's character (handles compound names like "YVONNE et LUCIEN")
+    const isUserLine = (lineCharacter: string): boolean => {
+        return lineCharacter.toUpperCase().includes(userCharacter.toUpperCase());
+    };
+
     // Pre-calculate line numbers for user character
     const userLineNumbers = new Map<string, number>();
     let counter = 0;
     script.lines.forEach((line) => {
-        if (line.character === userCharacter) {
+        if (isUserLine(line.character)) {
             counter++;
             userLineNumbers.set(line.id, counter);
         }
@@ -101,7 +106,7 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                     <div className="flex-1 p-4 md:p-8">
                         <div className="max-w-3xl mx-auto space-y-4 pb-32">
                             {script.lines.map((line, idx) => {
-                                const isUser = line.character === userCharacter;
+                                const isUser = isUserLine(line.character);
                                 const lineNumber = userLineNumbers.get(line.id);
                                 const sceneTitle = sceneAtIndex.get(idx);
 
