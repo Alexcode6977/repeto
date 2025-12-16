@@ -43,6 +43,14 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         }
     };
 
+    // Preload helper
+    const preloadLine = (text: string, characterName: string) => {
+        if (ttsProvider === "openai") {
+            const voice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "nova";
+            openaiSpeech.preload(text, voice);
+        }
+    };
+
     const { listen, stop: stopSpeech, voices, state: speechState } = browserSpeech;
 
     // Combined stop function
@@ -134,6 +142,16 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         if (!line) {
             setStatus("finished");
             return;
+        }
+
+        // PRELOAD LOGIC: Always try to preload the NEXT line if it is not the user's turn
+        // This dramatically reduces latency for OpenAI TTS
+        const nextIdx = indexToUse + 1;
+        if (nextIdx < script.lines.length) {
+            const nextLine = script.lines[nextIdx];
+            if (!nextLine.character.includes(userCharacter)) {
+                preloadLine(nextLine.text, nextLine.character);
+            }
         }
 
         // Check if user is one of the characters (handles direct match + "YVONNE et LUCIEN")
@@ -292,9 +310,10 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                     // Update index AND immediately process (don't rely on useEffect which may not fire)
                     setCurrentLineIndex(targetIndex);
                     // Delay needed for speech recognition to properly reset between lines
+                    // Delay needed for speech recognition to properly reset between lines
                     setTimeout(() => {
                         processCurrentLine(targetIndex);
-                    }, 150);
+                    }, 50);
                 } else {
                     setStatus("finished");
                 }
@@ -370,7 +389,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             setTimeout(() => {
                 manualSkipRef.current = false; // Reset flag
                 processCurrentLine(nextIdx);
-            }, 150);
+            }, 50);
         } else {
             manualSkipRef.current = false;
             setStatus("finished");
@@ -418,7 +437,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                     // Minimal delay to ensure recognition can restart
                     setTimeout(() => {
                         processCurrentLine(nextIdx);
-                    }, 100);
+                    }, 50);
                 } else {
                     setStatus("finished");
                 }
