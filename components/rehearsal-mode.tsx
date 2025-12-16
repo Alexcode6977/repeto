@@ -40,7 +40,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">("full");
     const [hasStarted, setHasStarted] = useState(false);
-    const [ttsProvider, setTtsProvider] = useState<"browser" | "openai">("browser");
+    const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | null>(null);
 
     // Premium / Credits State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
@@ -192,7 +192,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         voiceAssignments,
         setVoiceForRole,
         voices
-    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider, openaiVoiceAssignments });
+    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments });
 
     const handleStart = () => {
         setHasStarted(true);
@@ -515,11 +515,11 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                             </div>
                         </div>
 
-                        {/* Card 4: Voice Settings - Always visible */}
+                        {/* Card 4: Voice Settings - Collapsible Logic */}
                         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg space-y-4">
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block">🎙️ Voix de lecture</label>
 
-                            {/* TTS Provider Selector */}
+                            {/* TTS Provider Selector - Always visible */}
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={() => setTtsProvider("browser")}
@@ -530,12 +530,16 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                             : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5"
                                     )}
                                 >
-                                    Standard (Navigateur)
+                                    Standard
                                 </button>
                                 <button
                                     onClick={() => {
-                                        if (isPremiumUnlocked) setTtsProvider("openai");
-                                        else setShowUnlockModal(true);
+                                        if (isPremiumUnlocked) {
+                                            setTtsProvider("openai");
+                                        } else {
+                                            // Show unlock modal immediately
+                                            setShowUnlockModal(true);
+                                        }
                                     }}
                                     className={cn(
                                         "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
@@ -549,9 +553,9 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                 </button>
                             </div>
 
-                            {/* Voice Distribution - Browser */}
+                            {/* Voice Distribution - Only shown when a provider is selected */}
                             {ttsProvider === "browser" && (
-                                <div className="space-y-2 animate-in slide-in-from-top-2">
+                                <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
                                     <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution des rôles</span>
                                     {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
                                         <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
@@ -591,9 +595,9 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                 </div>
                             )}
 
-                            {/* Voice Distribution - Neural AI */}
+                            {/* Voice Distribution - Neural AI (only if premium unlocked AND selected) */}
                             {ttsProvider === "openai" && isPremiumUnlocked && (
-                                <div className="space-y-2 animate-in slide-in-from-top-2">
+                                <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
                                     <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution Neural AI</span>
                                     {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
                                         <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
@@ -663,7 +667,11 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                         {/* Start Button */}
                         <Button
                             size="lg"
-                            onClick={handleStart}
+                            onClick={() => {
+                                // Auto-select browser if no provider chosen
+                                if (!ttsProvider) setTtsProvider("browser");
+                                handleStart();
+                            }}
                             className="w-full text-lg font-bold py-6 rounded-2xl shadow-[0_0_40px_rgba(124,58,237,0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95 mt-4"
                         >
                             <Play className="mr-2 h-6 w-6 fill-current" />
