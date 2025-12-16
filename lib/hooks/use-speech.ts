@@ -445,10 +445,12 @@ export function useSpeech() {
             let interimTranscript = "";
             let silenceTimeout: NodeJS.Timeout | null = null;
 
-            // Dynamic silence delay: base + time proportional to expected duration
-            // Short lines: ~1.2s, Long lines: up to 2s max
-            const baseSilence = 800; // Base silence in ms
-            const proportionalTime = estimatedDurationMs ? Math.min(estimatedDurationMs * 0.3, 1200) : 1200;
+            // Dynamic silence delay based on expected duration
+            // Minimum 1.5s for short lines, up to 2.5s for long lines
+            const baseSilence = 1500; // Minimum base silence in ms
+            const proportionalTime = estimatedDurationMs
+                ? Math.min(Math.max(estimatedDurationMs * 0.2, 0), 1000)
+                : 500;
             const SILENCE_DELAY = baseSilence + proportionalTime;
 
             // Voice commands that should trigger immediate recognition
