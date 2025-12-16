@@ -8,7 +8,22 @@ interface Window {
 
 export type SpeechState = "idle" | "speaking" | "listening" | "error";
 
-export function useSpeech() {
+export interface UseSpeechReturn {
+    isListening: boolean;
+    transcript: string;
+    listeningError: string | null;
+    listen: (estimatedDurationMs?: number) => Promise<string>;
+    stop: () => void;
+    speak: (text: string, voice?: SpeechSynthesisVoice) => Promise<void>;
+    pause: () => void;
+    resume: () => void;
+    voices: SpeechSynthesisVoice[];
+    state: SpeechState;
+    initializeAudio: () => Promise<void>;
+    isSupported: boolean;
+}
+
+export function useSpeech(): UseSpeechReturn {
     const [state, setState] = useState<SpeechState>("idle");
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
     const [transcript, setTranscript] = useState("");
@@ -617,13 +632,54 @@ export function useSpeech() {
         setState("idle");
     }, []);
 
+    // Safari requires SpeechRecognition to be started within a user gesture handler (click).
+    const initializeAudio = useCallback(async () => {
+        try {
+            // 1. Get Mic Permission
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // 2. Warmup Speech Recognition
+            if (recognitionRef.current) {
+                // Clear listeners
+                recognitionRef.current.onresult = null;
+                recognitionRef.current.onerror = null;
+
+                await new Promise<void>((resolve) => {
+                    const onEnd = () => resolve();
+                    if (recognitionRef.current) {
+                        recognitionRef.current.onend = onEnd;
+                        try {
+                            recognitionRef.current.start();
+                            setTimeout(() => {
+                                recognitionRef.current?.stop();
+                            }, 50);
+                        } catch (e) {
+                            console.warn("Recognition warmup failed", e);
+                            resolve();
+                        }
+                    } else {
+                        resolve();
+                    }
+                });
+            }
+        } catch (e) {
+            console.error("Audio initialization failed", e);
+            throw e;
+        }
+    }, []);
+
     return {
-        state,
-        voices,
+        isListening: state === "listening",
         transcript,
-        speak,
+        listeningError: state === "error" ? "Speech recognition error" : null,
         listen,
         stop,
+        speak,
+        pause: () => window.speechSynthesis.pause(),
+        resume: () => window.speechSynthesis.resume(),
+        voices,
+        state,
+        initializeAudio,
         isSupported: typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
     };
 }
