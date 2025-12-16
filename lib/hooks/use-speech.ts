@@ -350,57 +350,57 @@ export function useSpeech() {
 
             switch (emotion) {
                 case 'question':
-                    pitch = 1.12 + (Math.random() * 0.06);  // Rising intonation with variation
-                    rate = 0.92;   // Slightly slower for clarity
+                    pitch = 1.15 + (Math.random() * 0.1);  // Higher rising intonation
+                    rate = 0.88;   // Slower for clarity and dramatic effect
                     break;
 
                 case 'exclamation':
-                    pitch = 1.08 + (Math.random() * 0.08);
-                    rate = 1.05 + (Math.random() * 0.1);
+                    pitch = 1.12 + (Math.random() * 0.12);
+                    rate = 1.0 + (Math.random() * 0.15);
                     volume = 1.0;
                     break;
 
                 case 'anger':
-                    pitch = 0.85 + (Math.random() * 0.1);   // Lower, more intense
-                    rate = 1.15 + (Math.random() * 0.15);   // Fast and aggressive
+                    pitch = 0.78 + (Math.random() * 0.1);   // Much lower, intense
+                    rate = 1.2 + (Math.random() * 0.2);    // Fast and aggressive
                     volume = 1.0;
                     break;
 
                 case 'joy':
-                    pitch = 1.18 + (Math.random() * 0.1);   // Higher, brighter, varied
-                    rate = 1.05 + (Math.random() * 0.1);
+                    pitch = 1.22 + (Math.random() * 0.12);  // Higher, brighter, more varied
+                    rate = 1.0 + (Math.random() * 0.15);
                     break;
 
                 case 'hesitation':
-                    pitch = 0.95 + (Math.random() * 0.05);
-                    rate = 0.75 + (Math.random() * 0.1);    // Very slow, uncertain
+                    pitch = 0.92 + (Math.random() * 0.08);
+                    rate = 0.68 + (Math.random() * 0.1);    // Very slow, uncertain
                     break;
 
                 case 'sadness':
-                    pitch = 0.82 + (Math.random() * 0.06);  // Lower, somber
-                    rate = 0.78 + (Math.random() * 0.08);   // Slow, heavy
+                    pitch = 0.78 + (Math.random() * 0.08);  // Much lower, somber
+                    rate = 0.72 + (Math.random() * 0.1);    // Slow, heavy, dramatic
                     break;
 
                 case 'fear':
-                    pitch = 1.1 + (Math.random() * 0.15);   // Higher, tense
-                    rate = 1.1 + (Math.random() * 0.2);     // Fast, breathless
+                    pitch = 1.15 + (Math.random() * 0.18);  // Higher, tense
+                    rate = 1.15 + (Math.random() * 0.2);    // Fast, breathless
                     break;
 
                 case 'irony':
-                    pitch = 1.0 + (Math.random() * 0.1 - 0.05);
-                    rate = 0.88;   // Deliberate, measured
+                    pitch = 1.02 + (Math.random() * 0.1 - 0.05);
+                    rate = 0.82;   // Deliberate, measured, theatrical pause effect
                     break;
 
                 case 'tenderness':
-                    pitch = 1.05 + (Math.random() * 0.08);  // Soft, warm
-                    rate = 0.85 + (Math.random() * 0.05);   // Slow, gentle
-                    volume = 0.9;  // Slightly softer
+                    pitch = 1.08 + (Math.random() * 0.1);   // Soft, warm
+                    rate = 0.78 + (Math.random() * 0.08);   // Very slow, gentle
+                    volume = 0.85;  // Softer
                     break;
 
                 default:
-                    // Neutral - varied for natural feel
-                    pitch = 0.98 + (Math.random() * 0.1);
-                    rate = 0.92 + (Math.random() * 0.12);
+                    // Neutral - theatrical baseline with good variation
+                    pitch = 0.95 + (Math.random() * 0.15);
+                    rate = 0.88 + (Math.random() * 0.1);    // Slightly slower for theatrical feel
             }
 
             utterance.pitch = pitch;
@@ -427,8 +427,11 @@ export function useSpeech() {
     const pause = (ms: number): Promise<void> => {
         return new Promise(resolve => setTimeout(resolve, ms));
     };
-
-    const listen = useCallback((): Promise<string> => {
+    /**
+     * Listen for speech with dynamic silence timeout based on expected line duration
+     * @param estimatedDurationMs - Expected duration to speak the line (calculated from text length)
+     */
+    const listen = useCallback((estimatedDurationMs?: number): Promise<string> => {
         return new Promise((resolve, reject) => {
             if (!recognitionRef.current) {
                 reject("Speech recognition not supported");
@@ -441,7 +444,12 @@ export function useSpeech() {
             let finalTranscript = "";
             let interimTranscript = "";
             let silenceTimeout: NodeJS.Timeout | null = null;
-            const SILENCE_DELAY = 2500; // 2.5 seconds of silence before finalizing
+
+            // Dynamic silence delay: base + time proportional to expected duration
+            // Short lines: ~1.2s, Long lines: up to 2s max
+            const baseSilence = 800; // Base silence in ms
+            const proportionalTime = estimatedDurationMs ? Math.min(estimatedDurationMs * 0.3, 1200) : 1200;
+            const SILENCE_DELAY = baseSilence + proportionalTime;
 
             // Voice commands that should trigger immediate recognition
             const QUICK_COMMANDS = ["passe", "passer", "je passe", "suivante", "suite", "suivant", "next", "joker", "précédente", "retour", "répète"];

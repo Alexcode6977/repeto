@@ -141,7 +141,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             }
 
             try {
-                const transcript = await listen();
+                // Estimate speaking duration: ~100 chars/second = 10ms/char
+                const estimatedDuration = line.text.length * 12;
+                const transcript = await listen(estimatedDuration);
                 setLastTranscript(transcript);
                 setStatus("evaluating");
 
@@ -385,27 +387,26 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     const validateManually = () => {
         if (status === "listening_user" || status === "error") {
-            // Stop any listening first
+            // Stop any listening immediately
             stopAll();
             // Brief visual feedback
             setFeedback("correct");
 
-            // Wait for feedback to show, then advance
-            // next() has its own 100ms delay before processCurrentLine
+            // Very short delay for visual flash, then advance immediately
             setTimeout(() => {
                 setFeedback(null);
                 // Update index and explicitly process
                 const nextIdx = stateRef.current.currentLineIndex + 1;
                 if (nextIdx < script.lines.length) {
                     setCurrentLineIndex(nextIdx);
-                    // Longer delay to ensure recognition can restart after being stopped
+                    // Minimal delay to ensure recognition can restart
                     setTimeout(() => {
                         processCurrentLine(nextIdx);
-                    }, 200);
+                    }, 100);
                 } else {
                     setStatus("finished");
                 }
-            }, 300);
+            }, 100);
         }
     };
 
