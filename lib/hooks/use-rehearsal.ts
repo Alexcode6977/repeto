@@ -257,10 +257,10 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 if (targetIndex < script.lines.length) {
                     // Update index AND immediately process (don't rely on useEffect which may not fire)
                     setCurrentLineIndex(targetIndex);
-                    // Small delay to let React update, then process
+                    // Delay needed for speech recognition to properly reset between lines
                     setTimeout(() => {
                         processCurrentLine(targetIndex);
-                    }, 50);
+                    }, 150);
                 } else {
                     setStatus("finished");
                 }
@@ -330,17 +330,17 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
     const next = () => {
-        // Stop any ongoing speech FIRST
+        // Stop any ongoing speech/listening FIRST
         stopAll();
 
         const nextIdx = stateRef.current.currentLineIndex + 1;
         if (nextIdx < script.lines.length) {
             setCurrentLineIndex(nextIdx);
-            // CRITICAL: Explicitly call processCurrentLine after a micro-delay
-            // The useEffect may not fire reliably due to status race conditions
+            // CRITICAL: Delay after stopAll() to let browser reset speech recognition
+            // 250ms is needed to avoid race conditions where recognition doesn't restart
             setTimeout(() => {
                 processCurrentLine(nextIdx);
-            }, 100);
+            }, 250);
         } else {
             setStatus("finished");
         }
