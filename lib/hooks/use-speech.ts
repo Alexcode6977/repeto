@@ -549,12 +549,10 @@ export function useSpeech() {
 
             recognitionRef.current.onend = () => {
                 if (silenceTimeout) clearTimeout(silenceTimeout);
-                // Recognition ended - return what we have
+                setState("idle");
+                // Recognition ended - return what we have (may be empty)
                 const result = (finalTranscript + " " + interimTranscript).trim();
-                if (result) {
-                    resolve(result);
-                }
-                // If empty, the silence timeout would have already resolved or it will timeout
+                resolve(result);
             };
 
             try {
