@@ -296,31 +296,23 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             try {
                 await speak(line.text, voice, line.character);
                 // After speaking completes, advance to next line (if not paused/stopped)
-                if (stateRef.current.status === "playing_other") {
+                // IMPORTANT: Check manualSkipRef to ensure we don't double-skip if user clicked Skip
+                if (stateRef.current.status === "playing_other" && !manualSkipRef.current) {
                     setTimeout(() => next(), 100);  // Quick transition
                 }
             } catch (e) {
-                console.error("Speech failed:", e);
-                next();  // Skip to next on error
+                // Similarly check manualSkipRef
+                if (!manualSkipRef.current) {
+                    console.error("Speech failed:", e);
+                    next();  // Skip to next on error
+                }
             }
         }
     };
 
     // Watch speech state to auto-advance when OTHER finishes speaking
-    useEffect(() => {
-        // Logic: If we were playing_other and now we are idle, advance.
-        // BUT only if it's not a manual skip (to prevent double-skip)
-        if (status === "playing_other" && speechState === "idle" && !manualSkipRef.current) {
-            // Add small delay for natural pacing
-            const timer = setTimeout(() => {
-                // If user paused right at the end of speech, don't advance
-                if (statusRef.current !== "paused") {
-                    next();
-                }
-            }, 500);
-            return () => clearTimeout(timer);
-        }
-    }, [speechState, status]); // dependency on status is tricky if it changes to paused.
+    // REMOVED: The useEffect watching speechState was causing double-skips.
+    // The await speak() logic above is sufficient and more reliable.
 
     // We need a ref for status to check inside timeout without stale closure if we want to be safe, 
     // or just rely on 'status' change clearing the timeout.
