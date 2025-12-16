@@ -62,6 +62,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         stateRef.current = { currentLineIndex, status, userCharacter };
     }, [currentLineIndex, status, userCharacter]);
 
+    // Track if microphone permission has been requested
+    const micRequestedRef = useRef(false);
+
     // Voice Assignment Logic
     // We Map: "ASSISTANT" | "NARRATOR" | CharacterName -> SpeechSynthesisVoice
     const [voiceAssignments, setVoiceAssignments] = useState<Record<string, SpeechSynthesisVoice>>({});
@@ -126,6 +129,17 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         if (line.character.includes(userCharacter)) {
             // It's the user's turn
             setStatus("listening_user");
+
+            // Request microphone permission only on first user turn
+            if (!micRequestedRef.current) {
+                micRequestedRef.current = true;
+                try {
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
+                } catch (e) {
+                    console.warn("Mic permission denied", e);
+                }
+            }
+
             try {
                 const transcript = await listen();
                 setLastTranscript(transcript);
@@ -323,13 +337,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
 
-    const start = async () => {
-        // Request microphone permission once at start
-        try {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (e) {
-            console.warn("Mic permission denied or unavailable", e);
-        }
+    const start = () => {
         setCurrentLineIndex(initialLineIndex);
         // Explicitly trigger the first line
         processCurrentLine(initialLineIndex);
