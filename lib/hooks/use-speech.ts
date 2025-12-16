@@ -443,9 +443,35 @@ export function useSpeech() {
             let silenceTimeout: NodeJS.Timeout | null = null;
             const SILENCE_DELAY = 2500; // 2.5 seconds of silence before finalizing
 
+            // Voice commands that should trigger immediate recognition
+            const QUICK_COMMANDS = ["passe", "passer", "je passe", "suivante", "suite", "suivant", "next", "joker", "précédente", "retour", "répète"];
+
+            // Check if text contains a quick command
+            const isQuickCommand = (text: string): boolean => {
+                const normalized = text.toLowerCase().replace(/[.,!?]/g, "").trim();
+                return QUICK_COMMANDS.some(cmd =>
+                    normalized === cmd ||
+                    normalized.startsWith(cmd + " ") ||
+                    normalized.endsWith(" " + cmd) ||
+                    normalized.includes(cmd)
+                );
+            };
+
             // Enable continuous mode and interim results for longer utterances
             recognitionRef.current.continuous = true;
             recognitionRef.current.interimResults = true;
+
+            const finalizeRecognition = (result: string) => {
+                if (silenceTimeout) clearTimeout(silenceTimeout);
+                try {
+                    recognitionRef.current.stop();
+                } catch (e) {
+                    // Already stopped
+                }
+                if (result) {
+                    resolve(result);
+                }
+            };
 
             const resetSilenceTimer = () => {
                 if (silenceTimeout) {
@@ -454,22 +480,12 @@ export function useSpeech() {
                 silenceTimeout = setTimeout(() => {
                     // User has stopped speaking for SILENCE_DELAY ms
                     // Finalize with whatever we have
-                    try {
-                        recognitionRef.current.stop();
-                    } catch (e) {
-                        // Already stopped
-                    }
                     const result = (finalTranscript + " " + interimTranscript).trim();
-                    if (result) {
-                        resolve(result);
-                    }
+                    finalizeRecognition(result);
                 }, SILENCE_DELAY);
             };
 
             recognitionRef.current.onresult = (event: any) => {
-                // Reset silence timer on any result
-                resetSilenceTimer();
-
                 // Process all results
                 let interim = "";
                 let final = "";
@@ -489,6 +505,16 @@ export function useSpeech() {
                 // Update visible transcript with both final and interim
                 const combinedTranscript = (finalTranscript + " " + interimTranscript).trim();
                 setTranscript(combinedTranscript);
+
+                // Check for quick commands - finalize immediately without waiting for silence
+                if (isQuickCommand(combinedTranscript)) {
+                    console.log("[Speech] Quick command detected:", combinedTranscript);
+                    finalizeRecognition(combinedTranscript);
+                    return;
+                }
+
+                // Reset silence timer for normal speech
+                resetSilenceTimer();
             };
 
             recognitionRef.current.onerror = (event: any) => {
