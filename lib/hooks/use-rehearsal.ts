@@ -70,9 +70,14 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         stateRef.current = { currentLineIndex, status, userCharacter };
     }, [currentLineIndex, status, userCharacter]);
 
+    // Track mount status to prevent zombie execution loops
+    const isMountedRef = useRef(true);
+
     // Cleanup on unmount
     useEffect(() => {
+        isMountedRef.current = true;
         return () => {
+            isMountedRef.current = false;
             browserSpeech.stop();
             openaiSpeech.stop();
         };
@@ -134,8 +139,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
 
-    // Main Flow Control
     const processCurrentLine = async (overrideIndex?: number) => {
+        if (!isMountedRef.current) return;
+
         const indexToUse = overrideIndex ?? stateRef.current.currentLineIndex;
         const line = script.lines[indexToUse];
         if (!line) {
@@ -164,6 +170,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 // Estimate speaking duration: ~100 chars/second = 10ms/char
                 const estimatedDuration = line.text.length * 12;
                 const transcript = await listen(estimatedDuration);
+                if (!isMountedRef.current) return;
+
                 setLastTranscript(transcript);
                 setStatus("evaluating");
 
@@ -317,6 +325,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             // Speak the line and advance when done
             try {
                 await speak(line.text, voice, line.character);
+                if (!isMountedRef.current) return;
                 // After speaking completes, advance to next line (if not paused/stopped)
                 // IMPORTANT: Check manualSkipRef to ensure we don't double-skip if user clicked Skip
                 if (stateRef.current.status === "playing_other" && !manualSkipRef.current) {
@@ -367,6 +376,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
     const next = () => {
+        if (!isMountedRef.current) return;
+
         // Mark that we're doing a manual skip
         manualSkipRef.current = true;
 
@@ -378,6 +389,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             setCurrentLineIndex(nextIdx);
             // Brief delay for browser to reset speech recognition
             setTimeout(() => {
+                if (!isMountedRef.current) return;
                 manualSkipRef.current = false; // Reset flag
                 processCurrentLine(nextIdx);
             }, 50);
@@ -412,6 +424,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
     const validateManually = () => {
+        if (!isMountedRef.current) return;
         if (status === "listening_user" || status === "error") {
             // Stop any listening immediately
             stopAll();
@@ -420,6 +433,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
             // Very short delay for visual flash, then advance immediately
             setTimeout(() => {
+                if (!isMountedRef.current) return;
                 setFeedback(null);
                 // Update index and explicitly process
                 const nextIdx = stateRef.current.currentLineIndex + 1;
@@ -427,6 +441,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                     setCurrentLineIndex(nextIdx);
                     // Minimal delay to ensure recognition can restart
                     setTimeout(() => {
+                        if (!isMountedRef.current) return;
                         processCurrentLine(nextIdx);
                     }, 50);
                 } else {
