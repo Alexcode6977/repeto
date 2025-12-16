@@ -62,6 +62,14 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         stateRef.current = { currentLineIndex, status, userCharacter };
     }, [currentLineIndex, status, userCharacter]);
 
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            browserSpeech.stop();
+            openaiSpeech.stop();
+        };
+    }, []);
+
     // Track if microphone permission has been requested
     const micRequestedRef = useRef(false);
 
@@ -222,6 +230,10 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 }
 
             } catch (e) {
+                if (e === "Cancelled") {
+                    console.log("Listening cancelled");
+                    return;
+                }
                 console.error("Listening failed", e);
                 setStatus("error");
             }

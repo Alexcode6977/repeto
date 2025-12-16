@@ -539,6 +539,10 @@ export function useSpeech() {
 
                 // "aborted" means we stopped it manually
                 if (event.error === "aborted") {
+                    if (cancelledRef.current) {
+                        reject("Cancelled");
+                        return;
+                    }
                     resolve(finalTranscript.trim() || interimTranscript.trim() || "");
                     return;
                 }
@@ -551,12 +555,19 @@ export function useSpeech() {
             recognitionRef.current.onend = () => {
                 if (silenceTimeout) clearTimeout(silenceTimeout);
                 setState("idle");
+
+                if (cancelledRef.current) {
+                    reject("Cancelled");
+                    return;
+                }
+
                 // Recognition ended - return what we have (may be empty)
                 const result = (finalTranscript + " " + interimTranscript).trim();
                 resolve(result);
             };
 
             try {
+                cancelledRef.current = false; // Reset cancellation state
                 recognitionRef.current.start();
                 // Start the initial silence timer
                 resetSilenceTimer();
