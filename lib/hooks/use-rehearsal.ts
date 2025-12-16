@@ -184,8 +184,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                     // await speak("Bien joué !", prompterVoice); -- REMOVED
                     // await new Promise(resolve => setTimeout(resolve, 1500)); -- REMOVED
 
-                    // Short timeout purely for visual green flash, but non-blocking feeling
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    // Short timeout for visual green flash
+                    await new Promise(resolve => setTimeout(resolve, 150));
 
                     setFeedback(null);
                     next();
@@ -275,7 +275,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 await speak(line.text, voice, line.character);
                 // After speaking completes, advance to next line (if not paused/stopped)
                 if (stateRef.current.status === "playing_other") {
-                    setTimeout(() => next(), 300);  // Small pause for natural pacing
+                    setTimeout(() => next(), 100);  // Quick transition
                 }
             } catch (e) {
                 console.error("Speech failed:", e);
@@ -323,9 +323,15 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
 
-    const start = () => {
+    const start = async () => {
+        // Request microphone permission once at start
+        try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            console.warn("Mic permission denied or unavailable", e);
+        }
         setCurrentLineIndex(initialLineIndex);
-        // Explicitly trigger the first line, because useEffect won't run if status is "setup"
+        // Explicitly trigger the first line
         processCurrentLine(initialLineIndex);
     };
 
@@ -336,11 +342,10 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         const nextIdx = stateRef.current.currentLineIndex + 1;
         if (nextIdx < script.lines.length) {
             setCurrentLineIndex(nextIdx);
-            // CRITICAL: Delay after stopAll() to let browser reset speech recognition
-            // 250ms is needed to avoid race conditions where recognition doesn't restart
+            // Brief delay for browser to reset speech recognition
             setTimeout(() => {
                 processCurrentLine(nextIdx);
-            }, 250);
+            }, 150);
         } else {
             setStatus("finished");
         }

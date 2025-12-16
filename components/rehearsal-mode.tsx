@@ -180,6 +180,20 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     const prevLineIndex = useRef(currentLineIndex);
     const prevStatus = useRef(status);
 
+    // Refs for auto-scroll
+    const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to active line when index changes
+    useEffect(() => {
+        if (hasStarted && lineRefs.current.has(currentLineIndex)) {
+            const activeEl = lineRefs.current.get(currentLineIndex);
+            if (activeEl) {
+                activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }
+    }, [currentLineIndex, hasStarted]);
+
     // Progress calculations
     const totalLines = script.lines.length;
     const progressPercent = totalLines > 0 ? Math.round((currentLineIndex / totalLines) * 100) : 0;
@@ -723,23 +737,25 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                         </div>
                     </div>
 
-                    {/* Main Script View - Scrolling List */}
-                    <div className="flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth" id="script-container">
+                    {/* Main Script View - Scrolling List (scroll locked during active states) */}
+                    <div
+                        ref={containerRef}
+                        className={cn(
+                            "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth",
+                            (status === "listening_user" || status === "playing_other") && "overflow-y-hidden"
+                        )}
+                        id="script-container"
+                    >
                         {script.lines.map((line, index) => {
                             const isActive = index === currentLineIndex;
                             const isUser = line.character === userCharacter;
 
-                            // Auto-scroll ref
-                            const lineRef = (el: HTMLDivElement | null) => {
-                                if (isActive && el) {
-                                    el.scrollIntoView({ behavior: "smooth", block: "center" });
-                                }
-                            };
-
                             return (
                                 <div
                                     key={line.id}
-                                    ref={lineRef}
+                                    ref={(el) => {
+                                        if (el) lineRefs.current.set(index, el);
+                                    }}
                                     className={cn(
                                         "transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-6",
                                         isActive
