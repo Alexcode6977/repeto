@@ -134,10 +134,10 @@ export async function getAllUsers(): Promise<UserProfile[]> {
         return [];
     }
 
-    // Get profiles
+    // Get profiles with email
     const { data: profiles, error } = await supabase
         .from("profiles")
-        .select("id, is_premium, created_at")
+        .select("id, is_premium, created_at, email")
         .order("created_at", { ascending: false });
 
     if (error || !profiles) {
@@ -145,9 +145,6 @@ export async function getAllUsers(): Promise<UserProfile[]> {
         return [];
     }
 
-    // Get user emails from auth (via admin API or manual join)
-    // Since we can't access auth.users directly, we'll need to get emails from somewhere
-    // For now, return profiles with id only - you can see emails in Supabase dashboard
     return profiles;
 }
 

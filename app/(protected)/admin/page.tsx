@@ -29,6 +29,7 @@ interface UserProfile {
     id: string;
     is_premium: boolean;
     created_at: string;
+    email?: string;
 }
 
 export default function AdminPage() {
@@ -439,8 +440,8 @@ export default function AdminPage() {
                                             )}
                                         </div>
                                         <div>
-                                            <p className="text-sm font-mono text-white truncate max-w-[200px] md:max-w-none">
-                                                {user.id.substring(0, 8)}...
+                                            <p className="text-sm text-white truncate max-w-[200px] md:max-w-none">
+                                                {user.email || user.id.substring(0, 8) + "..."}
                                             </p>
                                             <p className="text-xs text-gray-500">
                                                 Inscrit le {formatDate(user.created_at)}
