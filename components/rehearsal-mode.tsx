@@ -892,7 +892,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
                             {/* Label under button */}
                             <span className="absolute -bottom-8 md:-bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-widest text-white/50 whitespace-nowrap">
-                                {isUserTurn ? "Appuyer pour valider" : "Écoute..."}
+                                {isUserTurn ? "Je vous écoute..." : "Lecture..."}
                             </span>
                         </div>
 

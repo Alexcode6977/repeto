@@ -215,7 +215,10 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
                     setStatus("listening_user"); // Retry
                     setFeedback(null);
-                    processCurrentLine(indexToUse); // Recursive retry with same index
+                    // Use setTimeout to break promise chain and avoid stack overflow on repeated errors
+                    setTimeout(() => {
+                        processCurrentLine(indexToUse);
+                    }, 0);
                 }
 
             } catch (e) {
