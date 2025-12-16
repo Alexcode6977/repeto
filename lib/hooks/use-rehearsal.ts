@@ -78,8 +78,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         };
     }, []);
 
-    // Track if microphone permission has been requested
-    const micRequestedRef = useRef(false);
+
 
     // Track if we're in a manual skip to prevent double-skip from useEffect
     const manualSkipRef = useRef(false);
@@ -159,15 +158,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             // It's the user's turn
             setStatus("listening_user");
 
-            // Request microphone permission only on first user turn
-            if (!micRequestedRef.current) {
-                micRequestedRef.current = true;
-                try {
-                    await navigator.mediaDevices.getUserMedia({ audio: true });
-                } catch (e) {
-                    console.warn("Mic permission denied", e);
-                }
-            }
+
 
             try {
                 // Estimate speaking duration: ~100 chars/second = 10ms/char

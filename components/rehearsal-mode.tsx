@@ -163,7 +163,16 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         voices
     } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments });
 
-    const handleStart = () => {
+    const handleStart = async () => {
+        // Request mic permission immediately on user interaction (Required for Safari)
+        try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (e) {
+            console.error("Microphone access denied", e);
+            // We can continue but it will fail later, better to warn or assume they know what they are doing
+            // Actually, if we don't get permission here, Safari won't work.
+        }
+
         setHasStarted(true);
         sessionStartRef.current = Date.now();
         start();
