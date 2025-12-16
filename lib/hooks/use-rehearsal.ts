@@ -51,7 +51,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         }
     };
 
-    const { listen, stop: stopSpeech, voices, state: speechState } = browserSpeech;
+    const { listen, stop: stopSpeech, voices, state: speechState, initializeAudio } = browserSpeech;
 
     // Combined stop function
     const stopAll = () => {
@@ -453,6 +453,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         setVoiceForRole, // Setter
         togglePause,
         isPaused: status === "paused",
-        previous
+        previous,
+        initializeAudio
     };
 }
