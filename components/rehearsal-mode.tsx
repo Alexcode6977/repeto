@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { synthesizeSpeech } from "@/app/actions/tts";
-import { getVoiceStatus, unlockPremium } from "@/app/actions/voice";
+import { getVoiceStatus } from "@/app/actions/voice";
 import { Button } from "./ui/button";
 import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,10 +47,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     const [credits, setCredits] = useState(0);
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
-    const [showUnlockModal, setShowUnlockModal] = useState(false);
-    const [unlockCode, setUnlockCode] = useState("");
-    const [unlockError, setUnlockError] = useState(false);
-    const [isUnlocking, setIsUnlocking] = useState(false);
+
 
     // Local browser voices state (available before rehearsal starts)
     const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -115,26 +112,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
         fetchStatus();
     }, []);
 
-    // Function to unlock premium via Server Action
-    const handleUnlock = async () => {
-        setIsUnlocking(true);
-        setUnlockError(false);
-        try {
-            const result = await unlockPremium(unlockCode);
-            if (result.success) {
-                setIsPremiumUnlocked(true);
-                setShowUnlockModal(false);
-                setTtsProvider("openai"); // Auto-switch to premium
-            } else {
-                setUnlockError(true);
-            }
-        } catch (e) {
-            console.error(e);
-            setUnlockError(true);
-        } finally {
-            setIsUnlocking(false);
-        }
-    };
+
 
     // Line Visibility State
     const [lineVisibility, setLineVisibility] = useState<"visible" | "hint" | "hidden">("visible");
@@ -151,11 +129,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
             const result = await synthesizeSpeech("Bonjour, je suis votre partenaire de répétition !", voice);
 
             if ("error" in result) {
-                if (result.error === "QUOTA_EXCEEDED") {
-                    setShowUnlockModal(true);
-                } else {
-                    console.error("TTS Error:", result.error);
-                }
+                console.error("TTS Error:", result.error);
                 setTestingVoice(null);
                 return;
             }
@@ -533,23 +507,19 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                     Standard
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        if (isPremiumUnlocked) {
-                                            setTtsProvider("openai");
-                                        } else {
-                                            // Show unlock modal immediately
-                                            setShowUnlockModal(true);
-                                        }
-                                    }}
+                                    onClick={() => isPremiumUnlocked && setTtsProvider("openai")}
+                                    disabled={!isPremiumUnlocked}
                                     className={cn(
                                         "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
                                         ttsProvider === "openai"
                                             ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                            : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5"
+                                            : !isPremiumUnlocked
+                                                ? "bg-transparent border-white/5 text-gray-600 cursor-not-allowed opacity-60"
+                                                : "bg-transparent border-white/5 text-gray-500 hover:bg-white/5"
                                     )}
                                 >
                                     {!isPremiumUnlocked ? <Lock className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                                    Neural AI
+                                    Neural AI {!isPremiumUnlocked && "(Admin)"}
                                 </button>
                             </div>
 
@@ -928,86 +898,6 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
             </div>
 
 
-            {/* Premium Unlock Modal */}
-            {
-                showUnlockModal && (
-                    <Portal>
-                        <div
-                            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200"
-                            onClick={() => setShowUnlockModal(false)}
-                        >
-                            <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="bg-gray-950 border border-emerald-500/30 rounded-2xl p-6 max-w-sm w-full shadow-[0_0_50px_rgba(16,185,129,0.3)] animate-in zoom-in-95 duration-200"
-                            >
-                                <div className="flex justify-between items-center mb-6">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-2 bg-emerald-500/10 rounded-lg">
-                                            <Sparkles className="h-5 w-5 text-emerald-400" />
-                                        </div>
-                                        <h3 className="text-lg font-bold text-white">Débloquer Premium</h3>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowUnlockModal(false)}
-                                        className="text-gray-500 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
-                                    >
-                                        <X className="h-5 w-5" />
-                                    </button>
-                                </div>
-
-                                <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                                    Vous n'avez plus de crédits gratuits (50). Entrez votre code d'accès pour débloquer les voix AI neuronales en illimité.
-                                </p>
-
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 block">Code d'accès</label>
-                                        <input
-                                            autoFocus
-                                            type="text"
-                                            placeholder="SCEN3-..."
-                                            value={unlockCode}
-                                            onChange={(e) => {
-                                                setUnlockCode(e.target.value.toUpperCase());
-                                                setUnlockError(false);
-                                            }}
-                                            onKeyDown={(e) => e.key === "Enter" && handleUnlock()}
-                                            className={cn(
-                                                "w-full bg-black/50 border rounded-xl p-4 text-white text-center font-mono text-lg tracking-widest placeholder:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black transition-all",
-                                                unlockError
-                                                    ? "border-red-500 focus:ring-red-500/50"
-                                                    : "border-white/10 focus:ring-emerald-500/50"
-                                            )}
-                                        />
-                                    </div>
-
-                                    {unlockError && (
-                                        <div className="flex items-center gap-2 justify-center text-red-400 bg-red-500/10 p-2 rounded-lg">
-                                            <AlertTriangle className="h-3 w-3" />
-                                            <p className="text-xs font-medium">Code invalide ou erreur</p>
-                                        </div>
-                                    )}
-
-                                    <button
-                                        onClick={handleUnlock}
-                                        disabled={isUnlocking}
-                                        className="w-full bg-emerald-600 text-white font-bold py-4 rounded-xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20 active:scale-[0.98] mt-2 flex items-center justify-center gap-2"
-                                    >
-                                        {isUnlocking && <Loader2 className="h-4 w-4 animate-spin" />}
-                                        {isUnlocking ? "Vérification..." : "Débloquer"}
-                                    </button>
-                                </div>
-
-                                <div className="mt-6 pt-6 border-t border-white/5">
-                                    <p className="text-gray-600 text-[10px] text-center">
-                                        Besoin d'un code ? <a href="#" className="text-gray-400 underline hover:text-emerald-400">Contactez le support</a>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </Portal>
-                )
-            }
 
             {/* Feedback Modal */}
             <FeedbackModal
