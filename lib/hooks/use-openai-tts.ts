@@ -96,8 +96,8 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
                 };
 
                 const cleanup = () => {
-                    audio.removeEventListener('ended', onEnd);
-                    audio.removeEventListener('error', onError);
+                    audio?.removeEventListener('ended', onEnd);
+                    audio?.removeEventListener('error', onError);
                 };
 
                 audio.addEventListener('ended', onEnd);
