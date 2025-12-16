@@ -49,23 +49,32 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
             const audio = new Audio(result.audio);
             audioRef.current = audio;
 
-            audio.onloadeddata = () => {
-                setIsLoading(false);
-                setIsSpeaking(true);
-            };
+            // Wait for playback to finish
+            await new Promise<void>((resolve, reject) => {
+                audio.onloadeddata = () => {
+                    setIsLoading(false);
+                    setIsSpeaking(true);
+                };
 
-            audio.onended = () => {
-                setIsSpeaking(false);
-                audioRef.current = null;
-            };
+                audio.onended = () => {
+                    setIsSpeaking(false);
+                    audioRef.current = null;
+                    resolve();
+                };
 
-            audio.onerror = () => {
-                setError("Failed to play audio");
-                setIsSpeaking(false);
-                setIsLoading(false);
-            };
+                audio.onerror = () => {
+                    setError("Failed to play audio");
+                    setIsSpeaking(false);
+                    setIsLoading(false);
+                    reject(new Error("Audio playback failed"));
+                };
 
-            await audio.play();
+                audio.play().catch((e) => {
+                    setError("Failed to start audio: " + e.message);
+                    setIsLoading(false);
+                    reject(e);
+                });
+            });
         } catch (e: any) {
             setError(e.message || "TTS failed");
             setIsLoading(false);
