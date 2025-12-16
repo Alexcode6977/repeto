@@ -18,7 +18,7 @@ export async function synthesizeSpeech(
             return { error: "OPENAI_API_KEY not configured" };
         }
 
-        // --- QUOTA CHECK ---
+        // Check if user is premium
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
@@ -26,29 +26,18 @@ export async function synthesizeSpeech(
 
         const { data: profile } = await supabase
             .from("profiles")
-            .select("is_premium, ai_credits")
+            .select("is_premium")
             .eq("id", user.id)
             .single();
 
         if (!profile) return { error: "User profile not found." };
 
         if (!profile.is_premium) {
-            if (profile.ai_credits <= 0) {
-                return { error: "QUOTA_EXCEEDED" };
-            }
-
-            // Decrement credit
-            const { error: updateError } = await supabase
-                .from("profiles")
-                .update({ ai_credits: profile.ai_credits - 1 })
-                .eq("id", user.id);
-
-            if (updateError) console.error("Failed to decrement credit", updateError);
+            return { error: "Premium access required for AI voices." };
         }
-        // -------------------
 
         const response = await openai.audio.speech.create({
-            model: "tts-1", // or "tts-1-hd" for higher quality
+            model: "tts-1",
             voice: voice,
             input: text,
             response_format: "mp3",

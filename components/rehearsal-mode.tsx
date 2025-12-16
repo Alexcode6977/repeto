@@ -44,7 +44,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
     // Premium / Credits State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
-    const [credits, setCredits] = useState(0);
+
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
 
@@ -102,7 +102,6 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
             try {
                 const status = await getVoiceStatus();
                 setIsPremiumUnlocked(status.isPremium);
-                setCredits(status.credits);
             } catch (error) {
                 console.error("Failed to fetch voice status", error);
             } finally {
@@ -138,10 +137,6 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                 const audio = new Audio(result.audio);
                 audio.onended = () => setTestingVoice(null);
                 await audio.play();
-                // Optimistically update credits
-                if (!isPremiumUnlocked) {
-                    setCredits(prev => Math.max(0, prev - 1));
-                }
             }
         } catch (e) {
             console.error("Test failed:", e);

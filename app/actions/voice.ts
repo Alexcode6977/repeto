@@ -10,21 +10,20 @@ export async function getVoiceStatus() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return { isPremium: false, credits: 0, isAnonymous: true };
+    if (!user) return { isPremium: false, isAnonymous: true };
 
     const { data: profile, error } = await supabase
         .from("profiles")
-        .select("is_premium, ai_credits")
+        .select("is_premium")
         .eq("id", user.id)
         .single();
 
     if (error || !profile) {
-        return { isPremium: false, credits: 0, isAnonymous: false };
+        return { isPremium: false, isAnonymous: false };
     }
 
     return {
         isPremium: profile.is_premium,
-        credits: profile.ai_credits,
         isAnonymous: false
     };
 }
