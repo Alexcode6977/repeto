@@ -65,6 +65,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     // Track if microphone permission has been requested
     const micRequestedRef = useRef(false);
 
+    // Track if we're in a manual skip to prevent double-skip from useEffect
+    const manualSkipRef = useRef(false);
+
     // Voice Assignment Logic
     // We Map: "ASSISTANT" | "NARRATOR" | CharacterName -> SpeechSynthesisVoice
     const [voiceAssignments, setVoiceAssignments] = useState<Record<string, SpeechSynthesisVoice>>({});
@@ -303,7 +306,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     // Watch speech state to auto-advance when OTHER finishes speaking
     useEffect(() => {
         // Logic: If we were playing_other and now we are idle, advance.
-        if (status === "playing_other" && speechState === "idle") {
+        // BUT only if it's not a manual skip (to prevent double-skip)
+        if (status === "playing_other" && speechState === "idle" && !manualSkipRef.current) {
             // Add small delay for natural pacing
             const timer = setTimeout(() => {
                 // If user paused right at the end of speech, don't advance
@@ -346,6 +350,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
     const next = () => {
+        // Mark that we're doing a manual skip
+        manualSkipRef.current = true;
+
         // Stop any ongoing speech/listening FIRST
         stopAll();
 
@@ -354,9 +361,11 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             setCurrentLineIndex(nextIdx);
             // Brief delay for browser to reset speech recognition
             setTimeout(() => {
+                manualSkipRef.current = false; // Reset flag
                 processCurrentLine(nextIdx);
             }, 150);
         } else {
+            manualSkipRef.current = false;
             setStatus("finished");
         }
     };
