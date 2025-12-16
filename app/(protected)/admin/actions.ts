@@ -117,3 +117,57 @@ export async function getFeedbackStats() {
         totalMinutes,
     };
 }
+
+// User Management
+interface UserProfile {
+    id: string;
+    is_premium: boolean;
+    created_at: string;
+    email?: string;
+}
+
+export async function getAllUsers(): Promise<UserProfile[]> {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email !== ADMIN_EMAIL) {
+        return [];
+    }
+
+    // Get profiles
+    const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id, is_premium, created_at")
+        .order("created_at", { ascending: false });
+
+    if (error || !profiles) {
+        console.error("Error fetching profiles:", error);
+        return [];
+    }
+
+    // Get user emails from auth (via admin API or manual join)
+    // Since we can't access auth.users directly, we'll need to get emails from somewhere
+    // For now, return profiles with id only - you can see emails in Supabase dashboard
+    return profiles;
+}
+
+export async function toggleUserPremium(userId: string, isPremium: boolean) {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email !== ADMIN_EMAIL) {
+        throw new Error("Unauthorized");
+    }
+
+    const { error } = await supabase
+        .from("profiles")
+        .update({ is_premium: isPremium })
+        .eq("id", userId);
+
+    if (error) {
+        console.error("Error updating user premium status:", error);
+        throw new Error("Failed to update user");
+    }
+
+    return { success: true };
+}
