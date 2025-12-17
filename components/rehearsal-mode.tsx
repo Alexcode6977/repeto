@@ -12,6 +12,53 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 
+// Upgrade / Signup Modal
+const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
+            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+                {/* Close Button */}
+                <button
+                    onClick={onClose}
+                    className="absolute top-3 right-3 text-gray-500 hover:text-white transition-colors p-1"
+                >
+                    <X className="w-5 h-5" />
+                </button>
+
+                {/* Content */}
+                <div className="p-8 text-center space-y-5">
+                    <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto ring-4 ring-primary/10">
+                        <Lock className="w-8 h-8 text-primary" />
+                    </div>
+
+                    <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-white">Fonctionnalité réservée</h3>
+                        <p className="text-sm text-gray-400 leading-relaxed">
+                            Créez un compte gratuitement pour débloquer tous les modes de répétition et les voix IA.
+                        </p>
+                    </div>
+
+                    <div className="pt-2 space-y-3">
+                        <a href="/signup" className="block w-full">
+                            <Button className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 text-sm shadow-lg shadow-primary/20 transition-all hover:scale-[1.02]">
+                                Créer un compte
+                            </Button>
+                        </a>
+                        <button
+                            onClick={onClose}
+                            className="text-xs text-gray-500 hover:text-white transition-colors"
+                        >
+                            Non merci
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 // Helper for Portals
 const Portal = ({ children }: { children: React.ReactNode }) => {
     const [mounted, setMounted] = useState(false);
@@ -33,9 +80,10 @@ interface RehearsalModeProps {
     script: ParsedScript;
     userCharacter: string;
     onExit: () => void;
+    isDemo?: boolean;
 }
 
-export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModeProps) {
+export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">("full");
@@ -186,6 +234,7 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     // Session tracking
     const sessionStartRef = useRef<number>(Date.now());
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [pendingExit, setPendingExit] = useState(false);
 
     // Animation states for success/error feedback
@@ -267,9 +316,14 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
     const handleExit = () => {
         stop(); // Force stop audio/recognition
         if (hasStarted && currentLineIndex > 0) {
-            // Only show feedback if they actually rehearsed something
-            setShowFeedbackModal(true);
-            setPendingExit(true);
+            if (isDemo) {
+                // In demo mode, show Upgrade Modal instead of feedback
+                setShowUpgradeModal(true);
+            } else {
+                // Only show feedback if they actually rehearsed something
+                setShowFeedbackModal(true);
+                setPendingExit(true);
+            }
         } else {
             onExit();
         }
@@ -298,13 +352,17 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
 
     // AUTO-TRIGGER: Detect when script is finished and show feedback
     useEffect(() => {
-        if (status === "finished" && hasStarted && !showFeedbackModal) {
-            // Script completed! Show feedback modal
+        if (status === "finished" && hasStarted && !showFeedbackModal && !showUpgradeModal) {
+            // Script completed! Show feedback modal or upgrade modal
             stop();
-            setShowFeedbackModal(true);
-            setPendingExit(true);
+            if (isDemo) {
+                setShowUpgradeModal(true);
+            } else {
+                setShowFeedbackModal(true);
+                setPendingExit(true);
+            }
         }
-    }, [status, hasStarted, showFeedbackModal, stop]);
+    }, [status, hasStarted, showFeedbackModal, showUpgradeModal, stop, isDemo]);
 
     const isUserTurn = currentLine?.character === userCharacter;
 
@@ -443,6 +501,16 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                     {/* Settings Cards */}
                     <div className="space-y-6 max-w-md mx-auto w-full">
 
+                        {/* DEMO MODE ALERT */}
+                        {isDemo && (
+                            <div className="bg-primary/20 border border-primary/50 text-white p-4 rounded-xl text-sm font-medium text-center animate-pulse flex flex-col gap-2">
+                                <p>Mode Démonstration</p>
+                                <button onClick={() => setShowUpgradeModal(true)} className="text-xs underline text-primary-foreground/80 hover:text-white">
+                                    Voir les limitations
+                                </button>
+                            </div>
+                        )}
+
                         {/* Card 1: Scene Selection */}
                         {script.scenes && script.scenes.length > 0 && (
                             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
@@ -471,12 +539,19 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                 ].map(v => (
                                     <button
                                         key={v.id}
-                                        onClick={() => setLineVisibility(v.id as typeof lineVisibility)}
+                                        onClick={() => {
+                                            if (isDemo && v.id !== 'visible') {
+                                                setShowUpgradeModal(true);
+                                                return;
+                                            }
+                                            setLineVisibility(v.id as typeof lineVisibility);
+                                        }}
                                         className={cn(
                                             "py-3 px-2 rounded-xl text-xs font-bold transition-all duration-300 touch-manipulation flex flex-col items-center gap-1",
                                             lineVisibility === v.id
                                                 ? "bg-white text-black shadow-lg scale-105"
-                                                : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 active:scale-95"
+                                                : "bg-white/5 text-gray-400 border border-white/5 hover:bg-white/10 active:scale-95",
+                                            isDemo && v.id !== 'visible' && "opacity-50 cursor-not-allowed"
                                         )}
                                     >
                                         <span className="text-lg">{v.emoji}</span>
@@ -497,12 +572,19 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                 ].map(m => (
                                     <button
                                         key={m.id}
-                                        onClick={() => setRehearsalMode(m.id as typeof rehearsalMode)}
+                                        onClick={() => {
+                                            if (isDemo && m.id !== 'full') {
+                                                setShowUpgradeModal(true);
+                                                return;
+                                            }
+                                            setRehearsalMode(m.id as typeof rehearsalMode);
+                                        }}
                                         className={cn(
                                             "p-3 rounded-xl text-left transition-all duration-300 touch-manipulation border",
                                             rehearsalMode === m.id
                                                 ? "bg-primary/20 border-primary/50 shadow-lg shadow-primary/10"
-                                                : "bg-white/5 border-white/5 hover:bg-white/10 active:scale-95"
+                                                : "bg-white/5 border-white/5 hover:bg-white/10 active:scale-95",
+                                            isDemo && m.id !== 'full' && "opacity-50 cursor-not-allowed"
                                         )}
                                     >
                                         <span className={cn("block text-xs font-bold mb-0.5", rehearsalMode === m.id ? "text-white" : "text-gray-300")}>{m.label}</span>
@@ -544,144 +626,156 @@ export function RehearsalMode({ script, userCharacter, onExit }: RehearsalModePr
                                     {!isPremiumUnlocked ? <Lock className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
                                     Neural AI {!isPremiumUnlocked && "(Admin)"}
                                 </button>
+                                {isDemo && <div className="absolute inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }} />}
                             </div>
-
-                            {/* Voice Distribution - Only shown when a provider is selected */}
-                            {ttsProvider === "browser" && (
-                                <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
-                                    <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution des rôles</span>
-                                    {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
-                                        <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                            {script.characters.filter(c => c !== userCharacter).map((char) => (
-                                                <div key={char} className="flex items-center gap-2 bg-black/30 p-2 rounded-lg">
-                                                    <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 shrink-0">
-                                                        {char.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-medium text-gray-300 truncate">{char}</p>
-                                                        <select
-                                                            className="w-full bg-transparent text-[10px] text-gray-500 focus:outline-none cursor-pointer"
-                                                            value={localVoiceAssignments[char]?.voiceURI || ""}
-                                                            onChange={(e) => setLocalVoiceForRole(char, e.target.value)}
-                                                        >
-                                                            {browserVoices.map(v => (
-                                                                <option key={v.voiceURI} value={v.voiceURI} className="bg-black text-white">
-                                                                    {v.name}
-                                                                </option>
-                                                            ))}
-                                                            {browserVoices.length === 0 && <option className="bg-black text-white">Défaut (Navigateur)</option>}
-                                                        </select>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => testBrowserVoice(char)}
-                                                        className="px-2 py-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white text-[10px] font-bold border border-white/10 flex items-center gap-1 transition-colors"
-                                                    >
-                                                        <Play className="w-3 h-3 fill-current" />
-                                                        Test
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-gray-500 italic">Aucun autre personnage détecté.</p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Voice Distribution - Neural AI (only if premium unlocked AND selected) */}
-                            {ttsProvider === "openai" && isPremiumUnlocked && (
-                                <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
-                                    <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution Neural AI</span>
-                                    {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
-                                        <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                            {script.characters.filter(c => c !== userCharacter).map((char) => (
-                                                <div key={char} className="flex items-center gap-2 bg-emerald-900/20 p-2 rounded-lg border border-emerald-700/30">
-                                                    <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-[9px] font-bold text-emerald-300 shrink-0">
-                                                        {char.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-xs font-medium text-emerald-300 truncate">{char}</p>
-                                                        <select
-                                                            className="w-full bg-transparent text-[10px] text-emerald-500 focus:outline-none cursor-pointer"
-                                                            value={openaiVoiceAssignments[char] || "nova"}
-                                                            onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
-                                                        >
-                                                            {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
-                                                                <option key={v} value={v} className="bg-black text-white">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => testOpenAIVoice(char, openaiVoiceAssignments[char] || "nova")}
-                                                        disabled={testingVoice === char}
-                                                        className="px-2 py-1.5 rounded-full hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-50 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1 transition-colors"
-                                                    >
-                                                        {testingVoice === char ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
-                                                        Test
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-emerald-500/70 italic">Aucun autre personnage détecté.</p>
-                                    )}
-                                </div>
-                            )}
                         </div>
 
-                        {/* Card 5: Advanced Options - Collapsible */}
-                        <details className="group">
-                            <summary className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-lg cursor-pointer transition-all hover:bg-white/[0.07] list-none">
-                                <div className="flex items-center justify-between">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">⚙️ Options avancées</label>
-                                    <span className="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                        {/* Voice Distribution - Only shown when a provider is selected */}
+                        {ttsProvider === "browser" && (
+                            <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
+                                <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution des rôles</span>
+                                {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
+                                    <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
+                                        {script.characters.filter(c => c !== userCharacter).map((char) => (
+                                            <div key={char} className="flex items-center gap-2 bg-black/30 p-2 rounded-lg">
+                                                <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 shrink-0">
+                                                    {char.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium text-gray-300 truncate">{char}</p>
+                                                    <select
+                                                        className="w-full bg-transparent text-[10px] text-gray-500 focus:outline-none cursor-pointer"
+                                                        value={localVoiceAssignments[char]?.voiceURI || ""}
+                                                        onChange={(e) => setLocalVoiceForRole(char, e.target.value)}
+                                                    >
+                                                        {browserVoices.map(v => (
+                                                            <option key={v.voiceURI} value={v.voiceURI} className="bg-black text-white">
+                                                                {v.name}
+                                                            </option>
+                                                        ))}
+                                                        {browserVoices.length === 0 && <option className="bg-black text-white">Défaut (Navigateur)</option>}
+                                                    </select>
+                                                </div>
+                                                <button
+                                                    onClick={() => testBrowserVoice(char)}
+                                                    className="px-2 py-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white text-[10px] font-bold border border-white/10 flex items-center gap-1 transition-colors"
+                                                >
+                                                    <Play className="w-3 h-3 fill-current" />
+                                                    Test
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-gray-500 italic">Aucun autre personnage détecté.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Voice Distribution - Neural AI (only if premium unlocked AND selected) */}
+                        {ttsProvider === "openai" && isPremiumUnlocked && (
+                            <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
+                                <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution Neural AI</span>
+                                {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
+                                    <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
+                                        {script.characters.filter(c => c !== userCharacter).map((char) => (
+                                            <div key={char} className="flex items-center gap-2 bg-emerald-900/20 p-2 rounded-lg border border-emerald-700/30">
+                                                <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-[9px] font-bold text-emerald-300 shrink-0">
+                                                    {char.substring(0, 2).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-medium text-emerald-300 truncate">{char}</p>
+                                                    <select
+                                                        className="w-full bg-transparent text-[10px] text-emerald-500 focus:outline-none cursor-pointer"
+                                                        value={openaiVoiceAssignments[char] || "nova"}
+                                                        onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
+                                                    >
+                                                        {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
+                                                            <option key={v} value={v} className="bg-black text-white">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <button
+                                                    onClick={() => testOpenAIVoice(char, openaiVoiceAssignments[char] || "nova")}
+                                                    disabled={testingVoice === char}
+                                                    className="px-2 py-1.5 rounded-full hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-50 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1 transition-colors"
+                                                >
+                                                    {testingVoice === char ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
+                                                    Test
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-emerald-500/70 italic">Aucun autre personnage détecté.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Card 5: Advanced Options - Collapsible */}
+                    <details className="group">
+                        <summary className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-lg cursor-pointer transition-all hover:bg-white/[0.07] list-none">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">⚙️ Options avancées</label>
+                                <span className="text-gray-500 group-open:rotate-180 transition-transform">▼</span>
+                            </div>
+                        </summary>
+                        <div className="mt-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4 animate-in slide-in-from-top-2 relative">
+                            {isDemo && (
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] z-20 flex items-center justify-center rounded-2xl"
+                                    onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }}>
+                                    <Lock className="w-6 h-6 text-white/50" />
                                 </div>
-                            </summary>
-                            <div className="mt-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4 animate-in slide-in-from-top-2">
-                                {/* Sensitivity Slider */}
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs text-gray-400">Barre de Tolérance</span>
-                                        <span className="text-xs font-mono text-primary">{Math.round(threshold * 100)}%</span>
-                                    </div>
-                                    <input
-                                        type="range" min="0.5" max="0.95" step="0.05"
-                                        value={threshold}
-                                        onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                                        className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
-                                    />
-                                    <div className="flex justify-between text-[9px] text-gray-600">
-                                        <span>Relax</span><span>Strict</span>
-                                    </div>
+                            )}
+                            {/* Sensitivity Slider */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-gray-400">Barre de Tolérance</span>
+                                    <span className="text-xs font-mono text-primary">{Math.round(threshold * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range" min="0.5" max="0.95" step="0.05"
+                                    value={threshold}
+                                    onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
+                                />
+                                <div className="flex justify-between text-[9px] text-gray-600">
+                                    <span>Relax</span><span>Strict</span>
                                 </div>
                             </div>
-                        </details>
+                        </div>
+                    </details>
 
-                        {/* Start Button */}
-                        <Button
-                            size="lg"
-                            onClick={() => {
-                                // Auto-select browser if no provider chosen
-                                if (!ttsProvider) setTtsProvider("browser");
-                                handleStart();
-                            }}
-                            className="w-full text-lg font-bold py-6 rounded-2xl shadow-[0_0_40px_rgba(124,58,237,0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95 mt-4"
-                        >
-                            <Play className="mr-2 h-6 w-6 fill-current" />
-                            COMMENCER
-                        </Button>
+                    {/* Start Button */}
+                    <Button
+                        size="lg"
+                        onClick={() => {
+                            // Auto-select browser if no provider chosen
+                            if (!ttsProvider) setTtsProvider("browser");
+                            handleStart();
+                        }}
+                        className="w-full text-lg font-bold py-6 rounded-2xl shadow-[0_0_40px_rgba(124,58,237,0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95 mt-4"
+                    >
+                        <Play className="mr-2 h-6 w-6 fill-current" />
+                        COMMENCER
+                    </Button>
 
-                        <button onClick={onExit} className="w-full text-sm font-medium text-gray-500 hover:text-white transition-colors text-center py-2">
-                            Retour au menu
-                        </button>
-                    </div>
+                    <button onClick={onExit} className="w-full text-sm font-medium text-gray-500 hover:text-white transition-colors text-center py-2">
+                        Retour au menu
+                    </button>
                 </div>
             </div>
+
         );
     }
 
     return (
         <>
+            <Portal>
+                <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
+            </Portal>
+
             {/* Outer Responsive Wrapper with Dynamic Background */}
             <div className={cn(
                 "fixed inset-0 flex items-center justify-center z-50 transition-all duration-700",

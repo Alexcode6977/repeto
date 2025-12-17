@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight, Mic, BookOpen, Podcast, Play, Star } from "lucide-react";
+import { Sparkles, ArrowRight, Mic, BookOpen, Podcast, Play, Star, Sliders, Repeat } from "lucide-react";
 
 export default function LandingPage() {
     return (
@@ -25,7 +25,7 @@ export default function LandingPage() {
                     <Link href="/login" className="hidden md:block text-sm font-medium text-muted-foreground hover:text-white transition-colors">
                         Se connecter
                     </Link>
-                    <Link href="/signup">
+                    <Link href="/signup" className="hidden md:block">
                         <Button className="rounded-full bg-white text-black hover:bg-white/90 px-4 py-4 md:px-6 md:py-5 font-semibold text-xs md:text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all transform hover:-translate-y-0.5">
                             Essayer gratuitement
                         </Button>
@@ -41,25 +41,29 @@ export default function LandingPage() {
 
 
                     <h1 className="text-4xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.2] md:leading-[1.1]">
-                        Apprenez vos textes <br />
+                        Votre partenaire de répétition, <br />
                         <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-300 to-white text-glow">
-                            sans partenaire.
+                            disponible 24/7.
                         </span>
                     </h1>
 
                     <p className="max-w-xl mx-auto text-base md:text-xl text-muted-foreground leading-relaxed font-light px-4 md:px-0">
-                        L'outil de répétition ultime pour les acteurs exigeants. <br className="hidden md:block" />
-                        <strong className="text-white font-medium">Importez votre script</strong>. L'IA vous donne la réplique instantanément.
+                        Le répétiteur infatigable pour maîtriser votre texte avant de retrouver vos partenaires de jeu.
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-3 md:gap-4 pt-4">
                         <Link href="/signup" className="w-full sm:w-auto">
                             <Button size="lg" className="w-full sm:w-auto h-12 md:h-14 px-8 md:px-10 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-sm md:text-base btn-glow transition-all transform hover:scale-105">
-                                Commencer maintenant
+                                Créer un compte
                                 <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5" />
                             </Button>
                         </Link>
-                        <Link href="/signup">
+                        <Link href="/login" className="w-full sm:w-auto md:hidden">
+                            <Button size="lg" variant="outline" className="w-full h-12 rounded-full border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white hover:border-white/40 transition-all">
+                                Se connecter
+                            </Button>
+                        </Link>
+                        <Link href="/demo">
                             <Button size="lg" variant="ghost" className="h-14 px-8 rounded-full text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group">
                                 <Play className="mr-2 w-4 h-4 fill-current opacity-50 group-hover:opacity-100 transition-opacity" />
                                 Voir la démo
@@ -76,37 +80,48 @@ export default function LandingPage() {
                     <Mic className="w-24 h-24 text-primary rotate-12" />
                 </div>
 
-                {/* Features Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto px-6 mt-32 w-full">
-                    {[
-                        {
-                            icon: BookOpen,
-                            title: "Import Instantané",
-                            desc: "Déposez votre PDF. Nous structurons tout automatiquement.",
-                            color: "bg-blue-500/10 text-blue-400"
-                        },
-                        {
-                            icon: Podcast,
-                            title: "Voix Ultra-Réalistes",
-                            desc: "Des partenaires virtuels qui jouent avec émotion et justesse.",
-                            color: "bg-primary/10 text-primary"
-                        },
-                        {
-                            icon: Star,
-                            title: "Interactive Flow",
-                            desc: "L'IA vous écoute et vous relance au millimètre près.",
-                            color: "bg-purple-500/10 text-purple-400"
-                        }
-                    ].map((feature, i) => (
-                        <div key={i} className="glass p-8 rounded-3xl hover:bg-white/10 transition-all group cursor-default border border-white/5 hover:border-white/20">
-                            <div className={`w-14 h-14 rounded-2xl ${feature.color} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500`}>
-                                <feature.icon className="w-7 h-7" />
+                {/* How it Works Section */}
+                <div className="w-full max-w-6xl mx-auto px-6 mt-32">
+                    <h2 className="text-3xl md:text-5xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
+                        Comment ça marche ?
+                    </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+                        {/* Connecting Line (Desktop) */}
+                        <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-primary/0 via-primary/30 to-primary/0" />
+
+                        <div className="flex flex-col items-center text-center group">
+                            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 shadow-[0_0_30px_rgba(var(--primary),0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-[#0a0a0a]">
+                                <BookOpen className="w-10 h-10 text-primary" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                            <p className="text-base text-muted-foreground leading-relaxed">{feature.desc}</p>
+                            <h3 className="text-xl font-bold text-white mb-3">Bibliothèque ou Import</h3>
+                            <p className="text-muted-foreground leading-relaxed max-w-xs">
+                                Vous prenez un texte de la biblio ou importez le votre en pdf.
+                            </p>
                         </div>
-                    ))}
+
+                        <div className="flex flex-col items-center text-center group">
+                            <div className="w-24 h-24 rounded-full bg-teal-500/10 flex items-center justify-center mb-6 border border-teal-500/20 shadow-[0_0_30px_rgba(20,184,166,0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-[#0a0a0a]">
+                                <Sliders className="w-10 h-10 text-teal-400" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-3">Choisissez votre mode</h3>
+                            <p className="text-muted-foreground leading-relaxed max-w-xs">
+                                Lecture, répétition totale, etc.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col items-center text-center group">
+                            <div className="w-24 h-24 rounded-full bg-purple-500/10 flex items-center justify-center mb-6 border border-purple-500/20 shadow-[0_0_30px_rgba(168,85,247,0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-[#0a0a0a]">
+                                <Repeat className="w-10 h-10 text-purple-400" />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-3">Répétez à l'infini</h3>
+                            <p className="text-muted-foreground leading-relaxed max-w-xs">
+                                Progressez à votre rythme.
+                            </p>
+                        </div>
+                    </div>
                 </div>
+
 
             </main>
 
