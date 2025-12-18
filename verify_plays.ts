@@ -82,3 +82,62 @@ console.log("Check YVONNE:", result2.characters.includes("YVONNE"));
 console.log("Check LUCIEN:", result2.characters.includes("LUCIEN"));
 console.log("Check VALET DE CHAMBRE:", result2.characters.includes("VALET DE CHAMBRE"));
 console.log("Check SCENE I detected:", result2.scenes.some(s => s.title.includes("SCÈNE I")));
+console.log("\n---------------------------------------------------");
+console.log("TEST 3: TITLE CASE CHARACTERS");
+console.log("---------------------------------------------------");
+const textTitleCase = `
+UN FIL À LA PATTE
+
+Acte I
+
+Monsieur de Bois-d'Enghien: Bonjour ma chère !
+Lucette: Oh ! c'est vous ?
+Monsieur de Bois-d'Enghien: Vous ne m'attendiez pas ?
+Lucette: Je vous attendais toujours.
+Bouzin: Messieurs, dames...
+Bouzin: Je vous apporte les billets.
+`;
+const result3 = parseScript(textTitleCase);
+console.log("Characters found:", result3.characters);
+console.log("Check Monsieur de Bois-d'Enghien:", result3.characters.includes("Monsieur de Bois-d'Enghien"));
+console.log("Check Lucette:", result3.characters.includes("Lucette"));
+console.log("Check Bouzin:", result3.characters.includes("Bouzin"));
+
+console.log("\n---------------------------------------------------");
+console.log("TEST 4: SIMILARITY & PLAY-SPECIFIC FIXES");
+console.log("---------------------------------------------------");
+import { calculateSimilarity } from "./lib/similarity";
+
+const test1 = calculateSimilarity("C'est les hybrides", "C'est les hébrides", "On purge bébé");
+console.log("Sim 'hybrides' vs 'hébrides' (with fix):", test1.toFixed(2));
+
+const test2 = calculateSimilarity("Salut Chou you", "Salut Chouilloux", "On purge bébé");
+console.log("Sim 'Chou you' vs 'Chouilloux' (with fix):", test2.toFixed(2));
+console.log("\n---------------------------------------------------");
+console.log("TEST 5: EDGE CASES (Empty / Minimal)");
+console.log("---------------------------------------------------");
+const resultEmpty = parseScript("");
+console.log("Empty script characters:", resultEmpty.characters);
+
+const resultSingle = parseScript("JORGE: Hola.");
+console.log("Single line script characters (should be 0 due to threshold):", resultSingle.characters.length);
+
+console.log("\n---------------------------------------------------");
+console.log("TEST 6: DIALECT NORMALIZATION (ANNETTE)");
+console.log("---------------------------------------------------");
+const title = "FEU LA MÈRE DE MADAME";
+const scriptText = "Pien Matame !"; // Annette's phonetic text
+const userTranscript = "Bien madame"; // What the STT standardizes to
+
+const simDialect = calculateSimilarity(userTranscript, scriptText, title);
+console.log(`Sim '${userTranscript}' vs '${scriptText}' (Annette): ${simDialect.toFixed(2)}`);
+
+if (simDialect < 0.9) {
+    console.error("FAILED: Annette's dialect should be normalized!");
+    process.exit(1);
+}
+
+console.log("\n=== ALL TESTS PASSED ===");
+
+const test3 = calculateSimilarity("Salut Chou you", "Salut Chouilloux", "Molière");
+console.log("Sim 'Chou you' vs 'Chouilloux' (without fix):", test3.toFixed(2));

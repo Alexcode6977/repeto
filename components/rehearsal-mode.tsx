@@ -198,7 +198,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
         status,
         feedback,
         start,
-        skip,
+        next,
         stop,
         lastTranscript,
         retry,
@@ -260,6 +260,38 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
     // Progress calculations
     const totalLines = script.lines.length;
     const progressPercent = totalLines > 0 ? Math.round((currentLineIndex / totalLines) * 100) : 0;
+
+    // Keyboard Shortcuts
+    useEffect(() => {
+        if (!hasStarted || showFeedbackModal || showUpgradeModal || pendingExit) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Only trigger if no input/textarea is focused
+            if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName || "")) return;
+
+            switch (e.code) {
+                case "Space":
+                    e.preventDefault();
+                    togglePause();
+                    break;
+                case "ArrowRight":
+                    e.preventDefault();
+                    next();
+                    break;
+                case "ArrowLeft":
+                    e.preventDefault();
+                    previous();
+                    break;
+                case "KeyR":
+                    e.preventDefault();
+                    retry();
+                    break;
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [hasStarted, showFeedbackModal, showUpgradeModal, pendingExit, togglePause, next, previous, retry]);
 
     // Current scene detection
     const currentScene = script.scenes?.find((scene, idx) => {
@@ -848,10 +880,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                     {/* Main Script View - Scrolling List (scroll locked during active states) */}
                     <div
                         ref={containerRef}
-                        className={cn(
-                            "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth",
-                            (status === "listening_user" || status === "playing_other") && "overflow-y-hidden"
-                        )}
+                        className="flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin"
                         id="script-container"
                     >
                         {script.lines.map((line, index) => {
@@ -865,9 +894,9 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                                         if (el) lineRefs.current.set(index, el);
                                     }}
                                     className={cn(
-                                        "transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-6",
+                                        "transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4 md:p-6",
                                         isActive
-                                            ? "bg-white/10 scale-105 shadow-2xl border border-white/10 opacity-100"
+                                            ? "bg-white/10 scale-100 md:scale-105 shadow-2xl border border-white/10 opacity-100"
                                             : "opacity-40 scale-95 blur-[0.5px]"
                                     )}
                                 >
@@ -881,8 +910,8 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                                     <p className={cn(
                                         "leading-relaxed font-serif transition-all",
                                         isActive
-                                            ? "text-2xl md:text-3xl text-white"
-                                            : "text-lg text-gray-400 grayscale",
+                                            ? "text-xl md:text-3xl text-white"
+                                            : "text-base md:text-lg text-gray-400 grayscale",
                                         isUser && isActive ? "text-yellow-300 drop-shadow-md" : ""
                                     )}>
                                         {/* Status Indicators for Active Line */}
@@ -1006,7 +1035,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
 
                         {/* Skip Button */}
                         <button
-                            onClick={skip}
+                            onClick={next}
                             className="p-3 md:p-4 rounded-full bg-white/5 border border-white/10 text-white hover:bg-white/10 active:scale-90 transition-all flex flex-col items-center gap-1 group"
                         >
                             <SkipForward className="w-5 h-5 md:w-6 md:h-6 group-active:translate-x-1 transition-transform" />

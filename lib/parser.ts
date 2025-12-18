@@ -352,9 +352,9 @@ export function parseScript(rawText: string): ParsedScript {
 
     // === REGEX PATTERNS ===
 
-    // "CHARACTER." or "CHARACTER," or "CHARACTER:" at start - MUST BE ALL CAPS
-    // Examples: "LE MAÎTRE DE MUSIQUE." or "MONSIEUR JOURDAIN," or "LUCIEN:"
-    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
+    // "CHARACTER." or "CHARACTER," or "CHARACTER:" at start
+    // Examples: "LE MAÎTRE DE MUSIQUE." or "Monsieur Jourdain:" or "LUCIEN."
+    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
 
     // Standalone uppercase line (no lowercase allowed)
     const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']{2,35})\s*$/;
@@ -409,10 +409,11 @@ export function parseScript(rawText: string): ParsedScript {
             const rawName = prefixMatch[1].trim();
             const afterName = prefixMatch[2].trim();
 
-            // CRITICAL: Name must be ALL CAPS (no lowercase letters)
-            const isAllCaps = rawName === rawName.toUpperCase() && /[A-ZÀ-Þ]/.test(rawName);
+            // Relaxed check: ALL CAPS is always preferred, but Title Case with ":" is allowed
+            const isAllCaps = rawName === rawName.toUpperCase();
+            const isTitleCase = /^[A-ZÀ-ÖØ-Þ][a-zà-ö]/.test(rawName);
 
-            if (isAllCaps && rawName.length >= 3) {
+            if ((isAllCaps || isTitleCase) && rawName.length >= 2) {
                 potentialName = rawName;
 
                 // If after starts lowercase, it's a stage direction ("LE MAÎTRE, parlant...")

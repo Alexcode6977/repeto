@@ -17,7 +17,7 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
         const buffer = Buffer.from(arrayBuffer);
 
         // EXTRACTION: Capture layout data for precise text reconstruction
-        let allItems: { str: string; x: number; y: number; w: number }[] = [];
+        let allItems: { str: string; x: number; y: number; w: number; h: number }[] = [];
 
         const render_page = (pageData: any) => {
             const render_options = {
@@ -31,10 +31,11 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
                     const x = item.transform[4];
                     const y = item.transform[5];
                     const w = item.width;
+                    const h = Math.abs(item.transform[3]); // Height (scaleY)
 
                     if (str.trim().length === 0 && w < 2) continue; // Skip empty tiny items
 
-                    allItems.push({ str, x, y, w });
+                    allItems.push({ str, x, y, w, h });
                 }
                 return ""; // We construct text manually
             });
@@ -47,11 +48,14 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
         let lastY = -1;
         let lastX = -1;
         let lastWidth = 0;
+        let lastHeight = 0;
 
         for (const item of allItems) {
             // Newline Detection (Significant Y change)
             // PDF coords: Y=0 at bottom.
-            const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > 6;
+            // threshold: 70% of current or last line height
+            const threshold = (item.h || lastHeight || 10) * 0.7;
+            const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > threshold;
 
             if (isNewLine) {
                 cleanRawText += "\n";
@@ -60,7 +64,9 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
                 // Space Detection (Significant X gap)
                 if (lastX !== -1) {
                     const gap = item.x - (lastX + lastWidth);
-                    if (gap > 2) { // >2px gap implies a space
+                    // gap > 15% of font height usually means a space
+                    const spaceThreshold = (item.h || 10) * 0.15;
+                    if (gap > spaceThreshold) {
                         cleanRawText += " ";
                     }
                 }
@@ -71,6 +77,7 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
             lastY = item.y;
             lastX = item.x;
             lastWidth = item.w;
+            lastHeight = item.h;
         }
 
         console.log("[Action] Text Reconstructed. Length:", cleanRawText.length);

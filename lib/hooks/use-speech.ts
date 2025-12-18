@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Emotion, segmentText, isVoiceCommand, applyPhoneticCorrections } from "../speech-utils";
 
 // Types for Web Speech API which might be missing in some environments
 interface Window {
@@ -144,22 +145,18 @@ export function useSpeech(): UseSpeechReturn {
 
             for (let i = 0; i < segments.length; i++) {
                 // Check if cancelled before each segment
-                if (cancelledRef.current) {
-                    break;
-                }
+                if (cancelledRef.current) break;
 
                 const segment = segments[i];
                 if (!segment.text.trim()) continue;
 
+                // Explicitly cancel previous segment to avoid iOS "stacking" or speed artifacts
+                synthRef.current?.cancel();
+
                 await speakSegment(segment.text, voice, segment.emotion);
 
-                // Check if cancelled after speaking
-                if (cancelledRef.current) {
-                    break;
-                }
-
                 // Natural pause between segments (sentences)
-                if (i < segments.length - 1) {
+                if (i < segments.length - 1 && !cancelledRef.current) {
                     await pause(segment.pauseAfter);
                 }
             }
@@ -169,133 +166,6 @@ export function useSpeech(): UseSpeechReturn {
         });
     }, []);
 
-    /**
-     * Segment text into natural chunks with emotion detection
-     */
-    const segmentText = (text: string): { text: string; emotion: Emotion; pauseAfter: number }[] => {
-        // Split on sentence-ending punctuation while keeping the punctuation
-        const rawSegments = text.split(/(?<=[.!?;])\s+/).filter(s => s.trim());
-
-        return rawSegments.map(segment => {
-            const emotion = detectEmotion(segment);
-            const pauseAfter = calculatePause(segment);
-            return { text: segment, emotion, pauseAfter };
-        });
-    };
-
-    type Emotion = 'neutral' | 'question' | 'exclamation' | 'hesitation' | 'anger' | 'sadness' | 'joy' | 'fear' | 'irony' | 'tenderness';
-
-    /**
-     * Detect the emotional tone of a text segment
-     * Enhanced with theatrical French vocabulary
-     */
-    const detectEmotion = (text: string): Emotion => {
-        const lower = text.toLowerCase();
-
-        // Multiple exclamations or caps = strong emotion (anger/urgency)
-        if ((text.match(/!/g) || []).length >= 2) return 'anger';
-        if (text === text.toUpperCase() && text.length > 10) return 'anger';
-
-        // Ellipsis = hesitation or sadness
-        if (text.includes('...')) return 'hesitation';
-
-        // Question marks
-        if (text.includes('?')) {
-            // Rhetorical/ironic questions
-            const ironicPatterns = ['vraiment', 'sérieusement', 'vous croyez', 'tu crois', 'n\'est-ce pas'];
-            if (ironicPatterns.some(p => lower.includes(p))) return 'irony';
-            return 'question';
-        }
-
-        // Joy/happiness words (expanded list)
-        const joyWords = [
-            'magnifique', 'merveilleux', 'excellent', 'bravo', 'parfait', 'génial', 'super', 'hourra', 'vive',
-            'bonheur', 'heureux', 'heureuse', 'joie', 'ravir', 'ravi', 'ravie', 'enchanter', 'enchanté',
-            'formidable', 'splendide', 'sublime', 'divin', 'adorable', 'chéri', 'chérie', 'amour',
-            'victoire', 'triomphe', 'succès', 'miracle', 'prodige', 'merci'
-        ];
-        if (joyWords.some(w => lower.includes(w))) return 'joy';
-
-        // Anger/frustration words (expanded)
-        const angerWords = [
-            'malheur', 'diable', 'damnation', 'sacrebleu', 'morbleu', 'tonnerre', 'idiot', 'imbécile',
-            'fureur', 'rage', 'colère', 'déteste', 'haïr', 'haine', 'maudit', 'maudite', 'enfer',
-            'scélérat', 'traître', 'misérable', 'infâme', 'monstre', 'démon', 'canaille',
-            'insolent', 'impertinent', 'assez', 'taisez', 'silence', 'sortez', 'dehors'
-        ];
-        if (angerWords.some(w => lower.includes(w))) return 'anger';
-
-        // Sadness words (expanded)
-        const sadWords = [
-            'hélas', 'malheur', 'triste', 'mort', 'perdu', 'adieu', 'jamais plus',
-            'larmes', 'pleurer', 'sanglot', 'douleur', 'souffrir', 'souffrance', 'peine',
-            'abandonner', 'abandonné', 'seul', 'seule', 'solitude', 'désespoir',
-            'mourir', 'fin', 'perdu', 'perdre', 'regret', 'regretter'
-        ];
-        if (sadWords.some(w => lower.includes(w))) return 'sadness';
-
-        // Fear words
-        const fearWords = [
-            'peur', 'effroi', 'terreur', 'trembler', 'frémir', 'épouvante',
-            'au secours', 'à l\'aide', 'sauvez', 'fuyez', 'danger', 'menace',
-            'horreur', 'horrible', 'affreux', 'effrayant', 'terrifiant'
-        ];
-        if (fearWords.some(w => lower.includes(w))) return 'fear';
-
-        // Tenderness/love words
-        const tendernessWords = [
-            'mon coeur', 'ma chère', 'mon cher', 'mon amour', 'ma douce', 'tendresse',
-            'caresse', 'embrasser', 'baiser', 'doux', 'douce', 'gentle', 'cher ami'
-        ];
-        if (tendernessWords.some(w => lower.includes(w))) return 'tenderness';
-
-        // Irony/sarcasm indicators
-        const ironyWords = ['certes', 'évidemment', 'bien sûr', 'naturellement', 'sans doute'];
-        if (ironyWords.some(w => lower.includes(w)) && text.includes('!')) return 'irony';
-
-        // Exclamation without specific emotion
-        if (text.includes('!')) return 'exclamation';
-
-        return 'neutral';
-    };
-
-    /**
-     * Calculate pause duration after a segment (in ms)
-     * Adds natural variation and context-awareness
-     */
-    const calculatePause = (text: string): number => {
-        // Base pause with random variation for natural rhythm
-        const vary = (base: number, variance: number) => base + Math.random() * variance;
-
-        // Very long pause after ellipsis (dramatic effect)
-        if (text.includes('...')) return vary(550, 150);
-
-        // Multiple punctuation = dramatic (!! or ?!)
-        if (/[!?]{2,}/.test(text)) return vary(500, 100);
-
-        // Question - thinking pause
-        if (text.endsWith('?')) return vary(380, 80);
-
-        // Exclamation - quick dramatic beat
-        if (text.endsWith('!')) return vary(350, 100);
-
-        // Semi-colon = breath pause
-        if (text.endsWith(';')) return vary(280, 60);
-
-        // Colon = anticipation pause
-        if (text.endsWith(':')) return vary(320, 80);
-
-        // Standard sentence end
-        if (text.endsWith('.')) return vary(320, 80);
-
-        // Short text = quick transition
-        if (text.length < 30) return vary(180, 60);
-
-        // Long text = needs processing time
-        if (text.length > 100) return vary(400, 100);
-
-        return vary(250, 80);
-    };
 
     /**
      * Speak a single segment with emotion-based prosody
@@ -309,35 +179,7 @@ export function useSpeech(): UseSpeechReturn {
 
             // == PRONUNCIATION IMPROVEMENTS ==
             // Apply phonetic corrections for better theatrical French
-            let processedText = text;
-
-            // Numbers to words (TTS often mispronounces)
-            processedText = processedText
-                .replace(/\b1\b/g, 'un')
-                .replace(/\b2\b/g, 'deux')
-                .replace(/\b3\b/g, 'trois')
-                .replace(/\b4\b/g, 'quatre')
-                .replace(/\b5\b/g, 'cinq')
-                .replace(/\b10\b/g, 'dix')
-                .replace(/\b100\b/g, 'cent')
-                .replace(/\b1000\b/g, 'mille');
-
-            // Classical French spelling -> modern pronunciation hints
-            // These help TTS pronounce archaic spellings correctly
-            processedText = processedText
-                .replace(/\bMr\b/gi, 'Monsieur')
-                .replace(/\bMme\b/gi, 'Madame')
-                .replace(/\bMlle\b/gi, 'Mademoiselle')
-                .replace(/\bM\.\s/g, 'Monsieur ')
-                .replace(/\bSt\-/gi, 'Saint-')
-                .replace(/\bSte\-/gi, 'Sainte-');
-
-            // Theatrical exclamations - add emphasis hint
-            processedText = processedText
-                .replace(/\bHélas\b/gi, 'Hélàs')         // Emphasize the à
-                .replace(/\bMorbleu\b/gi, 'Morbleû')     // Emphasize
-                .replace(/\bPalsambleu\b/gi, 'Palsembleû')
-                .replace(/\bParbleu\b/gi, 'Parbleû');
+            let processedText = applyPhoneticCorrections(text);
 
             // Clean text - remove punctuation that TTS might read aloud
             // Keep apostrophes (important for French contractions like "l'homme")
@@ -365,57 +207,54 @@ export function useSpeech(): UseSpeechReturn {
 
             switch (emotion) {
                 case 'question':
-                    pitch = 1.15 + (Math.random() * 0.1);  // Higher rising intonation
-                    rate = 0.88;   // Slower for clarity and dramatic effect
+                    pitch = 1.1 + (Math.random() * 0.05);
+                    rate = 0.92;
                     break;
 
                 case 'exclamation':
-                    pitch = 1.12 + (Math.random() * 0.12);
-                    rate = 1.0 + (Math.random() * 0.15);
-                    volume = 1.0;
+                    pitch = 1.1 + (Math.random() * 0.05);
+                    rate = 0.95 + (Math.random() * 0.05);
                     break;
 
                 case 'anger':
-                    pitch = 0.78 + (Math.random() * 0.1);   // Much lower, intense
-                    rate = 1.2 + (Math.random() * 0.2);    // Fast and aggressive
-                    volume = 1.0;
+                    pitch = 0.85 + (Math.random() * 0.05);
+                    rate = 1.05 + (Math.random() * 0.05); // Less extreme
                     break;
 
                 case 'joy':
-                    pitch = 1.22 + (Math.random() * 0.12);  // Higher, brighter, more varied
-                    rate = 1.0 + (Math.random() * 0.15);
+                    pitch = 1.15 + (Math.random() * 0.05);
+                    rate = 0.98 + (Math.random() * 0.05);
                     break;
 
                 case 'hesitation':
-                    pitch = 0.92 + (Math.random() * 0.08);
-                    rate = 0.68 + (Math.random() * 0.1);    // Very slow, uncertain
+                    pitch = 0.95;
+                    rate = 0.75 + (Math.random() * 0.05);
                     break;
 
                 case 'sadness':
-                    pitch = 0.78 + (Math.random() * 0.08);  // Much lower, somber
-                    rate = 0.72 + (Math.random() * 0.1);    // Slow, heavy, dramatic
+                    pitch = 0.85;
+                    rate = 0.8 + (Math.random() * 0.05);
                     break;
 
                 case 'fear':
-                    pitch = 1.15 + (Math.random() * 0.18);  // Higher, tense
-                    rate = 1.15 + (Math.random() * 0.2);    // Fast, breathless
+                    pitch = 1.1 + (Math.random() * 0.05);
+                    rate = 1.05 + (Math.random() * 0.05);
                     break;
 
                 case 'irony':
-                    pitch = 1.02 + (Math.random() * 0.1 - 0.05);
-                    rate = 0.82;   // Deliberate, measured, theatrical pause effect
+                    pitch = 1.0;
+                    rate = 0.85;
                     break;
 
                 case 'tenderness':
-                    pitch = 1.08 + (Math.random() * 0.1);   // Soft, warm
-                    rate = 0.78 + (Math.random() * 0.08);   // Very slow, gentle
-                    volume = 0.85;  // Softer
+                    pitch = 1.05;
+                    rate = 0.85;
+                    volume = 0.9;
                     break;
 
                 default:
-                    // Neutral - theatrical baseline with good variation
-                    pitch = 0.95 + (Math.random() * 0.15);
-                    rate = 0.88 + (Math.random() * 0.1);    // Slightly slower for theatrical feel
+                    pitch = 1.0;
+                    rate = 0.9; // Stable normalized rate
             }
 
             utterance.pitch = pitch;
@@ -446,42 +285,42 @@ export function useSpeech(): UseSpeechReturn {
      * Listen for speech with dynamic silence timeout based on expected line duration
      * @param estimatedDurationMs - Expected duration to speak the line (calculated from text length)
      */
+    // Track active recognition promise to prevent double-starts and race conditions
+    const activeRecognitionRef = useRef<{ resolve: (s: string) => void; reject: (r: any) => void } | null>(null);
+
     const listen = useCallback((estimatedDurationMs?: number): Promise<string> => {
         return new Promise((resolve, reject) => {
-            if (!recognitionRef.current) {
+            if (typeof window === "undefined" || !recognitionRef.current) {
                 reject("Speech recognition not supported");
                 return;
             }
 
-            setState("listening");
+            // ATOMICITY: Force stop any existing recognition session
+            if (activeRecognitionRef.current) {
+                console.log("[Speech] Interrupting previous recognition session");
+                const old = activeRecognitionRef.current;
+                activeRecognitionRef.current = null;
+                try { recognitionRef.current.abort(); } catch (e) { }
+                old.reject("Interrupted");
+            }
+
+            activeRecognitionRef.current = { resolve, reject };
             setTranscript("");
+            setState("listening");
 
             let finalTranscript = "";
             let interimTranscript = "";
             let silenceTimeout: NodeJS.Timeout | null = null;
 
             // Dynamic silence delay based on expected duration
-            // Minimum 2.5s for short lines, up to 4s for very long lines
-            // This gives plenty of time to speak before auto-validating
-            const baseSilence = 2500; // Minimum base silence in ms
+            // TUNED FOR iOS: Shorter base silence (1.8s) for snappier feedback
+            // Mobile users expect faster response.
+            const baseSilence = 1800;
             const proportionalTime = estimatedDurationMs
-                ? Math.min(Math.max(estimatedDurationMs * 0.5, 0), 1500)
-                : 1000;
+                ? Math.min(Math.max(estimatedDurationMs * 0.4, 0), 1200)
+                : 800;
             const SILENCE_DELAY = baseSilence + proportionalTime;
 
-            // Voice commands that should trigger immediate recognition
-            const QUICK_COMMANDS = ["passe", "passer", "je passe", "suivante", "suite", "suivant", "next", "joker", "précédente", "retour", "répète"];
-
-            // Check if text contains a quick command
-            const isQuickCommand = (text: string): boolean => {
-                const normalized = text.toLowerCase().replace(/[.,!?]/g, "").trim();
-                return QUICK_COMMANDS.some(cmd =>
-                    normalized === cmd ||
-                    normalized.startsWith(cmd + " ") ||
-                    normalized.endsWith(" " + cmd) ||
-                    normalized.includes(cmd)
-                );
-            };
 
             // Enable continuous mode and interim results for longer utterances
             recognitionRef.current.continuous = true;
@@ -494,8 +333,10 @@ export function useSpeech(): UseSpeechReturn {
                 } catch (e) {
                     // Already stopped
                 }
-                if (result) {
-                    resolve(result);
+                if (activeRecognitionRef.current) {
+                    const r = activeRecognitionRef.current;
+                    activeRecognitionRef.current = null;
+                    r.resolve(result);
                 }
             };
 
@@ -533,7 +374,7 @@ export function useSpeech(): UseSpeechReturn {
                 setTranscript(combinedTranscript);
 
                 // Check for quick commands - finalize immediately without waiting for silence
-                if (isQuickCommand(combinedTranscript)) {
+                if (isVoiceCommand(combinedTranscript)) {
                     console.log("[Speech] Quick command detected:", combinedTranscript);
                     finalizeRecognition(combinedTranscript);
                     return;
@@ -546,25 +387,46 @@ export function useSpeech(): UseSpeechReturn {
             recognitionRef.current.onerror = (event: any) => {
                 if (silenceTimeout) clearTimeout(silenceTimeout);
 
-                // "no-speech" is not really an error, just no input detected
-                if (event.error === "no-speech") {
-                    resolve(finalTranscript.trim() || interimTranscript.trim() || "");
+                // Special handling for common errors
+                if (event.error === 'no-speech') {
+                    console.warn("[Speech] No speech detected (silence timeout)");
+                    // We don't necessarily want to treat silence as a hard error that breaks the state machine
+                    // but we do need to signal it.
+                    // Resolve with current transcript if no speech, rather than rejecting
+                    if (activeRecognitionRef.current) {
+                        const r = activeRecognitionRef.current;
+                        activeRecognitionRef.current = null;
+                        r.resolve(finalTranscript.trim() || interimTranscript.trim() || "");
+                    }
                     return;
                 }
 
                 // "aborted" means we stopped it manually
                 if (event.error === "aborted") {
                     if (cancelledRef.current) {
-                        reject("Cancelled");
+                        if (activeRecognitionRef.current) {
+                            const r = activeRecognitionRef.current;
+                            activeRecognitionRef.current = null;
+                            r.reject("Cancelled");
+                        }
                         return;
                     }
-                    resolve(finalTranscript.trim() || interimTranscript.trim() || "");
+                    // If not cancelled, treat as a normal end with current transcript
+                    if (activeRecognitionRef.current) {
+                        const r = activeRecognitionRef.current;
+                        activeRecognitionRef.current = null;
+                        r.resolve(finalTranscript.trim() || interimTranscript.trim() || "");
+                    }
                     return;
                 }
 
                 console.error("Speech recognition error", event.error);
                 setState("error");
-                reject(event.error);
+                if (activeRecognitionRef.current) {
+                    const r = activeRecognitionRef.current;
+                    activeRecognitionRef.current = null;
+                    r.reject(event.error);
+                }
             };
 
             recognitionRef.current.onend = () => {
@@ -572,13 +434,22 @@ export function useSpeech(): UseSpeechReturn {
                 setState("idle");
 
                 if (cancelledRef.current) {
-                    reject("Cancelled");
+                    if (activeRecognitionRef.current) {
+                        const r = activeRecognitionRef.current;
+                        activeRecognitionRef.current = null;
+                        r.reject("Cancelled");
+                    }
                     return;
                 }
 
                 // Recognition ended - return what we have (may be empty)
                 const result = (finalTranscript + " " + interimTranscript).trim();
-                resolve(result);
+
+                if (activeRecognitionRef.current) {
+                    const r = activeRecognitionRef.current;
+                    activeRecognitionRef.current = null;
+                    r.resolve(result);
+                }
             };
 
             try {
@@ -610,6 +481,12 @@ export function useSpeech(): UseSpeechReturn {
         // Cancel TTS
         if (synthRef.current) {
             try {
+                synthRef.current.cancel();
+                // Safari Hack: sometimes cancel() doesn't clear the queue on iOS
+                // Speaking an empty string and canceling again can force-clear it.
+                const dummy = new SpeechSynthesisUtterance("");
+                dummy.volume = 0;
+                synthRef.current.speak(dummy);
                 synthRef.current.cancel();
             } catch (e) {
                 // Ignore errors on cancel

@@ -1,92 +1,122 @@
-export function cleanTranscript(text: string): string {
+/**
+ * Play-specific misinterpretation fixes
+ */
+const PLAY_FIXES: Record<string, [RegExp, string][]> = {
+    "ON PURGE BÉBÉ": [
+        [/les hybrides/g, "les hébrides"],
+        [/\bbene\b/g, "ben"],
+        [/\bbain\b/g, "ben"],
+        [/\bpalto\b/g, "paletot"],
+        [/pas le t[oô]t?/g, "paletot"],
+        [/palle taux/g, "paletot"],
+        [/choou you/g, "chouilloux"],
+        [/chou you/g, "chouilloux"],
+        [/choux you/g, "chouilloux"],
+        [/shouyo/g, "chouilloux"],
+        [/\bchoux\b/g, "chouilloux"],
+        [/chou ill?ou/g, "chouilloux"],
+    ],
+    "FEU LA MÈRE DE MADAME": [
+        [/\bmatame\b/gi, "madame"],
+        [/\bpien\b/gi, "bien"],
+        [/\bfoulez\b/gi, "voulez"],
+        [/\bfous\b/gi, "vous"],
+        [/\bte\b/gi, "de"],
+        [/\bpon\b/gi, "bon"],
+        [/\bafec\b/gi, "avec"],
+        [/\bché\b/gi, "j'ai"],
+        [/\bpour quoi\b/gi, "pourquoi"],
+        [/\bché pas\b/gi, "j'ai pas"],
+        [/\btit\b/gi, "dit"],
+        [/\btites\b/gi, "dites"],
+    ]
+};
+
+export function cleanTranscript(text: string, playTitle?: string): string {
     let t = text.toLowerCase();
     const numbers = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze"];
 
     // Fix time formats (e.g. "4h10" -> "quatre heure dix", "5h" -> "cinq heures")
-    // Match XhY or Xh
     t = t.replace(/\b(\d{1,2})h(\d{0,2})\b/g, (_match, h, m) => {
         const hVal = parseInt(h);
-        const hStr = hVal < numbers.length ? numbers[hVal] : h; // "quatre"
+        const hStr = hVal < numbers.length ? numbers[hVal] : h;
 
-        // Handle minutes
         let mStr = "";
         if (m) {
             const mVal = parseInt(m);
-            // "dix" for 10, otherwise keep digits if > 12 (simplified) or mapped if small
             mStr = " " + (mVal < numbers.length ? numbers[mVal] : m);
         }
-
-        // Plural "heures" if h > 1 ? Actually spoken is often "quatre heure dix" (singular sounding) but "cinq heures" (plural sounding).
-        // Let's use "heure" generic or "heures". Script usually has "heures".
-        // Example: "quatre heure dix" (singular in script?). User says "4h10".
-        // Let's force "heure" (singular) and let fuzzy match handle the 's' difference (levenshtein is small).
         return `${hStr} heure${mStr}`;
     });
 
     // Replace standalone digits 0-10
     t = t.replace(/\b(\d)\b/g, (match) => numbers[parseInt(match)] || match);
 
-    // Specific fixes for "On purge bébé"
-    t = t.replace(/les hybrides/g, "les hébrides");
-    t = t.replace(/\bbene\b/g, "ben");
-    t = t.replace(/\bbain\b/g, "ben");
-
-    // Paletot fixes
-    t = t.replace(/\bpalto\b/g, "paletot");
-    t = t.replace(/pas le t[oô]t?/g, "paletot");
-    t = t.replace(/palle taux/g, "paletot");
-
-    // Chouilloux fixes (common mishearings)
-    t = t.replace(/choou you/g, "chouilloux");
-    t = t.replace(/chou you/g, "chouilloux");
-    t = t.replace(/choux you/g, "chouilloux");
-    t = t.replace(/shouyo/g, "chouilloux");
-    t = t.replace(/\bchoux\b/g, "chouilloux");
-    t = t.replace(/chou ill?ou/g, "chouilloux");
+    // Apply play-specific fixes if title matches
+    if (playTitle) {
+        const normalizedTitle = playTitle.toUpperCase();
+        for (const [title, fixes] of Object.entries(PLAY_FIXES)) {
+            if (normalizedTitle.includes(title)) {
+                for (const [pattern, replacement] of fixes) {
+                    t = t.replace(pattern, replacement);
+                }
+                break;
+            }
+        }
+    }
 
     return t;
 }
 
-export function calculateSimilarity(str1: string, str2: string): number {
-    if (!str1 || !str2) return 0.0;
+/**
+ * Memory-efficient Levenshtein distance (O(min(n,m)) space)
+ */
+export function calculateSimilarity(str1: string, str2: string, playTitle?: string): number {
+    if (!str1 || !str2) return (str1 === str2) ? 1.0 : 0.0;
 
     const normalize = (s: string) =>
         s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             .toLowerCase()
-            .replace(/[^a-z0-9\s]/g, "") // Keep only alphanumeric
+            .replace(/[^a-z0-9\s]/g, "")
             .replace(/\s+/g, " ")
             .trim();
 
-    // Clean specific misinterpretations before normal processing
-    const s1 = normalize(cleanTranscript(str1));
-    const s2 = normalize(cleanTranscript(str2));
+    const s1Value = normalize(cleanTranscript(str1, playTitle));
+    const s2Value = normalize(cleanTranscript(str2, playTitle));
 
-    if (s1 === s2) return 1.0;
+    if (s1Value === s2Value) return 1.0;
+    if (s1Value.length === 0 || s2Value.length === 0) return 0.0;
 
-    // Levenshtein distance implementation
-    const track = Array(s2.length + 1).fill(null).map(() =>
-        Array(s1.length + 1).fill(null));
+    // Use shorter string for current/prev rows to save space
+    const s1 = s1Value.length < s2Value.length ? s1Value : s2Value;
+    const s2 = s1Value.length < s2Value.length ? s2Value : s1Value;
 
-    for (let i = 0; i <= s1.length; i += 1) {
-        track[0][i] = i;
-    }
-    for (let j = 0; j <= s2.length; j += 1) {
-        track[j][0] = j;
-    }
+    const len1 = s1.length;
+    const len2 = s2.length;
 
-    for (let j = 1; j <= s2.length; j += 1) {
-        for (let i = 1; i <= s1.length; i += 1) {
-            const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
-            track[j][i] = Math.min(
-                track[j][i - 1] + 1, // deletion
-                track[j - 1][i] + 1, // insertion
-                track[j - 1][i - 1] + indicator, // substitution
+    let prevRow = new Int32Array(len1 + 1);
+    let currRow = new Int32Array(len1 + 1);
+
+    for (let i = 0; i <= len1; i++) prevRow[i] = i;
+
+    for (let j = 1; j <= len2; j++) {
+        currRow[0] = j;
+        for (let i = 1; i <= len1; i++) {
+            const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+            currRow[i] = Math.min(
+                currRow[i - 1] + 1,      // insertion
+                prevRow[i] + 1,          // deletion
+                prevRow[i - 1] + cost    // substitution
             );
         }
+        // Swap rows
+        const temp = prevRow;
+        prevRow = currRow;
+        currRow = temp;
     }
 
-    const distance = track[s2.length][s1.length];
-    const maxLength = Math.max(s1.length, s2.length);
+    const distance = prevRow[len1];
+    const maxLength = Math.max(s1Value.length, s2Value.length);
 
     return 1.0 - (distance / maxLength);
 }
