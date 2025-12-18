@@ -131,6 +131,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         if (transitionLockRef.current) return;
         transitionLockRef.current = true;
         stopAll();
+        setStatus("setup"); // BREAK the engine loop immediately
 
         setCurrentLineIndex(initialLineIndex);
         const line = script.lines[initialLineIndex];
@@ -143,15 +144,15 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 setStatus("playing_other");
             }
             transitionLockRef.current = false;
-        }, 100);
+        }, 300); // More generous window for mobile
     };
 
     const next = () => {
         if (!isMountedRef.current || transitionLockRef.current) return;
         transitionLockRef.current = true;
-
         manualSkipRef.current = true;
         stopAll();
+        setStatus("setup");
 
         const nextIdx = stateRef.current.currentLineIndex + 1;
         if (nextIdx < script.lines.length) {
@@ -166,7 +167,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                     setStatus("playing_other");
                 }
                 transitionLockRef.current = false;
-            }, 100);
+            }, 300);
         } else {
             manualSkipRef.current = false;
             transitionLockRef.current = false;
@@ -175,22 +176,30 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     };
 
     const previous = () => {
-        if (transitionLockRef.current) return;
+        if (!isMountedRef.current || transitionLockRef.current) return;
         transitionLockRef.current = true;
-
+        manualSkipRef.current = true;
         stopAll();
-        const prevIdx = Math.max(0, stateRef.current.currentLineIndex - 1);
-        setCurrentLineIndex(prevIdx);
-        const prevLine = script.lines[prevIdx];
+        setStatus("setup"); // Break the loop
 
-        setTimeout(() => {
-            if (prevLine.character.includes(userCharacter)) {
-                setStatus("listening_user");
-            } else {
-                setStatus("playing_other");
-            }
+        const prevIdx = stateRef.current.currentLineIndex - 1;
+        if (prevIdx >= 0) {
+            setCurrentLineIndex(prevIdx);
+            const prevLine = script.lines[prevIdx];
+            setTimeout(() => {
+                manualSkipRef.current = false;
+                if (isUserLine(prevLine.character)) {
+                    setStatus("listening_user");
+                } else {
+                    setStatus("playing_other");
+                }
+                transitionLockRef.current = false;
+            }, 300);
+        } else {
+            manualSkipRef.current = false;
             transitionLockRef.current = false;
-        }, 150);
+            setStatus("setup");
+        }
     };
 
     const statusRef = useRef(status);
@@ -198,20 +207,22 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     const retry = () => {
         if (transitionLockRef.current) return;
-        if (status === "error" || status === "listening_user" || status === "evaluating") {
-            transitionLockRef.current = true;
-            stopAll();
+        transitionLockRef.current = true;
+        manualSkipRef.current = true;
+        stopAll();
+        setStatus("setup");
+        setFeedback(null);
 
-            const line = script.lines[currentLineIndex];
-            setTimeout(() => {
-                if (line.character.includes(userCharacter)) {
-                    setStatus("listening_user");
-                } else {
-                    setStatus("playing_other");
-                }
-                transitionLockRef.current = false;
-            }, 100);
-        }
+        const line = script.lines[currentLineIndex];
+        setTimeout(() => {
+            manualSkipRef.current = false;
+            if (isUserLine(line.character)) {
+                setStatus("listening_user");
+            } else {
+                setStatus("playing_other");
+            }
+            transitionLockRef.current = false;
+        }, 300);
     };
 
     const validateManually = () => {
