@@ -286,7 +286,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 }
             } else if (status === "listening_user") {
                 try {
-                    const estimatedDuration = line.text.length * 15; // Slightly more generous multiplier
+                    const estimatedDuration = line.text.length * 20; // Even more generous multiplier for theatrical delivery
                     const transcript = await listen(estimatedDuration);
                     if (!isMountedRef.current) return;
 

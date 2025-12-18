@@ -313,12 +313,11 @@ export function useSpeech(): UseSpeechReturn {
             let silenceTimeout: NodeJS.Timeout | null = null;
 
             // Dynamic silence delay based on expected duration
-            // TUNED FOR iOS: Shorter base silence (1.8s) for snappier feedback
-            // Mobile users expect faster response.
-            const baseSilence = 1800;
+            // TUNED FOR DRAMATIC PAUSES: Increased base (2.2s) and max proportional (2s)
+            const baseSilence = 2200;
             const proportionalTime = estimatedDurationMs
-                ? Math.min(Math.max(estimatedDurationMs * 0.4, 0), 1200)
-                : 800;
+                ? Math.min(Math.max(estimatedDurationMs * 0.5, 0), 2000)
+                : 1000;
             const SILENCE_DELAY = baseSilence + proportionalTime;
 
 
