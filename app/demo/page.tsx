@@ -1,55 +1,81 @@
 "use client";
 
-import { RehearsalMode } from "@/components/rehearsal-mode";
-import { ParsedScript } from "@/lib/types";
-import { useRouter } from "next/navigation";
-
-const DEMO_SCRIPT: ParsedScript = {
-    title: "Le Bourgeois Gentilhomme - Acte II, Scène 4",
-    characters: ["MONSIEUR JOURDAIN", "MAÎTRE DE PHILOSOPHIE"],
-    scenes: [
-        { index: 0, title: "La Leçon d'Orthographe" }
-    ],
-    lines: [
-        { id: "1", character: "MAÎTRE DE PHILOSOPHIE", text: "Je vous expliquerai à fond toutes ces curiosités.", type: "dialogue" },
-        { id: "2", character: "MONSIEUR JOURDAIN", text: "Je vous en prie. Au reste, il faut que je vous fasse une confidence. Je suis amoureux d'une personne de grande qualité, et je souhaiterais que vous m'aidassiez à lui écrire quelque chose dans un petit billet que je veux laisser tomber à ses pieds.", type: "dialogue" },
-        { id: "3", character: "MAÎTRE DE PHILOSOPHIE", text: "Fort bien.", type: "dialogue" },
-        { id: "4", character: "MONSIEUR JOURDAIN", text: "Cela sera galant, oui ?", type: "dialogue" },
-        { id: "5", character: "MAÎTRE DE PHILOSOPHIE", text: "Sans doute. Sont-ce des vers que vous lui voulez écrire ?", type: "dialogue" },
-        { id: "6", character: "MONSIEUR JOURDAIN", text: "Non, non, point de vers.", type: "dialogue" },
-        { id: "7", character: "MAÎTRE DE PHILOSOPHIE", text: "Vous ne voulez que de la prose ?", type: "dialogue" },
-        { id: "8", character: "MONSIEUR JOURDAIN", text: "Non, je ne veux ni prose ni vers.", type: "dialogue" },
-        { id: "9", character: "MAÎTRE DE PHILOSOPHIE", text: "Il faut bien que ce soit l'un, ou l'autre.", type: "dialogue" },
-        { id: "10", character: "MONSIEUR JOURDAIN", text: "Pourquoi ?", type: "dialogue" },
-        { id: "11", character: "MAÎTRE DE PHILOSOPHIE", text: "Par la raison, Monsieur, qu'il n'y a pour s'exprimer que la prose, ou les vers.", type: "dialogue" },
-        { id: "12", character: "MONSIEUR JOURDAIN", text: "Il n'y a que la prose ou les vers ?", type: "dialogue" },
-        { id: "13", character: "MAÎTRE DE PHILOSOPHIE", text: "Non, Monsieur : tout ce qui n'est point prose est vers ; et tout ce qui n'est point vers est prose.", type: "dialogue" },
-        { id: "14", character: "MONSIEUR JOURDAIN", text: "Et comme l'on parle, qu'est-ce que c'est donc que cela ?", type: "dialogue" },
-        { id: "15", character: "MAÎTRE DE PHILOSOPHIE", text: "De la prose.", type: "dialogue" },
-        { id: "16", character: "MONSIEUR JOURDAIN", text: "Quoi ? quand je dis : « Nicole, apportez-moi mes pantoufles, et me donnez mon bonnet de nuit », c'est de la prose ?", type: "dialogue" },
-        { id: "17", character: "MAÎTRE DE PHILOSOPHIE", text: "Oui, Monsieur.", type: "dialogue" },
-        { id: "18", character: "MONSIEUR JOURDAIN", text: "Par ma foi ! il y a plus de quarante ans que je dis de la prose sans que j'en susse rien, et je vous suis le plus obligé du monde de m'avoir appris cela. Je voudrais donc lui mettre dans un billet : Belle Marquise, vos beaux yeux me font mourir d'amour ; mais je voudrais que cela fût mis d'une manière galante, que cela fût tourné gentiment.", type: "dialogue" },
-        { id: "19", character: "MAÎTRE DE PHILOSOPHIE", text: "Mettre que les feux de ses yeux réduisent votre cœur en cendres ; que vous souffrez nuit et jour pour elle les violences d'un...", type: "dialogue" },
-        { id: "20", character: "MONSIEUR JOURDAIN", text: "Non, non, non, je ne veux point tout cela ; je ne veux que ce que je vous ai dit : Belle Marquise, vos beaux yeux me font mourir d'amour.", type: "dialogue" },
-        { id: "21", character: "MAÎTRE DE PHILOSOPHIE", text: "Il faut bien étendre un peu la chose.", type: "dialogue" },
-        { id: "22", character: "MONSIEUR JOURDAIN", text: "Non, vous dis-je, je ne veux que ces seules paroles-là dans le billet ; mais tournées à la mode ; bien arrangées comme il faut. Je vous prie de me dire un peu, pour voir, les diverses manières dont qu'on les peut mettre.", type: "dialogue" },
-        { id: "23", character: "MAÎTRE DE PHILOSOPHIE", text: "On les peut mettre premièrement comme vous avez dit : Belle Marquise, vos beaux yeux me font mourir d'amour. Ou bien : D'amour mourir me font, belle Marquise, vos beaux yeux. Ou bien : Vos yeux beaux d'amour me font, belle Marquise, mourir. Ou bien : Mourir vos beaux yeux, belle Marquise, d'amour me font. Ou bien : Me font vos yeux beaux mourir, belle Marquise, d'amour.", type: "dialogue" },
-        { id: "24", character: "MONSIEUR JOURDAIN", text: "Mais de toutes ces façons-là, laquelle est la meilleure ?", type: "dialogue" },
-        { id: "25", character: "MAÎTRE DE PHILOSOPHIE", text: "Celle que vous avez dite : Belle Marquise, vos beaux yeux me font mourir d'amour.", type: "dialogue" },
-        { id: "26", character: "MONSIEUR JOURDAIN", text: "Cependant je n'ai point étudié, et j'ai fait cela tout du premier coup. Je vous remercie de tout mon cœur, et vous prie de venir demain de bonne heure.", type: "dialogue" },
-        { id: "27", character: "MAÎTRE DE PHILOSOPHIE", text: "Je n'y manquerai pas.", type: "dialogue" }
-    ]
-};
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Play, Sparkles } from "lucide-react";
 
 export default function DemoPage() {
-    const router = useRouter();
-
     return (
-        <RehearsalMode
-            script={DEMO_SCRIPT}
-            userCharacter="MONSIEUR JOURDAIN"
-            onExit={() => router.push("/")}
-            isDemo={true}
-        />
+        <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col font-sans selection:bg-primary/30 overflow-hidden">
+            {/* Cinematic Background */}
+            <div className="fixed inset-0 z-0 pointer-events-none">
+                <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] bg-primary/10 rounded-full blur-[120px] opacity-40" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[800px] h-[800px] bg-purple-900/10 rounded-full blur-[120px] opacity-30" />
+            </div>
+
+            {/* Header */}
+            <header className="relative z-50 w-full max-w-7xl mx-auto p-4 md:p-8 flex justify-between items-center animate-in fade-in slide-in-from-top-4 duration-700">
+                <Link href="/" className="flex items-center gap-2 md:gap-3 group">
+                    <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
+                        <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-white" />
+                    </div>
+                    <span className="text-lg md:text-xl tracking-tight font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Repeto</span>
+                </Link>
+
+                <Link href="/">
+                    <Button variant="ghost" className="rounded-full text-gray-400 hover:text-white hover:bg-white/5 gap-2 transition-all">
+                        <ArrowLeft className="w-4 h-4" />
+                        Retour
+                    </Button>
+                </Link>
+            </header>
+
+            {/* Main Content */}
+            <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 md:px-6 pb-12">
+                <div className="max-w-5xl w-full space-y-8 animate-in fade-in zoom-in duration-1000">
+                    <div className="text-center space-y-4">
+                        <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+                            Découvrez <span className="text-primary italic">Repeto</span> en action
+                        </h1>
+                        <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto font-light">
+                            Regardez comment REPETO transforme vos séances de répétition avec l'intelligence artificielle.
+                        </p>
+                    </div>
+
+                    {/* Video Container with Glassmorphism Wrapper */}
+                    <div className="relative group">
+                        {/* Glow Effect */}
+                        <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-purple-600/50 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
+
+                        <div className="relative bg-[#111111]/80 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl aspect-video">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&rel=0" // Placeholder URL
+                                title="Repeto Demo Video"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                allowFullScreen
+                                className="w-full h-full"
+                            ></iframe>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-center pt-4">
+                        <Link href="/signup">
+                            <Button size="lg" className="h-14 px-10 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-base btn-glow transition-all transform hover:scale-105">
+                                Commencer l'expérience
+                            </Button>
+                        </Link>
+                    </div>
+                </div>
+            </main>
+
+            <footer className="relative z-10 w-full py-8 text-center border-t border-white/5 bg-black/40 backdrop-blur-xl">
+                <p className="text-gray-500 text-sm">
+                    Rejoignez des milliers de comédiens qui progressent chaque jour.
+                </p>
+            </footer>
+        </div>
     );
 }
