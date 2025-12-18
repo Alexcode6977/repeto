@@ -120,6 +120,13 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         }
     };
 
+    // Helper for character matching
+    const isUserLine = (lineChar: string) => {
+        const normalizedLineChar = lineChar.toLowerCase().trim();
+        const normalizedUserChar = userCharacter.toLowerCase().trim();
+        return normalizedLineChar === normalizedUserChar || normalizedLineChar.split(/[\s,]+/).includes(normalizedUserChar);
+    };
+
     const start = () => {
         if (transitionLockRef.current) return;
         transitionLockRef.current = true;
@@ -130,7 +137,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
         // Brief delay to ensure cleanup
         setTimeout(() => {
-            if (line.character.includes(userCharacter)) {
+            if (isUserLine(line.character)) {
                 setStatus("listening_user");
             } else {
                 setStatus("playing_other");
@@ -153,7 +160,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             // Brief delay to allow speech recognition and audio to reset
             setTimeout(() => {
                 manualSkipRef.current = false;
-                if (nextLine.character.includes(userCharacter)) {
+                if (isUserLine(nextLine.character)) {
                     setStatus("listening_user");
                 } else {
                     setStatus("playing_other");
@@ -236,7 +243,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             const nextIdx = currentLineIndex + 1;
             if (nextIdx < script.lines.length) {
                 const nextLine = script.lines[nextIdx];
-                if (!nextLine.character.includes(userCharacter)) {
+                if (!isUserLine(nextLine.character)) {
                     preloadLine(nextLine.text, nextLine.character);
                 }
             }
@@ -248,7 +255,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                     shouldPlay = false;
                 } else if (mode === "cue") {
                     const nextLine = script.lines[currentLineIndex + 1];
-                    shouldPlay = (nextLine && nextLine.character.includes(userCharacter)) || false;
+                    shouldPlay = (nextLine && isUserLine(nextLine.character)) || false;
                 }
 
                 if (!shouldPlay) {
