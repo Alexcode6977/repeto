@@ -305,10 +305,11 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                         setTimeout(() => { setFeedback(null); next(); }, 150);
                     } else {
                         setFeedback("incorrect");
+                        // We ARE ALREADY in 'evaluating' status, which prevents the engine from restarting listen()
                         await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}`, voiceAssignments["ASSISTANT"]);
                         setFeedback(null);
                         // Defensive pause on mobile to allow audio hardware to switch roles
-                        await new Promise(r => setTimeout(r, 400));
+                        await new Promise(r => setTimeout(r, 600));
                         setStatus("listening_user");
                     }
                 } catch (e) {
