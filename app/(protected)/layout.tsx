@@ -17,6 +17,14 @@ export default async function ProtectedLayout({
         redirect("/login");
     }
 
+    // Get profile to fetch first_name
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("id", user.id)
+        .single();
+
+    const displayName = profile?.first_name || user.email?.split('@')[0] || "Utilisateur";
     const isAdmin = user.email === ADMIN_EMAIL;
 
     return (
@@ -49,7 +57,7 @@ export default async function ProtectedLayout({
                         <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors cursor-pointer">
                             <User className="w-4 h-4 text-primary" />
                             <span className="text-sm font-medium text-white hidden md:inline-block">
-                                {user.email?.split('@')[0]}
+                                {displayName}
                             </span>
                         </div>
                     </Link>

@@ -54,6 +54,19 @@ export default async function SignupPage({
                     {/* Form */}
                     <form className="space-y-6 relative z-10">
                         <div className="space-y-3">
+                            <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="firstName">
+                                Prénom
+                            </label>
+                            <input
+                                id="firstName"
+                                name="firstName"
+                                type="text"
+                                required
+                                className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-lg text-white focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all placeholder:text-muted-foreground/50 font-medium"
+                                placeholder="Jean"
+                            />
+                        </div>
+                        <div className="space-y-3">
                             <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
                                 Email
                             </label>

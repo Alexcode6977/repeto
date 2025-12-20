@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
+import { CustomCursor } from "@/components/custom-cursor";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -34,6 +35,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className="dark">
       <body className={`${outfit.className} bg-background text-foreground antialiased`}>
+        <CustomCursor />
         {children}
       </body>
     </html>

@@ -88,6 +88,51 @@
     background: radial-gradient(circle at 50% 0%, #2e1065 0%, #000000 60%, #000000 100%);
     min-height: 100vh;
   }
+
+  /* Enhanced cursor visibility for pointer devices (iPad with mouse, etc.) */
+  @media (pointer: fine) {
+
+    /* Interactive elements get a more visible cursor */
+    a,
+    button,
+    [role="button"],
+    input,
+    select,
+    textarea,
+    label[for],
+    .cursor-pointer,
+    [onclick],
+    summary {
+      cursor: pointer;
+    }
+  }
+}
+
+/* Custom cursor for better visibility on dark backgrounds */
+.custom-cursor {
+  position: fixed;
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(167, 139, 250, 0.9);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 99999;
+  transform: translate(-50%, -50%);
+  transition: transform 0.1s ease, border-color 0.2s ease, width 0.2s ease, height 0.2s ease;
+  mix-blend-mode: difference;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.custom-cursor.clicking {
+  transform: translate(-50%, -50%) scale(0.8);
+  border-color: rgba(167, 139, 250, 1);
+}
+
+.custom-cursor.hovering {
+  width: 40px;
+  height: 40px;
+  border-color: rgba(167, 139, 250, 1);
+  background: rgba(167, 139, 250, 0.1);
 }
 
 /* Glassmorphism utility for the card */

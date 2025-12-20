@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
 import { useState, useTransition, useEffect } from "react";
-import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus } from "./actions"; // Imported togglePublicStatus
+import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction } from "./actions";
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
 import { ScriptReader } from "@/components/script-reader";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { Globe, Lock } from "lucide-react"; // Import Globe/Lock icons
+import { Globe, Lock, Check, UserPlus } from "lucide-react";
 
 // Extend ParsedScript to include DB fields
 // type SavedScript = ParsedScript & { id: string; created_at: string };
@@ -41,9 +41,17 @@ export default function Home() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false); // New loading state for detail fetch
 
   // Import / Rename State
-  const [tempScript, setTempScript] = useState<ParsedScript | null>(null);
-  const [importModalOpen, setImportModalOpen] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
+  const [importProgress, setImportProgress] = useState(0);
+  const [isImporting, setIsImporting] = useState(false);
+
+  // Deep Parsing States
+  const [detectedCharacters, setDetectedCharacters] = useState<string[]>([]);
+  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
+  const [isDeepParsing, setIsDeepParsing] = useState(false);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [newCharName, setNewCharName] = useState("");
 
   const router = useRouter();
 
@@ -62,7 +70,6 @@ export default function Home() {
         setError("Erreur de connexion. Veuillez rafraîchir.");
       }
 
-      // Always try to fetch scripts even if auth user fetch failed (middleware should have protected us anyway)
       refreshScripts();
     };
     init();
@@ -85,39 +92,78 @@ export default function Home() {
     if (!file) return;
 
     setError(null);
+    setCurrentFile(file);
     const formData = new FormData();
     formData.append("file", file);
 
+    setIsImporting(true);
+    setImportProgress(20);
+
     startTransition(async () => {
-      const result = await parsePdfAction(formData);
+      const result = await detectCharactersAction(formData);
+      setIsImporting(false);
+
       if ("error" in result) {
         setError(result.error);
       } else {
-        // Intercept: Don't save yet. Open modal.
-        setTempScript(result);
-        setCustomTitle(result.title || "Nouveau Script");
-        setImportModalOpen(true);
+        setDetectedCharacters(result.characters || []);
+        setSelectedCharacters(result.characters || []);
+        setCustomTitle(result.title || file.name.replace(".pdf", ""));
+        setValidationModalOpen(true);
       }
-      // Reset input value to allow re-selecting same file if needed
       e.target.value = "";
     });
   };
 
-  const confirmSaveScript = async () => {
-    if (!tempScript) return;
+  const startDeepParsing = async () => {
+    if (!currentFile || selectedCharacters.length === 0) return;
 
-    const finalScript = { ...tempScript, title: customTitle };
+    setValidationModalOpen(false);
+    setIsDeepParsing(true);
+    setImportProgress(0);
 
-    // Close modal immediately for UX responsiveness (optimistic UI could be better but this is fine)
-    setImportModalOpen(false);
+    // Fake progress for deep parsing which is slow
+    const interval = setInterval(() => {
+      setImportProgress(prev => (prev < 90 ? prev + 1 : prev));
+    }, 1000);
 
     try {
-      await saveScript(finalScript);
-      await refreshScripts();
-      setTempScript(null);
+      const formData = new FormData();
+      formData.append("file", currentFile);
+
+      const result = await finalizeParsingAction(formData, selectedCharacters);
+
+      clearInterval(interval);
+      setImportProgress(100);
+
+      if ("error" in result) {
+        setError(result.error);
+      } else {
+        await saveScript({ ...result, title: customTitle });
+        await refreshScripts();
+      }
     } catch (e) {
-      setError("Erreur lors de la sauvegarde.");
+      setError("Erreur lors de l'analyse approfondie.");
+    } finally {
+      setIsDeepParsing(false);
+      setCurrentFile(null);
     }
+  };
+
+  const toggleCharacter = (char: string) => {
+    setSelectedCharacters(prev =>
+      prev.includes(char) ? prev.filter(c => c !== char) : [...prev, char]
+    );
+  };
+
+  const addCharacter = () => {
+    if (!newCharName.trim()) return;
+    const name = newCharName.trim().toUpperCase();
+    if (!detectedCharacters.includes(name)) {
+      setDetectedCharacters(prev => [...prev, name]);
+      setSelectedCharacters(prev => [...prev, name]);
+    }
+    setNewCharName("");
   };
 
   const handleLoadScript = async (s: ScriptMetadata) => {
@@ -126,7 +172,7 @@ export default function Home() {
     try {
       const fullScript = await getScriptById(s.id);
       if (fullScript) {
-        setScript(fullScript as unknown as ParsedScript); // Cast because we added ID/created_at
+        setScript(fullScript as unknown as ParsedScript);
       } else {
         setError("Impossible de charger le script.");
       }
@@ -237,6 +283,14 @@ export default function Home() {
             ← Retour
           </Button>
         </div>
+
+        {error && (
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 animate-in slide-in-from-top-2 w-full max-w-2xl">
+            <AlertCircle className="h-5 w-5" />
+            {error}
+          </div>
+        )}
+
         <ScriptViewer script={script} onConfirm={handleConfirmSelection} />
       </div>
     );
@@ -414,49 +468,132 @@ export default function Home() {
 
       </div>
 
-      {/* Rename Modal */}
-      {importModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-[#121212] border-t md:border border-white/10 p-6 rounded-t-3xl md:rounded-3xl w-full max-w-md shadow-2xl relative animate-in slide-in-from-bottom-10 md:zoom-in-95 my-0 md:my-auto pb-10 md:pb-6">
+      {/* Import / Deep Parsing Progress Modal */}
+      {(isImporting || isDeepParsing) && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#1a1a1a] border border-primary/20 p-8 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(124,58,237,0.3)] animate-in zoom-in-95 duration-200">
+            <div className="text-center space-y-6">
+              {/* Icon */}
+              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+
+              {/* Title */}
+              <div>
+                <h3 className="text-xl font-bold text-white mb-2">
+                  {isImporting ? "Détection des rôles..." : "Analyse approfondie..."}
+                </h3>
+                <p className="text-gray-400 text-sm">
+                  {isImporting
+                    ? "L'IA identifie les personnages du script"
+                    : "L'IA relie chaque réplique à son personnage"}
+                </p>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="space-y-2">
+                <div className="h-3 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-purple-400 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${Math.min(importProgress, 100)}%` }}
+                  />
+                </div>
+                <p className="text-primary font-bold text-lg">{Math.round(importProgress)}%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Character Validation Modal */}
+      {validationModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 p-4">
+          <div className="bg-[#121212] border border-white/10 p-6 rounded-3xl w-full max-w-xl shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] flex flex-col">
             <Button
               variant="ghost"
               size="icon"
               className="absolute top-4 right-4 text-white/50 hover:text-white"
-              onClick={() => { setImportModalOpen(false); setTempScript(null); }}
+              onClick={() => setValidationModalOpen(false)}
             >
               <X className="w-5 h-5" />
             </Button>
 
-            <div className="mb-6 text-center pt-2">
-              <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
-                <Edit3 className="w-6 h-6" />
-              </div>
-              <h2 className="text-2xl font-bold text-white">Nommer votre script</h2>
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white">Prêt à importer ?</h2>
               <p className="text-gray-400 text-sm mt-1">
-                Choisissez un titre pour votre bibliothèque.
+                Vérifiez la liste des personnages détectés. Seuls les sélectionnés seront importés.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6 flex-1 overflow-y-auto pr-2">
               <div className="space-y-2">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Titre du script</label>
                 <input
                   type="text"
                   value={customTitle}
                   onChange={(e) => setCustomTitle(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-4 text-white focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                   placeholder="Ex: Roméo et Juliette"
-                  autoFocus
                 />
               </div>
 
-              <Button
-                onClick={confirmSaveScript}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 rounded-2xl text-lg shadow-[0_0_20px_rgba(124,58,237,0.3)] mt-4"
-              >
-                Confirmer
-              </Button>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Personnages ({selectedCharacters.length})</label>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {detectedCharacters.map(char => (
+                    <div
+                      key={char}
+                      onClick={() => toggleCharacter(char)}
+                      className={`
+                        flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer
+                        ${selectedCharacters.includes(char)
+                          ? 'bg-primary/20 border-primary/50 text-white'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}
+                      `}
+                    >
+                      <div className={`
+                        w-5 h-5 rounded flex items-center justify-center border
+                        ${selectedCharacters.includes(char) ? 'bg-primary border-primary' : 'border-white/20'}
+                      `}>
+                        {selectedCharacters.includes(char) && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span className="font-semibold truncate">{char}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add new character */}
+                <div className="flex gap-2 pt-2">
+                  <input
+                    type="text"
+                    value={newCharName}
+                    onChange={(e) => setNewCharName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addCharacter()}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    placeholder="Ajouter un personnage..."
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={addCharacter}
+                    className="rounded-xl border-white/10 hover:bg-white/10"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
+
+            <Button
+              onClick={startDeepParsing}
+              disabled={selectedCharacters.length === 0}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 rounded-2xl text-lg shadow-lg mt-6"
+            >
+              Lancer l'analyse finale
+            </Button>
           </div>
         </div>
       )}

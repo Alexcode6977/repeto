@@ -25,12 +25,13 @@ interface UseRehearsalProps {
     mode?: "full" | "cue" | "check";
     ttsProvider?: TTSProvider;
     openaiVoiceAssignments?: Record<string, OpenAIVoice>;
+    skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
 }
 
 import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { isNextCommand, isPrevCommand } from "../speech-utils";
 
-export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {} }: UseRehearsalProps) {
+export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [] }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const openaiSpeech = useOpenAITTS();
     const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio } = browserSpeech;
@@ -127,14 +128,41 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         return normalizedLineChar === normalizedUserChar || normalizedLineChar.split(/[\s,]+/).includes(normalizedUserChar);
     };
 
+    // Helper to check if a line should be skipped (e.g., DIDASCALIES)
+    const shouldSkipLine = (lineChar: string) => {
+        const normalizedLineChar = lineChar.toLowerCase().trim();
+        return skipCharacters.some(skipChar => normalizedLineChar === skipChar.toLowerCase().trim());
+    };
+
+    // Find next valid line index (skipping skipCharacters)
+    const findNextValidIndex = (startIdx: number, direction: 1 | -1 = 1): number => {
+        let idx = startIdx;
+        while (idx >= 0 && idx < script.lines.length) {
+            const line = script.lines[idx];
+            if (!shouldSkipLine(line.character)) {
+                return idx;
+            }
+            idx += direction;
+        }
+        return direction === 1 ? script.lines.length : -1; // Out of bounds
+    };
+
     const start = () => {
         if (transitionLockRef.current) return;
         transitionLockRef.current = true;
         stopAll();
         setStatus("setup"); // BREAK the engine loop immediately
 
-        setCurrentLineIndex(initialLineIndex);
-        const line = script.lines[initialLineIndex];
+        // Find first valid line (skip DIDASCALIES etc.)
+        const validStartIdx = findNextValidIndex(initialLineIndex, 1);
+        if (validStartIdx >= script.lines.length) {
+            setStatus("finished");
+            transitionLockRef.current = false;
+            return;
+        }
+
+        setCurrentLineIndex(validStartIdx);
+        const line = script.lines[validStartIdx];
 
         // Brief delay to ensure cleanup
         setTimeout(() => {
@@ -154,7 +182,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         stopAll();
         setStatus("setup");
 
-        const nextIdx = stateRef.current.currentLineIndex + 1;
+        // Find next valid line (skip DIDASCALIES etc.)
+        const nextIdx = findNextValidIndex(stateRef.current.currentLineIndex + 1, 1);
         if (nextIdx < script.lines.length) {
             setCurrentLineIndex(nextIdx);
             const nextLine = script.lines[nextIdx];
@@ -182,7 +211,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         stopAll();
         setStatus("setup"); // Break the loop
 
-        const prevIdx = stateRef.current.currentLineIndex - 1;
+        // Find previous valid line (skip DIDASCALIES etc.)
+        const prevIdx = findNextValidIndex(stateRef.current.currentLineIndex - 1, -1);
         if (prevIdx >= 0) {
             setCurrentLineIndex(prevIdx);
             const prevLine = script.lines[prevIdx];

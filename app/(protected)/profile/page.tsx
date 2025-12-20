@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getFeedbackHistory, getFeedbackStats, FeedbackEntry } from "../dashboard/feedback-actions";
@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
 export default function ProfilePage() {
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
+    const [firstName, setFirstName] = useState<string>("");
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editedName, setEditedName] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
     const [feedbackHistory, setFeedbackHistory] = useState<FeedbackEntry[]>([]);
     const [stats, setStats] = useState({ totalSessions: 0, averageRating: 0, totalDuration: 0 });
     const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
@@ -20,6 +24,19 @@ export default function ProfilePage() {
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
             setUser(user);
+
+            if (user) {
+                // Load profile with first_name
+                const { data: profile } = await supabase
+                    .from("profiles")
+                    .select("first_name")
+                    .eq("id", user.id)
+                    .single();
+
+                if (profile?.first_name) {
+                    setFirstName(profile.first_name);
+                }
+            }
 
             // Load feedback data
             const [history, statsData] = await Promise.all([
@@ -38,6 +55,23 @@ export default function ProfilePage() {
         router.push("/login");
     };
 
+    const handleSaveFirstName = async () => {
+        if (!user || !editedName.trim()) return;
+        setIsSaving(true);
+
+        const supabase = createClient();
+        const { error } = await supabase
+            .from("profiles")
+            .update({ first_name: editedName.trim() })
+            .eq("id", user.id);
+
+        if (!error) {
+            setFirstName(editedName.trim());
+            setIsEditingName(false);
+        }
+        setIsSaving(false);
+    };
+
     const formatDuration = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
         const mins = Math.floor((seconds % 3600) / 60);
@@ -53,6 +87,8 @@ export default function ProfilePage() {
         });
     };
 
+    const displayName = firstName || user?.email?.split('@')[0] || "Artiste";
+
     return (
         <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-20">
 
@@ -62,9 +98,49 @@ export default function ProfilePage() {
                     <UserIcon className="w-10 h-10 text-white" />
                 </div>
                 <div className="text-center md:text-left space-y-2">
-                    <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-gray-400">
-                        {user?.email?.split('@')[0] || "Artiste"}
-                    </h1>
+                    <div className="flex items-center justify-center md:justify-start gap-2">
+                        {isEditingName ? (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={editedName}
+                                    onChange={(e) => setEditedName(e.target.value)}
+                                    className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-2xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-primary/50 w-48"
+                                    autoFocus
+                                    placeholder="Votre prénom"
+                                />
+                                <button
+                                    onClick={handleSaveFirstName}
+                                    disabled={isSaving}
+                                    className="p-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors"
+                                >
+                                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="w-5 h-5" />}
+                                </button>
+                                <button
+                                    onClick={() => setIsEditingName(false)}
+                                    className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-gray-400">
+                                    {displayName}
+                                </h1>
+                                <button
+                                    onClick={() => {
+                                        setEditedName(firstName);
+                                        setIsEditingName(true);
+                                    }}
+                                    className="p-2 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                                    title="Modifier le prénom"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                            </>
+                        )}
+                    </div>
                     <p className="text-muted-foreground flex items-center justify-center md:justify-start gap-2">
                         <Calendar className="w-4 h-4" />
                         Membre depuis {new Date().getFullYear()}

@@ -90,6 +90,12 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
     const [hasStarted, setHasStarted] = useState(false);
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | null>(null);
 
+    // Didascalies (stage directions) toggle - detect if present in script
+    const hasDidascalies = script.characters.some(c =>
+        c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
+    );
+    const [skipDidascalies, setSkipDidascalies] = useState(true); // Skip by default if present
+
     // Premium / Credits State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
 
@@ -210,7 +216,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
         setVoiceForRole,
         voices,
         initializeAudio
-    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments });
+    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments, skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [] });
 
     const handleStart = async () => {
         // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)
@@ -776,6 +782,33 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                                     <span>Relax</span><span>Strict</span>
                                 </div>
                             </div>
+
+                            {/* Didascalies Toggle - Only show if script has didascalies */}
+                            {hasDidascalies && (
+                                <div className="pt-3 border-t border-white/10">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <span className="text-xs text-gray-400 block">Didascalies</span>
+                                            <span className="text-[10px] text-gray-600">Indications scéniques</span>
+                                        </div>
+                                        <button
+                                            onClick={() => setSkipDidascalies(!skipDidascalies)}
+                                            className={cn(
+                                                "relative w-12 h-6 rounded-full transition-colors",
+                                                skipDidascalies ? "bg-gray-700" : "bg-primary"
+                                            )}
+                                        >
+                                            <span className={cn(
+                                                "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow",
+                                                skipDidascalies ? "left-1" : "left-7"
+                                            )} />
+                                        </button>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1">
+                                        {skipDidascalies ? "Désactivées (sautées)" : "Activées (lues à voix haute)"}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </details>
 

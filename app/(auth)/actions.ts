@@ -32,20 +32,32 @@ export async function signup(formData: FormData) {
             ? `https://${headersList.get("host")}`
             : "http://localhost:3000";
 
+    const firstName = formData.get("firstName") as string;
     const data = {
         email: formData.get("email") as string,
         password: formData.get("password") as string,
     };
 
-    const { error } = await supabase.auth.signUp({
+    const { data: signUpData, error } = await supabase.auth.signUp({
         ...data,
         options: {
             emailRedirectTo: `${origin}/auth/callback`,
+            data: {
+                first_name: firstName, // Store in user metadata as well
+            },
         },
     });
 
     if (error) {
         redirect("/signup?error=" + encodeURIComponent(error.message));
+    }
+
+    // Update profile with first name (profile is auto-created by trigger)
+    if (signUpData.user) {
+        await supabase
+            .from("profiles")
+            .update({ first_name: firstName })
+            .eq("id", signUpData.user.id);
     }
 
     revalidatePath("/", "layout");
