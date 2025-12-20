@@ -68,6 +68,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
     const [lastTranscript, setLastTranscript] = useState("");
 
+    // NEW: Retry counter to prevent infinite loops
+    const [retryCount, setRetryCount] = useState(0);
+
     // Ref to track auto-play preventing stale closures
     const stateRef = useRef({ currentLineIndex, status, userCharacter });
     useEffect(() => {
@@ -152,6 +155,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         transitionLockRef.current = true;
         stopAll();
         setStatus("setup"); // BREAK the engine loop immediately
+        setRetryCount(0); // Reset retries
 
         // Find first valid line (skip DIDASCALIES etc.)
         const validStartIdx = findNextValidIndex(initialLineIndex, 1);
@@ -181,6 +185,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         manualSkipRef.current = true;
         stopAll();
         setStatus("setup");
+        setRetryCount(0); // Reset retries
 
         // Find next valid line (skip DIDASCALIES etc.)
         const nextIdx = findNextValidIndex(stateRef.current.currentLineIndex + 1, 1);
@@ -210,6 +215,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         manualSkipRef.current = true;
         stopAll();
         setStatus("setup"); // Break the loop
+        setRetryCount(0);
 
         // Find previous valid line (skip DIDASCALIES etc.)
         const prevIdx = findNextValidIndex(stateRef.current.currentLineIndex - 1, -1);
@@ -242,6 +248,10 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         stopAll();
         setStatus("setup");
         setFeedback(null);
+        // Do NOT reset Retry Count on manual retry? user wants to try again.
+        // But maybe we should reset it so they can try 3 more times? 
+        // Let's reset it if they manually asked to retry.
+        setRetryCount(0);
 
         const line = script.lines[currentLineIndex];
         setTimeout(() => {
@@ -260,6 +270,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         if (status === "listening_user" || status === "error") {
             stopAll();
             setFeedback("correct");
+            setRetryCount(0);
             setTimeout(() => {
                 if (!isMountedRef.current) return;
                 setFeedback(null);
@@ -316,8 +327,13 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 }
             } else if (status === "listening_user") {
                 try {
-                    const estimatedDuration = line.text.length * 20; // Even more generous multiplier for theatrical delivery
-                    const transcript = await listen(estimatedDuration);
+                    // FIX: Estimated Duration increased to 70ms per char (theatrical speed)
+                    // Example: 100 char line = 7 seconds. 
+                    // Previous 20ms = 2 seconds (WAY too fast).
+                    const estimatedDuration = Math.max(line.text.length * 70, 2000);
+
+                    // FIX: Pass the expected text for EARLLY EXIT
+                    const transcript = await listen(estimatedDuration, line.text);
                     if (!isMountedRef.current) return;
 
                     setLastTranscript(transcript);
@@ -335,21 +351,37 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                         setTimeout(() => { setFeedback(null); next(); }, 150);
                     } else {
                         setFeedback("incorrect");
-                        // We ARE ALREADY in 'evaluating' status, which prevents the engine from restarting listen()
-                        await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}`, voiceAssignments["ASSISTANT"]);
-                        setFeedback(null);
-                        // Defensive pause on mobile to allow audio hardware to switch roles
-                        await new Promise(r => setTimeout(r, 600));
-                        setStatus("listening_user");
+                        // We ARE ALREADY in 'evaluating' status
+
+                        // FIX: Anti-Loop Logic
+                        if (retryCount >= 2) {
+                            // 3rd failure (0, 1, 2)
+                            await speak("On passe à la suite.", voiceAssignments["ASSISTANT"]);
+                            setFeedback(null);
+                            next();
+                        } else {
+                            const remaining = 2 - retryCount;
+                            const hintAudio = remaining === 0 ? "Dernier essai." : "Encore une fois.";
+                            await speak(`Tu as dit : ${transcript}. ${hintAudio}`, voiceAssignments["ASSISTANT"]);
+
+                            setFeedback(null);
+                            setRetryCount(prev => prev + 1);
+
+                            // Defensive pause on mobile to allow audio hardware to switch roles
+                            await new Promise(r => setTimeout(r, 600));
+                            setStatus("listening_user");
+                        }
                     }
                 } catch (e) {
-                    if (e !== "Cancelled") setStatus("error");
+                    if (e !== "Cancelled") {
+                        setStatus("error");
+                    }
                 }
             }
         };
 
         executeStep();
-    }, [status, currentLineIndex]);
+    }, [status, currentLineIndex, retryCount]); // Add retryCount to dep array so we use fresh value
 
     return {
         currentLine: script.lines[currentLineIndex],

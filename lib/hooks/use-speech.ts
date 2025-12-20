@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Emotion, segmentText, isVoiceCommand, applyPhoneticCorrections } from "../speech-utils";
+import { calculateSimilarity } from "../similarity";
 
 // Types for Web Speech API which might be missing in some environments
 interface Window {
@@ -13,7 +14,7 @@ export interface UseSpeechReturn {
     isListening: boolean;
     transcript: string;
     listeningError: string | null;
-    listen: (estimatedDurationMs?: number) => Promise<string>;
+    listen: (estimatedDurationMs?: number, expectedText?: string) => Promise<string>;
     stop: () => void;
     speak: (text: string, voice?: SpeechSynthesisVoice) => Promise<void>;
     pause: () => void;
@@ -102,7 +103,7 @@ export function useSpeech(): UseSpeechReturn {
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
             if (SpeechRecognition) {
                 recognitionRef.current = new SpeechRecognition();
-                recognitionRef.current.continuous = false;
+                recognitionRef.current.continuous = false; // We manage restarts manually if needed
                 recognitionRef.current.lang = 'fr-FR';
                 recognitionRef.current.maxAlternatives = 1;
             }
@@ -284,11 +285,12 @@ export function useSpeech(): UseSpeechReturn {
     /**
      * Listen for speech with dynamic silence timeout based on expected line duration
      * @param estimatedDurationMs - Expected duration to speak the line (calculated from text length)
+     * @param expectedText - The text we are expecting the user to say (for Early Exit)
      */
     // Track active recognition promise to prevent double-starts and race conditions
     const activeRecognitionRef = useRef<{ resolve: (s: string) => void; reject: (r: any) => void } | null>(null);
 
-    const listen = useCallback((estimatedDurationMs?: number): Promise<string> => {
+    const listen = useCallback((estimatedDurationMs?: number, expectedText?: string): Promise<string> => {
         return new Promise((resolve, reject) => {
             if (typeof window === "undefined" || !recognitionRef.current) {
                 reject("Speech recognition not supported");
@@ -311,13 +313,15 @@ export function useSpeech(): UseSpeechReturn {
             let finalTranscript = "";
             let interimTranscript = "";
             let silenceTimeout: NodeJS.Timeout | null = null;
+            let lastSpeechTime = Date.now();
 
-            // Dynamic silence delay based on expected duration
-            // TUNED FOR DRAMATIC PAUSES: Increased base (2.2s) and max proportional (2s)
-            const baseSilence = 2200;
+            // TUNING:
+            // 1. Base silence delay increased to avoid cutting off hesitant speakers.
+            // 2. We depend on "Early Exit" for speed now.
+            const baseSilence = 3000;
             const proportionalTime = estimatedDurationMs
-                ? Math.min(Math.max(estimatedDurationMs * 0.5, 0), 2000)
-                : 1000;
+                ? Math.min(Math.max(estimatedDurationMs * 0.4, 0), 3000)
+                : 1500;
             const SILENCE_DELAY = baseSilence + proportionalTime;
 
 
@@ -343,10 +347,12 @@ export function useSpeech(): UseSpeechReturn {
                 if (silenceTimeout) {
                     clearTimeout(silenceTimeout);
                 }
+                lastSpeechTime = Date.now();
                 silenceTimeout = setTimeout(() => {
                     // User has stopped speaking for SILENCE_DELAY ms
                     // Finalize with whatever we have
                     const result = (finalTranscript + " " + interimTranscript).trim();
+                    console.log("[Speech] Silence timeout reached. Finalizing:", result);
                     finalizeRecognition(result);
                 }, SILENCE_DELAY);
             };
@@ -368,11 +374,26 @@ export function useSpeech(): UseSpeechReturn {
                 finalTranscript = final.trim();
                 interimTranscript = interim.trim();
 
-                // Update visible transcript with both final and interim
+                // Update visible transcript
                 const combinedTranscript = (finalTranscript + " " + interimTranscript).trim();
                 setTranscript(combinedTranscript);
 
-                // Check for quick commands - finalize immediately without waiting for silence
+                // --- EARLY EXIT CHECK ---
+                // If we know what to expect, check if we have a match already.
+                if (expectedText && combinedTranscript.length > 5) {
+                    const similarity = calculateSimilarity(combinedTranscript, expectedText);
+                    // 85% similarity is usually a solid confident match
+                    if (similarity > 0.85) {
+                        console.log("[Speech] Early Exit triggered! Match:", similarity.toFixed(2));
+                        finalizeRecognition(combinedTranscript);
+                        return;
+                    }
+
+                    // Also check for "End of line" match - sometimes user says more, but let's check if the END of what they said matches
+                    // OR if the START matches perfectly (and maybe they are adding ad-libs, but we can accept it)
+                }
+
+                // Check for quick commands
                 if (isVoiceCommand(combinedTranscript)) {
                     console.log("[Speech] Quick command detected:", combinedTranscript);
                     finalizeRecognition(combinedTranscript);
@@ -389,9 +410,6 @@ export function useSpeech(): UseSpeechReturn {
                 // Special handling for common errors
                 if (event.error === 'no-speech') {
                     console.warn("[Speech] No speech detected (silence timeout)");
-                    // We don't necessarily want to treat silence as a hard error that breaks the state machine
-                    // but we do need to signal it.
-                    // Resolve with current transcript if no speech, rather than rejecting
                     if (activeRecognitionRef.current) {
                         const r = activeRecognitionRef.current;
                         activeRecognitionRef.current = null;
@@ -410,7 +428,7 @@ export function useSpeech(): UseSpeechReturn {
                         }
                         return;
                     }
-                    // If not cancelled, treat as a normal end with current transcript
+                    // If not cancelled, treat as a normal end
                     if (activeRecognitionRef.current) {
                         const r = activeRecognitionRef.current;
                         activeRecognitionRef.current = null;
@@ -441,8 +459,8 @@ export function useSpeech(): UseSpeechReturn {
                     return;
                 }
 
-                // Recognition ended - return what we have (may be empty)
                 const result = (finalTranscript + " " + interimTranscript).trim();
+                // Check if we should wait a bit more? No, real "End" event from engine means it's done.
 
                 if (activeRecognitionRef.current) {
                     const r = activeRecognitionRef.current;
@@ -481,27 +499,22 @@ export function useSpeech(): UseSpeechReturn {
         if (synthRef.current) {
             try {
                 synthRef.current.cancel();
-                // Safari Hack: sometimes cancel() doesn't clear the queue on iOS
-                // Speaking an empty string and canceling again can force-clear it.
                 const dummy = new SpeechSynthesisUtterance("");
                 dummy.volume = 0;
                 synthRef.current.speak(dummy);
                 synthRef.current.cancel();
             } catch (e) {
-                // Ignore errors on cancel
             }
         }
 
-        // Stop recognition with error handling (mobile can throw if not started)
+        // Stop recognition
         if (recognitionRef.current) {
             try {
-                recognitionRef.current.abort();  // abort is more reliable than stop on mobile
+                recognitionRef.current.abort();
             } catch (e) {
                 try {
                     recognitionRef.current.stop();
-                } catch (e2) {
-                    // Ignore - recognition wasn't running
-                }
+                } catch (e2) { }
             }
         }
 
@@ -514,9 +527,8 @@ export function useSpeech(): UseSpeechReturn {
             // 1. Get Mic Permission
             await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            // 2. Warmup Speech Recognition
+            // 2. Warmup Speech Recognition (silent start/stop)
             if (recognitionRef.current) {
-                // Clear listeners
                 recognitionRef.current.onresult = null;
                 recognitionRef.current.onerror = null;
 
