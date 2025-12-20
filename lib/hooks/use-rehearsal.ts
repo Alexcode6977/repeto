@@ -362,7 +362,9 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                         } else {
                             const remaining = 2 - retryCount;
                             const hintAudio = remaining === 0 ? "Dernier essai." : "Encore une fois.";
-                            await speak(`Tu as dit : ${transcript}. ${hintAudio}`, voiceAssignments["ASSISTANT"]);
+
+                            // Restore full correction: "Tu as dit X. Il fallait dire Y."
+                            await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}. ${hintAudio}`, voiceAssignments["ASSISTANT"]);
 
                             setFeedback(null);
                             setRetryCount(prev => prev + 1);

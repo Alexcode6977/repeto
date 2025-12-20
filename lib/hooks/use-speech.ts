@@ -318,7 +318,8 @@ export function useSpeech(): UseSpeechReturn {
             // TUNING:
             // 1. Base silence delay increased to avoid cutting off hesitant speakers.
             // 2. We depend on "Early Exit" for speed now.
-            const baseSilence = 3000;
+            // 3. User feedback: 3s is too slow on error (no early exit). Reduced to 2s.
+            const baseSilence = 2000;
             const proportionalTime = estimatedDurationMs
                 ? Math.min(Math.max(estimatedDurationMs * 0.4, 0), 3000)
                 : 1500;
