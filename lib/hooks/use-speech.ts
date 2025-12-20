@@ -387,8 +387,8 @@ export function useSpeech(): UseSpeechReturn {
                 // If we know what to expect, check if we have a match already.
                 if (expectedText && combinedTranscript.length > 5) {
                     const similarity = calculateSimilarity(combinedTranscript, expectedText);
-                    // 85% similarity is usually a solid confident match
-                    if (similarity > 0.85) {
+                    // 95% similarity prevents premature cut-off (user request)
+                    if (similarity > 0.95) {
                         console.log("[Speech] Early Exit triggered! Match:", similarity.toFixed(2));
                         finalizeRecognition(combinedTranscript);
                         return;
