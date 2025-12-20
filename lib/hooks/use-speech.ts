@@ -316,15 +316,14 @@ export function useSpeech(): UseSpeechReturn {
             let lastSpeechTime = Date.now();
 
             // TUNING:
-            // 1. Base silence delay increased to avoid cutting off hesitant speakers.
-            // 2. We depend on "Early Exit" for speed now.
-            // 3. User feedback: Still too slow on error. Reducing to 1.2s base + reduced proportional.
+            // 1. "Speech Silence" (Wait for end of utterance) -> Snappy (1.2s base)
+            // 2. "Initial Silence" (Wait for user to start) -> Generous (5s) to allow reading/thinking.
             const baseSilence = 1200;
             const proportionalTime = estimatedDurationMs
                 ? Math.min(Math.max(estimatedDurationMs * 0.2, 0), 1200)
                 : 500;
-            const SILENCE_DELAY = baseSilence + proportionalTime;
-
+            const END_SPEECH_SILENCE_DELAY = baseSilence + proportionalTime;
+            const INITIAL_SILENCE_DELAY = 5000; // 5 seconds to start speaking
 
             // Enable continuous mode and interim results for longer utterances
             recognitionRef.current.continuous = true;
@@ -344,18 +343,23 @@ export function useSpeech(): UseSpeechReturn {
                 }
             };
 
-            const resetSilenceTimer = () => {
+            const resetSilenceTimer = (hasSpeechStarted: boolean) => {
                 if (silenceTimeout) {
                     clearTimeout(silenceTimeout);
                 }
-                lastSpeechTime = Date.now();
+
+                const delay = hasSpeechStarted ? END_SPEECH_SILENCE_DELAY : INITIAL_SILENCE_DELAY;
+
                 silenceTimeout = setTimeout(() => {
-                    // User has stopped speaking for SILENCE_DELAY ms
-                    // Finalize with whatever we have
+                    // Timeout reached
+                    if (!hasSpeechStarted) {
+                        console.warn("[Speech] Initial silence timeout - No speech detected");
+                    } else {
+                        console.log("[Speech] End of speech silence timeout");
+                    }
                     const result = (finalTranscript + " " + interimTranscript).trim();
-                    console.log("[Speech] Silence timeout reached. Finalizing:", result);
                     finalizeRecognition(result);
-                }, SILENCE_DELAY);
+                }, delay);
             };
 
             recognitionRef.current.onresult = (event: any) => {
@@ -401,8 +405,9 @@ export function useSpeech(): UseSpeechReturn {
                     return;
                 }
 
-                // Reset silence timer for normal speech
-                resetSilenceTimer();
+                // Reset silence timer - switch to "End Speech" mode since we have input
+                const hasInput = combinedTranscript.length > 0;
+                resetSilenceTimer(hasInput);
             };
 
             recognitionRef.current.onerror = (event: any) => {
@@ -474,7 +479,7 @@ export function useSpeech(): UseSpeechReturn {
                 cancelledRef.current = false; // Reset cancellation state
                 recognitionRef.current.start();
                 // Start the initial silence timer
-                resetSilenceTimer();
+                resetSilenceTimer(false);
             } catch (e) {
                 if (silenceTimeout) clearTimeout(silenceTimeout);
                 // Sometimes it's already started
@@ -484,7 +489,7 @@ export function useSpeech(): UseSpeechReturn {
                 setTimeout(() => {
                     try {
                         recognitionRef.current.start();
-                        resetSilenceTimer();
+                        resetSilenceTimer(false);
                     } catch (e3) {
                         reject("Failed to start recognition");
                     }
