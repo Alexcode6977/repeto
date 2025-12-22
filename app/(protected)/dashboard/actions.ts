@@ -63,6 +63,38 @@ export async function updateScriptContent(scriptId: string, newScript: ParsedScr
     revalidatePath("/dashboard");
 }
 
+export async function renameScriptAction(scriptId: string, newTitle: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    // Check ownership
+    const { data: existingScript } = await supabase
+        .from("scripts")
+        .select("user_id")
+        .eq("id", scriptId)
+        .single();
+
+    if (!existingScript || existingScript.user_id !== user.id) {
+        throw new Error("Unauthorized: You can only rename your own scripts");
+    }
+
+    const { error } = await supabase
+        .from("scripts")
+        .update({
+            title: newTitle,
+        })
+        .eq("id", scriptId);
+
+    if (error) {
+        console.error("Error renaming script:", error);
+        throw new Error("Failed to rename script");
+    }
+
+    revalidatePath("/dashboard");
+}
+
 const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 
 export async function getScripts() {
@@ -170,79 +202,16 @@ export async function deleteScript(id: string) {
     revalidatePath("/dashboard");
     revalidatePath("/profile");
 }
-
 export async function parsePdfAction(formData: FormData): Promise<ParsedScript | { error: string }> {
-    console.log("[Action] Parsing PDF...");
-
     const file = formData.get("file") as File;
-
-    if (!file) {
-        return { error: "No file provided" };
-    }
+    if (!file) return { error: "No file provided" };
 
     try {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Check if user is premium for Vision AI parsing
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        let isPremium = false;
-        if (user) {
-            const { data: profile, error: profileError } = await supabase
-                .from("profiles")
-                .select("is_premium")
-                .eq("id", user.id)
-                .single();
-
-            if (profileError) {
-                console.error("[Action] Error fetching profile:", profileError);
-            }
-
-            isPremium = profile?.is_premium || false;
-            console.log(`[Action] User: ${user.email}, isPremium from DB: ${isPremium}`);
-        } else {
-            console.warn("[Action] No user found in session");
-        }
-
-        // FORCE PREMIUM FOR DEBUGGING (since user confirmed they are)
-        console.log("[Action] FORCING isPremium = true for debugging");
-        isPremium = true;
-
-        // Use Vision AI parsing for premium users (reads PDF as images)
-        if (isPremium) {
-            console.log("[Action] Attempting Vision AI parsing...");
-
-            try {
-                const { detectCharactersWithVision, parsePdfWithVision } = await import("@/app/actions/ai-parser");
-                console.log("[Action] ai-parser module imported successfully");
-
-                // New flow: detect then parse immediately for backward compatibility of this action
-                const detectResult = await detectCharactersWithVision(buffer);
-                if ("error" in detectResult) return await parseWithRegex(buffer);
-
-                const aiResult = await parsePdfWithVision(buffer, detectResult.characters);
-
-                if ("error" in aiResult) {
-                    console.warn("[Action] Vision parsing returned error:", aiResult.error);
-                    return await parseWithRegex(buffer);
-                }
-
-                if (!aiResult.lines || aiResult.lines.length === 0) {
-                    console.warn("[Action] Vision returned no lines, falling back");
-                    return await parseWithRegex(buffer);
-                }
-
-                return aiResult;
-            } catch (importErr: any) {
-                console.error("[Action] CRITICAL ERROR calling parsePdfWithVision:", importErr);
-                return await parseWithRegex(buffer);
-            }
-        }
-
-        // Standard regex parsing for non-premium users
-        console.log("[Action] Non-premium user - using regex parsing");
+        // REMOVED AI VISION FORCING - Reverting to robust heuristic parsing
+        console.log("[Action] Using Heuristic-Guided parsing (No AI)");
         return await parseWithRegex(buffer);
 
     } catch (error) {
@@ -251,9 +220,12 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
     }
 }
 
+
+
 // Helper function for regex-based parsing
-async function parseWithRegex(buffer: Buffer): Promise<ParsedScript | { error: string }> {
+async function parseWithRegex(buffer: Buffer, validatedCharacters?: string[]): Promise<ParsedScript | { error: string }> {
     const pdf = require("pdf-parse/lib/pdf-parse.js");
+    const { parseScript } = await import("@/lib/parser"); // Dynamic import to be consistent
 
     let allItems: { str: string; x: number; y: number; w: number }[] = [];
 
@@ -309,7 +281,7 @@ async function parseWithRegex(buffer: Buffer): Promise<ParsedScript | { error: s
 
     console.log("[Action] Text Reconstructed. Length:", cleanRawText.length);
 
-    const script = parseScript(cleanRawText);
+    const script = parseScript(cleanRawText, validatedCharacters);
 
     if (script.lines.length === 0) {
         return { error: "Could not detect any dialogue lines. Ensure the script uses standard formatting (CHARACTER NAMES in CAPS)." };
@@ -323,8 +295,17 @@ export async function detectCharactersAction(formData: FormData): Promise<{ titl
 
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const { detectCharactersWithVision } = await import("@/app/actions/ai-parser");
-        return await detectCharactersWithVision(buffer);
+
+        // Use Heuristic detection instead of Vision
+        const { detectCharactersHeuristic } = await import("@/lib/parser");
+
+        // We reuse the reconstruction logic from parseWithRegex but for a few pages
+        // For simplicity, we just use the whole PDF text for detection if it's not too big
+        // or a good chunk of it.
+        const pdf = require("pdf-parse/lib/pdf-parse.js");
+        const data = await pdf(buffer);
+
+        return detectCharactersHeuristic(data.text);
     } catch (error: any) {
         console.error("[Action] Detect error:", error);
         return { error: error.message };
@@ -337,9 +318,8 @@ export async function finalizeParsingAction(formData: FormData, characters: stri
 
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const { parsePdfWithVision } = await import("@/app/actions/ai-parser");
-        const script = await parsePdfWithVision(buffer, characters);
-        return script;
+        // Use the guided parse with validated characters
+        return await parseWithRegex(buffer, characters);
     } catch (error: any) {
         console.error("[Action] Finalize error:", error);
         return { error: error.message };

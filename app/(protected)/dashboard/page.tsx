@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
 import { useState, useTransition, useEffect } from "react";
-import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction } from "./actions";
+import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction, renameScriptAction } from "./actions";
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
@@ -52,6 +52,10 @@ export default function Home() {
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [validationModalOpen, setValidationModalOpen] = useState(false);
   const [newCharName, setNewCharName] = useState("");
+  const [editingChar, setEditingChar] = useState<string | null>(null);
+  const [tempCharName, setTempCharName] = useState("");
+  const [renamingScriptId, setRenamingScriptId] = useState<string | null>(null);
+  const [renamingScriptTitle, setRenamingScriptTitle] = useState("");
 
   const router = useRouter();
 
@@ -178,6 +182,18 @@ export default function Home() {
     setNewCharName("");
   };
 
+  const handleRenameCharacter = (oldName: string) => {
+    const finalNewName = tempCharName.trim().toUpperCase();
+    if (!finalNewName || finalNewName === oldName) {
+      setEditingChar(null);
+      return;
+    }
+
+    setDetectedCharacters(prev => prev.map(c => c === oldName ? finalNewName : c));
+    setSelectedCharacters(prev => prev.map(c => c === oldName ? finalNewName : c));
+    setEditingChar(null);
+  };
+
   const handleLoadScript = async (s: ScriptMetadata) => {
     setIsLoadingDetail(true);
     setError(null);
@@ -248,6 +264,19 @@ export default function Home() {
   const handleConfirmSelection = (characterName: string, mode: 'reader' | 'rehearsal') => {
     setRehearsalChar(characterName);
     setViewMode(mode);
+  };
+
+  const handleRenameSubmit = async (e: React.FormEvent, scriptId: string) => {
+    e.preventDefault();
+    if (!renamingScriptTitle.trim()) return;
+
+    try {
+      await renameScriptAction(scriptId, renamingScriptTitle.trim());
+      setScriptsList(prev => prev.map(s => s.id === scriptId ? { ...s, title: renamingScriptTitle.trim() } : s));
+      setRenamingScriptId(null);
+    } catch (err) {
+      setError("Erreur : Impossible de renommer le script.");
+    }
   };
 
   const handleExitView = () => {
@@ -418,9 +447,40 @@ export default function Home() {
               {/* Content - Bottom Aligned */}
               <div className="absolute bottom-0 left-0 right-0 p-5 z-20 flex flex-col justify-end h-full">
                 <div className="mb-4">
-                  <h3 className="text-2xl md:text-xl font-bold text-white leading-tight mb-2 drop-shadow-md">
-                    {s.title || "Script Sans Titre"}
-                  </h3>
+                  {renamingScriptId === s.id ? (
+                    <form
+                      onSubmit={(e) => handleRenameSubmit(e, s.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mb-2"
+                    >
+                      <input
+                        autoFocus
+                        type="text"
+                        value={renamingScriptTitle}
+                        onChange={(e) => setRenamingScriptTitle(e.target.value)}
+                        onBlur={(e) => handleRenameSubmit(e as any, s.id)}
+                        className="w-full bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    </form>
+                  ) : (
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="text-2xl md:text-xl font-bold text-white leading-tight drop-shadow-md truncate flex-1">
+                        {s.title || "Script Sans Titre"}
+                      </h3>
+                      {s.is_owner && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRenamingScriptId(s.id);
+                            setRenamingScriptTitle(s.title);
+                          }}
+                          className="text-white/40 hover:text-white transition-colors"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-gray-400/80 uppercase tracking-wider">
                     <span>{s.characterCount} rôles</span>
                     <span className="w-1 h-1 bg-gray-500 rounded-full" />
@@ -558,21 +618,54 @@ export default function Home() {
                   {detectedCharacters.map(char => (
                     <div
                       key={char}
-                      onClick={() => toggleCharacter(char)}
                       className={`
-                        flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer
+                        flex items-center gap-3 p-3 rounded-xl border transition-all 
                         ${selectedCharacters.includes(char)
                           ? 'bg-primary/20 border-primary/50 text-white'
                           : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}
                       `}
                     >
-                      <div className={`
-                        w-5 h-5 rounded flex items-center justify-center border
+                      <div
+                        onClick={() => toggleCharacter(char)}
+                        className={`
+                        w-5 h-5 rounded flex items-center justify-center border shrink-0 cursor-pointer
                         ${selectedCharacters.includes(char) ? 'bg-primary border-primary' : 'border-white/20'}
                       `}>
                         {selectedCharacters.includes(char) && <Check className="w-3 h-3 text-white" />}
                       </div>
-                      <span className="font-semibold truncate">{char}</span>
+
+                      {editingChar === char ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={tempCharName}
+                          onChange={(e) => setTempCharName(e.target.value)}
+                          onBlur={() => handleRenameCharacter(char)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleRenameCharacter(char)}
+                          className="flex-1 bg-white/10 border-none rounded px-2 py-0.5 text-white focus:outline-none"
+                        />
+                      ) : (
+                        <div className="flex-1 flex items-center justify-between min-w-0">
+                          <span
+                            className="font-semibold truncate cursor-pointer"
+                            onClick={() => toggleCharacter(char)}
+                          >
+                            {char}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-white/30 hover:text-white"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingChar(char);
+                              setTempCharName(char);
+                            }}
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
