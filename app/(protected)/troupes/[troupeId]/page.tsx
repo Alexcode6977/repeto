@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { AddGuestModal } from "./add-guest-modal";
+import { InviteCodeCard } from "@/components/invite-code-card";
 
 export default async function TroupeDashboard({
     params
@@ -42,25 +43,7 @@ export default async function TroupeDashboard({
                 </div>
 
                 {/* Invite Code Card - Prominent & Stylish */}
-                <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-3xl p-6 flex flex-col items-center justify-center relative min-w-[180px] group transition-all hover:bg-white/10">
-                    <div className="absolute top-0 right-0 w-8 h-8 bg-primary/20 blur-xl rounded-full" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-2 opacity-80">Code d'invitation</p>
-                    <p className="text-3xl font-mono font-black tracking-[0.15em] text-white">
-                        {troupe?.join_code}
-                    </p>
-                    <button
-                        onClick={() => {
-                            if (troupe?.join_code) {
-                                navigator.clipboard.writeText(troupe.join_code);
-                                // Could add a toast here if available
-                            }
-                        }}
-                        className="absolute bottom-2 right-2 p-2 rounded-full bg-white/0 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all text-white/40 hover:text-white"
-                        title="Copier le code"
-                    >
-                        <Copy className="w-3 h-3" />
-                    </button>
-                </div>
+                <InviteCodeCard joinCode={troupe?.join_code} />
             </div>
 
             {/* Main Navigation Grid */}

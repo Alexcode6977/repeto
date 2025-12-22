@@ -1,12 +1,12 @@
 import { getTroupeEvents } from "@/lib/actions/calendar";
-import { getTroupeDetails } from "@/lib/actions/troupe";
+import { getTroupeDetails, getTroupeMembers, getTroupeGuests } from "@/lib/actions/troupe";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { CalendarIcon, Plus, CheckCircle, XCircle, HelpCircle } from "lucide-react";
-import { AddEventModal } from "./add-event-modal"; // New component
-import { AttendanceToggle } from "./attendance-toggle"; // New component
+import { AddEventModal } from "./add-event-modal";
+import { AttendanceToggle } from "./attendance-toggle";
+import { CalendarView } from "./calendar-view";
 import { getTroupePlays } from "@/lib/actions/play";
 
 export default async function CalendarPage({
@@ -29,7 +29,30 @@ export default async function CalendarPage({
 
     const events = await getTroupeEvents(troupeId, firstDay, lastDay);
     const troupe = await getTroupeDetails(troupeId);
-    const plays = await getTroupePlays(troupeId); // For the Add Event Modal
+    const members = await getTroupeMembers(troupeId);
+    const guests = await getTroupeGuests(troupeId);
+
+    // Combine for calendar list
+    const allMembers = [
+        ...members,
+        ...guests.map((g: any) => ({
+            user_id: g.id, // Ensure guests have IDs that match their attendance records (which usually link to real users, but here for display) 
+            // Wait, guest attendance isn't linked to auth users. This is a limit of the current 'guest' model. 
+            // However, the prompt implies "liste des gens", so we list them. 
+            // Guests effectively can't have "attendance" checked if they are not users, unless we change schemas. 
+            // For now, let's assume we list them but maybe disabling toggle if no user_id? 
+            // Actually, let's check schema: event_attendance links to profiles(id). Guests are not profiles. 
+            // So for now, we only track real members.
+            // But I will list them.
+            first_name: g.name,
+            email: g.email || "Invité"
+        }))
+    ];
+    // Filter out guests for now regarding attendance logic since schema enforces profile link
+    // Only real members for attendance toggle
+    const attendanceMembers = members;
+
+    const plays = await getTroupePlays(troupeId);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -73,59 +96,14 @@ export default async function CalendarPage({
                 )}
             </div>
 
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                    <CardTitle className="text-xl font-bold capitalize">
-                        {monthNames[currentMonth]} {currentYear}
-                    </CardTitle>
-                    <div className="flex bg-muted rounded-md overflow-hidden">
-                        <Link href={`?month=${prevMonth}&year=${prevYear}`} className="px-3 py-1 hover:bg-background transition-colors">
-                            ←
-                        </Link>
-                        <Link href={`?month=${nextMonth}&year=${nextYear}`} className="px-3 py-1 hover:bg-background transition-colors">
-                            →
-                        </Link>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-7 gap-2 text-center text-sm font-medium text-muted-foreground mb-2">
-                        <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
-                    </div>
-                    <div className="grid grid-cols-7 gap-2">
-                        {calendarDays.map((day, idx) => {
-                            if (day === null) return <div key={`empty-${idx}`} className="h-32 bg-transparent" />;
-
-                            const dayEvents = eventsByDate[day] || [];
-                            const isToday = new Date().getDate() === day && new Date().getMonth() === currentMonth && new Date().getFullYear() === currentYear;
-
-                            return (
-                                <div key={day} className={`h-32 border rounded-md p-2 overflow-y-auto ${isToday ? 'border-primary bg-primary/5' : 'bg-card'}`}>
-                                    <div className="font-bold mb-2 flex justify-between items-center text-xs">
-                                        <span className={isToday ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center" : ""}>
-                                            {day}
-                                        </span>
-                                        {dayEvents.length > 0 && <span className="text-[10px] text-muted-foreground">{dayEvents.length} évent.</span>}
-                                    </div>
-                                    <div className="space-y-1">
-                                        {dayEvents.map(e => {
-                                            const myAttendance = e.event_attendance?.find((a: any) => a.user_id === user?.id)?.status || 'unknown';
-                                            return (
-                                                <div key={e.id} className="text-xs p-1.5 rounded bg-muted hover:bg-muted/80 border-l-2 border-primary group relative">
-                                                    <div className="font-semibold truncate">{e.title}</div>
-                                                    <div className="text-[10px] text-muted-foreground flex justify-between items-center mt-1">
-                                                        <span>{new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                        <AttendanceToggle eventId={e.id} currentStatus={myAttendance} compact />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </CardContent>
-            </Card>
+            <CalendarView
+                currentMonth={currentMonth}
+                currentYear={currentYear}
+                eventsByDate={eventsByDate}
+                userId={user?.id || ''}
+                members={attendanceMembers}
+                isAdmin={isAdmin}
+            />
 
             {/* Upcoming List View */}
             <div className="space-y-4">

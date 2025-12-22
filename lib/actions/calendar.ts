@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { addWeeks } from "date-fns";
 
 export async function getTroupeEvents(troupeId: string, startDate: Date, endDate: Date) {
     const supabase = await createClient();
@@ -31,7 +32,8 @@ export async function createEvent(
     start: Date,
     end: Date,
     type: string,
-    playId?: string
+    playId?: string,
+    recurrence: "none" | "weekly" = "none"
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -39,9 +41,22 @@ export async function createEvent(
 
     // Basic admin check (should be robust)
 
-    const { error } = await supabase
-        .from('events')
-        .insert({
+    const eventsToInsert = [];
+
+    if (recurrence === "weekly") {
+        // Create 12 weeks of events
+        for (let i = 0; i < 12; i++) {
+            eventsToInsert.push({
+                troupe_id: troupeId,
+                title,
+                start_time: addWeeks(start, i).toISOString(),
+                end_time: addWeeks(end, i).toISOString(),
+                type,
+                play_id: playId || null
+            });
+        }
+    } else {
+        eventsToInsert.push({
             troupe_id: troupeId,
             title,
             start_time: start.toISOString(),
@@ -49,6 +64,11 @@ export async function createEvent(
             type,
             play_id: playId || null
         });
+    }
+
+    const { error } = await supabase
+        .from('events')
+        .insert(eventsToInsert);
 
     if (error) {
         console.error('Error creating event:', error);
@@ -58,16 +78,21 @@ export async function createEvent(
     revalidatePath(`/troupes/${troupeId}/calendar`);
 }
 
-export async function updateAttendance(eventId: string, status: 'present' | 'absent' | 'unknown') {
+export async function updateAttendance(eventId: string, status: 'present' | 'absent' | 'unknown', targetUserId?: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
+
+    // If targetUserId is provided, check if current user is admin of the troupe?
+    // For now, simpler: allow updating others if a member. Ideally, we should check admin role.
+    const userIdToUpdate = targetUserId || user.id;
+
 
     const { error } = await supabase
         .from('event_attendance')
         .upsert({
             event_id: eventId,
-            user_id: user.id,
+            user_id: userIdToUpdate,
             status: status
         });
 

@@ -3,22 +3,29 @@
 import { useState, useRef, useMemo } from "react";
 import { ParsedScript } from "@/lib/types";
 import { Button } from "./ui/button";
-import { ArrowLeft, Highlighter, Layout } from "lucide-react";
+import { ArrowLeft, Highlighter, Layout, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ScriptSettings } from "./script-setup";
+import { exportToPdf } from "@/lib/pdf-export";
 
 interface ScriptReaderProps {
     script: ParsedScript;
     userCharacter: string;
     onExit: () => void;
+    settings: ScriptSettings;
 }
 
-export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProps) {
+export function ScriptReader({ script, userCharacter, onExit, settings }: ScriptReaderProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [highlightStyle, setHighlightStyle] = useState<"box" | "text">("box");
 
     // Helper to check if user is in this line's character (handles compound names like "YVONNE et LUCIEN")
-    const isUserLine = (lineCharacter: string): boolean => {
-        return lineCharacter.toUpperCase().includes(userCharacter.toUpperCase());
+    const isUserLine = (lineChar: string) => {
+        if (!lineChar || !userCharacter) return false;
+        const normalizedLineChar = lineChar.toLowerCase().trim();
+        const normalizedUserChar = userCharacter.toLowerCase().trim();
+        return normalizedLineChar === normalizedUserChar ||
+            normalizedLineChar.split(/[\s,]+/).includes(normalizedUserChar);
     };
 
     // Pre-calculate line numbers for user character
@@ -55,17 +62,68 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
         return currentScene;
     };
 
+    // Helper for visibility masking
+    const getVisibleText = (text: string, isUser: boolean) => {
+        if (!isUser || settings.visibility === "visible") return text;
+
+        if (settings.visibility === "hint") {
+            const words = text.split(" ");
+            if (words.length <= 2) return text;
+            return `${words[0]} ${words[1]} ...`;
+        }
+
+        // Hidden
+        return "...............";
+    };
+
+    // Filter lines based on mode
+    const filteredLines = useMemo(() => {
+        const linesWithOriginalIndex = script.lines.map((line, index) => ({
+            ...line,
+            originalIndex: index
+        }));
+
+        if (settings.mode === "full") return linesWithOriginalIndex;
+
+        return linesWithOriginalIndex.filter((line) => {
+            const isUser = isUserLine(line.character);
+            if (isUser) return true;
+
+            if (settings.mode === "cue") {
+                const nextLine = script.lines[line.originalIndex + 1];
+                return nextLine && isUserLine(nextLine.character);
+            }
+
+            if (settings.mode === "check") {
+                // Filage = Répliques seules
+                return false;
+            }
+
+            return false;
+        });
+    }, [script.lines, settings.mode, userCharacter]);
+
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1a1a] text-white font-sans overflow-hidden">
             {/* Header - Title only */}
-            <div className="flex-none px-4 pt-8 pb-4 border-b border-white/10 bg-black/80 flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-white/10 rounded-full text-white">
-                    <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <div>
-                    <h2 className="text-lg font-bold leading-tight line-clamp-1 text-white">{script.title || "Lecture"}</h2>
-                    <p className="text-xs text-gray-400">Rôle : <span className="text-yellow-400 font-bold">{userCharacter}</span></p>
+            <div className="flex-none px-4 pt-8 pb-4 border-b border-white/10 bg-black/80 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-white/10 rounded-full text-white">
+                        <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <div>
+                        <h2 className="text-lg font-bold leading-tight line-clamp-1 text-white">{script.title || "Lecture"}</h2>
+                        <p className="text-xs text-gray-400">Rôle : <span className="text-yellow-400 font-bold">{userCharacter}</span></p>
+                    </div>
                 </div>
+
+                <Button
+                    onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacter, settings, sceneAtIndex)}
+                    className="bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl flex items-center gap-2 text-xs font-bold py-2 h-auto"
+                >
+                    <Download className="w-4 h-4" />
+                    <span className="hidden sm:inline">Exporter PDF</span>
+                </Button>
             </div>
 
             {/* Toggle Bar - SEPARATE ROW */}
@@ -105,10 +163,10 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                     {/* Main Content */}
                     <div className="flex-1 p-4 md:p-8">
                         <div className="max-w-3xl mx-auto space-y-4 pb-32">
-                            {script.lines.map((line, idx) => {
+                            {filteredLines.map((line, idx) => {
                                 const isUser = isUserLine(line.character);
                                 const lineNumber = userLineNumbers.get(line.id);
-                                const sceneTitle = sceneAtIndex.get(idx);
+                                const sceneTitle = sceneAtIndex.get((line as any).originalIndex);
 
                                 return (
                                     <div key={line.id}>
@@ -175,7 +233,7 @@ export function ScriptReader({ script, userCharacter, onExit }: ScriptReaderProp
                                                                 : undefined
                                                         }
                                                     >
-                                                        {line.text}
+                                                        {getVisibleText(line.text, isUser)}
                                                     </span>
                                                 </p>
                                             </div>

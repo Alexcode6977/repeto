@@ -24,6 +24,7 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
     const [endTime, setEndTime] = useState("20:00");
     const [type, setType] = useState("rehearsal");
     const [playId, setPlayId] = useState("none");
+    const [recurrence, setRecurrence] = useState<"none" | "weekly">("none");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,7 +40,8 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
                 start,
                 end,
                 type,
-                playId === "none" ? undefined : playId
+                playId === "none" ? undefined : playId,
+                recurrence
             );
 
             setOpen(false);
@@ -103,6 +105,20 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
                                 <SelectItem value="other">Autre</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label>Récurrence</Label>
+                        <Select value={recurrence} onValueChange={(val: "none" | "weekly") => setRecurrence(val)}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Pas de récurrence" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">Une seule fois</SelectItem>
+                                <SelectItem value="weekly">Toutes les semaines (12 mardis)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-muted-foreground">Créera automatiquement les événements pour les 3 prochains mois.</p>
                     </div>
 
                     <div className="grid gap-2">

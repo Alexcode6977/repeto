@@ -374,7 +374,7 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
             const standaloneRe = /^([A-ZÀ-ÖØ-Þ]{2,}[A-ZÀ-ÖØ-Þ\s\-\'']*[A-ZÀ-ÖØ-Þ\.]?)$/;
             const standaloneMatch = line.match(standaloneRe);
             if (standaloneMatch) {
-                charName = standaloneMatch[1].trim().replace(/\.$/, "");
+                charName = (standaloneMatch[1] || "").trim().replace(/\.$/, "");
                 isHeader = true;
                 // Peek at next line for dialogue
                 if (i + 1 < lines.length) {
