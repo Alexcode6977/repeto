@@ -36,6 +36,24 @@
         "is_primary_key": ""
     },
     {
+        "table_name": "profiles",
+        "column_name": "email",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "profiles",
+        "column_name": "first_name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
         "table_name": "rehearsal_feedback",
         "column_name": "id",
         "data_type": "uuid",
