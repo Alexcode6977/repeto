@@ -89,6 +89,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">("full");
     const [hasStarted, setHasStarted] = useState(false);
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | null>(null);
+    const [forceAudioOutput, setForceAudioOutput] = useState(false); // CarPlay experimental fix
 
     // Didascalies (stage directions) toggle - detect if present in script
     const hasDidascalies = script.characters.some(c =>
@@ -103,45 +104,10 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
 
 
 
-    // Local browser voices state (available before rehearsal starts)
-    const [browserVoices, setBrowserVoices] = useState<SpeechSynthesisVoice[]>([]);
-    const [localVoiceAssignments, setLocalVoiceAssignments] = useState<Record<string, SpeechSynthesisVoice | null>>({});
-
-    // Load browser voices on mount
-    useEffect(() => {
-        const loadVoices = () => {
-            const allVoices = window.speechSynthesis.getVoices();
-            const frenchVoices = allVoices.filter(v => v.lang.startsWith("fr"));
-            setBrowserVoices(frenchVoices.length > 0 ? frenchVoices : allVoices);
-
-            // Initialize voice assignments for each character (excluding user)
-            if (script.characters && frenchVoices.length > 0) {
-                const assignments: Record<string, SpeechSynthesisVoice | null> = {};
-                script.characters.filter(c => c !== userCharacter).forEach((char, idx) => {
-                    assignments[char] = frenchVoices[idx % frenchVoices.length] || null;
-                });
-                setLocalVoiceAssignments(assignments);
-            }
-        };
-
-        // Voices may load async
-        loadVoices();
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-
-        return () => {
-            window.speechSynthesis.onvoiceschanged = null;
-        };
-    }, [script.characters, userCharacter]);
-
-    // Function to set voice for a character (local state)
-    const setLocalVoiceForRole = (char: string, voiceURI: string) => {
-        const voice = browserVoices.find(v => v.voiceURI === voiceURI) || null;
-        setLocalVoiceAssignments(prev => ({ ...prev, [char]: voice }));
-    };
 
     // Test browser voice
     const testBrowserVoice = (char: string) => {
-        const voice = localVoiceAssignments[char];
+        const voice = voiceAssignments[char];
         if (voice) {
             window.speechSynthesis.cancel();
             const ut = new SpeechSynthesisUtterance("Bonjour, je suis prêt.");
@@ -222,7 +188,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
         // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)
         try {
             if (initializeAudio) {
-                await initializeAudio();
+                await initializeAudio(forceAudioOutput);
             } else {
                 await navigator.mediaDevices.getUserMedia({ audio: true });
             }
@@ -424,7 +390,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
     // DEBUG: Log characters and state
     console.log("[RehearsalMode] ttsProvider:", ttsProvider, "isPremiumUnlocked:", isPremiumUnlocked);
     console.log("[RehearsalMode] script.characters:", script.characters);
-    console.log("[RehearsalMode] browserVoices:", browserVoices.length);
+
 
     if (!hasStarted) {
         // Get a sample user line for preview
@@ -536,6 +502,22 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                         ))}
                     </div>
 
+                    {/* Start Button - Moved to top for ergonomics */}
+                    <div className="max-w-md mx-auto w-full mb-6">
+                        <Button
+                            size="lg"
+                            onClick={() => {
+                                // Auto-select browser if no provider chosen
+                                if (!ttsProvider) setTtsProvider("browser");
+                                handleStart();
+                            }}
+                            className="w-full text-lg font-bold py-6 rounded-2xl shadow-[0_0_40px_rgba(124,58,237,0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95"
+                        >
+                            <Play className="mr-2 h-6 w-6 fill-current" />
+                            COMMENCER
+                        </Button>
+                    </div>
+
                     {/* Settings Cards */}
                     <div className="space-y-6 max-w-md mx-auto w-full">
 
@@ -558,7 +540,9 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                                     onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
                                     value={startLineIndex}
                                 >
-                                    <option value={0}>Début de la pièce</option>
+                                    {(!script.scenes?.[0] || script.scenes[0].index > 0) && (
+                                        <option value={0}>Début de la pièce</option>
+                                    )}
                                     {script.scenes.map((scene) => (
                                         <option key={scene.index} value={scene.index}>{scene.title}</option>
                                     ))}
@@ -683,15 +667,15 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                                                     <p className="text-xs font-medium text-gray-300 truncate">{char}</p>
                                                     <select
                                                         className="w-full bg-transparent text-[10px] text-gray-500 focus:outline-none cursor-pointer"
-                                                        value={localVoiceAssignments[char]?.voiceURI || ""}
-                                                        onChange={(e) => setLocalVoiceForRole(char, e.target.value)}
+                                                        value={voiceAssignments[char]?.voiceURI || ""}
+                                                        onChange={(e) => setVoiceForRole(char, e.target.value)}
                                                     >
-                                                        {browserVoices.map(v => (
+                                                        {voices.map(v => (
                                                             <option key={v.voiceURI} value={v.voiceURI} className="bg-black text-white">
                                                                 {v.name}
                                                             </option>
                                                         ))}
-                                                        {browserVoices.length === 0 && <option className="bg-black text-white">Défaut (Navigateur)</option>}
+                                                        {voices.length === 0 && <option className="bg-black text-white">Défaut (Navigateur)</option>}
                                                     </select>
                                                 </div>
                                                 <button
@@ -809,22 +793,34 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                                     </p>
                                 </div>
                             )}
+
+                            {/* Car Mode Toggle (Experimental) */}
+                            <div className="pt-3 border-t border-white/10">
+                                <div className="flex items-center justify-center gap-2 mb-2">
+                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20">Expérimental</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-xs text-gray-400 block flex items-center gap-1">🚗 Mode Voiture</span>
+                                        <span className="text-[10px] text-gray-600">Force la sortie audio (peut couper spotify)</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setForceAudioOutput(!forceAudioOutput)}
+                                        className={cn(
+                                            "relative w-12 h-6 rounded-full transition-colors",
+                                            forceAudioOutput ? "bg-yellow-500" : "bg-gray-700"
+                                        )}
+                                    >
+                                        <span className={cn(
+                                            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow",
+                                            forceAudioOutput ? "left-7" : "left-1"
+                                        )} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </details>
 
-                    {/* Start Button */}
-                    <Button
-                        size="lg"
-                        onClick={() => {
-                            // Auto-select browser if no provider chosen
-                            if (!ttsProvider) setTtsProvider("browser");
-                            handleStart();
-                        }}
-                        className="w-full text-lg font-bold py-6 rounded-2xl shadow-[0_0_40px_rgba(124,58,237,0.4)] bg-primary text-white hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95 mt-4"
-                    >
-                        <Play className="mr-2 h-6 w-6 fill-current" />
-                        COMMENCER
-                    </Button>
 
                     <button onClick={onExit} className="w-full text-sm font-medium text-gray-500 hover:text-white transition-colors text-center py-2">
                         Retour au menu

@@ -54,7 +54,7 @@ export function cleanTranscript(text: string, playTitle?: string): string {
 
     // Apply play-specific fixes if title matches
     if (playTitle) {
-        const normalizedTitle = playTitle.toUpperCase();
+        const normalizedTitle = playTitle.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
         for (const [title, fixes] of Object.entries(PLAY_FIXES)) {
             if (normalizedTitle.includes(title)) {
                 for (const [pattern, replacement] of fixes) {

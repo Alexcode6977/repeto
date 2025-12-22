@@ -21,7 +21,7 @@ export interface UseSpeechReturn {
     resume: () => void;
     voices: SpeechSynthesisVoice[];
     state: SpeechState;
-    initializeAudio: () => Promise<void>;
+    initializeAudio: (forceOutput?: boolean) => Promise<void>;
     isSupported: boolean;
 }
 
@@ -318,7 +318,12 @@ export function useSpeech(): UseSpeechReturn {
             // TUNING:
             // 1. "Speech Silence" (Wait for end of utterance) -> Snappy (1.2s base)
             // 2. "Initial Silence" (Wait for user to start) -> Generous (5s) to allow reading/thinking.
-            const baseSilence = 1200;
+            // 3. DRAMATIC PAUSES: If text contains '...', '!', '?', or ';', we allow more silence (2.5s)
+            let baseSilence = 1200;
+            if (expectedText && /[!?;:…]|\.\.\./.test(expectedText)) {
+                console.log("[Speech] Dramatic line detected, increasing silence timeout");
+                baseSilence = 2500;
+            }
             const proportionalTime = estimatedDurationMs
                 ? Math.min(Math.max(estimatedDurationMs * 0.2, 0), 1200)
                 : 500;
@@ -528,8 +533,32 @@ export function useSpeech(): UseSpeechReturn {
     }, []);
 
     // Safari requires SpeechRecognition to be started within a user gesture handler (click).
-    const initializeAudio = useCallback(async () => {
+    const initializeAudio = useCallback(async (forceOutput = false) => {
         try {
+            // EXPERIMENTAL: Force Audio Output (CarPlay fix)
+            // iOS often switches to "Phone Receiver" when mic is active if no audio is playing.
+            // We play a silent oscillator to force the "Media" audio session to stay active on the current route (Car/Bluetooth).
+            if (forceOutput) {
+                console.log("[Speech] Force Output Mode: Activating silent oscillator");
+                const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+                if (AudioContextClass) {
+                    const ctx = new AudioContextClass();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(20, ctx.currentTime); // 20Hz (low freq)
+                    gain.gain.setValueAtTime(0.001, ctx.currentTime); // Almost silent but active
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+
+                    // Keep referencing it to prevent garbage collection
+                    (window as any).__keepAliveAudio = { ctx, osc, gain };
+                }
+            }
+
             // 1. Get Mic Permission
             await navigator.mediaDevices.getUserMedia({ audio: true });
 

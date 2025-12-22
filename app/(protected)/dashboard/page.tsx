@@ -62,8 +62,20 @@ export default function Home() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.email) {
-          setUserName(user.email.split('@')[0]);
           setUserEmail(user.email);
+
+          // Fetch profile for first name
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("first_name")
+            .eq("id", user.id)
+            .single();
+
+          if (profile?.first_name) {
+            setUserName(profile.first_name);
+          } else {
+            setUserName(user.email.split('@')[0]);
+          }
         }
       } catch (e) {
         console.error("Client Init Error:", e);
@@ -486,7 +498,7 @@ export default function Home() {
                 <p className="text-gray-400 text-sm">
                   {isImporting
                     ? "L'IA identifie les personnages du script"
-                    : "L'IA relie chaque réplique à son personnage"}
+                    : "Repeto relie chaque réplique à son personnage"}
                 </p>
               </div>
 
