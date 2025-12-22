@@ -71,19 +71,26 @@ const FORBIDDEN_SINGLE_WORDS = new Set([
     "ENSEMBLE", "VOIX", "DIALOGUE", "MONOLOGUE", "APARTÉ", "APARTE",
     "PUIS", "SEUL", "SEULE", "SEULS", "SEULES",
 
-    // Interjections (too short/common)
+    // Common interjections and dialogue start words (noise)
     "OUI", "NON", "AH", "OH", "EH", "HÉ", "HE", "BON", "BIEN", "QUOI", "COMMENT",
+    "VOILÀ", "VOILA", "TIENS", "TIEN", "TIENS-TOI", "ALLONS", "ALORS", "RIEN", "CHUT",
+    "VOYONS", "ÉCOUTE", "ECOUTE", "ÉCOUTEZ", "ECOUTEZ", "REGARDE", "REGARDEZ",
+    "ATTENDS", "ATTENDEZ", "DIS", "DITES", "DIS-DONC", "DITES-DONC", "DITES-MOI",
+    "ENTENDU", "PARFAIT", "EXCELLENT", "D'ACCORD", "MERCI", "PARDON", "STOP",
+    "VITE", "VRAIMENT", "PEUT-ÊTRE", "PEUT-ETRE", "MALHEUREUSEMENT", "HEUREUSEMENT",
+    "ÉVIDEMMENT", "EVIDEMMENT", "SÛREMENT", "SUREMENT", "PAREIL", "PAREILLE",
+    "MOI", "TOI", "LUI", "NOUS", "VOUS", "EUX", "ELLES",
+    "SI", "AINSI", "MAIS", "DONC", "CAR", "PUISQUE", "PARCE", "QUE", "QUAND",
+    "MONSIEUR", "MADAME", "MADEMOISELLE", "MESSIEURS", "MESDAMES", "MESDEMOISELLES",
+    "PÈRE", "MÈRE", "FRÈRE", "SOEUR", "SŒUR", "FILS", "FILLE",
+    "BONJOUR", "BONSOIR", "ADIEU", "SALUT", "BORDEAUX", "MERCI",
 
-    // Stage directions
+    // Structural (Restored)
     "RIDEAU", "NOIR", "LUMIÈRE", "LUMIERE", "SILENCE", "PAUSE", "TEMPS",
-
-    // Locations
     "PARIS", "FRANCE", "THÉÂTRE", "THEATRE", "SALON", "CHAMBRE", "JARDIN",
-
-    // Common play title words (not characters)
-    "GENTILHOMME", "BOURGEOIS", "BABILLARD", "BABILLARDE",
-    "VIEILLE", "VIEUX",
+    "GENTILHOMME", "BOURGEOIS", "BABILLARD", "BABILLARDE", "VIEILLE", "VIEUX",
 ]);
+
 
 // Multi-word patterns that indicate NON-character names (regex)
 const FORBIDDEN_PATTERNS: RegExp[] = [
@@ -125,8 +132,16 @@ const FORBIDDEN_PATTERNS: RegExp[] = [
     /BOURGEOISE.*BABILLARDE/i,
 
     // Too generic single-word patterns    
-    /^(ICI|LÀ|AILLEURS|MAINTENANT|ENSUITE|APRÈS|AVANT)$/i,
+    // Group detection (LES FILLES, DES HOMMES)
+    /^(LES|DES|UN|UNE|LE|LA)\s+(FILLES|HOMMES|FEMMES|GARÇONS|GENTILHOMMES|VOIX|CHOEUR|CHŒUR|SOLDATS|GENDARMES|PERSONNES|GENS|SPECTATEURS)/i,
+
+    // Dialogue/Interjection patterns
+    /^(MAIS|OUI|NON|ET|ELLES|AINSI|ALORS|PUIS|PUISQUE)\s+[A-ZÀ-Þ]/i,
+    /^(JE|TU|IL|ELLE|ON|NOUS|VOUS|ILS|ELLES)\s+/i,
+    /^(MON|TON|SON|MA|TA|SA|MES|TES|SES)\s+/i,
+    /^[A-ZÀ-Þ]+\s+(ET|OU|MAIS)\s+[A-ZÀ-Þ]/i, // Common sentence starts
 ];
+
 
 // Known French playwrights (authors, not characters)
 const AUTHORS = new Set([
@@ -323,12 +338,97 @@ function extractTitle(lines: string[]): string | undefined {
     return undefined;
 }
 
-// ============================================================================
-// MAIN PARSER
-// ============================================================================
+/**
+ * Step 1: Fast scan to detect potential characters
+ */
+export function detectCharactersHeuristic(rawText: string): { title?: string, characters: string[] } {
+    console.log("[Parser] Running heuristic character detection...");
 
-export function parseScript(rawText: string): ParsedScript {
-    console.log("[Parser] Starting MASTERCLASS parser v2.0...");
+    const cleanText = rawText.replace(/\t/g, " ").replace(/ +/g, " ");
+    const lines = cleanText.split(/\r?\n/);
+
+    const title = extractTitle(lines);
+    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
+    const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ]{2,}[A-ZÀ-ÖØ-Þ\s\-\'']*)\s*$/;
+
+    const characterUsage = new Map<string, { headers: number, totalWords: number }>();
+
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i].trim();
+        if (!line || /^\d+$/.test(line)) continue;
+        if (line.length > 60) continue;
+
+        let charName = "";
+        let isHeader = false;
+        let dialogueText = "";
+
+        // Pattern 1: NAME. Dialogue or NAME: Dialogue
+        const prefixMatch = line.match(characterPrefixRegex);
+        if (prefixMatch) {
+            charName = (prefixMatch[1] || "").trim();
+            dialogueText = (prefixMatch[2] || "").trim();
+            isHeader = true;
+        }
+        // Pattern 2: Standalone NAME (possibly with a trailing dot)
+        else {
+            const standaloneRe = /^([A-ZÀ-ÖØ-Þ]{2,}[A-ZÀ-ÖØ-Þ\s\-\'']*[A-ZÀ-ÖØ-Þ\.]?)$/;
+            const standaloneMatch = line.match(standaloneRe);
+            if (standaloneMatch) {
+                charName = standaloneMatch[1].trim().replace(/\.$/, "");
+                isHeader = true;
+                // Peek at next line for dialogue
+                if (i + 1 < lines.length) {
+                    dialogueText = lines[i + 1].trim();
+                }
+            }
+        }
+
+        if (charName) {
+            if (!prefixMatch && /[!\?\u2026]$/.test(line)) continue;
+
+            const finalName = extractVoixName(charName);
+            const score = scoreCharacterName(finalName);
+
+            if (score > 0.6) {
+                const normalized = finalName.toUpperCase();
+                const stats = characterUsage.get(normalized) || { headers: 0, totalWords: 0 };
+                if (isHeader) stats.headers++;
+                stats.totalWords += dialogueText.split(/\s+/).filter(w => w.length > 0).length;
+                characterUsage.set(normalized, stats);
+            }
+        }
+    }
+
+    // Filter and sort:
+    // 1. Must have appeared as a Header at least once
+    // 2. Must have a minimum "speech density" (total words spoken)
+    // 3. High frequency or short standalone name
+    const characters = Array.from(characterUsage.entries())
+        .filter(([name, stats]) => {
+            // Rule 2 & 5: Positional validation & Density
+            if (stats.headers === 0) return false;
+
+            // Rule 5: Density check (Hadès test)
+            // A character must have spoken at least some words OR appeared many times as a line starter
+            if (stats.totalWords < 2 && stats.headers < 3) return false;
+
+            if (stats.headers >= 5) return true;
+            if (stats.headers >= 2 && name.length >= 3 && name.length <= 15 && !name.includes(" ")) return true;
+
+            return false;
+        })
+        .sort((a, b) => b[1].headers - a[1].headers)
+        .map(([name]) => name);
+
+
+    return { title, characters };
+}
+
+export function parseScript(rawText: string, validatedCharacters?: string[]): ParsedScript {
+    console.log("[Parser] Starting guided heuristic parser...");
+
+    // Create a set for fast lookup if provided
+    const charWhitelist = validatedCharacters ? new Set(validatedCharacters.map(c => c.toUpperCase())) : null;
 
     // Pre-process text
     const cleanText = rawText.replace(/\t/g, " ").replace(/ +/g, " ");
@@ -356,8 +456,8 @@ export function parseScript(rawText: string): ParsedScript {
     // Examples: "LE MAÎTRE DE MUSIQUE." or "Monsieur Jourdain:" or "LUCIEN."
     const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
 
-    // Standalone uppercase line (no lowercase allowed)
-    const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']{2,35})\s*$/;
+    // Standalone uppercase line (possibly with a trailing dot)
+    const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']{1,35}[\.]?)\s*$/;
 
     // Scene header
     const sceneRegex = /^(?:SCÈNE|SCENE|ACTE|TABLEAU)\s+(?:[IVX0-9]+|PREMI[ÈE]RE?|DERNI[ÈE]RE?)/i;
@@ -428,7 +528,7 @@ export function parseScript(rawText: string): ParsedScript {
             // Pattern 2: Standalone name on its own line
             const nameMatch = line.match(characterLineRegex);
             if (nameMatch) {
-                const rawName = nameMatch[1].trim();
+                const rawName = nameMatch[1].trim().replace(/\.$/, "");
                 // CRITICAL: Must be ALL CAPS
                 const isAllCaps = rawName === rawName.toUpperCase() && /[A-ZÀ-Þ]/.test(rawName);
                 if (isAllCaps && rawName.length >= 3) {
@@ -446,6 +546,26 @@ export function parseScript(rawText: string): ParsedScript {
             const score = scoreCharacterName(finalName);
 
             if (score > 0) {
+                // GUIDED PARSING OVERRIDE: 
+                // If we have a whitelist, we ONLY care if it's in the list or very similar.
+                if (charWhitelist && !charWhitelist.has(finalName.toUpperCase())) {
+                    // Check for high similarity to a whitelisted character
+                    let foundSimiliar = false;
+                    for (const valid of charWhitelist) {
+                        if (similarity(finalName, valid) > 0.85) {
+                            finalName = valid;
+                            foundSimiliar = true;
+                            break;
+                        }
+                    }
+                    if (!foundSimiliar) {
+                        // Not a whitelisted character, ignore as possible stage direction or noise
+                        matched = false;
+                    }
+                }
+            }
+
+            if (matched && score > 0) {
                 // Flush previous buffer
                 if (currentCharacter && currentBuffer) {
                     scriptLines.push({

@@ -108,7 +108,7 @@ export default async function CalendarPage({
                                     </div>
                                     <div className="space-y-1">
                                         {dayEvents.map(e => {
-                                            const myAttendance = e.event_attendance?.find((a: any) => a.user_id === user.id)?.status || 'unknown';
+                                            const myAttendance = e.event_attendance?.find((a: any) => a.user_id === user?.id)?.status || 'unknown';
                                             return (
                                                 <div key={e.id} className="text-xs p-1.5 rounded bg-muted hover:bg-muted/80 border-l-2 border-primary group relative">
                                                     <div className="font-semibold truncate">{e.title}</div>
@@ -139,7 +139,7 @@ export default async function CalendarPage({
                                 <CardHeader className="pb-2">
                                     <div className="flex justify-between">
                                         <CardTitle className="text-base">{e.title}</CardTitle>
-                                        <AttendanceToggle eventId={e.id} currentStatus={e.event_attendance?.find((a: any) => a.user_id === user.id)?.status || 'unknown'} />
+                                        <AttendanceToggle eventId={e.id} currentStatus={e.event_attendance?.find((a: any) => a.user_id === user?.id)?.status || 'unknown'} />
                                     </div>
                                     <CardDescription>
                                         {new Date(e.start_time).toLocaleDateString()} - {new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

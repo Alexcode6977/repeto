@@ -21,90 +21,125 @@ export default async function TroupeDashboard({
     // Copy Code Button Logic would need client component, keeping simple for SSR for now
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto">
+        <div className="space-y-10">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h1 className="text-4xl font-bold tracking-tight mb-2">{troupe?.name}</h1>
-                    <p className="text-muted-foreground flex items-center gap-2">
-                        Dashboard de la troupe
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
+                <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
+
+                <div className="relative">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Link href="/troupes" className="text-gray-500 hover:text-white transition-colors text-sm font-medium flex items-center gap-1 group">
+                            <span className="group-hover:-translate-x-1 transition-transform">←</span> Retour aux troupes
+                        </Link>
+                    </div>
+                    <h1 className="text-5xl font-extrabold tracking-tighter text-white mb-2">
+                        {troupe?.name}
+                    </h1>
+                    <p className="text-gray-400 font-medium flex items-center gap-2">
+                        <Users className="w-4 h-4" />
+                        Espace de travail de la troupe
                     </p>
                 </div>
 
-                {/* Invite Code Card - Prominent */}
-                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center gap-4">
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1">Code d'invitation</p>
-                        <p className="text-2xl font-mono font-bold tracking-widest">{troupe?.join_code}</p>
-                    </div>
+                {/* Invite Code Card - Prominent & Stylish */}
+                <div className="bg-white/5 border border-white/10 backdrop-blur-md rounded-3xl p-6 flex flex-col items-center justify-center relative min-w-[180px] group transition-all hover:bg-white/10">
+                    <div className="absolute top-0 right-0 w-8 h-8 bg-primary/20 blur-xl rounded-full" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-2 opacity-80">Code d'invitation</p>
+                    <p className="text-3xl font-mono font-black tracking-[0.15em] text-white">
+                        {troupe?.join_code}
+                    </p>
+                    <button
+                        onClick={() => {
+                            if (troupe?.join_code) {
+                                navigator.clipboard.writeText(troupe.join_code);
+                                // Could add a toast here if available
+                            }
+                        }}
+                        className="absolute bottom-2 right-2 p-2 rounded-full bg-white/0 hover:bg-white/10 opacity-0 group-hover:opacity-100 transition-all text-white/40 hover:text-white"
+                        title="Copier le code"
+                    >
+                        <Copy className="w-3 h-3" />
+                    </button>
                 </div>
             </div>
 
             {/* Main Navigation Grid */}
-            <div className="grid gap-6 md:grid-cols-2">
-                <Link href={`/troupes/${troupeId}/plays`}>
-                    <Card className="hover:bg-muted/50 transition-all cursor-pointer h-full border-l-4 border-l-blue-500">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-lg">Pièces & Scripts</CardTitle>
-                            <BookOpen className="h-5 w-5 text-blue-500" />
+            <div className="grid gap-8 md:grid-cols-2">
+                <Link href={`/troupes/${troupeId}/plays`} className="group">
+                    <Card className="bg-white/5 border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-blue-500/30 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-3xl border h-full">
+                        <CardHeader className="p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/20 flex items-center justify-center">
+                                    <BookOpen className="h-7 w-7 text-blue-400" />
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:bg-blue-500 transition-all">
+                                    <span className="text-sm">→</span>
+                                </div>
+                            </div>
+                            <CardTitle className="text-2xl font-bold text-white mb-2">Pièces & Scripts</CardTitle>
+                            <p className="text-gray-400 text-sm leading-relaxed">
+                                Gérez vos textes, distribuez les rôles et analysez les scripts avec vos coéquipiers.
+                            </p>
                         </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground mb-4">Gérez vos textes, distribuez les rôles et analysez les scripts.</p>
-                            <Button variant="secondary" className="w-full">Accéder aux pièces</Button>
-                        </CardContent>
                     </Card>
                 </Link>
 
-                <Link href={`/troupes/${troupeId}/calendar`}>
-                    <Card className="hover:bg-muted/50 transition-all cursor-pointer h-full border-l-4 border-l-green-500">
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-lg">Calendrier</CardTitle>
-                            <Calendar className="h-5 w-5 text-green-500" />
+                <Link href={`/troupes/${troupeId}/calendar`} className="group">
+                    <Card className="bg-white/5 border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-green-500/30 group-hover:shadow-[0_0_40px_rgba(34,197,94,0.15)] rounded-3xl border h-full">
+                        <CardHeader className="p-8">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="w-14 h-14 rounded-2xl bg-green-500/20 border border-green-500/20 flex items-center justify-center">
+                                    <Calendar className="h-7 w-7 text-green-400" />
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:bg-green-500 transition-all">
+                                    <span className="text-sm">→</span>
+                                </div>
+                            </div>
+                            <CardTitle className="text-2xl font-bold text-white mb-2">Calendrier</CardTitle>
+                            <p className="text-gray-400 text-sm leading-relaxed">
+                                Planifiez vos répétitions, cochez les présences et suivez l'avancée de la troupe.
+                            </p>
                         </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground mb-4">Planifiez les répétitions et suivez les présences de chacun.</p>
-                            <Button variant="secondary" className="w-full">Voir le planning</Button>
-                        </CardContent>
                     </Card>
                 </Link>
             </div>
 
             {/* Members Section - Embedded directly */}
-            <Card className="mt-8">
-                <CardHeader>
+            <Card className="bg-white/5 border-white/10 backdrop-blur-md rounded-3xl border overflow-hidden">
+                <CardHeader className="p-8 pb-6 border-b border-white/5">
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle className="text-xl flex items-center gap-2">
-                                <Users className="h-5 w-5" />
+                            <CardTitle className="text-2xl font-bold text-white flex items-center gap-3">
+                                <Users className="h-6 w-6 text-primary" />
                                 Membres de la troupe
                             </CardTitle>
-                            <CardDescription>
-                                {members.length + guests.length} membre{(members.length + guests.length) > 1 ? 's' : ''} au total.
+                            <CardDescription className="text-gray-500 font-medium">
+                                {members.length + guests.length} collaborateur{(members.length + guests.length) > 1 ? 's' : ''} actif{(members.length + guests.length) > 1 ? 's' : ''}.
                             </CardDescription>
                         </div>
                         {isAdmin && <AddGuestModal troupeId={troupeId} />}
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <CardContent className="p-8">
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {/* Real Members */}
                         {members.map((member: any) => (
-                            <div key={member.id} className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:shadow-sm transition-shadow">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                            <div key={member.id} className="flex items-center gap-4 p-5 rounded-2xl border border-white/5 bg-white/0 hover:bg-white/5 transition-all group relative overflow-hidden">
+                                <Avatar className="h-12 w-12 border border-white/10">
+                                    <AvatarFallback className="bg-primary/20 text-primary font-bold">
                                         {(member.first_name?.[0] || member.email?.[0] || "?").toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium leading-none truncate">
+                                    <p className="text-base font-bold text-white leading-none truncate mb-1">
                                         {member.first_name || "Utilisateur"}
                                     </p>
-                                    <p className="text-xs text-muted-foreground truncate mt-1">
+                                    <p className="text-xs text-gray-500 truncate font-medium">
                                         {member.email}
                                     </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
-                                    <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
+                                    <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider rounded-full px-2 py-0 border-white/10 ${member.role === 'admin' ? 'text-primary' : 'text-gray-500'}`}>
                                         {member.role === 'admin' ? 'Admin' : 'Membre'}
                                     </Badge>
                                 </div>
@@ -113,23 +148,23 @@ export default async function TroupeDashboard({
 
                         {/* Guest Members */}
                         {guests.map((guest: any) => (
-                            <div key={guest.id} className="flex items-center gap-4 p-4 rounded-lg border border-dashed bg-muted/5 opacity-80">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarFallback className="bg-muted text-muted-foreground font-bold">
+                            <div key={guest.id} className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-white/10 bg-white/0 opacity-70 hover:opacity-100 transition-all group relative">
+                                <Avatar className="h-12 w-12 border border-white/10">
+                                    <AvatarFallback className="bg-white/10 text-gray-400 font-bold">
                                         {(guest.name?.[0] || "?").toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium leading-none truncate">
+                                    <p className="text-base font-bold text-white leading-none truncate mb-1">
                                         {guest.name}
                                     </p>
-                                    <p className="text-xs text-muted-foreground truncate mt-1 italic">
-                                        Membre provisoire
+                                    <p className="text-[10px] text-primary/70 uppercase tracking-widest font-black leading-none">
+                                        Invité Provisoire
                                     </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
-                                    <Badge variant="outline" className="text-[10px] py-0 px-2">
-                                        Invité
+                                    <Badge variant="outline" className="text-[9px] py-0 px-2 rounded-full border-primary/20 bg-primary/5 text-primary">
+                                        GUEST
                                     </Badge>
                                 </div>
                             </div>

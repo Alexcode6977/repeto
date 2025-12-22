@@ -48,15 +48,15 @@ export function CastingManager({ characters, troupeMembers, guests }: CastingMan
     return (
         <div className="space-y-4">
             {characters.map((char) => (
-                <div key={char.id} className="flex items-center justify-between p-3 border rounded-lg bg-card hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                            {char.name.substring(0, 2)}
+                <div key={char.id} className="flex items-center justify-between p-5 rounded-2xl border border-white/5 bg-white/0 hover:bg-white/5 transition-all group overflow-hidden relative">
+                    <div className="flex items-center gap-4 relative">
+                        <div className="h-12 w-12 rounded-xl bg-primary/20 border border-primary/20 flex items-center justify-center text-primary font-black text-lg group-hover:scale-110 transition-transform">
+                            {char.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                            <p className="font-medium">{char.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                                {char.actor_id ? "Attribué" : "Non attribué"}
+                            <p className="font-bold text-white text-lg group-hover:text-primary transition-colors">{char.name}</p>
+                            <p className="text-[10px] uppercase font-black tracking-widest text-gray-500">
+                                {char.actor_id || char.guest_id ? "✅ Rôle Attribué" : "⏳ En attente"}
                             </p>
                         </div>
                     </div>
