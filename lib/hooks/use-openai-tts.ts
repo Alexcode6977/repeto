@@ -69,7 +69,14 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
                     setIsLoading(false);
                     return;
                 }
-                audio = new Audio(result.audio);
+
+                // Use existing ref if available to reuse the "warm" element
+                if (audioRef.current && !isSpeaking) {
+                    audio = audioRef.current;
+                    audio.src = result.audio;
+                } else {
+                    audio = new Audio(result.audio);
+                }
                 audioCache.current.set(key, audio);
             }
 
@@ -82,12 +89,12 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
 
                 const onEnd = () => {
                     setIsSpeaking(false);
-                    audioRef.current = null;
                     cleanup();
                     resolve();
                 };
 
-                const onError = () => {
+                const onError = (e: any) => {
+                    console.error("[OpenAI] Audio Error:", e);
                     setError("Failed to play audio");
                     setIsSpeaking(false);
                     setIsLoading(false);
@@ -98,10 +105,12 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
                 const cleanup = () => {
                     audio?.removeEventListener('ended', onEnd);
                     audio?.removeEventListener('error', onError);
+                    audio?.removeEventListener('pause', onEnd); // Safari sometimes fires pause instead of ended if interrupted
                 };
 
                 audio.addEventListener('ended', onEnd);
                 audio.addEventListener('error', onError);
+                audio.addEventListener('pause', onEnd);
 
                 // Set speaking true immediately before play
                 setIsSpeaking(true);

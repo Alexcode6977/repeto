@@ -63,6 +63,29 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         openaiSpeech.stop();
     };
 
+    // Helper for synthetic recording "bip" (important for iPad feedback)
+    const playBip = () => {
+        try {
+            const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+            if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            }
+        } catch (e) {
+            console.warn("[Speech] Failed to play bip", e);
+        }
+    };
+
     const [currentLineIndex, setCurrentLineIndex] = useState(initialLineIndex);
     const [status, setStatus] = useState<RehearsalStatus>("setup");
     const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
@@ -173,6 +196,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         setTimeout(() => {
             if (isUserLine(line.character)) {
                 setStatus("listening_user");
+                playBip();
             } else {
                 setStatus("playing_other");
             }
@@ -198,6 +222,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 manualSkipRef.current = false;
                 if (isUserLine(nextLine.character)) {
                     setStatus("listening_user");
+                    playBip();
                 } else {
                     setStatus("playing_other");
                 }
@@ -227,6 +252,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 manualSkipRef.current = false;
                 if (isUserLine(prevLine.character)) {
                     setStatus("listening_user");
+                    playBip();
                 } else {
                     setStatus("playing_other");
                 }
@@ -259,6 +285,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             manualSkipRef.current = false;
             if (isUserLine(line.character)) {
                 setStatus("listening_user");
+                playBip();
             } else {
                 setStatus("playing_other");
             }
@@ -373,11 +400,18 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                             // Defensive pause on mobile to allow audio hardware to switch roles
                             await new Promise(r => setTimeout(r, 600));
                             setStatus("listening_user");
+                            playBip();
                         }
                     }
                 } catch (e) {
                     if (e !== "Cancelled") {
-                        setStatus("error");
+                        // Anti-Loop for recognition errors too
+                        if (retryCount >= 2) {
+                            next();
+                        } else {
+                            setRetryCount(prev => prev + 1);
+                            setStatus("error");
+                        }
                     }
                 }
             }
