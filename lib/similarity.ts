@@ -32,6 +32,16 @@ const PLAY_FIXES: Record<string, [RegExp, string][]> = {
     ]
 };
 
+const GLOBAL_FIXES: [RegExp, string][] = [
+    [/\bloin\b/g, "l'un"],
+    [/\bêtes\b/g, "êtes"],
+    [/\bqu'il\b/g, "qu'il"],
+    [/\bqu'elle\b/g, "qu'elle"],
+    [/\bdans\b/g, "en"], // Sometimes confused in fast speech
+    [/\bes-tu\b/gi, "es-tu"],
+    [/\bconnais\b/g, "connais"],
+];
+
 export function cleanTranscript(text: string, playTitle?: string): string {
     let t = text.toLowerCase();
     const numbers = ["zéro", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf", "dix", "onze", "douze"];
@@ -63,6 +73,11 @@ export function cleanTranscript(text: string, playTitle?: string): string {
                 break;
             }
         }
+    }
+
+    // Apply global fixes
+    for (const [pattern, replacement] of GLOBAL_FIXES) {
+        t = t.replace(pattern, replacement);
     }
 
     return t;

@@ -107,7 +107,7 @@ export function calculatePause(text: string): number {
     if (text.endsWith('?')) return vary(380, 80);
     if (text.endsWith('!')) return vary(350, 100);
     if (text.endsWith(';')) return vary(280, 60);
-    if (text.endsWith(':')) return vary(320, 80);
+    if (text.endsWith(':')) return vary(400, 100); // Longer pause for colon
     if (text.length < 30) return vary(180, 60);
     if (text.length > 100) return vary(400, 100);
 
@@ -125,7 +125,8 @@ export function isVoiceCommand(text: string): boolean {
  * Segment text into natural chunks with emotion detection
  */
 export function segmentText(text: string): TextSegment[] {
-    const rawSegments = text.split(/(?<=[.!?;])\s+/).filter(s => s.trim());
+    // Split on . ! ? ; and : (theatrical colon often indicates a significant pause)
+    const rawSegments = text.split(/(?<=[.!?;:])\s+/).filter(s => s.trim());
 
     return rawSegments.map(segment => {
         const emotion = detectEmotion(segment);
@@ -221,8 +222,15 @@ export function applyPhoneticCorrections(text: string): string {
         .replace(/\bM\.(?=[A-ZÀ-Þ])/gi, 'Monsieur ')
         .replace(/\bSt\-/gi, 'Saint-')
         .replace(/\bSte\-/gi, 'Sainte-')
+        // Theatrical archaic forms for natural delivery
         .replace(/\bHélas\b/gi, 'Hélàs')
         .replace(/\bMorbleu\b/gi, 'Morbleû')
         .replace(/\bPalsambleu\b/gi, 'Palsembleû')
-        .replace(/\bParbleu\b/gi, 'Parbleû');
+        .replace(/\bParbleu\b/gi, 'Parbleû')
+        .replace(/\bSacrebleu\b/gi, 'Sacrebleû')
+        .replace(/\bVentrebleu\b/gi, 'Ventrebleû')
+        // Common mistranslations / mispronunciations
+        .replace(/\b(?<!')assurez-vous\b/gi, 'assuré-vous') // Pronounce final 'z' correctly
+        .replace(/\b(?<!')voyons\b/gi, 'voi-yon') // Softer ending
+        .replace(/\bEh bien\b/gi, 'É bien');
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
+import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { synthesizeSpeech } from "@/app/actions/tts";
 import { getVoiceStatus } from "@/app/actions/voice";
 import { Button } from "./ui/button";
@@ -184,6 +185,8 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
         initializeAudio
     } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments, skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [] });
 
+    const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
+
     const handleStart = async () => {
         // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)
         try {
@@ -200,6 +203,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
 
         setHasStarted(true);
         sessionStartRef.current = Date.now();
+        requestWakeLock();
         start();
     };
 
@@ -329,6 +333,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                 setPendingExit(true);
             }
         } else {
+            releaseWakeLock();
             onExit();
         }
     };
@@ -350,6 +355,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
     const handleFeedbackClose = () => {
         setShowFeedbackModal(false);
         if (pendingExit) {
+            releaseWakeLock();
             onExit();
         }
     };
@@ -886,6 +892,15 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
                                 <span className="tabular-nums">{currentLineIndex + 1}/{totalLines}</span>
                                 <span className="text-gray-600">•</span>
                                 <span>{progressPercent}%</span>
+                                {isWakeLockActive && (
+                                    <>
+                                        <span className="text-gray-600">•</span>
+                                        <span className="flex items-center gap-1 group/wake">
+                                            <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                                            <span className="md:inline hidden">Lock</span>
+                                        </span>
+                                    </>
+                                )}
                             </div>
 
                             {/* Scene Name */}

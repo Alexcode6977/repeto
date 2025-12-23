@@ -733,6 +733,10 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
         .filter(c => {
             if (c === "SCENE") return false;
             if (c.includes(" et ") || c.includes(",")) return false;
+
+            // If the character was explicitly validated in the wizard, keep it!
+            if (charWhitelist && charWhitelist.has(c.toUpperCase())) return true;
+
             if (finalCounts[c] < CONFIG.MIN_LINES_THRESHOLD) {
                 console.log(`[Parser] Filtering out "${c}" (only ${finalCounts[c]} line(s))`);
                 return false;
