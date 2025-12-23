@@ -128,7 +128,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     const isUserLine = (lineChar: string) => {
         const normalizedLineChar = lineChar.toLowerCase().trim();
         const normalizedUserChar = userCharacter.toLowerCase().trim();
-        return normalizedLineChar === normalizedUserChar || normalizedLineChar.split(/[\s,]+/).includes(normalizedUserChar);
+        return normalizedLineChar === normalizedUserChar ||
+            normalizedLineChar.split(',').map(s => s.trim()).includes(normalizedUserChar);
     };
 
     // Helper to check if a line should be skipped (e.g., DIDASCALIES)
