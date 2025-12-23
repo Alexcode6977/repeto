@@ -91,7 +91,7 @@ export function cleanTranscript(text: string, playTitle?: string): string {
 /**
  * Memory-efficient Levenshtein distance (O(min(n,m)) space)
  */
-export function calculateSimilarity(str1: string, str2: string, playTitle?: string): number {
+export function calculateSimilarity(str1: string, str2: string, playTitle?: string, similarityThreshold: number = 0.85): number {
     if (!str1 || !str2) return (str1 === str2) ? 1.0 : 0.0;
 
     const normalize = (s: string) =>
@@ -172,7 +172,65 @@ export function calculateSimilarity(str1: string, str2: string, playTitle?: stri
         return Math.max(score, 0.85);
     }
 
+    // == PHONETIC FALLBACK ==
+    // Special layer for homophones (Jean/Gens, Vaux/Veau).
+    // If we're still below threshold, check phonetic similarity.
+    if (score < similarityThreshold && score >= 0.6) {
+        const p1 = frenchPhonetic(s1Value);
+        const p2 = frenchPhonetic(s2Value);
+        if (p1 === p2) return Math.max(score, similarityThreshold);
+
+        const pDist = calculateLevenshtein(p1, p2);
+        const pMaxLen = Math.max(p1.length, p2.length);
+        const pScore = 1.0 - (pDist / pMaxLen);
+
+        if (pScore > score) {
+            // Boost score if phonetically very similar
+            score = Math.max(score, pScore * 0.9); // Slight penalty for phonetic-only
+        }
+    }
+
     return score;
+}
+
+function frenchPhonetic(text: string): string {
+    let s = text.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+        .replace(/[^a-z]/g, " "); // Keep spaces for word concepts
+
+    if (s.trim().length === 0) return "";
+
+    // 1. Phonetization (Word-aware)
+    s = s.replace(/\bph/g, "f")
+        .replace(/qu|ck|k/g, "k")
+        .replace(/c(?=[eiy])/g, "s")
+        .replace(/c/g, "k")
+        .replace(/g(?=[eiy])/g, "j")
+        .replace(/gu/g, "g")
+        .replace(/\best\b/g, "e") // "est" sounds like "e"
+        .replace(/ai|ei|et|er|ez/g, "e")
+        .replace(/au|eau/g, "o")
+        .replace(/ou/g, "u")
+        .replace(/e?an|e?am|e?en|e?em/g, "2")
+        .replace(/ein|ain|in|im/g, "1")
+        .replace(/on|om/g, "3")
+        .replace(/oi/g, "wa")
+        .replace(/h/g, "");
+
+    // 2. Word-level silent terminal letters
+    s = s.split(/\s+/).map(word => {
+        if (word.length <= 1) return word;
+        // Strip common silent terminals in theatrical French
+        let w = word.replace(/[stdxgp]+$/g, "");
+        // Special: final 'e' after consonant is often silent
+        w = w.replace(/e$/g, "");
+        return w;
+    }).join("");
+
+    // 3. Final Consonants simplification (now that words are joined)
+    s = s.replace(/([b-df-hj-np-rt-vw-z])\1+/g, "$1");
+
+    return s;
 }
 
 /**

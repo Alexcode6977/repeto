@@ -182,7 +182,8 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
         voiceAssignments,
         setVoiceForRole,
         voices,
-        initializeAudio
+        initializeAudio,
+        transcript // Real-time interim transcript
     } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments, skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [] });
 
     const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
@@ -1010,6 +1011,29 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
 
                         {/* CENTRAL ORB with CIRCULAR PROGRESS RING */}
                         <div className="relative group">
+                            {/* LIVE TRANSCRIPT BUBBLE (Above Orb) */}
+                            <AnimatePresence>
+                                {status === "listening_user" && transcript && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.5 }}
+                                        className="absolute -top-16 left-1/2 -translate-x-1/2 w-full max-w-[250px] flex flex-wrap justify-center gap-1 z-50 px-2"
+                                    >
+                                        {transcript.split(" ").slice(-6).map((word, idx) => (
+                                            <motion.span
+                                                key={`${word}-${idx}`}
+                                                initial={{ opacity: 0, x: -5 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className="bg-yellow-500/20 text-yellow-500 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full border border-yellow-500/30 backdrop-blur-md shadow-lg"
+                                            >
+                                                {word}
+                                            </motion.span>
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             {/* Progress Ring SVG */}
                             <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] rotate-[-90deg]" viewBox="0 0 100 100">
                                 {/* Background Ring */}

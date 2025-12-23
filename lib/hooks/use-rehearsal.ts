@@ -34,7 +34,7 @@ import { isNextCommand, isPrevCommand } from "../speech-utils";
 export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [] }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const openaiSpeech = useOpenAITTS();
-    const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio } = browserSpeech;
+    const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
 
     // Use specialized voice hook
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
@@ -427,6 +427,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         status,
         feedback,
         lastTranscript,
+        transcript, // Real-time interim transcript
         start,
         next,
         retry,
