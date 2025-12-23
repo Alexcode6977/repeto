@@ -151,10 +151,11 @@ export function useSpeech(): UseSpeechReturn {
                 const segment = segments[i];
                 if (!segment.text.trim()) continue;
 
-                // Explicitly cancel previous segment to avoid iOS "stacking" or speed artifacts
-                synthRef.current?.cancel();
-
                 await speakSegment(segment.text, voice, segment.emotion);
+
+                // SAFE_BUFFER_DELAY: Small pause to allow audio hardware to "breathe" 
+                // between buffers, preventing word truncation on mobile/Bluetooth.
+                await pause(80);
 
                 // Natural pause between segments (sentences)
                 if (i < segments.length - 1 && !cancelledRef.current) {
@@ -182,15 +183,22 @@ export function useSpeech(): UseSpeechReturn {
             // Apply phonetic corrections for better theatrical French
             let processedText = applyPhoneticCorrections(text);
 
-            // Clean text - remove punctuation that TTS might read aloud
             // Keep apostrophes (important for French contractions like "l'homme")
-            const cleanedText = processedText
+            // Preserve the padding marker if present
+            const paddingMarker = " . ";
+            const hasPadding = processedText.endsWith(paddingMarker);
+
+            let cleanedText = processedText
                 .replace(/\.\.\./g, '')      // Remove ellipsis
                 .replace(/[.!?;:,]/g, '')    // Remove sentence-ending punctuation
                 .replace(/[«»""]/g, '')      // Remove quotes
                 .replace(/[-–—]/g, ' ')      // Replace dashes with spaces for natural pauses
                 .replace(/\s+/g, ' ')         // Normalize spaces
                 .trim();
+
+            if (hasPadding) {
+                cleanedText += paddingMarker;
+            }
 
             if (!cleanedText) {
                 resolve();

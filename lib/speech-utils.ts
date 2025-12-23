@@ -131,7 +131,12 @@ export function segmentText(text: string): TextSegment[] {
     return rawSegments.map(segment => {
         const emotion = detectEmotion(segment);
         const pauseAfter = calculatePause(segment);
-        return { text: segment, emotion, pauseAfter };
+
+        // Utterance Padding: Append a silent mark to ensure the engine 
+        // doesn't truncate the final word before natural decay.
+        const paddedText = segment + " . ";
+
+        return { text: paddedText, emotion, pauseAfter };
     });
 }
 
@@ -223,14 +228,23 @@ export function applyPhoneticCorrections(text: string): string {
         .replace(/\bSt\-/gi, 'Saint-')
         .replace(/\bSte\-/gi, 'Sainte-')
         // Theatrical archaic forms for natural delivery
-        .replace(/\bHélas\b/gi, 'Hélàs')
+        .replace(/\bHélas\b/gi, 'Hélâsse')
         .replace(/\bMorbleu\b/gi, 'Morbleû')
         .replace(/\bPalsambleu\b/gi, 'Palsembleû')
         .replace(/\bParbleu\b/gi, 'Parbleû')
         .replace(/\bSacrebleu\b/gi, 'Sacrebleû')
         .replace(/\bVentrebleu\b/gi, 'Ventrebleû')
-        // Common mistranslations / mispronunciations
+        // Common mistranslations / mispronunciations / Missing liaisons
         .replace(/\b(?<!')assurez-vous\b/gi, 'assuré-vous') // Pronounce final 'z' correctly
         .replace(/\b(?<!')voyons\b/gi, 'voi-yon') // Softer ending
-        .replace(/\bEh bien\b/gi, 'É bien');
+        .replace(/\bEh bien\b/gi, 'É bien')
+        .replace(/\best-il\b/gi, 'è-til')
+        .replace(/\best-elle\b/gi, 'è-telle')
+        .replace(/\bpeut-être\b/gi, 'peut-ètre')
+        .replace(/\bvas-y\b/gi, 'vazi')
+        .replace(/\ballons-y\b/gi, 'allon-zi')
+        .replace(/\bContent\b/g, 'Contan')
+        .replace(/\bcontent\b/g, 'contan')
+        .replace(/\bComment\b/g, 'Comman')
+        .replace(/\bcomment\b/g, 'comman');
 }
