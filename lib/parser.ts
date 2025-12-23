@@ -478,7 +478,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
 
     // "CHARACTER." or "CHARACTER," or "CHARACTER:" at start
     // Examples: "LE MAÎTRE DE MUSIQUE." or "Monsieur Jourdain:" or "LUCIEN."
-    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
+    // Refinement: require at least 2 characters for the name part (avoids "M." or "D." at start of line)
+    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']{1,})[:\.,]\s*(.*)/;
 
     // Standalone uppercase line (possibly with a trailing dot)
     const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']{1,35}[\.]?)\s*$/;
@@ -487,6 +488,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     const sceneRegex = /^(?:SCÈNE|SCENE|ACTE|TABLEAU)\s+(?:[IVX0-9]+|PREMI[ÈE]RE?|DERNI[ÈE]RE?)/i;
 
     // === MAIN PARSING LOOP ===
+    let previousLine = "";
 
     for (const originalLine of lines) {
         // Clean line
@@ -522,10 +524,18 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             continue;
         }
 
-        // Try to detect character
+        // Check for character
         let potentialName = "";
         let potentialDialogue = "";
         let matched = false;
+
+        // DIALOGUE CONTINUITY CHECK
+        // If the previous line doesn't end with sentence punctuation or ends with a connector,
+        // we are very likely continuing a sentence, even if it looks like a character name.
+        const isContinuing = previousLine && (
+            !/[.!?:…]$/.test(previousLine) ||
+            /\b(M\.|Mme\.|Mlle\.|à|de|et|ou|mais|que|qui)\s*$/i.test(previousLine)
+        );
 
         // Pattern 1: "NAME. dialogue" or "NAME, description"
         const prefixMatch = line.match(characterPrefixRegex);
@@ -552,14 +562,28 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             // Pattern 2: Standalone name on its own line
             const nameMatch = line.match(characterLineRegex);
             if (nameMatch) {
-                const rawName = nameMatch[1].trim().replace(/\.$/, "");
-                // CRITICAL: Must be ALL CAPS
-                const isAllCaps = rawName === rawName.toUpperCase() && /[A-ZÀ-Þ]/.test(rawName);
-                if (isAllCaps && rawName.length >= 3) {
-                    potentialName = rawName;
-                    matched = true;
+                const rawName = nameMatch[1].trim();
+
+                // STANDALONE COMMA CHECK
+                // Addresses or mentions like "LANDERNAU," shouldn't be headers
+                if (rawName.endsWith(",")) {
+                    matched = false;
+                } else {
+                    const cleanName = rawName.replace(/\.$/, "");
+                    // CRITICAL: Must be ALL CAPS
+                    const isAllCaps = cleanName === cleanName.toUpperCase() && /[A-ZÀ-Þ]/.test(cleanName);
+                    if (isAllCaps && cleanName.length >= 3) {
+                        potentialName = cleanName;
+                        matched = true;
+                    }
                 }
             }
+        }
+
+        // Apply continuity override
+        if (matched && isContinuing && currentCharacter) {
+            // console.log(`[Parser] Overriding matched character "${potentialName}" because line is continuing: "${previousLine}"`);
+            matched = false;
         }
 
         if (matched && potentialName) {
@@ -676,6 +700,9 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
         if (currentCharacter) {
             currentBuffer += (currentBuffer ? " " : "") + line;
         }
+
+        // Update previous line for next iteration
+        previousLine = line;
     }
 
     // Flush final buffer
