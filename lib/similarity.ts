@@ -40,6 +40,11 @@ const GLOBAL_FIXES: [RegExp, string][] = [
     [/\bdans\b/g, "en"], // Sometimes confused in fast speech
     [/\bes-tu\b/gi, "es-tu"],
     [/\bconnais\b/g, "connais"],
+    [/\bchais\b/g, "je sais"], // "chais pas" -> "je sais pas"
+    [/\bch'ais\b/g, "je sais"],
+    [/\bspa\b/g, "c'est pas"],
+    [/\bt'as\b/g, "tu as"],
+    [/\bt'es\b/g, "tu es"],
 ];
 
 export function cleanTranscript(text: string, playTitle?: string): string {
@@ -92,7 +97,9 @@ export function calculateSimilarity(str1: string, str2: string, playTitle?: stri
     const normalize = (s: string) =>
         s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             .toLowerCase()
+            .replace(/[',]/g, " ") // Treat apostrophes and commas as spaces (j'ai -> j ai)
             .replace(/[^a-z0-9\s]/g, "")
+            .replace(/\b(ne|n)\b/g, "") // ONLY remove negation particles for flexibility
             .replace(/\s+/g, " ")
             .trim();
 
@@ -133,5 +140,61 @@ export function calculateSimilarity(str1: string, str2: string, playTitle?: stri
     const distance = prevRow[len1];
     const maxLength = Math.max(s1Value.length, s2Value.length);
 
-    return 1.0 - (distance / maxLength);
+    // Calculate base similarity
+    let score = 1.0 - (distance / maxLength);
+
+    // == SPACELESS FALLBACK ==
+    // Robustness for puns and word splitting (ex: "Lanoix" vs "La noix").
+    // We compare strings without spaces.
+    const s1SpaceLess = s1Value.replace(/\s+/g, "");
+    const s2SpaceLess = s2Value.replace(/\s+/g, "");
+
+    // We only compute this if the base score is borderline or if strings lengths are similar
+    if (score < 0.9 && Math.abs(s1SpaceLess.length - s2SpaceLess.length) <= 3) {
+        // Simple internal Levenshtein for spaceless
+        const distSpaceLess = calculateLevenshtein(s1SpaceLess, s2SpaceLess);
+        const maxLenSpaceLess = Math.max(s1SpaceLess.length, s2SpaceLess.length);
+        const spacelessScore = 1.0 - (distSpaceLess / maxLenSpaceLess);
+
+        // If spaceless is much better, use it (capped at 0.95 to avoid false positives)
+        if (spacelessScore > score) {
+            score = Math.min(spacelessScore, 0.95);
+        }
+    }
+
+    // == SHORT LINE TOLERANCE ==
+    // For very short theatrical lines (1-2 words), we are more permissive.
+    // If distance is only 1 or 2 characters and the line is short, we allow it.
+    const wordsCount = s2Value.split(" ").length;
+    if (wordsCount <= 2 && distance <= 2) {
+        // e.g. "Hein" vs "Hein ?" or "Ah" vs "Oh" (if distance small enough)
+        // This helps with transcription noise on interjections.
+        return Math.max(score, 0.85);
+    }
+
+    return score;
+}
+
+/**
+ * Basic Levenshtein distance for internal use
+ */
+function calculateLevenshtein(s1: string, s2: string): number {
+    const len1 = s1.length;
+    const len2 = s2.length;
+    const matrix = Array(len1 + 1).fill(null).map(() => Array(len2 + 1).fill(null));
+
+    for (let i = 0; i <= len1; i++) matrix[i][0] = i;
+    for (let j = 0; j <= len2; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= len1; i++) {
+        for (let j = 1; j <= len2; j++) {
+            const cost = s1[i - 1] === s2[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            );
+        }
+    }
+    return matrix[len1][len2];
 }
