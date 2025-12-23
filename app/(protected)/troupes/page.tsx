@@ -9,7 +9,7 @@ export default async function TroupesPage() {
     const troupes = await getUserTroupes();
 
     return (
-        <div className="space-y-12">
+        <div className="max-w-7xl mx-auto p-6 md:p-12 space-y-12">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
                 <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />

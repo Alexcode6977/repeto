@@ -28,11 +28,6 @@ export default async function TroupeDashboard({
                 <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
 
                 <div className="relative">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Link href="/troupes" className="text-gray-500 hover:text-white transition-colors text-sm font-medium flex items-center gap-1 group">
-                            <span className="group-hover:-translate-x-1 transition-transform">←</span> Retour aux troupes
-                        </Link>
-                    </div>
                     <h1 className="text-5xl font-extrabold tracking-tighter text-white mb-2">
                         {troupe?.name}
                     </h1>
@@ -46,46 +41,6 @@ export default async function TroupeDashboard({
                 <InviteCodeCard joinCode={troupe?.join_code} />
             </div>
 
-            {/* Main Navigation Grid */}
-            <div className="grid gap-8 md:grid-cols-2">
-                <Link href={`/troupes/${troupeId}/plays`} className="group">
-                    <Card className="bg-white/5 border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-blue-500/30 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.15)] rounded-3xl border h-full">
-                        <CardHeader className="p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="w-14 h-14 rounded-2xl bg-blue-500/20 border border-blue-500/20 flex items-center justify-center">
-                                    <BookOpen className="h-7 w-7 text-blue-400" />
-                                </div>
-                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:bg-blue-500 transition-all">
-                                    <span className="text-sm">→</span>
-                                </div>
-                            </div>
-                            <CardTitle className="text-2xl font-bold text-white mb-2">Pièces & Scripts</CardTitle>
-                            <p className="text-gray-400 text-sm leading-relaxed">
-                                Gérez vos textes, distribuez les rôles et analysez les scripts avec vos coéquipiers.
-                            </p>
-                        </CardHeader>
-                    </Card>
-                </Link>
-
-                <Link href={`/troupes/${troupeId}/calendar`} className="group">
-                    <Card className="bg-white/5 border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-green-500/30 group-hover:shadow-[0_0_40px_rgba(34,197,94,0.15)] rounded-3xl border h-full">
-                        <CardHeader className="p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="w-14 h-14 rounded-2xl bg-green-500/20 border border-green-500/20 flex items-center justify-center">
-                                    <Calendar className="h-7 w-7 text-green-400" />
-                                </div>
-                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:bg-green-500 transition-all">
-                                    <span className="text-sm">→</span>
-                                </div>
-                            </div>
-                            <CardTitle className="text-2xl font-bold text-white mb-2">Calendrier</CardTitle>
-                            <p className="text-gray-400 text-sm leading-relaxed">
-                                Planifiez vos répétitions, cochez les présences et suivez l'avancée de la troupe.
-                            </p>
-                        </CardHeader>
-                    </Card>
-                </Link>
-            </div>
 
             {/* Members Section - Embedded directly */}
             <Card className="bg-white/5 border-white/10 backdrop-blur-md rounded-3xl border overflow-hidden">

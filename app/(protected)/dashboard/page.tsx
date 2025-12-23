@@ -367,7 +367,7 @@ export default function Home() {
   }
 
   return (
-    <div className="w-full pb-32 animate-in fade-in zoom-in duration-500 relative min-h-screen">
+    <div className="max-w-7xl mx-auto p-6 md:p-12 pb-32 animate-in fade-in zoom-in duration-500 relative min-h-screen">
 
       {/* Floating Action Button (Mobile) - Always Visible */}
       <div className="fixed bottom-6 right-6 z-50 md:hidden">

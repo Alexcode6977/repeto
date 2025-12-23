@@ -25,7 +25,8 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
         if (event && isOpen) {
             const initial: Record<string, string> = {};
             event.event_attendance?.forEach((a: any) => {
-                initial[a.user_id] = a.status;
+                const id = a.user_id || a.guest_id;
+                if (id) initial[id] = a.status;
             });
             setAttendances(initial);
         }
@@ -33,12 +34,19 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
 
     if (!event) return null;
 
-    const handleStatusUpdate = async (userId: string, status: 'present' | 'absent') => {
-        // Only admins can update others, or users can update themselves
-        setUpdating(userId);
+    const handleStatusUpdate = async (member: any, status: 'present' | 'absent') => {
+        const id = member.user_id || member.guest_id;
+        if (!id) return;
+
+        setUpdating(id);
         try {
-            await updateAttendance(event.id, status, userId); // Need to update action to accept userId
-            setAttendances(prev => ({ ...prev, [userId]: status }));
+            await updateAttendance(
+                event.id,
+                status,
+                member.isGuest ? undefined : member.user_id,
+                member.isGuest ? member.guest_id : undefined
+            );
+            setAttendances(prev => ({ ...prev, [id]: status }));
         } catch (e) {
             console.error(e);
         } finally {
@@ -64,13 +72,14 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
 
                     <div className="space-y-2">
                         {members.map(member => {
-                            const status = attendances[member.user_id] || 'unknown';
+                            const id = member.user_id || member.guest_id;
+                            const status = attendances[id] || 'unknown';
                             const isPresent = status === 'present';
                             const isAbsent = status === 'absent';
-                            const isUpdating = updating === member.user_id;
+                            const isUpdating = updating === id;
 
                             return (
-                                <div key={member.user_id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-transparent hover:border-secondary/50 transition-all">
+                                <div key={id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-transparent hover:border-secondary/50 transition-all">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-10 w-10">
                                             <AvatarFallback className={isPresent ? "bg-green-600 text-white" : ""}>
@@ -78,7 +87,10 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
                                             </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="font-bold text-sm">{member.first_name || "Membre"}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="font-bold text-sm">{member.first_name || "Membre"}</p>
+                                                {member.isGuest && <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4">Invité</Badge>}
+                                            </div>
                                             <p className="text-xs text-muted-foreground capitalize">
                                                 {status === 'unknown' ? 'Non répondu' : status === 'present' ? 'Présent' : 'Absent'}
                                             </p>
@@ -87,7 +99,7 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
 
                                     <div className="flex gap-1">
                                         <button
-                                            onClick={() => handleStatusUpdate(member.user_id, 'present')}
+                                            onClick={() => handleStatusUpdate(member, 'present')}
                                             disabled={isUpdating}
                                             className={cn(
                                                 "h-9 w-9 rounded-full flex items-center justify-center transition-all border",
@@ -97,7 +109,7 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
                                             <Check className="w-4 h-4" />
                                         </button>
                                         <button
-                                            onClick={() => handleStatusUpdate(member.user_id, 'absent')}
+                                            onClick={() => handleStatusUpdate(member, 'absent')}
                                             disabled={isUpdating}
                                             className={cn(
                                                 "h-9 w-9 rounded-full flex items-center justify-center transition-all border",

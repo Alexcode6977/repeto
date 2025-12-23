@@ -72,7 +72,7 @@ export default async function ProtectedLayout({
             </header>
 
             {/* Main Content */}
-            <main className="flex-1 w-full max-w-7xl mx-auto p-6 md:p-12 relative">
+            <main className="flex-1 w-full relative">
                 {children}
             </main>
         </div>

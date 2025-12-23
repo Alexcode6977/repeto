@@ -1,0 +1,62 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
+import {
+    LayoutDashboard,
+    Calendar,
+    BookOpen
+} from "lucide-react";
+
+interface TroupeMobileNavProps {
+    troupeId: string;
+}
+
+export function TroupeMobileNav({ troupeId }: TroupeMobileNavProps) {
+    const pathname = usePathname();
+
+    const navItems = [
+        {
+            label: "Dashboard",
+            href: `/troupes/${troupeId}`,
+            icon: LayoutDashboard,
+            active: pathname === `/troupes/${troupeId}`
+        },
+        {
+            label: "Calendrier",
+            href: `/troupes/${troupeId}/calendar`,
+            icon: Calendar,
+            active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
+        },
+        {
+            label: "Pièces",
+            href: `/troupes/${troupeId}/plays`,
+            icon: BookOpen,
+            active: pathname.startsWith(`/troupes/${troupeId}/plays`)
+        }
+    ];
+
+    return (
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-black/40 backdrop-blur-xl border-t border-white/10 z-50 flex items-center justify-around px-2 md:hidden">
+            {navItems.map((item) => (
+                <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                        "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-300",
+                        item.active
+                            ? "text-primary"
+                            : "text-gray-500 hover:text-white"
+                    )}
+                >
+                    <item.icon className={cn(
+                        "w-5 h-5",
+                        item.active ? "text-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" : ""
+                    )} />
+                    <span className="text-[10px] font-bold uppercase tracking-tight">{item.label}</span>
+                </Link>
+            ))}
+        </div>
+    );
+}

@@ -15,7 +15,8 @@ export async function getTroupeEvents(troupeId: string, startDate: Date, endDate
             plays (title),
             event_attendance (
                 status,
-                user_id
+                user_id,
+                guest_id
             )
         `)
         .eq('troupe_id', troupeId)
@@ -78,23 +79,35 @@ export async function createEvent(
     revalidatePath(`/troupes/${troupeId}/calendar`);
 }
 
-export async function updateAttendance(eventId: string, status: 'present' | 'absent' | 'unknown', targetUserId?: string) {
+export async function updateAttendance(
+    eventId: string,
+    status: 'present' | 'absent' | 'unknown',
+    targetUserId?: string,
+    targetGuestId?: string
+) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // If targetUserId is provided, check if current user is admin of the troupe?
-    // For now, simpler: allow updating others if a member. Ideally, we should check admin role.
-    const userIdToUpdate = targetUserId || user.id;
+    const updateData: any = {
+        event_id: eventId,
+        status: status
+    };
+
+    let onConflict = '';
+
+    if (targetGuestId) {
+        updateData.guest_id = targetGuestId;
+        onConflict = 'event_id, guest_id';
+    } else {
+        updateData.user_id = targetUserId || user.id;
+        onConflict = 'event_id, user_id';
+    }
 
 
     const { error } = await supabase
         .from('event_attendance')
-        .upsert({
-            event_id: eventId,
-            user_id: userIdToUpdate,
-            status: status
-        });
+        .upsert(updateData, { onConflict });
 
     if (error) {
         console.error('Error updating attendance:', error);

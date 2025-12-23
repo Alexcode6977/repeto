@@ -32,25 +32,20 @@ export default async function CalendarPage({
     const members = await getTroupeMembers(troupeId);
     const guests = await getTroupeGuests(troupeId);
 
-    // Combine for calendar list
+    // Combine for calendar list - Unify members and guests
     const allMembers = [
-        ...members,
+        ...members.map((m: any) => ({ ...m, user_id: m.id || m.user_id })),
         ...guests.map((g: any) => ({
-            user_id: g.id, // Ensure guests have IDs that match their attendance records (which usually link to real users, but here for display) 
-            // Wait, guest attendance isn't linked to auth users. This is a limit of the current 'guest' model. 
-            // However, the prompt implies "liste des gens", so we list them. 
-            // Guests effectively can't have "attendance" checked if they are not users, unless we change schemas. 
-            // For now, let's assume we list them but maybe disabling toggle if no user_id? 
-            // Actually, let's check schema: event_attendance links to profiles(id). Guests are not profiles. 
-            // So for now, we only track real members.
-            // But I will list them.
+            id: g.id, // This is guest_id
+            guest_id: g.id,
             first_name: g.name,
-            email: g.email || "Invité"
+            email: g.email || "Invité",
+            isGuest: true
         }))
     ];
-    // Filter out guests for now regarding attendance logic since schema enforces profile link
-    // Only real members for attendance toggle
-    const attendanceMembers = members;
+
+    // All participants (real members + guests) can have attendance tracked
+    const attendanceParticipants = allMembers;
 
     const plays = await getTroupePlays(troupeId);
     const supabase = await createClient();
@@ -101,7 +96,7 @@ export default async function CalendarPage({
                 currentYear={currentYear}
                 eventsByDate={eventsByDate}
                 userId={user?.id || ''}
-                members={attendanceMembers}
+                members={attendanceParticipants}
                 isAdmin={isAdmin}
             />
 
