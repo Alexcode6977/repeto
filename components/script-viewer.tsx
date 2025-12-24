@@ -16,79 +16,66 @@ export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
     const [selectedChar, setSelectedChar] = useState<string | null>(null);
 
     return (
-        <div className="space-y-6 w-full max-w-2xl">
-            <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-white text-center">
+        <div className="space-y-12 w-full max-w-2xl py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center space-y-4">
+                <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
                     Choisissez votre personnage
                 </h2>
-                <div className="flex flex-wrap gap-2 justify-center">
-                    {script.characters.map((char) => (
+                <p className="text-gray-400 text-sm md:text-base">
+                    Sélectionnez le rôle que vous souhaitez interpréter
+                </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3 justify-center max-w-xl mx-auto">
+                {script.characters.map((char) => {
+                    const isSelected = selectedChar === char;
+                    return (
                         <Button
                             key={char}
-                            variant={selectedChar === char ? "default" : "glass"}
+                            variant={isSelected ? "default" : "glass"}
                             onClick={() => setSelectedChar(char)}
                             className={cn(
-                                "transition-all duration-300",
-                                selectedChar === char ? "scale-105 ring-2 ring-white/50" : ""
+                                "h-auto py-3 px-6 rounded-2xl text-base font-bold transition-all duration-300",
+                                isSelected
+                                    ? "scale-105 shadow-[0_0_20px_rgba(124,58,237,0.4)] ring-2 ring-primary/50"
+                                    : "hover:bg-white/10 hover:scale-[1.02]"
                             )}
                         >
                             {char}
                         </Button>
-                    ))}
-                </div>
+                    );
+                })}
             </div>
 
-            <div className="space-y-2">
-                <div className="flex justify-between items-center text-white/80">
-                    <h3 className="text-lg font-semibold">Aperçu du script</h3>
-                    {selectedChar && (
-                        <div className="flex gap-2 animate-in fade-in zoom-in">
-                            <Button
-                                onClick={() => onConfirm(selectedChar, 'reader')}
-                                variant="secondary"
-                                className="bg-yellow-500/10 text-yellow-200 hover:bg-yellow-500/20 border border-yellow-500/20"
-                            >
-                                <BookOpen className="w-4 h-4 mr-2" />
-                                Lire
-                            </Button>
-                            <Button onClick={() => onConfirm(selectedChar, 'rehearsal')}>
-                                <Play className="w-4 h-4 mr-2" />
-                                Répéter
-                            </Button>
+            {selectedChar && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-8 animate-in fade-in zoom-in duration-500 max-w-lg mx-auto w-full">
+                    <button
+                        onClick={() => onConfirm(selectedChar, 'reader')}
+                        className="group relative flex flex-col items-center justify-center gap-4 p-8 bg-white/5 border border-white/10 rounded-[2rem] hover:bg-white/10 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl"
+                    >
+                        <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                            <BookOpen className="w-8 h-8 text-yellow-400" />
                         </div>
-                    )}
-                </div>
+                        <div className="text-center">
+                            <h3 className="text-xl font-black text-white uppercase tracking-wider">Lire</h3>
+                            <p className="text-gray-400 text-[10px]">Découvrir le texte</p>
+                        </div>
+                    </button>
 
-                <Card className="max-h-[60vh] overflow-y-auto glass-card">
-                    <CardContent className="p-4 space-y-4">
-                        {script.lines.slice(0, 50).map((line) => (
-                            <div key={line.id} className="flex flex-col gap-1">
-                                <span
-                                    className={cn(
-                                        "text-xs font-bold uppercase tracking-wider",
-                                        line.character === selectedChar ? "text-primary" : "text-gray-500"
-                                    )}
-                                >
-                                    {line.character}
-                                </span>
-                                <p
-                                    className={cn(
-                                        "text-sm leading-relaxed",
-                                        line.character === selectedChar ? "text-white font-medium" : "text-gray-300"
-                                    )}
-                                >
-                                    {line.text}
-                                </p>
-                            </div>
-                        ))}
-                        {script.lines.length > 50 && (
-                            <p className="text-center text-xs text-gray-500 py-4 italic">
-                                ... {script.lines.length - 50} lignes masquées ...
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
+                    <button
+                        onClick={() => onConfirm(selectedChar, 'rehearsal')}
+                        className="group relative flex flex-col items-center justify-center gap-4 p-8 bg-primary/10 border border-primary/20 rounded-[2rem] hover:bg-primary/20 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20"
+                    >
+                        <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                            <Play className="w-8 h-8 text-white fill-white" />
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-xl font-black text-white uppercase tracking-wider">Répéter</h3>
+                            <p className="text-gray-300 text-[10px]">L'IA donne la réplique</p>
+                        </div>
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

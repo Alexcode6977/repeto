@@ -6,6 +6,7 @@ import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { synthesizeSpeech } from "@/app/actions/tts";
 import { getVoiceStatus } from "@/app/actions/voice";
+import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -82,12 +83,13 @@ interface RehearsalModeProps {
     userCharacter: string;
     onExit: () => void;
     isDemo?: boolean;
+    initialSettings?: ScriptSettings;
 }
 
-export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }: RehearsalModeProps) {
+export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, initialSettings }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
-    const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">("full");
+    const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
     const [hasStarted, setHasStarted] = useState(false);
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | null>(null);
     const [forceAudioOutput, setForceAudioOutput] = useState(false); // CarPlay experimental fix
@@ -103,19 +105,8 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
 
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
-
-
-
-    // Test browser voice
-    const testBrowserVoice = (char: string) => {
-        const voice = voiceAssignments[char];
-        if (voice) {
-            window.speechSynthesis.cancel();
-            const ut = new SpeechSynthesisUtterance("Bonjour, je suis prêt.");
-            ut.voice = voice;
-            window.speechSynthesis.speak(ut);
-        }
-    };
+    // Line Visibility State
+    const [lineVisibility, setLineVisibility] = useState<"visible" | "hint" | "hidden">(initialSettings?.visibility || "visible");
 
     // Fetch Premium Status on Mount
     useEffect(() => {
@@ -132,38 +123,18 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
         fetchStatus();
     }, []);
 
-
-
-    // Line Visibility State
-    const [lineVisibility, setLineVisibility] = useState<"visible" | "hint" | "hidden">("visible");
+    useEffect(() => {
+        if (initialSettings && !hasStarted) {
+            // Auto-sync if settings change
+            setRehearsalMode(initialSettings.mode);
+            setLineVisibility(initialSettings.visibility);
+        }
+    }, [initialSettings, hasStarted]);
 
     // OpenAI voice assignments per character
     type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
     const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, OpenAIVoice>>({});
     const [testingVoice, setTestingVoice] = useState<string | null>(null);  // Track which role is being tested
-
-    // Function to test OpenAI voice
-    const testOpenAIVoice = async (role: string, voice: OpenAIVoice) => {
-        setTestingVoice(role);
-        try {
-            const result = await synthesizeSpeech("Bonjour, je suis votre partenaire de répétition !", voice);
-
-            if ("error" in result) {
-                console.error("TTS Error:", result.error);
-                setTestingVoice(null);
-                return;
-            }
-
-            if ("audio" in result) {
-                const audio = new Audio(result.audio);
-                audio.onended = () => setTestingVoice(null);
-                await audio.play();
-            }
-        } catch (e) {
-            console.error("Test failed:", e);
-            setTestingVoice(null);
-        }
-    };
 
     const {
         currentLine,
@@ -187,6 +158,39 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false }:
     } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments, skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [] });
 
     const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
+
+    // Test browser voice
+    const testBrowserVoice = (char: string) => {
+        const voice = voiceAssignments[char];
+        if (voice) {
+            window.speechSynthesis.cancel();
+            const ut = new SpeechSynthesisUtterance("Bonjour, je suis prêt.");
+            ut.voice = voice;
+            window.speechSynthesis.speak(ut);
+        }
+    };
+    // Function to test OpenAI voice
+    const testOpenAIVoice = async (role: string, voice: OpenAIVoice) => {
+        setTestingVoice(role);
+        try {
+            const result = await synthesizeSpeech("Bonjour, je suis votre partenaire de répétition !", voice);
+
+            if ("error" in result) {
+                console.error("TTS Error:", result.error);
+                setTestingVoice(null);
+                return;
+            }
+
+            if ("audio" in result) {
+                const audio = new Audio(result.audio);
+                audio.onended = () => setTestingVoice(null);
+                await audio.play();
+            }
+        } catch (e) {
+            console.error("Test failed:", e);
+            setTestingVoice(null);
+        }
+    };
 
     const handleStart = async () => {
         // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)

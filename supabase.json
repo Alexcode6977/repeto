@@ -1,5 +1,266 @@
 [
     {
+        "table_name": "event_attendance",
+        "column_name": "event_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "event_attendance",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "event_attendance",
+        "column_name": "status",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "'unknown'::text",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "event_attendance",
+        "column_name": "guest_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "events",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "events",
+        "column_name": "troupe_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "events",
+        "column_name": "title",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "events",
+        "column_name": "start_time",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "events",
+        "column_name": "end_time",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "events",
+        "column_name": "type",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "'rehearsal'::text",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "events",
+        "column_name": "play_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "events",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_characters",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "play_characters",
+        "column_name": "play_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_characters",
+        "column_name": "name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_characters",
+        "column_name": "actor_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_characters",
+        "column_name": "description",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_characters",
+        "column_name": "guest_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_scenes",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "play_scenes",
+        "column_name": "play_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_scenes",
+        "column_name": "title",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "play_scenes",
+        "column_name": "order_index",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "0",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "plays",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "plays",
+        "column_name": "troupe_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "plays",
+        "column_name": "title",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "plays",
+        "column_name": "description",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "plays",
+        "column_name": "pdf_url",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "plays",
+        "column_name": "script_content",
+        "data_type": "jsonb",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "plays",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
         "table_name": "profiles",
         "column_name": "id",
         "data_type": "uuid",
@@ -33,6 +294,24 @@
         "character_maximum_length": null,
         "is_nullable": "YES",
         "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "profiles",
+        "column_name": "email",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "profiles",
+        "column_name": "first_name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
         "is_primary_key": ""
     },
     {
@@ -207,6 +486,24 @@
         "is_primary_key": ""
     },
     {
+        "table_name": "scene_characters",
+        "column_name": "scene_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "scene_characters",
+        "column_name": "character_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
         "table_name": "scripts",
         "column_name": "id",
         "data_type": "uuid",
@@ -258,6 +555,132 @@
         "character_maximum_length": null,
         "is_nullable": "YES",
         "column_default": "false",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupe_guests",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "troupe_guests",
+        "column_name": "troupe_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupe_guests",
+        "column_name": "name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupe_guests",
+        "column_name": "email",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupe_guests",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupe_members",
+        "column_name": "troupe_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "troupe_members",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "troupe_members",
+        "column_name": "role",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "'member'::text",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupe_members",
+        "column_name": "joined_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "join_code",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "created_by",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
         "is_primary_key": ""
     }
 ]

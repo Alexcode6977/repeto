@@ -9,6 +9,7 @@ import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
 import { ScriptReader } from "@/components/script-reader";
+import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Globe, Lock, Check, UserPlus } from "lucide-react";
@@ -33,7 +34,11 @@ export default function Home() {
   const [script, setScript] = useState<ParsedScript | null>(null); // Current active script for viewer
   const [scriptsList, setScriptsList] = useState<ScriptMetadata[]>([]); // List of all scripts (metadata only)
   const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"viewer" | "reader" | "rehearsal">("viewer"); // NEW state
+  const [viewMode, setViewMode] = useState<"viewer" | "setup" | "reader" | "rehearsal">("viewer"); // NEW state
+  const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
+    visibility: "visible",
+    mode: "full"
+  });
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>(""); // Need email for admin check
@@ -56,6 +61,7 @@ export default function Home() {
   const [tempCharName, setTempCharName] = useState("");
   const [renamingScriptId, setRenamingScriptId] = useState<string | null>(null);
   const [renamingScriptTitle, setRenamingScriptTitle] = useState("");
+  const [libraryView, setLibraryView] = useState<"personal" | "shared">("personal");
 
   const router = useRouter();
 
@@ -208,6 +214,7 @@ export default function Home() {
       setError("Erreur lors du chargement du script.");
     } finally {
       setIsLoadingDetail(false);
+      setViewMode("viewer"); // Reset view mode when loading new script
     }
   };
 
@@ -263,7 +270,16 @@ export default function Home() {
 
   const handleConfirmSelection = (characterName: string, mode: 'reader' | 'rehearsal') => {
     setRehearsalChar(characterName);
-    setViewMode(mode);
+    if (mode === 'rehearsal') {
+      setViewMode("rehearsal");
+    } else {
+      setViewMode("setup");
+    }
+  };
+
+  const handleStartSession = (settings: ScriptSettings) => {
+    setSessionSettings(settings);
+    setViewMode("reader");
   };
 
   const handleRenameSubmit = async (e: React.FormEvent, scriptId: string) => {
@@ -298,6 +314,7 @@ export default function Home() {
         script={script}
         userCharacter={rehearsalChar}
         onExit={handleExitView}
+        initialSettings={sessionSettings}
       />
     );
   }
@@ -308,6 +325,18 @@ export default function Home() {
         script={script}
         userCharacter={rehearsalChar}
         onExit={handleExitView}
+        settings={sessionSettings}
+      />
+    );
+  }
+
+  if (rehearsalChar && script && viewMode === "setup") {
+    return (
+      <ScriptSetup
+        script={script}
+        character={rehearsalChar}
+        onStart={handleStartSession}
+        onBack={() => setViewMode("viewer")}
       />
     );
   }
@@ -338,7 +367,7 @@ export default function Home() {
   }
 
   return (
-    <div className="w-full pb-32 animate-in fade-in zoom-in duration-500 relative min-h-screen">
+    <div className="max-w-7xl mx-auto p-6 md:p-12 pb-32 animate-in fade-in zoom-in duration-500 relative min-h-screen">
 
       {/* Floating Action Button (Mobile) - Always Visible */}
       <div className="fixed bottom-6 right-6 z-50 md:hidden">
@@ -401,6 +430,32 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Library View Tabs - NEW */}
+      <div className="flex items-center gap-2 mb-8 p-1 bg-white/5 border border-white/10 rounded-2xl w-fit mx-auto md:mx-0 backdrop-blur-md">
+        <button
+          onClick={() => setLibraryView("personal")}
+          className={`
+            px-6 py-2.5 rounded-xl text-[10px] uppercase font-black tracking-[0.15em] transition-all duration-300
+            ${libraryView === "personal"
+              ? "bg-primary text-white shadow-lg shadow-primary/30"
+              : "text-gray-500 hover:text-white hover:bg-white/5"}
+          `}
+        >
+          Ma Bibliothèque
+        </button>
+        <button
+          onClick={() => setLibraryView("shared")}
+          className={`
+            px-6 py-2.5 rounded-xl text-[10px] uppercase font-black tracking-[0.15em] transition-all duration-300
+            ${libraryView === "shared"
+              ? "bg-primary text-white shadow-lg shadow-primary/30"
+              : "text-gray-500 hover:text-white hover:bg-white/5"}
+          `}
+        >
+          Bibliothèque partagée
+        </button>
+      </div>
+
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 animate-in slide-in-from-top-2 mx-auto max-w-2xl mb-8">
           <AlertCircle className="h-5 w-5" />
@@ -417,113 +472,135 @@ export default function Home() {
             <div key={i} className="aspect-[4/5] bg-white/5 rounded-3xl animate-pulse" />
           ))
         ) : scriptsList.length > 0 ? (
-          scriptsList.map((s, index) => (
-            <div
-              key={s.id}
-              onClick={() => handleLoadScript(s)}
-              style={{ animationDelay: `${index * 100}ms` }}
-              className={`
-                group relative aspect-[3/4] md:aspect-[4/5] bg-white/5 border border-white/5 rounded-[2rem] overflow-hidden cursor-pointer 
-                active:scale-[0.98] md:hover:border-primary/50 md:hover:shadow-2xl md:hover:shadow-primary/10 transition-all duration-300 animate-in-up
-                ${s.is_public ? 'border-amber-500/20' : ''}
-              `}
-            >
-              {/* Card Background gradient */}
-              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/90 z-10" />
+          (() => {
+            const filteredScripts = scriptsList.filter(s =>
+              libraryView === "personal" ? s.is_owner : !s.is_owner
+            );
 
-              {/* Public Badge - Floating */}
-              {s.is_public && (
-                <div className="absolute top-4 right-4 z-20 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
-                  <Globe className="w-3 h-3" />
-                  Shared
+            if (filteredScripts.length === 0) {
+              return (
+                <div className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-white/5 rounded-[2rem] bg-white/5 mx-4 md:mx-0">
+                  <div className="w-20 h-20 mx-auto mb-4 opacity-20">
+                    <FileText className="w-full h-full text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-500">Aucun document ici</h3>
+                  <p className="text-gray-600 max-w-sm mx-auto px-4">
+                    {libraryView === "personal"
+                      ? "Commencez par importer votre premier script."
+                      : "Les scripts partagés avec vous apparaîtront ici."}
+                  </p>
                 </div>
-              )}
+              );
+            }
 
-              {/* Icon / Preview - Large & Centered */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700">
-                <FileText className={`w-32 h-32 md:w-40 md:h-40 ${s.is_public ? 'text-amber-500' : 'text-white'}`} />
-              </div>
+            return filteredScripts.map((s, index) => (
+              <div
+                key={s.id}
+                onClick={() => handleLoadScript(s)}
+                style={{ animationDelay: `${index * 100}ms` }}
+                className={`
+                  group relative aspect-[3/4] md:aspect-[4/5] bg-white/5 border border-white/5 rounded-[2rem] overflow-hidden cursor-pointer 
+                  active:scale-[0.98] md:hover:border-primary/50 md:hover:shadow-2xl md:hover:shadow-primary/10 transition-all duration-300 animate-in-up
+                  ${s.is_public ? 'border-amber-500/20' : ''}
+                `}
+              >
+                {/* Card Background gradient */}
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/90 z-10" />
 
-              {/* Content - Bottom Aligned */}
-              <div className="absolute bottom-0 left-0 right-0 p-5 z-20 flex flex-col justify-end h-full">
-                <div className="mb-4">
-                  {renamingScriptId === s.id ? (
-                    <form
-                      onSubmit={(e) => handleRenameSubmit(e, s.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      className="mb-2"
-                    >
-                      <input
-                        autoFocus
-                        type="text"
-                        value={renamingScriptTitle}
-                        onChange={(e) => setRenamingScriptTitle(e.target.value)}
-                        onBlur={(e) => handleRenameSubmit(e as any, s.id)}
-                        className="w-full bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      />
-                    </form>
-                  ) : (
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="text-2xl md:text-xl font-bold text-white leading-tight drop-shadow-md truncate flex-1">
-                        {s.title || "Script Sans Titre"}
-                      </h3>
-                      {s.is_owner && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRenamingScriptId(s.id);
-                            setRenamingScriptTitle(s.title);
-                          }}
-                          className="text-white/40 hover:text-white transition-colors"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                      )}
+                {/* Public Badge - Floating */}
+                {s.is_public && (
+                  <div className="absolute top-4 right-4 z-20 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
+                    <Globe className="w-3 h-3" />
+                    Shared
+                  </div>
+                )}
+
+                {/* Icon / Preview - Large & Centered */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700">
+                  <FileText className={`w-32 h-32 md:w-40 md:h-40 ${s.is_public ? 'text-amber-500' : 'text-white'}`} />
+                </div>
+
+                {/* Content - Bottom Aligned */}
+                <div className="absolute bottom-0 left-0 right-0 p-5 z-20 flex flex-col justify-end h-full">
+                  <div className="mb-4">
+                    {renamingScriptId === s.id ? (
+                      <form
+                        onSubmit={(e) => handleRenameSubmit(e, s.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mb-2"
+                      >
+                        <input
+                          autoFocus
+                          type="text"
+                          value={renamingScriptTitle}
+                          onChange={(e) => setRenamingScriptTitle(e.target.value)}
+                          onBlur={(e) => handleRenameSubmit(e as any, s.id)}
+                          className="w-full bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                      </form>
+                    ) : (
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="text-2xl md:text-xl font-bold text-white leading-tight drop-shadow-md truncate flex-1">
+                          {s.title || "Script Sans Titre"}
+                        </h3>
+                        {s.is_owner && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRenamingScriptId(s.id);
+                              setRenamingScriptTitle(s.title);
+                            }}
+                            className="text-white/40 hover:text-white transition-colors"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-gray-400/80 uppercase tracking-wider">
+                      <span>{s.characterCount} rôles</span>
+                      <span className="w-1 h-1 bg-gray-500 rounded-full" />
+                      <span>{s.lineCount} répliques</span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-gray-400/80 uppercase tracking-wider">
-                    <span>{s.characterCount} rôles</span>
-                    <span className="w-1 h-1 bg-gray-500 rounded-full" />
-                    <span>{s.lineCount} répliques</span>
+                  </div>
+
+                  {/* Mobile Play Button overlay */}
+                  <div className="md:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-xl pointer-events-none">
+                    <Play className="w-6 h-6 text-white fill-white ml-1" />
+                  </div>
+
+                  {/* Desktop Hover Actions */}
+                  <div className="hidden md:flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                    <Button className="flex-1 bg-white text-black hover:bg-primary hover:text-white border-0 font-bold rounded-xl" size="sm">
+                      <Play className="w-4 h-4 mr-2 fill-current" />
+                      Répéter
+                    </Button>
+
+                    {(s.is_owner || userEmail === ADMIN_EMAIL) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-white rounded-xl"
+                        onClick={(e) => handleDeleteScript(e, s.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                    {userEmail === ADMIN_EMAIL && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`rounded-xl ${s.is_public ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-gray-400'}`}
+                        onClick={(e) => handleTogglePublic(e, s)}
+                      >
+                        {s.is_public ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      </Button>
+                    )}
                   </div>
                 </div>
-
-                {/* Mobile Play Button overlay */}
-                <div className="md:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-xl pointer-events-none">
-                  <Play className="w-6 h-6 text-white fill-white ml-1" />
-                </div>
-
-                {/* Desktop Hover Actions */}
-                <div className="hidden md:flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                  <Button className="flex-1 bg-white text-black hover:bg-primary hover:text-white border-0 font-bold rounded-xl" size="sm">
-                    <Play className="w-4 h-4 mr-2 fill-current" />
-                    Répéter
-                  </Button>
-
-                  {(s.is_owner || userEmail === ADMIN_EMAIL) && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-white rounded-xl"
-                      onClick={(e) => handleDeleteScript(e, s.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                  {userEmail === ADMIN_EMAIL && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={`rounded-xl ${s.is_public ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-gray-400'}`}
-                      onClick={(e) => handleTogglePublic(e, s)}
-                    >
-                      {s.is_public ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                    </Button>
-                  )}
-                </div>
               </div>
-            </div>
-          ))
+            ));
+          })()
         ) : (
           /* Empty State */
           <div className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-white/5 rounded-[2rem] bg-white/5 mx-4 md:mx-0">
