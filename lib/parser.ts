@@ -370,13 +370,36 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
 
     const title = extractTitle(lines);
     const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
-    const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ]{2,}[A-ZÀ-ÖØ-Þ\s\-\'']*)\s*$/;
 
     const characterUsage = new Map<string, { headers: number, totalWords: number }>();
 
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
         if (!line || /^\d+$/.test(line)) continue;
+
+        // NEW: Structured Marker "PERSO [NAME]"
+        if (line.toUpperCase().startsWith("PERSO ")) {
+            const charName = line.substring(6).trim().toUpperCase();
+            if (charName && scoreCharacterName(charName) > 0) {
+                const stats = characterUsage.get(charName) || { headers: 0, totalWords: 0 };
+                stats.headers += 10; // High weight for explicit markers
+                characterUsage.set(charName, stats);
+                continue;
+            }
+        }
+
+        // NEW: "Personnages : name1, name2..."
+        if (line.toUpperCase().startsWith("PERSONNAGES :")) {
+            const list = line.substring(13).trim();
+            const names = list.split(/[,;\.]/).map(n => n.trim().toUpperCase()).filter(n => n.length > 2);
+            names.forEach(n => {
+                const stats = characterUsage.get(n) || { headers: 0, totalWords: 0 };
+                stats.headers += 5;
+                characterUsage.set(n, stats);
+            });
+            continue;
+        }
+
         if (line.length > 60) continue;
 
         let charName = "";
@@ -477,143 +500,122 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     // === REGEX PATTERNS ===
 
     // "CHARACTER." or "CHARACTER," or "CHARACTER:" at start
-    // Examples: "LE MAÎTRE DE MUSIQUE." or "Monsieur Jourdain:" or "LUCIEN."
-    // Refinement: require at least 2 characters for the name part (avoids "M." or "D." at start of line)
     const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']{1,})[:\.,]\s*(.*)/;
 
     // Standalone uppercase line (possibly with a trailing dot)
     const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']{1,35}[\.]?)\s*$/;
 
-    // Scene header
-    const sceneRegex = /^(?:SCÈNE|SCENE|ACTE|TABLEAU)\s+(?:[IVX0-9]+|PREMI[ÈE]RE?|DERNI[ÈE]RE?)/i;
+    // Scene header: Support "ACTE 1, SCÈNE 1" or standard format
+    const sceneRegex = /^(?:ACTE|SCÈNE|SCENE|TABLEAU)\s+.*?(?:,\s*(?:SCÈNE|SCENE)\s+.*)?$/i;
 
     // === MAIN PARSING LOOP ===
     let previousLine = "";
 
     for (const originalLine of lines) {
-        // Clean line
-        let line = originalLine
-            .replace(/\(.*?\)/g, "")  // Remove parenthetical content
-            .replace(/\s+/g, " ")
-            .trim();
-
+        let line = originalLine.trim();
         if (!line) continue;
-        if (/^\d+$/.test(line)) continue; // Page numbers
+        if (/^\d+$/.test(line)) continue;
 
-        // Check for scene header
-        if (sceneRegex.test(line)) {
-            // Flush current buffer
+        // NEW: Structured SCENE marker (Priority 0)
+        if (line.toUpperCase().startsWith("ACTE ") && line.includes("SCÈNE")) {
             if (currentCharacter && currentBuffer) {
-                scriptLines.push({
-                    id: String(idCounter++),
-                    character: currentCharacter,
-                    text: currentBuffer.trim(),
-                    type: "dialogue",
-                });
+                scriptLines.push({ id: String(idCounter++), character: currentCharacter, text: currentBuffer.trim(), type: "dialogue" });
                 currentBuffer = "";
             }
-
-            scriptLines.push({
-                id: String(idCounter++),
-                character: "SCENE",
-                text: line,
-                type: "scene_heading",
-            });
+            scriptLines.push({ id: String(idCounter++), character: "SCENE", text: line, type: "scene_heading" });
             scenes.push({ index: scriptLines.length - 1, title: line });
             currentCharacter = "";
             continue;
         }
 
-        // Check for character
+        // NEW: Structured Character Marker "PERSO [NAME]" (Priority 1)
+        if (line.toUpperCase().startsWith("PERSO ")) {
+            if (currentCharacter && currentBuffer) {
+                scriptLines.push({ id: String(idCounter++), character: currentCharacter, text: currentBuffer.trim(), type: "dialogue" });
+                currentBuffer = "";
+            }
+            let finalName = line.substring(6).trim().toUpperCase();
+            // Remove any trailing noise
+            finalName = finalName.replace(/[:\.,]$/, "").trim();
+            currentCharacter = finalName;
+            characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+            continue;
+        }
+
+        // NEW: Structured Dialogue Marker "REPLIQUE [TEXT]" (Priority 2)
+        if (line.toUpperCase().startsWith("REPLIQUE ")) {
+            const dialogueText = line.substring(9).trim();
+            if (dialogueText) {
+                currentBuffer = (currentBuffer ? currentBuffer + " " : "") + dialogueText;
+            }
+            continue;
+        }
+
+        // Fallback to Heuristics (for non-structured lines OR continuations)
+        let cleanLine = line.replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim();
+        if (!cleanLine) continue;
+
+        // If we have a character but no REPLIQUE marker on THIS line, 
+        // it might be a continuation of the previous REPLIQUE (if the script allows multi-line without repeating REPLIQUE)
+        // OR it's a standard heuristic line.
+
+        // Check for scene header (heuristic)
+        const isStructuredScene = line.toUpperCase().includes("ACTE") && line.toUpperCase().includes("SCÈNE");
+        if (sceneRegex.test(cleanLine) || isStructuredScene) {
+            if (!line.toUpperCase().startsWith("REPLIQUE") && !line.toUpperCase().startsWith("PERSO")) {
+                if (currentCharacter && currentBuffer) {
+                    scriptLines.push({ id: String(idCounter++), character: currentCharacter, text: currentBuffer.trim(), type: "dialogue" });
+                    currentBuffer = "";
+                }
+                scriptLines.push({ id: String(idCounter++), character: "SCENE", text: cleanLine, type: "scene_heading" });
+                scenes.push({ index: scriptLines.length - 1, title: cleanLine });
+                currentCharacter = "";
+                continue;
+            }
+        }
+
         let potentialName = "";
         let potentialDialogue = "";
         let matched = false;
 
-        // DIALOGUE CONTINUITY CHECK
-        // If the previous line doesn't end with sentence punctuation or ends with a connector,
-        // we are very likely continuing a sentence, even if it looks like a character name.
-        const isContinuing = previousLine && (
-            !/[.!?:…]$/.test(previousLine) ||
-            /\b(M\.|Mme\.|Mlle\.|à|de|et|ou|mais|que|qui)\s*$/i.test(previousLine)
-        );
+        const isContinuing = previousLine && !/[.!?:…]$/.test(previousLine);
 
-        // Pattern 1: "NAME. dialogue" or "NAME, description"
-        const prefixMatch = line.match(characterPrefixRegex);
+        const prefixMatch = cleanLine.match(characterPrefixRegex);
         if (prefixMatch) {
             const rawName = prefixMatch[1].trim();
             const afterName = prefixMatch[2].trim();
-
-            // Relaxed check: ALL CAPS is always preferred, but Title Case with ":" is allowed
-            const isAllCaps = rawName === rawName.toUpperCase();
-            const isTitleCase = /^[A-ZÀ-ÖØ-Þ][a-zà-ö]/.test(rawName);
-
-            if ((isAllCaps || isTitleCase) && rawName.length >= 2) {
+            if ((rawName === rawName.toUpperCase() || /^[A-ZÀ-ÖØ-Þ][a-zà-ö]/.test(rawName)) && rawName.length >= 2) {
                 potentialName = rawName;
-
-                // If after starts lowercase, it's a stage direction ("LE MAÎTRE, parlant...")
-                if (afterName && /^[a-zà-ö]/.test(afterName)) {
-                    potentialDialogue = "";
-                } else {
-                    potentialDialogue = afterName;
-                }
+                potentialDialogue = afterName && /^[A-ZÀ-ÖØ-Þ]/.test(afterName) ? afterName : "";
                 matched = true;
             }
         } else {
-            // Pattern 2: Standalone name on its own line
-            const nameMatch = line.match(characterLineRegex);
+            const nameMatch = cleanLine.match(characterLineRegex);
             if (nameMatch) {
                 const rawName = nameMatch[1].trim();
-
-                // STANDALONE COMMA CHECK
-                // Addresses or mentions like "LANDERNAU," shouldn't be headers
-                if (rawName.endsWith(",")) {
-                    matched = false;
-                } else {
-                    const cleanName = rawName.replace(/\.$/, "");
-                    // CRITICAL: Must be ALL CAPS
-                    const isAllCaps = cleanName === cleanName.toUpperCase() && /[A-ZÀ-Þ]/.test(cleanName);
-                    if (isAllCaps && cleanName.length >= 3) {
-                        potentialName = cleanName;
-                        matched = true;
-                    }
+                const cleanName = rawName.replace(/\.$/, "");
+                if (cleanName === cleanName.toUpperCase() && cleanName.length >= 3 && !cleanName.endsWith(",")) {
+                    potentialName = cleanName;
+                    matched = true;
                 }
             }
         }
 
-        // Apply continuity override
-        if (matched && isContinuing && currentCharacter) {
-            // console.log(`[Parser] Overriding matched character "${potentialName}" because line is continuing: "${previousLine}"`);
-            matched = false;
-        }
+        if (matched && isContinuing && currentCharacter) matched = false;
 
         if (matched && potentialName) {
-            // Normalize the name
             let finalName = extractVoixName(potentialName);
-
-            // Special handling for collective speech: allow them to bypass standard scoring
             const upperName = finalName.toUpperCase();
-            const isCollective = /^TOUS$|^TOUTES$|^ENSEMBLE$|^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i.test(upperName) ||
-                upperName.includes(" ET ") ||
-                (upperName.includes(",") && upperName.length > 5);
-
+            const isCollective = /^TOUS$|^TOUTES$|^ENSEMBLE$|^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i.test(upperName);
             const score = scoreCharacterName(finalName);
 
             if (score > 0 || isCollective) {
-                // GUIDED PARSING OVERRIDE: 
-                // If we have a whitelist, we ONLY care if it's in the list or very similar.
-                // EXCEPTION: Collective characters (TOUS, etc.) always pass.
                 if (charWhitelist && !isCollective && !charWhitelist.has(finalName.toUpperCase())) {
                     let foundSimiliar = false;
                     for (const valid of charWhitelist) {
-                        if (similarity(finalName, valid) > 0.85) {
-                            finalName = valid;
-                            foundSimiliar = true;
-                            break;
-                        }
+                        if (similarity(finalName, valid) > 0.85) { finalName = valid; foundSimiliar = true; break; }
                     }
-                    if (!foundSimiliar) {
-                        matched = false;
-                    }
+                    if (!foundSimiliar) matched = false;
                 }
 
                 if (matched) {
