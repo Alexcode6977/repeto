@@ -8,7 +8,8 @@ import {
     Calendar,
     BookOpen,
     Users,
-    ChevronLeft
+    ChevronLeft,
+    ClipboardList
 } from "lucide-react";
 
 interface TroupeSidebarProps {
@@ -30,6 +31,12 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
             href: `/troupes/${troupeId}/calendar`,
             icon: Calendar,
             active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
+        },
+        {
+            label: "Séances",
+            href: `/troupes/${troupeId}/sessions`,
+            icon: ClipboardList,
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
         },
         {
             label: "Pièces & Scripts",

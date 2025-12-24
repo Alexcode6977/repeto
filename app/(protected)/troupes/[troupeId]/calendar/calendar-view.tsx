@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { AttendanceToggle } from "./attendance-toggle";
@@ -13,6 +13,15 @@ interface CalendarViewProps {
     userId: string;
     members: any[];
     isAdmin: boolean;
+}
+
+function TimeDisplay({ dateString }: { dateString: string }) {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+
+    if (!mounted) return <span className="invisible">00:00</span>;
+
+    return <span>{new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>;
 }
 
 export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, members, isAdmin }: CalendarViewProps) {
@@ -83,7 +92,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                                                 >
                                                     <div className="font-semibold truncate">{e.title}</div>
                                                     <div className="text-[10px] text-muted-foreground flex justify-between items-center mt-1">
-                                                        <span>{new Date(e.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        <TimeDisplay dateString={e.start_time} />
                                                         <div onClick={(ev) => ev.stopPropagation()}>
                                                             <AttendanceToggle eventId={e.id} currentStatus={myAttendance} compact />
                                                         </div>

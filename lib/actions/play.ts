@@ -215,7 +215,7 @@ export async function updateCasting(characterId: string, actorId: string | null,
         throw new Error('Failed to update casting');
     }
 
-    revalidatePath('/troupes'); // wide revalidate for simplicity
+    revalidatePath(`/troupes`);
 }
 
 export async function getUserScripts() {

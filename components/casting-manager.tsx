@@ -56,7 +56,7 @@ export function CastingManager({ characters, troupeMembers, guests }: CastingMan
                         <div>
                             <p className="font-bold text-white text-lg group-hover:text-primary transition-colors">{char.name}</p>
                             <p className="text-[10px] uppercase font-black tracking-widest text-gray-500">
-                                {char.actor_id || char.guest_id ? "✅ Rôle Attribué" : "⏳ En attente"}
+                                {assignments[char.id] !== "unassigned" ? "✅ Rôle Attribué" : "⏳ En attente"}
                             </p>
                         </div>
                     </div>
