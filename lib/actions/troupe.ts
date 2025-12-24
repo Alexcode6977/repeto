@@ -154,6 +154,52 @@ export async function getTroupeDetails(troupeId: string) {
     return { ...troupe, my_role: member.role };
 }
 
+export async function getTroupeMemberInfo(troupeId: string, userId: string) {
+    const supabase = await createClient();
+
+    const { data: member, error } = await supabase
+        .from('troupe_members')
+        .select('role, hourly_rate')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', userId)
+        .single();
+
+    if (error) {
+        console.error("Error fetching member info:", error);
+        return null;
+    }
+
+    return member;
+}
+
+export async function updateMemberRate(troupeId: string, userId: string, rate: number) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    // Verify updater is an admin
+    const { data: updater } = await supabase
+        .from('troupe_members')
+        .select('role')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (updater?.role !== 'admin') {
+        throw new Error("Only admins can update rates");
+    }
+
+    const { error } = await supabase
+        .from('troupe_members')
+        .update({ hourly_rate: rate })
+        .eq('troupe_id', troupeId)
+        .eq('user_id', userId);
+
+    if (error) throw error;
+    return true;
+}
+
 export async function getTroupeMembers(troupeId: string) {
     const supabase = await createClient();
 

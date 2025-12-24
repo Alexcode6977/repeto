@@ -9,14 +9,16 @@ import {
     BookOpen,
     Users,
     ChevronLeft,
-    ClipboardList
+    ClipboardList,
+    CircleDollarSign
 } from "lucide-react";
 
 interface TroupeSidebarProps {
     troupeId: string;
+    role?: 'admin' | 'member';
 }
 
-export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
+export function TroupeSidebar({ troupeId, role }: TroupeSidebarProps) {
     const pathname = usePathname();
 
     const navItems = [
@@ -45,6 +47,15 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
             active: pathname.startsWith(`/troupes/${troupeId}/plays`)
         }
     ];
+
+    if (role === 'admin') {
+        navItems.push({
+            label: "Gestion & Factures",
+            href: `/troupes/${troupeId}/management`,
+            icon: CircleDollarSign,
+            active: pathname.startsWith(`/troupes/${troupeId}/management`)
+        });
+    }
 
     return (
         <aside className="w-64 h-screen fixed left-0 top-0 border-r border-white/10 bg-black/20 backdrop-blur-xl z-50 flex flex-col pt-24">
