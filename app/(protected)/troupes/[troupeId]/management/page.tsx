@@ -24,7 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function ManagementPage() {
     const params = useParams();
-    const troupeId = params.troupeId as string;
+    const troupeId = params?.troupeId as string;
 
     const [currentDate, setCurrentDate] = useState(new Date());
     const [events, setEvents] = useState<any[]>([]);
@@ -33,28 +33,41 @@ export default function ManagementPage() {
     const [userId, setUserId] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!troupeId) return;
+
         async function init() {
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setUserId(user.id);
-                const info = await getTroupeMemberInfo(troupeId, user.id);
-                if (info) {
-                    setHourlyRate(info.hourly_rate || 0);
+            try {
+                const supabase = createClient();
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    setUserId(user.id);
+                    const info = await getTroupeMemberInfo(troupeId, user.id);
+                    if (info) {
+                        setHourlyRate(info.hourly_rate || 0);
+                    }
                 }
+                await fetchEvents();
+            } catch (err) {
+                console.error("Management Page Init Error:", err);
             }
-            fetchEvents();
         }
         init();
-    }, [currentDate]);
+    }, [currentDate, troupeId]);
 
     async function fetchEvents() {
+        if (!troupeId) return;
         setIsLoading(true);
-        const start = startOfMonth(currentDate);
-        const end = endOfMonth(currentDate);
-        const data = await getTroupeEvents(troupeId, start, end);
-        setEvents(data);
-        setIsLoading(false);
+        try {
+            const start = startOfMonth(currentDate);
+            const end = endOfMonth(currentDate);
+            const data = await getTroupeEvents(troupeId, start, end);
+            setEvents(data || []);
+        } catch (err) {
+            console.error("Fetch Events Error:", err);
+            setEvents([]);
+        } finally {
+            setIsLoading(false);
+        }
     }
 
     const totalMinutes = events.reduce((acc, event) => {
@@ -300,7 +313,7 @@ export default function ManagementPage() {
                     <div className="space-y-2">
                         <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">À l'attention de</p>
                         <p className="font-bold text-lg">La Troupe</p>
-                        <p className="text-sm">Réf: {troupeId.slice(0, 8)}</p>
+                        <p className="text-sm">Réf: {troupeId?.slice(0, 8)}</p>
                     </div>
                 </div>
 
