@@ -10,6 +10,7 @@ export interface ScriptLine {
 export interface ScriptScene {
     index: number; // Index in the lines array
     title: string;
+    act?: string;
 }
 
 export interface ParsedScript {

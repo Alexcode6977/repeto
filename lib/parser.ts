@@ -520,20 +520,43 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
 
     // === MAIN PARSING LOOP ===
     let previousLine = "";
+    let currentAct = "ACTE 1"; // Default fallback
 
     for (const originalLine of lines) {
         let line = originalLine.trim();
         if (!line) continue;
         if (/^\d+$/.test(line)) continue;
 
-        // NEW: Structured SCENE marker (Priority 0)
-        if (line.toUpperCase().startsWith("ACTE ") && line.includes("SCÈNE")) {
+        const upperLine = line.toUpperCase();
+
+        // 1. Detect ACT label (e.g. "ACTE 1" or "ACTE PREMIER")
+        // If it's a line like "ACTE 1" without "SCENE", it's an Act marker.
+        const actMatch = line.match(/^(ACTE\s+(?:[IVX0-9]+|PREMIER|DEUXIÈME|TROISIÈME|QUATRIÈME|CINQUIÈME))\s*$/i);
+        if (actMatch) {
+            currentAct = line.trim();
+            // We don't necessarily create a scene here yet, as it's often followed by Scene 1
+            // But if there's text after, we'll see.
+        }
+
+        // 2. Structured SCENE marker (Priority 0)
+        if (upperLine.startsWith("ACTE ") && (upperLine.includes("SCÈNE") || upperLine.includes("SCENE"))) {
             if (currentCharacter && currentBuffer) {
                 scriptLines.push({ id: String(idCounter++), character: currentCharacter, text: currentBuffer.trim(), type: "dialogue" });
                 currentBuffer = "";
             }
+
+            // Try to extract the act part if present in the scene title (e.g. "ACTE 1, SCÈNE 1")
+            const parts = line.split(/,\s*/);
+            if (parts.length > 1 && parts[0].toUpperCase().startsWith("ACTE")) {
+                currentAct = parts[0].trim();
+            }
+
             scriptLines.push({ id: String(idCounter++), character: "SCENE", text: line, type: "scene_heading" });
-            scenes.push({ index: scriptLines.length - 1, title: line });
+            scenes.push({
+                index: scriptLines.length - 1,
+                title: line,
+                act: currentAct
+            });
             currentCharacter = "";
             continue;
         }
@@ -570,7 +593,6 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
         if (!cleanLine) continue;
 
         // Skip any heuristic detection if it's a residual marker line
-        const upperLine = line.toUpperCase();
         if (upperLine.startsWith("PERSO") || upperLine.startsWith("REPLIQUE")) continue;
 
         // If we have a character but no REPLIQUE marker on THIS line, 

@@ -132,58 +132,76 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredScenes.map((scene: any) => (
-                        <Card
-                            key={scene.id}
-                            onClick={() => toggleSceneSelection(scene.id)}
-                            className={cn(
-                                "cursor-pointer transition-all border-white/10 relative overflow-hidden group",
-                                selectedSceneIds.includes(scene.id) ? "ring-2 ring-primary border-primary/50" : "hover:border-white/20 bg-white/5",
-                                scene.isPlayable ? "hover:bg-green-500/5" : "opacity-80"
-                            )}
-                        >
-                            <CardHeader className="p-4 pb-2">
-                                <div className="flex justify-between items-start">
-                                    <div className="flex items-center gap-2">
-                                        <div className={cn(
-                                            "w-2 h-2 rounded-full",
-                                            scene.isPlayable ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" :
-                                                scene.isIncomplete ? "bg-orange-500" : "bg-red-500"
-                                        )} />
-                                        <CardTitle className="text-sm font-bold text-white truncate max-w-[150px]">
-                                            {scene.title}
-                                        </CardTitle>
-                                    </div>
-                                    {selectedSceneIds.includes(scene.id) && (
-                                        <Check className="w-4 h-4 text-primary" />
-                                    )}
+                <div className="space-y-12">
+                    {(() => {
+                        const grouped = filteredScenes.reduce((acc: any, scene: any) => {
+                            const actName = scene.act || "Sans Acte";
+                            if (!acc[actName]) acc[actName] = [];
+                            acc[actName].push(scene);
+                            return acc;
+                        }, {});
+
+                        return Object.entries(grouped).map(([actName, scenes]: [string, any]) => (
+                            <div key={actName} className="space-y-4">
+                                <h3 className="text-lg font-black text-primary/50 uppercase tracking-[0.2em] border-l-4 border-primary pl-4 mb-6">
+                                    {actName}
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {scenes.map((scene: any) => (
+                                        <Card
+                                            key={scene.id}
+                                            onClick={() => toggleSceneSelection(scene.id)}
+                                            className={cn(
+                                                "cursor-pointer transition-all border-white/10 relative overflow-hidden group",
+                                                selectedSceneIds.includes(scene.id) ? "ring-2 ring-primary border-primary/50 text-white shadow-2xl shadow-primary/20" : "hover:border-white/20 bg-white/5",
+                                                scene.isPlayable ? "hover:bg-green-500/5 shadow-green-500/5" : "opacity-80"
+                                            )}
+                                        >
+                                            <CardHeader className="p-4 pb-2">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={cn(
+                                                            "w-2 h-2 rounded-full",
+                                                            scene.isPlayable ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" :
+                                                                scene.isIncomplete ? "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.3)]" : "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]"
+                                                        )} />
+                                                        <CardTitle className="text-sm font-bold truncate max-w-[150px]">
+                                                            {scene.title}
+                                                        </CardTitle>
+                                                    </div>
+                                                    {selectedSceneIds.includes(scene.id) && (
+                                                        <Check className="w-4 h-4 text-primary" />
+                                                    )}
+                                                </div>
+                                                <CardDescription className="text-[10px] uppercase font-black tracking-widest text-gray-400">
+                                                    {scene.requiredCharacters.length} personnages
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="p-4 pt-0">
+                                                <div className="flex flex-wrap gap-1 mt-2">
+                                                    {scene.requiredCharacters.map((char: any) => {
+                                                        const isMissing = scene.missingCharacters.some((m: any) => m.id === char.id);
+                                                        return (
+                                                            <Badge
+                                                                key={char.id}
+                                                                variant="outline"
+                                                                className={cn(
+                                                                    "text-[8px] px-1.5 py-0 leading-none h-4 rounded-full border-white/10",
+                                                                    isMissing ? "bg-black/40 text-gray-600 line-through" : "bg-white/10 text-white"
+                                                                )}
+                                                            >
+                                                                {char.name}
+                                                            </Badge>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
                                 </div>
-                                <CardDescription className="text-[10px] uppercase font-black tracking-widest text-gray-400">
-                                    {scene.requiredCharacters.length} personnages
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-4 pt-0">
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                    {scene.requiredCharacters.map((char: any) => {
-                                        const isMissing = scene.missingCharacters.some((m: any) => m.id === char.id);
-                                        return (
-                                            <Badge
-                                                key={char.id}
-                                                variant="outline"
-                                                className={cn(
-                                                    "text-[8px] px-1.5 py-0 leading-none h-4 rounded-full border-white/10",
-                                                    isMissing ? "bg-black/40 text-gray-600 line-through" : "bg-white/10 text-white"
-                                                )}
-                                            >
-                                                {char.name}
-                                            </Badge>
-                                        );
-                                    })}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                            </div>
+                        ));
+                    })()}
                 </div>
             </div>
 

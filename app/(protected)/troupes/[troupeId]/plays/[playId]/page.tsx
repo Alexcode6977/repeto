@@ -108,20 +108,38 @@ export default async function PlayDashboardPage({
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="p-8">
-                            <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
-                                {play.play_scenes.map((scene: any) => (
-                                    <div key={scene.id} className="p-4 rounded-2xl border border-white/5 bg-white/0 hover:bg-white/5 transition-all flex justify-between items-center group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-primary">
-                                                {scene.order_index + 1}
+                            <div className="space-y-10">
+                                {(() => {
+                                    const grouped = play.play_scenes.reduce((acc: any, scene: any) => {
+                                        const actName = scene.act || "Sans Acte";
+                                        if (!acc[actName]) acc[actName] = [];
+                                        acc[actName].push(scene);
+                                        return acc;
+                                    }, {});
+
+                                    return Object.entries(grouped).map(([actName, scenes]: [string, any]) => (
+                                        <div key={actName} className="space-y-4">
+                                            <h3 className="text-sm font-black text-primary/50 uppercase tracking-[0.2em] border-l-4 border-primary pl-4 mb-4">
+                                                {actName}
+                                            </h3>
+                                            <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                                                {scenes.map((scene: any) => (
+                                                    <div key={scene.id} className="p-4 rounded-2xl border border-white/5 bg-white/0 hover:bg-white/5 transition-all flex justify-between items-center group">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center font-bold text-primary">
+                                                                {scene.order_index + 1}
+                                                            </div>
+                                                            <span className="font-bold text-white group-hover:text-primary transition-colors text-lg">{scene.title}</span>
+                                                        </div>
+                                                        <Badge variant="outline" className="bg-white/5 border-white/10 text-gray-500 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest">
+                                                            {scene.scene_characters?.length || 0} persos
+                                                        </Badge>
+                                                    </div>
+                                                ))}
                                             </div>
-                                            <span className="font-bold text-white group-hover:text-primary transition-colors text-lg">{scene.title}</span>
                                         </div>
-                                        <Badge variant="outline" className="bg-white/5 border-white/10 text-gray-500 px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-widest">
-                                            {scene.scene_characters?.length || 0} persos
-                                        </Badge>
-                                    </div>
-                                ))}
+                                    ));
+                                })()}
                             </div>
                         </CardContent>
                     </Card>

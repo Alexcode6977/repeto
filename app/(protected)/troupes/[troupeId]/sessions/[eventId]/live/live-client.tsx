@@ -24,10 +24,32 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
     const [feedbackText, setFeedbackText] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Derived data
+    // Act Selection
     const currentScene = play.play_scenes.find((s: any) => s.id === selectedSceneIds[currentSceneIndex]);
+    const [selectedAct, setSelectedAct] = useState(currentScene?.act || "ACTE 1");
+
+    // Derived data
     const charactersInSceneIds = currentScene?.scene_characters?.map((sc: any) => sc.character_id) || [];
     const charactersInScene = play.play_characters.filter((pc: any) => charactersInSceneIds.includes(pc.id));
+
+    const uniqueActs = Array.from(new Set(selectedSceneIds.map((sid: any) => {
+        const s = play.play_scenes.find((sc: any) => sc.id === sid);
+        return s?.act || "Sans Acte";
+    }))) as string[];
+
+    const handleNextScene = () => {
+        const nextIdx = Math.min(selectedSceneIds.length - 1, currentSceneIndex + 1);
+        setCurrentSceneIndex(nextIdx);
+        const nextScene = play.play_scenes.find((s: any) => s.id === selectedSceneIds[nextIdx]);
+        if (nextScene?.act) setSelectedAct(nextScene.act);
+    };
+
+    const handlePrevScene = () => {
+        const prevIdx = Math.max(0, currentSceneIndex - 1);
+        setCurrentSceneIndex(prevIdx);
+        const prevScene = play.play_scenes.find((s: any) => s.id === selectedSceneIds[prevIdx]);
+        if (prevScene?.act) setSelectedAct(prevScene.act);
+    };
 
     const handleSendFeedback = async (char: any) => {
         if (!feedbackText.trim()) return;
@@ -56,19 +78,41 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
             {/* Sidebar: Program Progress */}
             <div className="lg:col-span-1 space-y-4">
                 <Card className="bg-white/5 border-white/10 h-full flex flex-col">
-                    <CardHeader className="p-4 border-b border-white/5">
+                    <CardHeader className="p-4 border-b border-white/5 space-y-4">
                         <CardTitle className="text-sm font-black uppercase tracking-widest text-gray-500">Programme</CardTitle>
+
+                        {/* Act Selector */}
+                        <div className="flex flex-wrap gap-1">
+                            {uniqueActs.map(act => (
+                                <button
+                                    key={act}
+                                    onClick={() => setSelectedAct(act)}
+                                    className={cn(
+                                        "px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter transition-all",
+                                        selectedAct === act ? "bg-primary text-white" : "bg-white/5 text-gray-500 hover:bg-white/10"
+                                    )}
+                                >
+                                    {act}
+                                </button>
+                            ))}
+                        </div>
                     </CardHeader>
                     <CardContent className="p-2 space-y-1 flex-1 overflow-y-auto">
                         {selectedSceneIds.map((sid: any, idx: any) => {
                             const scene = play.play_scenes.find((s: any) => s.id === sid);
                             const isActive = idx === currentSceneIndex;
                             const isDone = idx < currentSceneIndex;
+                            const belongsToSelectedAct = (scene?.act || "Sans Acte") === selectedAct;
+
+                            if (!belongsToSelectedAct && !isActive) return null;
 
                             return (
                                 <button
                                     key={sid}
-                                    onClick={() => setCurrentSceneIndex(idx)}
+                                    onClick={() => {
+                                        setCurrentSceneIndex(idx);
+                                        if (scene?.act) setSelectedAct(scene.act);
+                                    }}
                                     className={cn(
                                         "w-full text-left p-3 rounded-xl transition-all flex items-center gap-3",
                                         isActive ? "bg-primary text-white shadow-lg shadow-primary/20" :
@@ -122,7 +166,7 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-full bg-white/5 hover:bg-white/10"
-                                onClick={() => setCurrentSceneIndex(prev => Math.max(0, prev - 1))}
+                                onClick={handlePrevScene}
                                 disabled={currentSceneIndex === 0}
                             >
                                 <ChevronLeft className="w-6 h-6" />
@@ -131,7 +175,7 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                                 variant="ghost"
                                 size="icon"
                                 className="rounded-full bg-white/5 hover:bg-white/10"
-                                onClick={() => setCurrentSceneIndex(prev => Math.min(selectedSceneIds.length - 1, prev + 1))}
+                                onClick={handleNextScene}
                                 disabled={currentSceneIndex === selectedSceneIds.length - 1}
                             >
                                 <ChevronRight className="w-6 h-6" />

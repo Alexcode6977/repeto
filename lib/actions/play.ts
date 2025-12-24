@@ -92,7 +92,8 @@ export async function createPlay(
     const sceneInserts = parsedScript.scenes.map((s, i) => ({
         play_id: play.id,
         title: s.title,
-        order_index: i
+        order_index: i,
+        act: s.act
     }));
 
     const { data: createdScenes, error: sceneError } = await supabase
@@ -177,6 +178,7 @@ export async function getPlayDetails(playId: string) {
             play_scenes (
                 id,
                 title,
+                act,
                 order_index,
                 scene_characters (
                     character_id
