@@ -34,7 +34,7 @@ import { isNextCommand, isPrevCommand } from "../speech-utils";
 export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [] }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const openaiSpeech = useOpenAITTS();
-    const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio } = browserSpeech;
+    const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
 
     // Use specialized voice hook
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
@@ -61,6 +61,29 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     const stopAll = () => {
         browserSpeech.stop();
         openaiSpeech.stop();
+    };
+
+    // Helper for synthetic recording "bip" (important for iPad feedback)
+    const playBip = () => {
+        try {
+            const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+            if (AudioContextClass) {
+                const ctx = new AudioContextClass();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            }
+        } catch (e) {
+            console.warn("[Speech] Failed to play bip", e);
+        }
     };
 
     const [currentLineIndex, setCurrentLineIndex] = useState(initialLineIndex);
@@ -128,7 +151,8 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     const isUserLine = (lineChar: string) => {
         const normalizedLineChar = lineChar.toLowerCase().trim();
         const normalizedUserChar = userCharacter.toLowerCase().trim();
-        return normalizedLineChar === normalizedUserChar || normalizedLineChar.split(/[\s,]+/).includes(normalizedUserChar);
+        return normalizedLineChar === normalizedUserChar ||
+            normalizedLineChar.split(',').map(s => s.trim()).includes(normalizedUserChar);
     };
 
     // Helper to check if a line should be skipped (e.g., DIDASCALIES)
@@ -172,6 +196,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         setTimeout(() => {
             if (isUserLine(line.character)) {
                 setStatus("listening_user");
+                playBip();
             } else {
                 setStatus("playing_other");
             }
@@ -197,6 +222,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 manualSkipRef.current = false;
                 if (isUserLine(nextLine.character)) {
                     setStatus("listening_user");
+                    playBip();
                 } else {
                     setStatus("playing_other");
                 }
@@ -226,6 +252,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                 manualSkipRef.current = false;
                 if (isUserLine(prevLine.character)) {
                     setStatus("listening_user");
+                    playBip();
                 } else {
                     setStatus("playing_other");
                 }
@@ -258,6 +285,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
             manualSkipRef.current = false;
             if (isUserLine(line.character)) {
                 setStatus("listening_user");
+                playBip();
             } else {
                 setStatus("playing_other");
             }
@@ -372,11 +400,18 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                             // Defensive pause on mobile to allow audio hardware to switch roles
                             await new Promise(r => setTimeout(r, 600));
                             setStatus("listening_user");
+                            playBip();
                         }
                     }
                 } catch (e) {
                     if (e !== "Cancelled") {
-                        setStatus("error");
+                        // Anti-Loop for recognition errors too
+                        if (retryCount >= 2) {
+                            next();
+                        } else {
+                            setRetryCount(prev => prev + 1);
+                            setStatus("error");
+                        }
                     }
                 }
             }
@@ -392,6 +427,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         status,
         feedback,
         lastTranscript,
+        transcript, // Real-time interim transcript
         start,
         next,
         retry,

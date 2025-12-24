@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
+import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { synthesizeSpeech } from "@/app/actions/tts";
 import { getVoiceStatus } from "@/app/actions/voice";
 import { ScriptSettings } from "./script-setup";
@@ -152,8 +153,11 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
         voiceAssignments,
         setVoiceForRole,
         voices,
-        initializeAudio
+        initializeAudio,
+        transcript // Real-time interim transcript
     } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments, skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [] });
+
+    const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
 
     // Test browser voice
     const testBrowserVoice = (char: string) => {
@@ -204,6 +208,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
 
         setHasStarted(true);
         sessionStartRef.current = Date.now();
+        requestWakeLock();
         start();
     };
 
@@ -333,6 +338,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                 setPendingExit(true);
             }
         } else {
+            releaseWakeLock();
             onExit();
         }
     };
@@ -354,6 +360,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
     const handleFeedbackClose = () => {
         setShowFeedbackModal(false);
         if (pendingExit) {
+            releaseWakeLock();
             onExit();
         }
     };
@@ -890,6 +897,15 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                                 <span className="tabular-nums">{currentLineIndex + 1}/{totalLines}</span>
                                 <span className="text-gray-600">•</span>
                                 <span>{progressPercent}%</span>
+                                {isWakeLockActive && (
+                                    <>
+                                        <span className="text-gray-600">•</span>
+                                        <span className="flex items-center gap-1 group/wake">
+                                            <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                                            <span className="md:inline hidden">Lock</span>
+                                        </span>
+                                    </>
+                                )}
                             </div>
 
                             {/* Scene Name */}
@@ -999,6 +1015,29 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
 
                         {/* CENTRAL ORB with CIRCULAR PROGRESS RING */}
                         <div className="relative group">
+                            {/* LIVE TRANSCRIPT BUBBLE (Above Orb) */}
+                            <AnimatePresence>
+                                {status === "listening_user" && transcript && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.5 }}
+                                        className="absolute -top-16 left-1/2 -translate-x-1/2 w-full max-w-[250px] flex flex-wrap justify-center gap-1 z-50 px-2"
+                                    >
+                                        {transcript.split(" ").slice(-6).map((word, idx) => (
+                                            <motion.span
+                                                key={`${word}-${idx}`}
+                                                initial={{ opacity: 0, x: -5 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                className="bg-yellow-500/20 text-yellow-500 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full border border-yellow-500/30 backdrop-blur-md shadow-lg"
+                                            >
+                                                {word}
+                                            </motion.span>
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             {/* Progress Ring SVG */}
                             <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] rotate-[-90deg]" viewBox="0 0 100 100">
                                 {/* Background Ring */}

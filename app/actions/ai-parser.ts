@@ -122,9 +122,11 @@ export async function parsePdfWithVision(pdfBuffer: Buffer, validatedCharacters:
         const maxPagesTotal = Math.min(totalPages, 100); // Allow up to 100 pages total
         const batchSize = 10; // 10 pages per request to stay under 30k TPM
 
-        for (let i = 0; i < maxPagesTotal; i += batchSize) {
+        let previousContextLines: any[] = [];
+
+        for (let i = 0; i < maxPagesTotal; i += batchSize - 1) { // 1 page overlap
             const currentBatchEnd = Math.min(i + batchSize, maxPagesTotal);
-            console.log(`[Vision Parser] Processing batch: pages ${i} to ${currentBatchEnd - 1}`);
+            console.log(`[Vision Parser] Processing batch: pages ${i} to ${currentBatchEnd - 1} (Overlap: 1 page)`);
 
             const images: string[] = [];
             for (let j = i; j < currentBatchEnd; j++) {
@@ -133,12 +135,16 @@ export async function parsePdfWithVision(pdfBuffer: Buffer, validatedCharacters:
                 images.push(Buffer.from(pixmap.asPNG()).toString("base64"));
             }
 
+            const contextText = previousContextLines.length > 0
+                ? `\nCONTEXTE: Les dernières lignes lues précédemment étaient : ${JSON.stringify(previousContextLines)}. \nNe RÉPÈTE PAS ces lignes, mais assure-toi que la suite est cohérente.`
+                : "";
+
             const response = await openai.chat.completions.create({
                 model: "gpt-4o",
                 messages: [{
                     role: "user",
                     content: [
-                        { type: "text", text: PARSE_GUIDED_PROMPT(validatedCharacters) },
+                        { type: "text", text: PARSE_GUIDED_PROMPT(validatedCharacters) + contextText },
                         ...images.map(base64 => ({
                             type: "image_url" as const,
                             image_url: { url: `data:image/png;base64,${base64}`, detail: "low" as const }
@@ -153,32 +159,46 @@ export async function parsePdfWithVision(pdfBuffer: Buffer, validatedCharacters:
 
             const parsed = JSON.parse(content);
 
-            // Add lines from this batch
+            // Add lines from this batch, filtering out exact duplicates of context
             if (parsed.lines && Array.isArray(parsed.lines)) {
                 parsed.lines.forEach((line: any) => {
-                    allLines.push({
-                        id: String(allLines.length),
-                        character: line.character || "INCONNU",
-                        text: line.text || "",
-                        type: line.type === "scene_heading" ? "scene_heading" : "dialogue",
-                    });
+                    // Primitive check to avoid repetition of context lines
+                    const isDuplicate = previousContextLines.some(prev =>
+                        prev.character === line.character &&
+                        prev.text.trim() === line.text.trim()
+                    );
+
+                    if (!isDuplicate) {
+                        allLines.push({
+                            id: String(allLines.length),
+                            character: line.character || "INCONNU",
+                            text: line.text || "",
+                            type: line.type === "scene_heading" ? "scene_heading" : "dialogue",
+                        });
+                    }
                 });
+
+                // Update context for next batch (last 3 lines)
+                previousContextLines = parsed.lines.slice(-3).map((l: any) => ({ character: l.character, text: l.text }));
             }
 
-            // Add scenes from this batch
+            // Add scenes from this batch (de-duplicated by title)
             if (parsed.scenes && Array.isArray(parsed.scenes)) {
                 parsed.scenes.forEach((scene: any) => {
-                    allScenes.push({
-                        index: i + (scene.index || 0), // Offset index by batch start
-                        title: scene.title
-                    });
+                    const isNew = !allScenes.some(s => s.title === scene.title);
+                    if (isNew) {
+                        allScenes.push({
+                            index: i + (scene.index || 0),
+                            title: scene.title
+                        });
+                    }
                 });
             }
 
-            // Small delay to prevent hitting rate limits even with batching
+            // Small delay to prevent hitting rate limits
             if (i + batchSize < maxPagesTotal) {
-                console.log("[Vision Parser] Batch complete, waiting 2s before next batch...");
-                await new Promise(r => setTimeout(r, 2000));
+                console.log("[Vision Parser] Batch complete, waiting 1s before next batch...");
+                await new Promise(r => setTimeout(r, 1000));
             }
         }
 

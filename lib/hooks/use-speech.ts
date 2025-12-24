@@ -151,10 +151,11 @@ export function useSpeech(): UseSpeechReturn {
                 const segment = segments[i];
                 if (!segment.text.trim()) continue;
 
-                // Explicitly cancel previous segment to avoid iOS "stacking" or speed artifacts
-                synthRef.current?.cancel();
-
                 await speakSegment(segment.text, voice, segment.emotion);
+
+                // SAFE_BUFFER_DELAY: Small pause to allow audio hardware to "breathe" 
+                // between buffers, preventing word truncation on mobile/Bluetooth.
+                await pause(80);
 
                 // Natural pause between segments (sentences)
                 if (i < segments.length - 1 && !cancelledRef.current) {
@@ -178,19 +179,39 @@ export function useSpeech(): UseSpeechReturn {
                 return;
             }
 
+            // SAFETY WATCHDOG: Safari battery-saving mode sometimes fails to fire 'onend'.
+            // For theatrical lines, we estimate duration + 3s buffer to force-advance.
+            const estimatedMs = (text.length * 100) + 3000;
+            const watchdog = setTimeout(() => {
+                console.warn("[Speech] Watchdog triggered for segment:", text.substring(0, 30));
+                cleanup();
+                resolve();
+            }, estimatedMs);
+
+            const cleanup = () => {
+                clearTimeout(watchdog);
+            };
+
             // == PRONUNCIATION IMPROVEMENTS ==
             // Apply phonetic corrections for better theatrical French
             let processedText = applyPhoneticCorrections(text);
 
-            // Clean text - remove punctuation that TTS might read aloud
             // Keep apostrophes (important for French contractions like "l'homme")
-            const cleanedText = processedText
+            // Preserve the padding marker if present
+            const paddingMarker = " . ";
+            const hasPadding = processedText.endsWith(paddingMarker);
+
+            let cleanedText = processedText
                 .replace(/\.\.\./g, '')      // Remove ellipsis
                 .replace(/[.!?;:,]/g, '')    // Remove sentence-ending punctuation
                 .replace(/[«»""]/g, '')      // Remove quotes
                 .replace(/[-–—]/g, ' ')      // Replace dashes with spaces for natural pauses
                 .replace(/\s+/g, ' ')         // Normalize spaces
                 .trim();
+
+            if (hasPadding) {
+                cleanedText += paddingMarker;
+            }
 
             if (!cleanedText) {
                 resolve();
@@ -262,8 +283,16 @@ export function useSpeech(): UseSpeechReturn {
             utterance.rate = rate;
             utterance.volume = volume;
 
-            utterance.onend = () => resolve();
+            utterance.pitch = pitch;
+            utterance.rate = rate;
+            utterance.volume = volume;
+
+            utterance.onend = () => {
+                cleanup();
+                resolve();
+            };
             utterance.onerror = (e) => {
+                cleanup();
                 if (e.error === 'interrupted' || e.error === 'canceled') {
                     resolve();
                     return;
@@ -535,11 +564,13 @@ export function useSpeech(): UseSpeechReturn {
     // Safari requires SpeechRecognition to be started within a user gesture handler (click).
     const initializeAudio = useCallback(async (forceOutput = false) => {
         try {
-            // EXPERIMENTAL: Force Audio Output (CarPlay fix)
+            // EXPERIMENTAL: Force Audio Output (CarPlay / iPad fix)
             // iOS often switches to "Phone Receiver" when mic is active if no audio is playing.
-            // We play a silent oscillator to force the "Media" audio session to stay active on the current route (Car/Bluetooth).
-            if (forceOutput) {
-                console.log("[Speech] Force Output Mode: Activating silent oscillator");
+            // We play a silent oscillator AND a silent Audio element to force the "Media" audio session.
+            if (forceOutput || true) { // Always warm up on iPad/Mobile
+                console.log("[Speech] Audio Warmup: Activating silent oscillator & dummy media");
+
+                // 1. Silent Oscillator (Low Level)
                 const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
                 if (AudioContextClass) {
                     const ctx = new AudioContextClass();
@@ -547,16 +578,21 @@ export function useSpeech(): UseSpeechReturn {
                     const gain = ctx.createGain();
 
                     osc.type = 'sine';
-                    osc.frequency.setValueAtTime(20, ctx.currentTime); // 20Hz (low freq)
-                    gain.gain.setValueAtTime(0.001, ctx.currentTime); // Almost silent but active
+                    osc.frequency.setValueAtTime(20, ctx.currentTime);
+                    gain.gain.setValueAtTime(0.001, ctx.currentTime);
 
                     osc.connect(gain);
                     gain.connect(ctx.destination);
                     osc.start();
-
-                    // Keep referencing it to prevent garbage collection
                     (window as any).__keepAliveAudio = { ctx, osc, gain };
                 }
+
+                // 2. Dummy Audio Element (High Level - needed for OpenAI / External voices)
+                // This unlocks the "Media" route on iPad/iOS
+                const dummyAudio = new Audio();
+                dummyAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+                dummyAudio.play().catch(() => { });
+                (window as any).__dummyAudio = dummyAudio;
             }
 
             // 1. Get Mic Permission

@@ -83,7 +83,7 @@ const FORBIDDEN_SINGLE_WORDS = new Set([
     "SI", "AINSI", "MAIS", "DONC", "CAR", "PUISQUE", "PARCE", "QUE", "QUAND",
     "MONSIEUR", "MADAME", "MADEMOISELLE", "MESSIEURS", "MESDAMES", "MESDEMOISELLES",
     "PÈRE", "MÈRE", "FRÈRE", "SOEUR", "SŒUR", "FILS", "FILLE",
-    "BONJOUR", "BONSOIR", "ADIEU", "SALUT", "BORDEAUX", "MERCI",
+    "BONJOUR", "BONSOIR", "ADIEU", "SALUT", "BORDEAUX", "MERCI", "PERMETTEZ",
 
     // Structural (Restored)
     "RIDEAU", "NOIR", "LUMIÈRE", "LUMIERE", "SILENCE", "PAUSE", "TEMPS",
@@ -310,6 +310,27 @@ function extractVoixName(name: string): string {
 }
 
 /**
+ * Heuristic to guess character gender from name/titles
+ */
+function getGender(name: string): 'M' | 'F' | 'unknown' {
+    const upper = name.toUpperCase();
+
+    // Explicit titles
+    if (/\b(MONSIEUR|M\.|MR|MAÎTRE|MAITRE|PÈRE|PERE|FILS|ROI|COMTE|MARQUIS|VALET)\b/i.test(upper)) return 'M';
+    if (/\b(MADAME|MME|MADEMOISELLE|MLLE|MÈRE|MERE|FILLE|REINE|COMTESSE|MARQUISE|SUIVANTE)\b/i.test(upper)) return 'F';
+
+    // Common endings (very weak heuristic for French names but better than nothing)
+    if (upper.endsWith('E') && !upper.endsWith('RE') && !upper.endsWith('TE')) {
+        // Many female names end in E
+        const maleexceptions = ["LUCIEN", "JULIEN", "ADRIEN"]; // Not ending in E
+        const femaleexceptions = ["CLÉMENCE", "ALICE", "LUCILE", "AGATHE"]; // Ending in E
+        // This is very rough, let's keep it minimal
+    }
+
+    return 'unknown';
+}
+
+/**
  * Try to extract play title from first lines
  */
 function extractTitle(lines: string[]): string | undefined {
@@ -448,13 +469,17 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     let currentCharacter = "";
     let currentBuffer = "";
     let idCounter = 0;
-    let lastSpeakers: string[] = [];
+
+    // Speaker history with gender tracking: { name, gender }
+    interface SpeakerInfo { name: string; gender: 'M' | 'F' | 'unknown' }
+    let lastSpeakers: SpeakerInfo[] = [];
 
     // === REGEX PATTERNS ===
 
     // "CHARACTER." or "CHARACTER," or "CHARACTER:" at start
     // Examples: "LE MAÎTRE DE MUSIQUE." or "Monsieur Jourdain:" or "LUCIEN."
-    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
+    // Refinement: require at least 2 characters for the name part (avoids "M." or "D." at start of line)
+    const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']{1,})[:\.,]\s*(.*)/;
 
     // Standalone uppercase line (possibly with a trailing dot)
     const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']{1,35}[\.]?)\s*$/;
@@ -463,6 +488,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     const sceneRegex = /^(?:SCÈNE|SCENE|ACTE|TABLEAU)\s+(?:[IVX0-9]+|PREMI[ÈE]RE?|DERNI[ÈE]RE?)/i;
 
     // === MAIN PARSING LOOP ===
+    let previousLine = "";
 
     for (const originalLine of lines) {
         // Clean line
@@ -498,10 +524,18 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             continue;
         }
 
-        // Try to detect character
+        // Check for character
         let potentialName = "";
         let potentialDialogue = "";
         let matched = false;
+
+        // DIALOGUE CONTINUITY CHECK
+        // If the previous line doesn't end with sentence punctuation or ends with a connector,
+        // we are very likely continuing a sentence, even if it looks like a character name.
+        const isContinuing = previousLine && (
+            !/[.!?:…]$/.test(previousLine) ||
+            /\b(M\.|Mme\.|Mlle\.|à|de|et|ou|mais|que|qui)\s*$/i.test(previousLine)
+        );
 
         // Pattern 1: "NAME. dialogue" or "NAME, description"
         const prefixMatch = line.match(characterPrefixRegex);
@@ -528,28 +562,47 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             // Pattern 2: Standalone name on its own line
             const nameMatch = line.match(characterLineRegex);
             if (nameMatch) {
-                const rawName = nameMatch[1].trim().replace(/\.$/, "");
-                // CRITICAL: Must be ALL CAPS
-                const isAllCaps = rawName === rawName.toUpperCase() && /[A-ZÀ-Þ]/.test(rawName);
-                if (isAllCaps && rawName.length >= 3) {
-                    potentialName = rawName;
-                    matched = true;
+                const rawName = nameMatch[1].trim();
+
+                // STANDALONE COMMA CHECK
+                // Addresses or mentions like "LANDERNAU," shouldn't be headers
+                if (rawName.endsWith(",")) {
+                    matched = false;
+                } else {
+                    const cleanName = rawName.replace(/\.$/, "");
+                    // CRITICAL: Must be ALL CAPS
+                    const isAllCaps = cleanName === cleanName.toUpperCase() && /[A-ZÀ-Þ]/.test(cleanName);
+                    if (isAllCaps && cleanName.length >= 3) {
+                        potentialName = cleanName;
+                        matched = true;
+                    }
                 }
             }
+        }
+
+        // Apply continuity override
+        if (matched && isContinuing && currentCharacter) {
+            // console.log(`[Parser] Overriding matched character "${potentialName}" because line is continuing: "${previousLine}"`);
+            matched = false;
         }
 
         if (matched && potentialName) {
             // Normalize the name
             let finalName = extractVoixName(potentialName);
 
-            // Score the name
+            // Special handling for collective speech: allow them to bypass standard scoring
+            const upperName = finalName.toUpperCase();
+            const isCollective = /^TOUS$|^TOUTES$|^ENSEMBLE$|^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i.test(upperName) ||
+                upperName.includes(" ET ") ||
+                (upperName.includes(",") && upperName.length > 5);
+
             const score = scoreCharacterName(finalName);
 
-            if (score > 0) {
+            if (score > 0 || isCollective) {
                 // GUIDED PARSING OVERRIDE: 
                 // If we have a whitelist, we ONLY care if it's in the list or very similar.
-                if (charWhitelist && !charWhitelist.has(finalName.toUpperCase())) {
-                    // Check for high similarity to a whitelisted character
+                // EXCEPTION: Collective characters (TOUS, etc.) always pass.
+                if (charWhitelist && !isCollective && !charWhitelist.has(finalName.toUpperCase())) {
                     let foundSimiliar = false;
                     for (const valid of charWhitelist) {
                         if (similarity(finalName, valid) > 0.85) {
@@ -559,46 +612,87 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
                         }
                     }
                     if (!foundSimiliar) {
-                        // Not a whitelisted character, ignore as possible stage direction or noise
                         matched = false;
                     }
                 }
-            }
 
-            if (matched && score > 0) {
-                // Flush previous buffer
-                if (currentCharacter && currentBuffer) {
-                    scriptLines.push({
-                        id: String(idCounter++),
-                        character: currentCharacter,
-                        text: currentBuffer.trim(),
-                        type: "dialogue",
-                    });
-                    currentBuffer = "";
-                }
-
-                // Handle collective speech
-                const upper = finalName.toUpperCase();
-                if (["TOUS LES DEUX", "LES DEUX", "ENSEMBLE", "TOUS", "TOUTES"].some(k => upper === k || upper.includes(k + " "))) {
-                    const distinct = [...new Set(lastSpeakers)].slice(-2);
-                    if (distinct.length === 2) {
-                        finalName = `${distinct[0]} et ${distinct[1]}`;
+                if (matched) {
+                    // Flush previous buffer
+                    if (currentCharacter && currentBuffer) {
+                        scriptLines.push({
+                            id: String(idCounter++),
+                            character: currentCharacter,
+                            text: currentBuffer.trim(),
+                            type: "dialogue",
+                        });
+                        currentBuffer = "";
                     }
-                }
 
-                currentCharacter = finalName;
-                characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+                    const upper = finalName.toUpperCase();
 
-                // Track history
-                if (!finalName.includes(" et ")) {
-                    lastSpeakers.push(finalName);
-                    if (lastSpeakers.length > 5) lastSpeakers.shift();
-                }
+                    // 1. Resolve "TOUS" / "TOUTES"
+                    if (upper === "TOUS" || upper === "TOUTES" || upper === "ENSEMBLE") {
+                        if (validatedCharacters && validatedCharacters.length > 0) {
+                            finalName = validatedCharacters.join(", ");
+                        }
+                    }
+                    // 2. Resolve "LES DEUX" / "LES TROIS" etc.
+                    else if (/^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i.test(upper)) {
+                        const match = upper.match(/^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i);
+                        const countMap: Record<string, number> = { "DEUX": 2, "TROIS": 3, "QUATRE": 4, "CINQ": 5 };
+                        const count = countMap[match![1].toUpperCase()] || 2;
 
-                if (potentialDialogue) {
-                    currentBuffer = potentialDialogue;
+                        const genderTarget = upper.includes("HOMME") || upper.includes("GARÇON") ? 'M' :
+                            upper.includes("FEMME") || upper.includes("FILLE") ? 'F' : 'unknown';
+
+                        const candidates: string[] = [];
+                        for (let j = lastSpeakers.length - 1; j >= 0; j--) {
+                            const s = lastSpeakers[j];
+                            if (candidates.includes(s.name)) continue;
+                            if (genderTarget === 'unknown' || s.gender === genderTarget || s.gender === 'unknown') {
+                                candidates.push(s.name);
+                            }
+                            if (candidates.length >= count) break;
+                        }
+
+                        if (candidates.length >= 2) {
+                            finalName = candidates.reverse().join(", ");
+                        }
+                    }
+                    // 3. Resolve explicit joined names (e.g., "PACAREL ET LANDERNAU")
+                    else if (upper.includes(" ET ") || (upper.includes(",") && upper.length > 5)) {
+                        const parts = upper.split(/ ET |, /i).map(p => p.trim());
+                        const resolvedParts = parts.map(part => {
+                            if (charWhitelist && charWhitelist.has(part)) return part;
+                            // Exact match in history
+                            const historyMatch = lastSpeakers.find(s => s.name.toUpperCase() === part);
+                            if (historyMatch) return historyMatch.name;
+
+                            // Fuzzy match against whitelist
+                            if (charWhitelist) {
+                                for (const valid of charWhitelist) {
+                                    if (similarity(part, valid) > 0.85) return valid;
+                                }
+                            }
+                            return part;
+                        });
+                        finalName = resolvedParts.join(", ");
+                    }
+
+                    currentCharacter = finalName;
+                    characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+
+                    // Track history for non-collective
+                    if (!finalName.includes(",") && !finalName.includes(" et ")) {
+                        lastSpeakers.push({ name: finalName, gender: getGender(finalName) });
+                        if (lastSpeakers.length > 10) lastSpeakers.shift();
+                    }
+
+                    if (potentialDialogue) {
+                        currentBuffer = potentialDialogue;
+                    }
+                    continue;
                 }
-                continue;
             }
         }
 
@@ -606,6 +700,9 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
         if (currentCharacter) {
             currentBuffer += (currentBuffer ? " " : "") + line;
         }
+
+        // Update previous line for next iteration
+        previousLine = line;
     }
 
     // Flush final buffer
@@ -662,7 +759,11 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     const realCharacters = Object.keys(finalCounts)
         .filter(c => {
             if (c === "SCENE") return false;
-            if (c.includes(" et ")) return false;
+            if (c.includes(" et ") || c.includes(",")) return false;
+
+            // If the character was explicitly validated in the wizard, keep it!
+            if (charWhitelist && charWhitelist.has(c.toUpperCase())) return true;
+
             if (finalCounts[c] < CONFIG.MIN_LINES_THRESHOLD) {
                 console.log(`[Parser] Filtering out "${c}" (only ${finalCounts[c]} line(s))`);
                 return false;
