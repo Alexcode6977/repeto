@@ -377,21 +377,31 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
         let line = lines[i].trim();
         if (!line || /^\d+$/.test(line)) continue;
 
-        // NEW: Structured Marker "PERSO [NAME]"
-        if (line.toUpperCase().startsWith("PERSO ")) {
-            const charName = line.substring(6).trim().toUpperCase();
-            if (charName && scoreCharacterName(charName) > 0) {
-                const stats = characterUsage.get(charName) || { headers: 0, totalWords: 0 };
-                stats.headers += 10; // High weight for explicit markers
-                characterUsage.set(charName, stats);
-                continue;
-            }
+        const upperLine = line.toUpperCase();
+
+        // 1. STRICT: Skip any line that is clearly a dialogue marker
+        if (upperLine.startsWith("REPLIQUE")) continue;
+
+        // 2. NEW: Structured Marker "PERSO [NAME1, NAME2...]"
+        if (upperLine.startsWith("PERSO ")) {
+            const rawNames = line.substring(6).trim().toUpperCase();
+            // Split by comma, point-virgule, or " ET "
+            const names = rawNames.split(/[,;\.]| ET /).map(n => n.trim()).filter(n => n.length > 1);
+
+            names.forEach(name => {
+                if (scoreCharacterName(name) > 0) {
+                    const stats = characterUsage.get(name) || { headers: 0, totalWords: 0 };
+                    stats.headers += 10;
+                    characterUsage.set(name, stats);
+                }
+            });
+            continue; // Skip heuristics for this line
         }
 
-        // NEW: "Personnages : name1, name2..."
-        if (line.toUpperCase().startsWith("PERSONNAGES :")) {
+        // 3. NEW: "Personnages : name1, name2..."
+        if (upperLine.startsWith("PERSONNAGES :")) {
             const list = line.substring(13).trim();
-            const names = list.split(/[,;\.]/).map(n => n.trim().toUpperCase()).filter(n => n.length > 2);
+            const names = list.split(/[,;\.]| ET /i).map(n => n.trim().toUpperCase()).filter(n => n.length > 2);
             names.forEach(n => {
                 const stats = characterUsage.get(n) || { headers: 0, totalWords: 0 };
                 stats.headers += 5;
@@ -528,16 +538,20 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             continue;
         }
 
-        // NEW: Structured Character Marker "PERSO [NAME]" (Priority 1)
+        // NEW: Structured Character Marker "PERSO [NAME1, NAME2...]" (Priority 1)
         if (line.toUpperCase().startsWith("PERSO ")) {
             if (currentCharacter && currentBuffer) {
                 scriptLines.push({ id: String(idCounter++), character: currentCharacter, text: currentBuffer.trim(), type: "dialogue" });
                 currentBuffer = "";
             }
-            let finalName = line.substring(6).trim().toUpperCase();
-            // Remove any trailing noise
-            finalName = finalName.replace(/[:\.,]$/, "").trim();
-            currentCharacter = finalName;
+            const rawNames = line.substring(6).trim().toUpperCase();
+            const names = rawNames.split(/[,;\.]| ET /).map(n => n.trim().replace(/[:\.,]$/, "").trim()).filter(n => n.length > 1);
+
+            // Join them back with a clean separator for the dialogue object
+            const finalGroupName = names.join(", ");
+            currentCharacter = finalGroupName;
+
+            // Update counts for each individual if needed, but here we track the group occurrence
             characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
             continue;
         }
@@ -554,6 +568,10 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
         // Fallback to Heuristics (for non-structured lines OR continuations)
         let cleanLine = line.replace(/\(.*?\)/g, "").replace(/\s+/g, " ").trim();
         if (!cleanLine) continue;
+
+        // Skip any heuristic detection if it's a residual marker line
+        const upperLine = line.toUpperCase();
+        if (upperLine.startsWith("PERSO") || upperLine.startsWith("REPLIQUE")) continue;
 
         // If we have a character but no REPLIQUE marker on THIS line, 
         // it might be a continuation of the previous REPLIQUE (if the script allows multi-line without repeating REPLIQUE)
