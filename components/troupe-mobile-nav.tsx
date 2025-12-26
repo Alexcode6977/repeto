@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 import {
     LayoutDashboard,
     Calendar,
-    BookOpen
+    BookOpen,
+    ClipboardList
 } from "lucide-react";
 
 interface TroupeMobileNavProps {
@@ -28,6 +29,12 @@ export function TroupeMobileNav({ troupeId }: TroupeMobileNavProps) {
             href: `/troupes/${troupeId}/calendar`,
             icon: Calendar,
             active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
+        },
+        {
+            label: "Séances",
+            href: `/troupes/${troupeId}/sessions`,
+            icon: ClipboardList,
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
         },
         {
             label: "Pièces",

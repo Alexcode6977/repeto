@@ -26,25 +26,59 @@ interface UseRehearsalProps {
     ttsProvider?: TTSProvider;
     openaiVoiceAssignments?: Record<string, OpenAIVoice>;
     skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
+    playId?: string;
 }
 
 import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { isNextCommand, isPrevCommand } from "../speech-utils";
+import { getPlayRecordings } from "../actions/recordings";
 
-export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [] }: UseRehearsalProps) {
+export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const openaiSpeech = useOpenAITTS();
     const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
 
+    const [recordings, setRecordings] = useState<any[]>([]);
+    const [isPlayingRecording, setIsPlayingRecording] = useState(false);
+
+    // Fetch recordings if playId is provided
+    useEffect(() => {
+        if (playId) {
+            getPlayRecordings(playId).then(setRecordings);
+        }
+    }, [playId]);
+
     // Use specialized voice hook
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
 
-    // Unified speak function that handles both providers
-    const speak = async (text: string, _voice?: SpeechSynthesisVoice, characterName?: string): Promise<void> => {
+    // Unified speak function that handles both providers AND custom recordings
+    const speak = async (text: string, _voice?: SpeechSynthesisVoice, characterName?: string, lineId?: string): Promise<void> => {
+        // Priority 1: User Recording
+        const recording = recordings.find(r => r.line_id === lineId);
+        if (recording) {
+            console.log("[Rehearsal] Playing custom recording for line:", lineId);
+            setIsPlayingRecording(true);
+            return new Promise((resolve) => {
+                const audio = new Audio(recording.audio_url);
+                audio.onended = () => {
+                    setIsPlayingRecording(false);
+                    resolve();
+                };
+                audio.onerror = () => {
+                    setIsPlayingRecording(false);
+                    resolve();
+                };
+                audio.play();
+            });
+        }
+
+        // Priority 2: OpenAI TTS
         if (ttsProvider === "openai") {
             const assignedVoice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "nova";
             await openaiSpeech.speak(text, assignedVoice);
-        } else {
+        }
+        // Priority 3: Browser TTS
+        else {
             await browserSpeech.speak(text, _voice);
         }
     };
@@ -345,7 +379,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
                 const voice = voiceAssignments[line.character];
                 try {
-                    await speak(line.text, voice, line.character);
+                    await speak(line.text, voice, line.character, line.id);
                     if (!isMountedRef.current) return;
                     if (statusRef.current === "playing_other" && !manualSkipRef.current) {
                         next();
@@ -392,7 +426,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
                             const hintAudio = remaining === 0 ? "Dernier essai." : "Encore une fois.";
 
                             // Restore full correction: "Tu as dit X. Il fallait dire Y."
-                            await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}. ${hintAudio}`, voiceAssignments["ASSISTANT"]);
+                            await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}. ${hintAudio}`, voiceAssignments["ASSISTANT"], "ASSISTANT");
 
                             setFeedback(null);
                             setRetryCount(prev => prev + 1);
@@ -442,6 +476,7 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         togglePause,
         isPaused: status === "paused",
         previous,
-        initializeAudio
+        initializeAudio,
+        isPlayingRecording
     };
 }

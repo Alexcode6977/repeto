@@ -33,7 +33,7 @@ export default async function SessionDetailsPage({
                 <div className="flex justify-between items-end">
                     <div>
                         <h1 className="text-4xl font-black text-white tracking-tighter">
-                            {sessionData.title || "Planification de Séance"}
+                            Préparation : {sessionData.title || "Nouvelle Séance"}
                         </h1>
                         <p className="text-gray-400 font-medium">
                             {new Date(sessionData.start_time).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} • {sessionData.plays?.length} pièce{sessionData.plays?.length > 1 ? 's' : ''} disponible{sessionData.plays?.length > 1 ? 's' : ''}

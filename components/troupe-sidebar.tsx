@@ -46,6 +46,13 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
         }
     ];
 
+    // Detect if we are in the sessions area
+    const isInSessions = pathname.startsWith(`/troupes/${troupeId}/sessions`);
+    const sessionMatch = pathname.match(new RegExp(`/troupes/[^/]+/sessions/([^/]+)`));
+    const rawEventId = sessionMatch ? sessionMatch[1] : null;
+    const eventId = (rawEventId && !['my-feedbacks', 'new'].includes(rawEventId)) ? rawEventId : null;
+    const isLive = pathname.endsWith('/live');
+
     return (
         <aside className="w-64 h-screen fixed left-0 top-0 border-r border-white/10 bg-black/20 backdrop-blur-xl z-50 flex flex-col pt-24">
             <div className="px-6 mb-8">
@@ -58,25 +65,63 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
                 </Link>
             </div>
 
-            <nav className="flex-1 px-4 space-y-2">
-                {navItems.map((item) => (
-                    <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                            "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group",
-                            item.active
-                                ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
-                                : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
-                        )}
-                    >
-                        <item.icon className={cn(
-                            "w-5 h-5 transition-transform group-hover:scale-110",
-                            item.active ? "text-primary" : "text-gray-500 group-hover:text-white"
-                        )} />
-                        <span className="font-semibold text-sm">{item.label}</span>
-                    </Link>
-                ))}
+            <nav className="flex-1 px-4 space-y-1">
+                {navItems.map((item) => {
+                    const isSessionMenu = item.label === "Séances";
+                    const showSubMenu = isSessionMenu && isInSessions;
+
+                    return (
+                        <div key={item.href} className="space-y-1">
+                            <Link
+                                href={item.href}
+                                className={cn(
+                                    "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group",
+                                    item.active
+                                        ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+                                        : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
+                                )}
+                            >
+                                <item.icon className={cn(
+                                    "w-5 h-5 transition-transform group-hover:scale-110",
+                                    item.active ? "text-primary" : "text-gray-500 group-hover:text-white"
+                                )} />
+                                <span className="font-semibold text-sm">{item.label}</span>
+                            </Link>
+
+                            {/* Sub-menu for sessions workflow */}
+                            {showSubMenu && (
+                                <div className="ml-12 space-y-1 py-1 border-l border-white/5 pl-4 transition-all animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <Link
+                                        href={eventId
+                                            ? `/troupes/${troupeId}/sessions/${eventId}`
+                                            : `/troupes/${troupeId}/sessions?view=prep`}
+                                        className={cn(
+                                            "block py-2 text-xs font-bold transition-all",
+                                            (pathname === `/troupes/${troupeId}/sessions/${eventId}` || (isInSessions && !eventId && pathname.includes('view=prep')))
+                                                ? "text-primary translate-x-1"
+                                                : "text-gray-500 hover:text-white hover:translate-x-1"
+                                        )}
+                                    >
+                                        • Préparation
+                                    </Link>
+                                    <Link
+                                        href={eventId
+                                            ? `/troupes/${troupeId}/sessions/${eventId}/live`
+                                            : `/troupes/${troupeId}/sessions?view=live`}
+                                        className={cn(
+                                            "block py-2 text-xs font-bold transition-all",
+                                            (isLive || (isInSessions && !eventId && pathname.includes('view=live')))
+                                                ? "text-primary translate-x-1"
+                                                : "text-gray-500 hover:text-white hover:translate-x-1"
+                                        )}
+                                    >
+                                        • La Séance
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </nav>
 
             <div className="p-6 border-t border-white/5">

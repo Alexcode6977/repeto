@@ -13,13 +13,17 @@ interface ScriptReaderProps {
     userCharacter: string;
     onExit: () => void;
     settings: ScriptSettings;
+    playId?: string;
+    userId?: string;
 }
 
 export function ScriptReader({ script, userCharacter, onExit, settings }: ScriptReaderProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
+    const lineRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
     const [highlightStyle, setHighlightStyle] = useState<"box" | "text">("box");
 
-    // Helper to check if user is in this line's character (handles compound names like "YVONNE et LUCIEN")
+    // Helper to check if user is in this line's character
     const isUserLine = (lineChar: string) => {
         if (!lineChar || !userCharacter) return false;
         const normalizedLineChar = lineChar.toLowerCase().trim();
@@ -29,20 +33,23 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
     };
 
     // Pre-calculate line numbers for user character
-    const userLineNumbers = new Map<string, number>();
-    let counter = 0;
-    script.lines.forEach((line) => {
-        if (isUserLine(line.character)) {
-            counter++;
-            userLineNumbers.set(line.id, counter);
-        }
-    });
+    const userLineNumbers = useMemo(() => {
+        const map = new Map<string, number>();
+        let counter = 0;
+        script.lines.forEach((line) => {
+            if (isUserLine(line.character)) {
+                counter++;
+                map.set(line.id, counter);
+            }
+        });
+        return map;
+    }, [script.lines, userCharacter]);
 
     // Build a map of line index -> scene info
     const sceneAtIndex = useMemo(() => {
         const map = new Map<number, string>();
         if (script.scenes && script.scenes.length > 0) {
-            script.scenes.forEach((scene, idx) => {
+            script.scenes.forEach((scene) => {
                 map.set(scene.index, scene.title);
             });
         }
@@ -72,7 +79,6 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
             return `${words[0]} ${words[1]} ...`;
         }
 
-        // Hidden
         return "...............";
     };
 
@@ -93,19 +99,13 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
                 const nextLine = script.lines[line.originalIndex + 1];
                 return nextLine && isUserLine(nextLine.character);
             }
-
-            if (settings.mode === "check") {
-                // Filage = Répliques seules
-                return false;
-            }
-
             return false;
         });
     }, [script.lines, settings.mode, userCharacter]);
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1a1a] text-white font-sans overflow-hidden">
-            {/* Header - Title only */}
+            {/* Header */}
             <div className="flex-none px-4 pt-8 pb-4 border-b border-white/10 bg-black/80 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-white/10 rounded-full text-white">
@@ -117,16 +117,18 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
                     </div>
                 </div>
 
-                <Button
-                    onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacter, settings, sceneAtIndex)}
-                    className="bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl flex items-center gap-2 text-xs font-bold py-2 h-auto"
-                >
-                    <Download className="w-4 h-4" />
-                    <span className="hidden sm:inline">Exporter PDF</span>
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button
+                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacter, settings, sceneAtIndex)}
+                        className="bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl flex items-center gap-2 text-xs font-bold py-2 h-auto"
+                    >
+                        <Download className="w-4 h-4" />
+                        <span className="hidden sm:inline">Exporter PDF</span>
+                    </Button>
+                </div>
             </div>
 
-            {/* Toggle Bar - SEPARATE ROW */}
+            {/* Toggle Bar */}
             <div className="flex-none px-4 py-4 bg-black/60 border-b border-white/5 flex justify-center">
                 <div className="flex items-center gap-0 bg-neutral-800 rounded-full p-1.5 border border-white/20 shadow-lg">
                     <button
@@ -152,15 +154,10 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
                 </div>
             </div>
 
-            {/* Script Content with Scene Indicator */}
+            {/* Script Content */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto">
                 <div className="flex">
-                    {/* Left Scene Indicator Column */}
-                    <div className="hidden md:block w-24 flex-shrink-0 bg-black/40 border-r border-white/5 sticky left-0">
-                        {/* This is a placeholder - actual indicators are inline */}
-                    </div>
-
-                    {/* Main Content */}
+                    <div className="hidden md:block w-24 flex-shrink-0 bg-black/40 border-r border-white/5 sticky left-0" />
                     <div className="flex-1 p-4 md:p-8">
                         <div className="max-w-3xl mx-auto space-y-4 pb-32">
                             {filteredLines.map((line, idx) => {
@@ -170,7 +167,6 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
 
                                 return (
                                     <div key={line.id}>
-                                        {/* Scene Header - Shows when a new scene starts */}
                                         {sceneTitle && (
                                             <div className="flex items-center gap-3 py-4 mb-4 border-b border-white/10">
                                                 <div className="bg-primary/20 text-primary text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
@@ -180,6 +176,9 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
                                         )}
 
                                         <div
+                                            ref={(el) => {
+                                                if (el) lineRefs.current.set(line.id, el);
+                                            }}
                                             className={cn(
                                                 "relative p-4 rounded-xl transition-all duration-200 flex gap-4",
                                                 isUser && highlightStyle === "box"
@@ -187,16 +186,13 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
                                                     : "border border-transparent hover:bg-white/5"
                                             )}
                                         >
-                                            {/* Scene indicator on left for desktop */}
                                             <div className="hidden md:flex flex-col items-center w-12 flex-shrink-0 pt-1">
-                                                {/* Small scene badge on each line (optional visual) */}
                                                 <span className="text-[9px] text-gray-600 font-mono">
                                                     {getCurrentScene(idx)?.split(' ').slice(0, 2).join(' ')}
                                                 </span>
                                             </div>
 
                                             <div className="flex-1">
-                                                {/* Character name with line number */}
                                                 <div className="flex items-center gap-2 mb-2">
                                                     {lineNumber && (
                                                         <span className="text-yellow-400 text-[11px] font-bold">
@@ -211,20 +207,10 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
                                                     </span>
                                                 </div>
 
-                                                {/* Text content - FORCED YELLOW HIGHLIGHT */}
-                                                <p
-                                                    className="text-lg md:text-xl leading-relaxed"
-                                                    style={
-                                                        highlightStyle === "text" && isUser
-                                                            ? { backgroundColor: '#facc15', color: '#000', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', display: 'inline' }
-                                                            : undefined
-                                                    }
-                                                >
+                                                <p className="text-lg md:text-xl leading-relaxed">
                                                     <span className={cn(
                                                         isUser && highlightStyle !== "text" ? "text-yellow-100 font-medium" : "",
                                                         !isUser ? "text-gray-300" : "",
-                                                        // Fix for highlighted mode on desktop: force styling via class if inline fails, but inline takes precedence.
-                                                        // Adding a specific class for 'text' mode to ensure visibility
                                                         isUser && highlightStyle === "text" ? "bg-yellow-400 text-black px-1 rounded box-decoration-clone" : ""
                                                     )}
                                                         style={

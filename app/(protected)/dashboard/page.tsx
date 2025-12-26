@@ -42,6 +42,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>(""); // Need email for admin check
+  const [userId, setUserId] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false); // New loading state for detail fetch
 
@@ -71,8 +72,9 @@ export default function Home() {
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email) {
-          setUserEmail(user.email);
+        if (user) {
+          setUserId(user.id);
+          if (user.email) setUserEmail(user.email);
 
           // Fetch profile for first name
           const { data: profile } = await supabase
@@ -83,7 +85,7 @@ export default function Home() {
 
           if (profile?.first_name) {
             setUserName(profile.first_name);
-          } else {
+          } else if (user.email) {
             setUserName(user.email.split('@')[0]);
           }
         }
@@ -326,6 +328,7 @@ export default function Home() {
         userCharacter={rehearsalChar}
         onExit={handleExitView}
         settings={sessionSettings}
+        userId={userId}
       />
     );
   }

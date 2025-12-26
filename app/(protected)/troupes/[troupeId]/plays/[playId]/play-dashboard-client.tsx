@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { ParsedScript } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
 import { ScriptReader } from "@/components/script-reader";
+import { RecordingManager } from "@/components/recording-manager";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { CastingManager } from "@/components/casting-manager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Calendar, Play, BookOpen } from "lucide-react";
+import { FileText, Calendar, Play, BookOpen, Mic } from "lucide-react";
 import Link from "next/link";
 
 interface PlayDashboardClientProps {
@@ -29,9 +31,16 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests }: P
         mode: "full"
     });
     const [isMounted, setIsMounted] = useState(false);
+    const [userId, setUserId] = useState<string>("");
 
     useEffect(() => {
         setIsMounted(true);
+        const getUserId = async () => {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setUserId(user.id);
+        };
+        getUserId();
     }, []);
 
     if (!isMounted) return null;
@@ -62,6 +71,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests }: P
                 userCharacter={rehearsalChar}
                 onExit={handleExitView}
                 initialSettings={sessionSettings}
+                playId={play.id}
             />
         );
     }
@@ -73,6 +83,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests }: P
                 userCharacter={rehearsalChar}
                 onExit={handleExitView}
                 settings={sessionSettings}
+                playId={play.id}
+                userId={userId}
             />
         );
     }
@@ -162,6 +174,12 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests }: P
                         <TabsTrigger value="script" className="rounded-xl px-8 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg transition-all font-bold uppercase text-[10px] tracking-[0.15em]">
                             Script
                         </TabsTrigger>
+                        {play.play_characters?.some((c: any) => c.actor_id === userId) && (
+                            <TabsTrigger value="recording" className="rounded-xl px-8 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-lg transition-all font-bold uppercase text-[10px] tracking-[0.15em] gap-2">
+                                <Mic className="w-3.5 h-3.5" />
+                                Enregistrement
+                            </TabsTrigger>
+                        )}
                     </TabsList>
                 </div>
 
@@ -245,6 +263,22 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests }: P
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                <TabsContent value="recording" className="outline-none">
+                    {(() => {
+                        const userChar = play.play_characters?.find((c: any) => c.actor_id === userId);
+                        if (!userChar) return null;
+
+                        return (
+                            <RecordingManager
+                                script={play.script_content as ParsedScript}
+                                userCharacter={userChar.name}
+                                playId={play.id}
+                                userId={userId}
+                            />
+                        );
+                    })()}
                 </TabsContent>
             </Tabs>
         </div>

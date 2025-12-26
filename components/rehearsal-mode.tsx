@@ -8,6 +8,7 @@ import { synthesizeSpeech } from "@/app/actions/tts";
 import { getVoiceStatus } from "@/app/actions/voice";
 import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -84,9 +85,10 @@ interface RehearsalModeProps {
     onExit: () => void;
     isDemo?: boolean;
     initialSettings?: ScriptSettings;
+    playId?: string;
 }
 
-export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, initialSettings }: RehearsalModeProps) {
+export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, initialSettings, playId }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
@@ -154,8 +156,19 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
         setVoiceForRole,
         voices,
         initializeAudio,
-        transcript // Real-time interim transcript
-    } = useRehearsal({ script, userCharacter, similarityThreshold: threshold, initialLineIndex: startLineIndex, mode: rehearsalMode, ttsProvider: ttsProvider || "browser", openaiVoiceAssignments, skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [] });
+        transcript, // Real-time interim transcript
+        isPlayingRecording
+    } = useRehearsal({
+        script,
+        userCharacter,
+        similarityThreshold: threshold,
+        initialLineIndex: startLineIndex,
+        mode: rehearsalMode,
+        ttsProvider: ttsProvider || "browser",
+        openaiVoiceAssignments,
+        skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [],
+        playId
+    });
 
     const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
 
@@ -966,6 +979,12 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                                         {/* Status Indicators for Active Line */}
                                         {isActive && status === "listening_user" && (
                                             <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse mr-3 align-middle" />
+                                        )}
+                                        {isActive && isPlayingRecording && (
+                                            <Badge className="bg-primary/20 text-primary border-primary/30 uppercase text-[8px] font-black px-2 py-0.5 mr-3 align-middle animate-in fade-in zoom-in-95">
+                                                <Mic className="w-2.5 h-2.5 mr-1" />
+                                                Voix Troupe
+                                            </Badge>
                                         )}
                                         {getVisibleText(line.text, isUser)}
                                     </p>
