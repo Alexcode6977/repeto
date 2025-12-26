@@ -65,14 +65,18 @@ export async function getSessionDetails(eventId: string) {
         return null;
     }
 
-    // Fetch line counts for the play
-    const { data: lineCounts } = await supabase.rpc('get_line_counts', {
-        p_play_id: event.plays.id
-    });
+    // Fetch line counts for the play if it exists
+    let lineStats = [];
+    if (event.plays?.id) {
+        const { data: lineCounts } = await supabase.rpc('get_line_counts', {
+            p_play_id: event.plays.id
+        });
+        lineStats = lineCounts || [];
+    }
 
     return {
         ...event,
-        lineStats: lineCounts || []
+        lineStats
     };
 }
 
