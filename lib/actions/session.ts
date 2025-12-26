@@ -37,19 +37,41 @@ export async function getTroupeSessions(troupeId: string) {
 export async function getSessionDetails(eventId: string) {
     const supabase = await createClient();
 
-    const { data: event, error } = await supabase
+    // 1. Fetch Event to get troupe_id
+    const { data: event, error: eventError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+    if (eventError || !event) {
+        console.error('Error fetching event:', eventError);
+        return null;
+    }
+
+    // 2. Fetch all plays for this troupe
+    const { data: allPlays, error: playsError } = await supabase
+        .from('plays')
+        .select(`
+            id,
+            title,
+            play_characters (*),
+            play_scenes (
+                *,
+                scene_characters (character_id)
+            )
+        `)
+        .eq('troupe_id', event.troupe_id);
+
+    if (playsError) {
+        console.error('Error fetching troupe plays:', playsError);
+        return null;
+    }
+
+    // 3. Fetch attendance and plan
+    const { data: complementaryData, error: compError } = await supabase
         .from('events')
         .select(`
-            *,
-            plays (
-                id,
-                title,
-                play_characters (*),
-                play_scenes (
-                    *,
-                    scene_characters (character_id)
-                )
-            ),
             event_attendance (
                 *,
                 profiles (first_name, email),
@@ -60,25 +82,30 @@ export async function getSessionDetails(eventId: string) {
         .eq('id', eventId)
         .single();
 
-    if (error) {
-        console.error('Error fetching session details:', error);
+    if (compError) {
+        console.error('Error fetching complementary details:', compError);
         return null;
     }
 
-    // Fetch line counts for the play if it exists
-    let lineStats = [];
-    if (event.plays?.id) {
+
+    // 4. Fetch line counts for each play
+    const playsWithStats = await Promise.all(allPlays.map(async (p) => {
         const { data: lineCounts } = await supabase.rpc('get_line_counts', {
-            p_play_id: event.plays.id
+            p_play_id: p.id
         });
-        lineStats = lineCounts || [];
-    }
+        return {
+            ...p,
+            lineStats: lineCounts || []
+        };
+    }));
 
     return {
         ...event,
-        lineStats
+        ...complementaryData,
+        plays: playsWithStats
     };
 }
+
 
 /**
  * Save or update a session plan.

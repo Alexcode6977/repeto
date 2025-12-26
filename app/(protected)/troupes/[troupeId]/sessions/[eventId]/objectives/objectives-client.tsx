@@ -15,7 +15,7 @@ interface ObjectivesClientProps {
 
 export function ObjectivesClient({ sessionData, troupeId }: ObjectivesClientProps) {
     const router = useRouter();
-    const play = sessionData.plays;
+    const plays = sessionData.plays || [];
     const plan = sessionData.session_plans;
     const lineStats = sessionData.lineStats || [];
 
@@ -73,10 +73,20 @@ export function ObjectivesClient({ sessionData, troupeId }: ObjectivesClientProp
         <div className="space-y-6">
             <div className="grid gap-4">
                 {scenesWithObjectives.map((item, index) => {
-                    const scene = play.play_scenes.find((s: any) => s.id === item.id);
-                    const sceneChars = play.play_characters.filter((pc: any) =>
+                    let sceneAndPlay = null;
+                    for (const p of plays) {
+                        const found = (p.play_scenes || []).find((s: any) => s.id === item.id);
+                        if (found) {
+                            sceneAndPlay = { scene: found, play: p };
+                            break;
+                        }
+                    }
+
+                    const scene = sceneAndPlay?.scene;
+                    const currentPlay = sceneAndPlay?.play;
+                    const sceneChars = currentPlay?.play_characters.filter((pc: any) =>
                         scene?.scene_characters?.some((sc: any) => sc.character_id === pc.id)
-                    );
+                    ) || [];
                     const isExpanded = expandedScene === item.id;
 
                     return (
@@ -93,7 +103,10 @@ export function ObjectivesClient({ sessionData, troupeId }: ObjectivesClientProp
                                         {index + 1}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-white text-xl uppercase tracking-tighter">{scene?.title}</h3>
+                                        <div className="flex items-baseline gap-2">
+                                            <h3 className="font-bold text-white text-xl uppercase tracking-tighter">{scene?.title}</h3>
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase">{currentPlay?.title}</span>
+                                        </div>
                                         <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">
                                             {sceneChars.length} personnages • {lineStats.filter((ls: any) => ls.scene_id === item.id).reduce((acc: number, curr: any) => acc + (curr.line_count || 0), 0)} répliques
                                         </p>
@@ -101,6 +114,7 @@ export function ObjectivesClient({ sessionData, troupeId }: ObjectivesClientProp
                                 </div>
                                 {isExpanded ? <ChevronUp className="text-gray-500" /> : <ChevronDown className="text-gray-500" />}
                             </div>
+
 
                             {isExpanded && (
                                 <CardContent className="p-8 pt-0 space-y-8 animate-in slide-in-from-top-2 duration-300">

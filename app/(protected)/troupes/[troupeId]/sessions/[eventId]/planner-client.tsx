@@ -18,9 +18,12 @@ interface PlannerProps {
 
 export function SessionPlannerClient({ sessionData, troupeId, members, guests }: PlannerProps) {
     const router = useRouter();
-    const play = sessionData.plays;
+    const plays = sessionData.plays || [];
     const attendance = sessionData.event_attendance || [];
     const initialPlan = sessionData.session_plans || { selected_scenes: [], general_notes: "" };
+
+    const [selectedPlayId, setSelectedPlayId] = useState<string>(plays[0]?.id || "");
+    const selectedPlay = useMemo(() => plays.find((p: any) => p.id === selectedPlayId), [plays, selectedPlayId]);
 
     // Normalize IDs from potential object structure
     const initialIds = (initialPlan.selected_scenes || []).map((s: any) => typeof s === 'string' ? s : s.id);
@@ -39,13 +42,13 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
         );
     }, [attendance]);
 
-    // 2. Scene Matching Logic
+    // 2. Scene Matching Logic (for the selected play)
     const scenesWithMetadata = useMemo(() => {
-        if (!play?.play_scenes) return [];
+        if (!selectedPlay?.play_scenes) return [];
 
-        return play.play_scenes.map((scene: any) => {
+        return selectedPlay.play_scenes.map((scene: any) => {
             const requiredCharIds = scene.scene_characters?.map((sc: any) => sc.character_id) || [];
-            const requiredCharacters = play.play_characters.filter((pc: any) => requiredCharIds.includes(pc.id));
+            const requiredCharacters = selectedPlay.play_characters.filter((pc: any) => requiredCharIds.includes(pc.id));
 
             const missingCharacters = requiredCharacters.filter((char: any) => {
                 const actorId = char.actor_id || char.guest_id;
@@ -59,6 +62,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
             return {
                 ...scene,
+                playTitle: selectedPlay.title,
                 isPlayable,
                 isIncomplete,
                 isUnplayable,
@@ -66,7 +70,8 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                 missingCharacters
             };
         });
-    }, [play, presentIds]);
+    }, [selectedPlay, presentIds]);
+
 
     const filteredScenes = useMemo(() => {
         if (!filterMagic) return scenesWithMetadata;
@@ -97,21 +102,48 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
         );
     };
 
-    const selectedScenesData = selectedSceneIds.map(id => scenesWithMetadata.find((s: any) => s.id === id)).filter(Boolean);
+    const selectedScenesData = useMemo(() => {
+        return selectedSceneIds.map(id => {
+            // Find scene in ANY play
+            for (const p of plays) {
+                const found = (p.play_scenes || []).find((s: any) => s.id === id);
+                if (found) return { ...found, playTitle: p.title };
+            }
+            return null;
+        }).filter(Boolean);
+    }, [selectedSceneIds, plays]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             {/* Left: Matching Grid */}
             <div className="lg:col-span-8 space-y-8">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h2 className="text-2xl font-black text-white flex items-center gap-3">
                             <Users className="w-6 h-6 text-primary" />
-                            {play?.title || "Pièce"}
+                            Planification des scènes
                         </h2>
-                        <p className="text-gray-500 text-sm font-medium mt-1">Disponibilité des scènes selon les présences</p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {plays.map((p: any) => (
+                                <Button
+                                    key={p.id}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedPlayId(p.id)}
+                                    className={cn(
+                                        "rounded-xl text-xs font-bold px-4 py-2 h-auto border transition-all",
+                                        selectedPlayId === p.id
+                                            ? "bg-primary/20 text-primary border-primary/50"
+                                            : "text-gray-400 border-white/5 hover:bg-white/5"
+                                    )}
+                                >
+                                    {p.title}
+                                </Button>
+                            ))}
+                        </div>
                     </div>
+
                     <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
                         <Button
                             variant="ghost"
@@ -204,18 +236,22 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                 </div>
                             ) : (
                                 selectedScenesData.map((scene: any, index) => (
-                                    <div key={scene.id} className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/5 group">
-                                        <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-[10px] font-black text-primary">
-                                            {index + 1}
+                                    <div key={scene.id} className="flex flex-col gap-1 p-3 rounded-2xl bg-white/5 border border-white/5 group relative">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-[10px] font-black text-primary">
+                                                {index + 1}
+                                            </div>
+                                            <span className="text-sm font-bold text-white flex-1 truncate">{scene.title}</span>
+                                            <button
+                                                onClick={() => toggleSceneSelection(scene.id)}
+                                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-500 transition-all font-bold text-xs"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                         </div>
-                                        <span className="text-sm font-bold text-white flex-1 truncate">{scene.title}</span>
-                                        <button
-                                            onClick={() => toggleSceneSelection(scene.id)}
-                                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-500 transition-all font-bold text-xs"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <span className="text-[9px] uppercase font-black text-gray-500 ml-9">{scene.playTitle}</span>
                                     </div>
+
                                 ))
                             )}
                         </div>

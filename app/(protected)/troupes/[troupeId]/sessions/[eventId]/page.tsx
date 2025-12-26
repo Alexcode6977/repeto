@@ -36,8 +36,9 @@ export default async function SessionDetailsPage({
                             {sessionData.title || "Planification de Séance"}
                         </h1>
                         <p className="text-gray-400 font-medium">
-                            {new Date(sessionData.start_time).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} • {sessionData.plays?.title}
+                            {new Date(sessionData.start_time).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} • {sessionData.plays?.length} pièce{sessionData.plays?.length > 1 ? 's' : ''} disponible{sessionData.plays?.length > 1 ? 's' : ''}
                         </p>
+
                     </div>
                 </div>
             </div>

@@ -15,7 +15,7 @@ interface LiveProps {
 }
 
 export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
-    const play = sessionData.plays;
+    const plays = sessionData.plays || [];
     const plan = sessionData.session_plans;
     const selectedScenes = plan.selected_scenes || [];
     const selectedSceneIds = selectedScenes.map((s: any) => typeof s === 'string' ? s : s.id);
@@ -24,10 +24,22 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
     const [feedbackText, setFeedbackText] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Derived data
-    const currentScene = play.play_scenes.find((s: any) => s.id === selectedSceneIds[currentSceneIndex]);
+    // Derived data - Find scene and its parent play
+    let sceneAndPlay = null;
+    const currentSceneId = selectedSceneIds[currentSceneIndex];
+    for (const p of plays) {
+        const found = (p.play_scenes || []).find((s: any) => s.id === currentSceneId);
+        if (found) {
+            sceneAndPlay = { scene: found, play: p };
+            break;
+        }
+    }
+
+    const currentScene = sceneAndPlay?.scene;
+    const currentPlay = sceneAndPlay?.play;
     const charactersInSceneIds = currentScene?.scene_characters?.map((sc: any) => sc.character_id) || [];
-    const charactersInScene = play.play_characters.filter((pc: any) => charactersInSceneIds.includes(pc.id));
+    const charactersInScene = currentPlay?.play_characters.filter((pc: any) => charactersInSceneIds.includes(pc.id)) || [];
+
 
     const handleSendFeedback = async (char: any) => {
         if (!feedbackText.trim()) return;
@@ -61,7 +73,15 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                     </CardHeader>
                     <CardContent className="p-2 space-y-1 flex-1 overflow-y-auto">
                         {selectedSceneIds.map((sid: any, idx: any) => {
-                            const scene = play.play_scenes.find((s: any) => s.id === sid);
+                            let sceneAndPlay = null;
+                            for (const p of plays) {
+                                const found = (p.play_scenes || []).find((s: any) => s.id === sid);
+                                if (found) {
+                                    sceneAndPlay = { scene: found, play: p };
+                                    break;
+                                }
+                            }
+                            const scene = sceneAndPlay?.scene;
                             const isActive = idx === currentSceneIndex;
                             const isDone = idx < currentSceneIndex;
 
@@ -83,8 +103,11 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs font-bold truncate">{scene?.title}</p>
+                                        <p className="text-[8px] text-gray-500 uppercase tracking-tighter truncate leading-none mt-0.5">
+                                            {sceneAndPlay?.play?.title}
+                                        </p>
                                         {isActive && (
-                                            <p className="text-[8px] text-white/70 uppercase tracking-tighter truncate">
+                                            <p className="text-[8px] text-white/70 uppercase tracking-tighter truncate mt-1">
                                                 {plan.selected_scenes.find((s: any) => s.id === sid)?.objective || "Pas d'objectif"}
                                             </p>
                                         )}
@@ -112,7 +135,11 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                     <CardContent className="p-8 flex items-center justify-between">
                         <div>
                             <p className="text-[10px] uppercase font-black text-primary tracking-[0.3em] mb-2 leading-none">Scène Actuelle</p>
-                            <h2 className="text-4xl font-black text-white tracking-tighter leading-none mb-2">{currentScene?.title}</h2>
+                            <h2 className="text-4xl font-black text-white tracking-tighter leading-none mb-2">
+                                {currentScene?.title}
+                                <span className="text-sm font-bold text-white/40 ml-4 uppercase">{currentPlay?.title}</span>
+                            </h2>
+
                             <p className="text-sm font-medium text-white/70 italic">
                                 Objectif : {plan.selected_scenes.find((s: any) => s.id === currentScene?.id)?.objective || "Travailler librement"}
                             </p>
