@@ -111,23 +111,117 @@ export async function joinTroupe(joinCode: string) {
         return troupe.id;
     }
 
-    // 3. Add as regular member
+    // 3. Create a join request
     const { error: joinError } = await supabase
-        .from('troupe_members')
+        .from('troupe_join_requests')
         .insert({
             troupe_id: troupe.id,
-            user_id: user.id,
-            role: 'member'
+            user_id: user.id
         });
 
     if (joinError) {
-        console.error('Error joining troupe:', joinError);
-        throw new Error('Impossible de rejoindre la troupe.');
+        // If request already exists, it's fine
+        if (joinError.code !== '23505') {
+            console.error('Error joining troupe:', joinError);
+            throw new Error('Impossible de rejoindre la troupe.');
+        }
     }
 
     revalidatePath('/troupes');
     return troupe.id;
 }
+
+export async function deleteGuestAction(troupeId: string, guestId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const { error } = await supabase
+        .from('troupe_guests')
+        .delete()
+        .eq('id', guestId)
+        .eq('troupe_id', troupeId);
+
+    if (error) {
+        console.error('Error deleting guest:', error);
+        throw new Error('Failed to delete guest');
+    }
+
+    revalidatePath(`/troupes/${troupeId}`);
+}
+
+export async function getJoinRequests(troupeId: string) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('troupe_join_requests')
+        .select(`
+            id,
+            created_at,
+            user_id,
+            profiles (
+                first_name,
+                email
+            )
+        `)
+        .eq('troupe_id', troupeId);
+
+    if (error) {
+        console.error('Error fetching requests:', error);
+        return [];
+    }
+
+    return data.map(r => ({
+        id: r.id,
+        created_at: r.created_at,
+        user_id: r.user_id,
+        ...r.profiles
+    }));
+}
+
+export async function approveJoinRequestAction(troupeId: string, requestId: string, userId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    // 1. Add to members
+    const { error: memberError } = await supabase
+        .from('troupe_members')
+        .insert({
+            troupe_id: troupeId,
+            user_id: userId,
+            role: 'member'
+        });
+
+    if (memberError) {
+        console.error('Error approving request:', memberError);
+        throw new Error('Failed to approve request');
+    }
+
+    // 2. Delete the request
+    await supabase.from('troupe_join_requests').delete().eq('id', requestId);
+
+    revalidatePath(`/troupes/${troupeId}`);
+}
+
+export async function rejectJoinRequestAction(troupeId: string, requestId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    const { error } = await supabase
+        .from('troupe_join_requests')
+        .delete()
+        .eq('id', requestId);
+
+    if (error) {
+        console.error('Error rejecting request:', error);
+        throw new Error('Failed to reject request');
+    }
+
+    revalidatePath(`/troupes/${troupeId}`);
+}
+
 
 export async function getTroupeDetails(troupeId: string) {
     const supabase = await createClient();

@@ -1,4 +1,4 @@
-import { getTroupeDetails, getTroupeMembers, getTroupeGuests } from "@/lib/actions/troupe";
+import { getTroupeDetails, getTroupeMembers, getTroupeGuests, getJoinRequests } from "@/lib/actions/troupe";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { BookOpen, Calendar, Copy, UserPlus, Users, MessageSquare, UserCheck } from "lucide-react";
 import Link from "next/link";
@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { AddGuestModal } from "./add-guest-modal";
 import { InviteCodeCard } from "@/components/invite-code-card";
+import { JoinRequestsList } from "./join-requests-list";
+import { DeleteGuestButton } from "./delete-guest-button";
 
 export default async function TroupeDashboard({
     params
@@ -17,6 +19,7 @@ export default async function TroupeDashboard({
     const troupe = await getTroupeDetails(troupeId);
     const members = await getTroupeMembers(troupeId);
     const guests = await getTroupeGuests(troupeId);
+    const joinRequests = await getJoinRequests(troupeId);
     const isAdmin = troupe?.my_role === 'admin';
 
     // Copy Code Button Logic would need client component, keeping simple for SSR for now
@@ -40,6 +43,8 @@ export default async function TroupeDashboard({
                 {/* Invite Code Card - Prominent & Stylish */}
                 <InviteCodeCard joinCode={troupe?.join_code} />
             </div>
+
+            {isAdmin && <JoinRequestsList troupeId={troupeId} requests={joinRequests} />}
 
 
             {/* Members Section - Embedded directly */}
@@ -104,6 +109,13 @@ export default async function TroupeDashboard({
                                     <Badge variant="outline" className="text-[9px] py-0 px-2 rounded-full border-primary/20 bg-primary/5 text-primary">
                                         GUEST
                                     </Badge>
+                                    {isAdmin && (
+                                        <DeleteGuestButton
+                                            troupeId={troupeId}
+                                            guestId={guest.id}
+                                            guestName={guest.name}
+                                        />
+                                    )}
                                 </div>
                             </div>
                         ))}
