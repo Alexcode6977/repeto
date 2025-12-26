@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Plus, BookOpen, User, ArrowLeft } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { DeletePlayButton } from "./delete-play-button";
 
 export default async function TroupePlaysPage({
     params
@@ -53,38 +54,45 @@ export default async function TroupePlaysPage({
 
             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
                 {plays.map((play: any) => (
-                    <Link href={`/troupes/${troupeId}/plays/${play.id}`} key={play.id} className="group">
-                        <Card className="h-full bg-white/5 border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] rounded-3xl border">
-                            <CardHeader className="p-8 pb-4">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-white/10 flex items-center justify-center mb-4 group-hover:bg-primary/30 transition-colors">
-                                    <BookOpen className="h-6 w-6 text-primary" />
-                                </div>
-                                <CardTitle className="text-2xl font-bold text-white group-hover:text-primary transition-colors">
-                                    {play.title}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="px-8 pb-8 pt-2">
-                                <div className="flex items-center gap-6 text-sm font-medium">
-                                    <div className="flex items-center gap-2 text-gray-500">
-                                        <User className="h-4 w-4 text-primary/60" />
-                                        <span className="text-gray-300 font-bold">{play.play_characters?.[0]?.count || 0}</span>
-                                        <span className="text-[10px] uppercase tracking-wider opacity-60">Rôles</span>
+                    <div key={play.id} className="group relative">
+                        {isAdmin && (
+                            <div className="absolute top-4 right-4 z-50 animate-in fade-in zoom-in duration-300">
+                                <DeletePlayButton playId={play.id} playTitle={play.title} />
+                            </div>
+                        )}
+                        <Link href={`/troupes/${troupeId}/plays/${play.id}`} className="block h-full">
+                            <Card className="h-full bg-white/5 border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] rounded-3xl border">
+                                <CardHeader className="p-8 pb-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-white/10 flex items-center justify-center mb-4 group-hover:bg-primary/30 transition-colors">
+                                        <BookOpen className="h-6 w-6 text-primary" />
                                     </div>
-                                    <div className="flex items-center gap-2 text-gray-500">
-                                        <BookOpen className="h-4 w-4 text-primary/60" />
-                                        <span className="text-gray-300 font-bold">{play.play_scenes?.[0]?.count || 0}</span>
-                                        <span className="text-[10px] uppercase tracking-wider opacity-60">Scènes</span>
+                                    <CardTitle className="text-2xl font-bold text-white group-hover:text-primary transition-colors pr-10">
+                                        {play.title}
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="px-8 pb-8 pt-2">
+                                    <div className="flex items-center gap-6 text-sm font-medium">
+                                        <div className="flex items-center gap-2 text-gray-500">
+                                            <User className="h-4 w-4 text-primary/60" />
+                                            <span className="text-gray-300 font-bold">{play.play_characters?.[0]?.count || 0}</span>
+                                            <span className="text-[10px] uppercase tracking-wider opacity-60">Rôles</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-gray-500">
+                                            <BookOpen className="h-4 w-4 text-primary/60" />
+                                            <span className="text-gray-300 font-bold">{play.play_scenes?.[0]?.count || 0}</span>
+                                            <span className="text-[10px] uppercase tracking-wider opacity-60">Scènes</span>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                                    <span className="text-xs text-gray-500 uppercase tracking-widest font-black">Voir les détails</span>
-                                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:bg-primary transition-all">
-                                        <span className="text-sm">→</span>
+                                    <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
+                                        <span className="text-xs text-gray-500 uppercase tracking-widest font-black">Voir les détails</span>
+                                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:bg-primary transition-all">
+                                            <span className="text-sm">→</span>
+                                        </div>
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    </div>
                 ))}
 
                 {plays.length === 0 && (

@@ -243,3 +243,24 @@ export async function getSharedScripts() {
 
     return data || [];
 }
+
+export async function deletePlayAction(playId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
+
+    // Verify admin rights could be done here too, but RLS should handle it.
+    // For now we just perform the delete.
+    const { error } = await supabase
+        .from('plays')
+        .delete()
+        .eq('id', playId);
+
+    if (error) {
+        console.error('Error deleting play:', error);
+        throw new Error('Failed to delete play');
+    }
+
+    revalidatePath(`/troupes`);
+}
+
