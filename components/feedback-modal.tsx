@@ -11,7 +11,7 @@ interface FeedbackModalProps {
     onSubmit: (feedback: FeedbackData) => Promise<void>;
     sessionData: {
         scriptTitle: string;
-        characterName: string;
+        characterName: string | string[];
         durationSeconds: number;
         linesRehearsed: number;
         completionPercentage: number;
@@ -103,7 +103,11 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                     <div className="mt-4 flex justify-center gap-4 text-xs text-gray-500">
                         <span>{sessionData.scriptTitle}</span>
                         <span>•</span>
-                        <span className="text-yellow-400 font-medium">{sessionData.characterName}</span>
+                        <span className="text-yellow-400 font-medium">
+                            {Array.isArray(sessionData.characterName)
+                                ? sessionData.characterName.join(", ")
+                                : sessionData.characterName}
+                        </span>
                         <span>•</span>
                         <span>{formatDuration(sessionData.durationSeconds)}</span>
                     </div>

@@ -141,8 +141,8 @@ export default function AdminPage() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
                 <AlertCircle className="w-16 h-16 text-red-400" />
-                <h1 className="text-2xl font-bold text-white">Accès refusé</h1>
-                <p className="text-gray-400">Vous n'avez pas les droits admin.</p>
+                <h1 className="text-2xl font-bold text-foreground">Accès refusé</h1>
+                <p className="text-muted-foreground">Vous n'avez pas les droits admin.</p>
                 <Button onClick={() => router.push("/dashboard")} variant="outline">
                     Retour au dashboard
                 </Button>
@@ -159,21 +159,21 @@ export default function AdminPage() {
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-                        <p className="text-sm text-gray-400">Gérer l'application</p>
+                        <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
+                        <p className="text-sm text-muted-foreground">Gérer l'application</p>
                     </div>
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-white/10 pb-2">
+            <div className="flex gap-2 border-b border-border pb-2">
                 <button
                     onClick={() => setActiveTab("feedback")}
                     className={cn(
                         "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
                         activeTab === "feedback"
-                            ? "bg-primary text-white"
-                            : "bg-white/5 text-gray-400 hover:bg-white/10"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
                     )}
                 >
                     <MessageSquare className="w-4 h-4" />
@@ -185,7 +185,7 @@ export default function AdminPage() {
                         "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
                         activeTab === "users"
                             ? "bg-emerald-500 text-white"
-                            : "bg-white/5 text-gray-400 hover:bg-white/10"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
                     )}
                 >
                     <Users className="w-4 h-4" />
@@ -199,25 +199,25 @@ export default function AdminPage() {
                     {/* Stats */}
                     {stats && (
                         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                                <p className="text-xs text-gray-500 uppercase">Total</p>
-                                <p className="text-2xl font-bold text-white">{stats.total}</p>
+                            <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                                <p className="text-xs text-muted-foreground uppercase">Total</p>
+                                <p className="text-2xl font-bold text-foreground">{stats.total}</p>
                             </div>
                             <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                                <p className="text-xs text-yellow-500 uppercase">En attente</p>
-                                <p className="text-2xl font-bold text-yellow-400">{stats.pending}</p>
+                                <p className="text-xs text-yellow-600 dark:text-yellow-500 uppercase">En attente</p>
+                                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pending}</p>
                             </div>
                             <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-                                <p className="text-xs text-green-500 uppercase">Traités</p>
-                                <p className="text-2xl font-bold text-green-400">{stats.resolved}</p>
+                                <p className="text-xs text-green-600 dark:text-green-500 uppercase">Traités</p>
+                                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.resolved}</p>
                             </div>
-                            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                                <p className="text-xs text-gray-500 uppercase">Note moy.</p>
-                                <p className="text-2xl font-bold text-white">{stats.avgRating}/5</p>
+                            <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                                <p className="text-xs text-muted-foreground uppercase">Note moy.</p>
+                                <p className="text-2xl font-bold text-foreground">{stats.avgRating}/5</p>
                             </div>
-                            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                                <p className="text-xs text-gray-500 uppercase">Minutes</p>
-                                <p className="text-2xl font-bold text-white">{stats.totalMinutes}</p>
+                            <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                                <p className="text-xs text-muted-foreground uppercase">Minutes</p>
+                                <p className="text-2xl font-bold text-foreground">{stats.totalMinutes}</p>
                             </div>
                         </div>
                     )}
@@ -263,7 +263,7 @@ export default function AdminPage() {
                                         "p-4 rounded-xl border transition-all",
                                         feedback.status === "resolved"
                                             ? "bg-green-500/5 border-green-500/20"
-                                            : "bg-white/5 border-white/10"
+                                            : "bg-muted/50 border-border"
                                     )}
                                 >
                                     {/* Header Row */}
@@ -280,7 +280,7 @@ export default function AdminPage() {
                                                             key={star}
                                                             className={cn(
                                                                 "w-3 h-3",
-                                                                star <= feedback.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-600"
+                                                                star <= feedback.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/50"
                                                             )}
                                                         />
                                                     ))}
@@ -295,17 +295,17 @@ export default function AdminPage() {
                                                     {feedback.status === "resolved" ? "Traité" : feedback.status === "in_progress" ? "En cours" : "En attente"}
                                                 </span>
                                                 {/* Script & Character */}
-                                                <span className="text-sm text-white font-medium">{feedback.script_title}</span>
-                                                <span className="text-xs text-gray-500">({feedback.character_name})</span>
+                                                <span className="text-sm text-foreground font-medium">{feedback.script_title}</span>
+                                                <span className="text-xs text-muted-foreground">({feedback.character_name})</span>
                                             </div>
-                                            <p className="text-xs text-gray-500 mt-1">
+                                            <p className="text-xs text-muted-foreground mt-1">
                                                 {formatDate(feedback.created_at)} • {formatDuration(feedback.duration_seconds)}
                                             </p>
                                         </div>
                                         {expandedId === feedback.id ? (
-                                            <ChevronUp className="w-5 h-5 text-gray-400" />
+                                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
                                         ) : (
-                                            <ChevronDown className="w-5 h-5 text-gray-400" />
+                                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
                                         )}
                                     </div>
 
@@ -322,31 +322,31 @@ export default function AdminPage() {
                                                 )}
                                                 {feedback.what_didnt_work && (
                                                     <div className="p-3 rounded-lg bg-red-500/10">
-                                                        <p className="text-xs text-red-400 font-bold uppercase mb-1">✗ Problèmes</p>
-                                                        <p className="text-sm text-gray-300">{feedback.what_didnt_work}</p>
+                                                        <p className="text-xs text-red-600 dark:text-red-400 font-bold uppercase mb-1">✗ Problèmes</p>
+                                                        <p className="text-sm text-foreground/80">{feedback.what_didnt_work}</p>
                                                     </div>
                                                 )}
                                                 {feedback.improvement_ideas && (
                                                     <div className="p-3 rounded-lg bg-blue-500/10">
-                                                        <p className="text-xs text-blue-400 font-bold uppercase mb-1">💡 Idées</p>
-                                                        <p className="text-sm text-gray-300">{feedback.improvement_ideas}</p>
+                                                        <p className="text-xs text-blue-600 dark:text-blue-400 font-bold uppercase mb-1">💡 Idées</p>
+                                                        <p className="text-sm text-foreground/80">{feedback.improvement_ideas}</p>
                                                     </div>
                                                 )}
                                             </div>
 
                                             {/* Settings Used */}
-                                            <div className="text-xs text-gray-600">
+                                            <div className="text-xs text-muted-foreground">
                                                 Réglages: {JSON.stringify(feedback.settings)}
                                             </div>
 
                                             {/* Admin Notes */}
                                             <div>
-                                                <label className="text-xs text-gray-400 uppercase font-bold mb-2 block">Notes admin</label>
+                                                <label className="text-xs text-muted-foreground uppercase font-bold mb-2 block">Notes admin</label>
                                                 <textarea
                                                     value={editingNotes?.id === feedback.id ? editingNotes.notes : feedback.admin_notes || ""}
                                                     onChange={(e) => setEditingNotes({ id: feedback.id, notes: e.target.value })}
                                                     placeholder="Ajouter une note interne..."
-                                                    className="w-full h-16 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-600 resize-none"
+                                                    className="w-full h-16 bg-muted/50 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground resize-none"
                                                 />
                                                 {editingNotes?.id === feedback.id && (
                                                     <Button
@@ -406,8 +406,8 @@ export default function AdminPage() {
             {activeTab === "users" && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-white">Gestion Premium</h2>
-                        <p className="text-sm text-gray-400">
+                        <h2 className="text-lg font-bold text-foreground">Gestion Premium</h2>
+                        <p className="text-sm text-muted-foreground">
                             {users.filter(u => u.is_premium).length} utilisateurs premium
                         </p>
                     </div>
@@ -425,25 +425,25 @@ export default function AdminPage() {
                                         "p-4 rounded-xl border flex items-center justify-between",
                                         user.is_premium
                                             ? "bg-emerald-500/10 border-emerald-500/30"
-                                            : "bg-white/5 border-white/10"
+                                            : "bg-muted/50 border-border"
                                     )}
                                 >
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
                                             "w-10 h-10 rounded-full flex items-center justify-center",
-                                            user.is_premium ? "bg-emerald-500/20" : "bg-white/10"
+                                            user.is_premium ? "bg-emerald-500/20" : "bg-muted"
                                         )}>
                                             {user.is_premium ? (
-                                                <Crown className="w-5 h-5 text-emerald-400" />
+                                                <Crown className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
                                             ) : (
-                                                <Users className="w-5 h-5 text-gray-400" />
+                                                <Users className="w-5 h-5 text-muted-foreground" />
                                             )}
                                         </div>
                                         <div>
-                                            <p className="text-sm text-white truncate max-w-[200px] md:max-w-none">
+                                            <p className="text-sm text-foreground truncate max-w-[200px] md:max-w-none">
                                                 {user.email || user.id.substring(0, 8) + "..."}
                                             </p>
-                                            <p className="text-xs text-gray-500">
+                                            <p className="text-xs text-muted-foreground">
                                                 Inscrit le {formatDate(user.created_at)}
                                             </p>
                                         </div>
@@ -456,7 +456,7 @@ export default function AdminPage() {
                                             "flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all",
                                             user.is_premium
                                                 ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                                                : "bg-white/10 text-gray-400 hover:bg-white/20"
+                                                : "bg-muted text-muted-foreground hover:bg-muted/80"
                                         )}
                                     >
                                         {togglingPremium === user.id ? (

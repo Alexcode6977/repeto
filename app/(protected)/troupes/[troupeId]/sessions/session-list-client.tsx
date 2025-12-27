@@ -135,16 +135,9 @@ function SessionCard({ session, troupeId, isAdmin, isPast }: { session: any, tro
 
                 <div className="flex items-center gap-4 ml-4">
                     {hasPlan && (
-                        <div className="flex items-center gap-4">
-                            <div className="text-right hidden lg:block">
-                                <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest leading-none mb-1">Programme fixé</p>
-                                <p className="text-white font-bold text-xs leading-none">{session.session_plans.selected_scenes.length} scènes</p>
-                            </div>
-                            <Button asChild size="sm" className="rounded-xl bg-primary hover:bg-primary/80 text-white font-black text-[10px] uppercase tracking-widest px-4 h-9 shadow-lg shadow-primary/20 transition-all active:scale-95">
-                                <Link href={`/troupes/${troupeId}/sessions/${session.id}/live`}>
-                                    Ouvrir la Séance
-                                </Link>
-                            </Button>
+                        <div className="text-right hidden lg:block">
+                            <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest leading-none mb-1">Programme fixé</p>
+                            <p className="text-white font-bold text-xs leading-none">{session.session_plans.selected_scenes.length} scènes</p>
                         </div>
                     )}
                     <Link href={`/troupes/${troupeId}/sessions/${session.id}`} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all">

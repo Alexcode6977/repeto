@@ -81,14 +81,14 @@ const Portal = ({ children }: { children: React.ReactNode }) => {
 
 interface RehearsalModeProps {
     script: ParsedScript;
-    userCharacter: string;
+    userCharacters: string[];
     onExit: () => void;
     isDemo?: boolean;
     initialSettings?: ScriptSettings;
     playId?: string;
 }
 
-export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, initialSettings, playId }: RehearsalModeProps) {
+export function RehearsalMode({ script, userCharacters, onExit, isDemo = false, initialSettings, playId }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
@@ -160,7 +160,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
         isPlayingRecording
     } = useRehearsal({
         script,
-        userCharacter,
+        userCharacters,
         similarityThreshold: threshold,
         initialLineIndex: startLineIndex,
         mode: rehearsalMode,
@@ -318,14 +318,20 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
     // Calculate session stats
     const getSessionStats = () => {
         const durationSeconds = Math.floor((Date.now() - sessionStartRef.current) / 1000);
-        const userLines = script.lines.filter(l => l.character === userCharacter);
+        // Helper to check if a character is in the user's selection
+        const isUserCharacter = (char: string) => {
+            const normalizedLineChar = char.toLowerCase().trim();
+            return userCharacters.some(uc => uc.toLowerCase().trim() === normalizedLineChar);
+        };
+        const userLines = script.lines.filter(l => isUserCharacter(l.character));
         const completionPercentage = userLines.length > 0
             ? Math.round((currentLineIndex / script.lines.length) * 100)
             : 0;
 
         return {
             scriptTitle: script.title || "Script sans titre",
-            characterName: userCharacter,
+            characterNames: userCharacters,
+            characterName: userCharacters.join(", "),
             durationSeconds,
             linesRehearsed: currentLineIndex,
             completionPercentage,
@@ -362,6 +368,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
         await submitFeedback({
             scriptId: (script as any).id,
             ...sessionStats,
+            characterName: sessionStats.characterNames.join(", "),
             rating: feedbackData.rating,
             whatWorked: feedbackData.whatWorked,
             whatDidntWork: feedbackData.whatDidntWork,
@@ -392,7 +399,14 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
         }
     }, [status, hasStarted, showFeedbackModal, showUpgradeModal, stop, isDemo]);
 
-    const isUserTurn = currentLine?.character === userCharacter;
+    const isUserTurn = currentLine && (() => {
+        const normalizedLineChar = currentLine.character.toLowerCase().trim();
+        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+        return userCharacters.some(userChar => {
+            const normalizedUserChar = userChar.toLowerCase().trim();
+            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+        });
+    })();
 
     const getExampleStatus = (score: number) => score >= threshold;
 
@@ -418,8 +432,15 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
 
     if (!hasStarted) {
         // Get a sample user line for preview
-        const sampleUserLine = script.lines.find(l => l.character === userCharacter);
-        const sampleOtherLine = script.lines.find(l => l.character !== userCharacter);
+        const sampleUserLine = script.lines.find(l => {
+            const normalizedLineChar = l.character.toLowerCase().trim();
+            const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+            return userCharacters.some(userChar => {
+                const normalizedUserChar = userChar.toLowerCase().trim();
+                return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+            });
+        });
+        const sampleOtherLine = script.lines.find(l => !userCharacters.includes(l.character));
 
         return (
             <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full animate-in fade-in duration-500 bg-gradient-to-br from-black via-gray-900/50 to-black">
@@ -434,7 +455,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold text-white tracking-tight">En scène</h2>
-                            <p className="text-gray-400 text-sm">Vous jouez <span className="text-yellow-400 font-bold">{userCharacter}</span></p>
+                            <p className="text-gray-400 text-sm">Vous jouez <span className="text-yellow-400 font-bold">{userCharacters.join(", ")}</span></p>
                         </div>
                     </div>
 
@@ -473,7 +494,7 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                                 >
                                     <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                                         <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                                        {userCharacter} (Vous)
+                                        {userCharacters.length > 1 ? 'Vos Roles' : `${userCharacters[0]} (Vous)`}
                                     </p>
                                     <p className={cn(
                                         "text-lg font-serif transition-all duration-500",
@@ -680,9 +701,9 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                         {ttsProvider === "browser" && (
                             <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
                                 <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution des rôles</span>
-                                {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
+                                {script.characters && script.characters.filter(c => !userCharacters.includes(c)).length > 0 ? (
                                     <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                        {script.characters.filter(c => c !== userCharacter).map((char) => (
+                                        {script.characters.filter(c => !userCharacters.includes(c)).map((char) => (
                                             <div key={char} className="flex items-center gap-2 bg-black/30 p-2 rounded-lg">
                                                 <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 shrink-0">
                                                     {char.substring(0, 2).toUpperCase()}
@@ -722,9 +743,9 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                         {ttsProvider === "openai" && isPremiumUnlocked && (
                             <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
                                 <span className="text-[10px] text-gray-500 uppercase tracking-widest block">Distribution Neural AI</span>
-                                {script.characters && script.characters.filter(c => c !== userCharacter).length > 0 ? (
+                                {script.characters && script.characters.filter(c => !userCharacters.includes(c)).length > 0 ? (
                                     <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                        {script.characters.filter(c => c !== userCharacter).map((char) => (
+                                        {script.characters.filter(c => !userCharacters.includes(c)).map((char) => (
                                             <div key={char} className="flex items-center gap-2 bg-emerald-900/20 p-2 rounded-lg border border-emerald-700/30">
                                                 <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-[9px] font-bold text-emerald-300 shrink-0">
                                                     {char.substring(0, 2).toUpperCase()}
@@ -947,7 +968,14 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                     >
                         {script.lines.map((line, index) => {
                             const isActive = index === currentLineIndex;
-                            const isUser = line.character === userCharacter;
+                            const isUser = (() => {
+                                const normalizedLineChar = line.character.toLowerCase().trim();
+                                const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+                                return userCharacters.some(userChar => {
+                                    const normalizedUserChar = userChar.toLowerCase().trim();
+                                    return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+                                });
+                            })();
 
                             return (
                                 <div
@@ -1008,11 +1036,26 @@ export function RehearsalMode({ script, userCharacter, onExit, isDemo = false, i
                         <div className="flex-none px-6 pb-2 z-10">
                             <div className="max-w-xl mx-auto bg-white/5 rounded-xl p-3 border border-white/5">
                                 <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">
-                                    Suivant : {nextLine.character === userCharacter ? "VOUS" : nextLine.character}
+                                    Suivant : {(() => {
+                                        const normalizedLineChar = nextLine.character.toLowerCase().trim();
+                                        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+                                        const isUser = userCharacters.some(userChar => {
+                                            const normalizedUserChar = userChar.toLowerCase().trim();
+                                            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+                                        });
+                                        return isUser ? "VOUS" : nextLine.character;
+                                    })()}
                                 </p>
                                 <p className={cn(
                                     "text-sm text-gray-500 line-clamp-2 font-serif",
-                                    nextLine.character === userCharacter && "text-yellow-700"
+                                    (() => {
+                                        const normalizedLineChar = nextLine.character.toLowerCase().trim();
+                                        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+                                        return userCharacters.some(userChar => {
+                                            const normalizedUserChar = userChar.toLowerCase().trim();
+                                            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+                                        });
+                                    })() && "text-yellow-700"
                                 )}>
                                     {nextLine.text.substring(0, 100)}{nextLine.text.length > 100 ? "..." : ""}
                                 </p>

@@ -10,14 +10,14 @@ import { exportToPdf } from "@/lib/pdf-export";
 
 interface ScriptReaderProps {
     script: ParsedScript;
-    userCharacter: string;
+    userCharacters: string[];
     onExit: () => void;
     settings: ScriptSettings;
     playId?: string;
     userId?: string;
 }
 
-export function ScriptReader({ script, userCharacter, onExit, settings }: ScriptReaderProps) {
+export function ScriptReader({ script, userCharacters, onExit, settings }: ScriptReaderProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const lineRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -25,14 +25,18 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
 
     // Helper to check if user is in this line's character
     const isUserLine = (lineChar: string) => {
-        if (!lineChar || !userCharacter) return false;
+        if (!lineChar || !userCharacters || userCharacters.length === 0) return false;
+
         const normalizedLineChar = lineChar.toLowerCase().trim();
-        const normalizedUserChar = userCharacter.toLowerCase().trim();
-        return normalizedLineChar === normalizedUserChar ||
-            normalizedLineChar.split(/[\s,]+/).includes(normalizedUserChar);
+        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+
+        return userCharacters.some(userChar => {
+            const normalizedUserChar = userChar.toLowerCase().trim();
+            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+        });
     };
 
-    // Pre-calculate line numbers for user character
+    // Pre-calculate line numbers for user characters
     const userLineNumbers = useMemo(() => {
         const map = new Map<string, number>();
         let counter = 0;
@@ -43,7 +47,7 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
             }
         });
         return map;
-    }, [script.lines, userCharacter]);
+    }, [script.lines, userCharacters]);
 
     // Build a map of line index -> scene info
     const sceneAtIndex = useMemo(() => {
@@ -101,7 +105,7 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
             }
             return false;
         });
-    }, [script.lines, settings.mode, userCharacter]);
+    }, [script.lines, settings.mode, userCharacters]);
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1a1a] text-white font-sans overflow-hidden">
@@ -113,13 +117,13 @@ export function ScriptReader({ script, userCharacter, onExit, settings }: Script
                     </Button>
                     <div>
                         <h2 className="text-lg font-bold leading-tight line-clamp-1 text-white">{script.title || "Lecture"}</h2>
-                        <p className="text-xs text-gray-400">Rôle : <span className="text-yellow-400 font-bold">{userCharacter}</span></p>
+                        <p className="text-xs text-gray-400">Rôles : <span className="text-yellow-400 font-bold">{userCharacters.join(", ")}</span></p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <Button
-                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacter, settings, sceneAtIndex)}
+                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneAtIndex)}
                         className="bg-white/5 hover:bg-white/15 border border-white/10 rounded-xl flex items-center gap-2 text-xs font-bold py-2 h-auto"
                     >
                         <Download className="w-4 h-4" />

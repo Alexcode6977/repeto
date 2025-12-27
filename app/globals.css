@@ -23,7 +23,7 @@
 }
 
 :root {
-  /* Classic Purple/Gradient Palette */
+  /* Light Mode Palette */
   --background: hsl(0 0% 100%);
   --foreground: hsl(240 10% 3.9%);
 
@@ -34,7 +34,6 @@
   --popover-foreground: hsl(240 10% 3.9%);
 
   --primary: hsl(267 100% 61%);
-  /* Vibrant Purple */
   --primary-foreground: hsl(0 0% 98%);
 
   --secondary: hsl(240 4.8% 95.9%);
@@ -52,10 +51,13 @@
   --border: hsl(240 5.9% 90%);
   --input: hsl(240 5.9% 90%);
   --ring: hsl(267 100% 61%);
+
+  /* Light mode gradient - Softer and more readable */
+  --body-gradient: radial-gradient(circle at 50% 0%, hsl(267 100% 97%) 0%, hsl(240 20% 98%) 50%, hsl(0 0% 100%) 100%);
 }
 
 .dark {
-  /* Keeping a dark variant if needed, but styling body to match the screenshot */
+  /* Dark Mode Palette */
   --background: hsl(240 10% 3.9%);
   --foreground: hsl(0 0% 98%);
   --card: hsl(240 10% 3.9%);
@@ -75,6 +77,9 @@
   --border: hsl(240 3.7% 15.9%);
   --input: hsl(240 3.7% 15.9%);
   --ring: hsl(240 4.9% 83.9%);
+
+  /* Dark mode gradient */
+  --body-gradient: radial-gradient(circle at 50% 0%, #2e1065 0%, #000000 60%, #000000 100%);
 }
 
 @layer base {
@@ -84,8 +89,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    /* Recreating the gradient from the screenshot: Dark purple top, fading to lighter bottom/center */
-    background: radial-gradient(circle at 50% 0%, #2e1065 0%, #000000 60%, #000000 100%);
+    background: var(--body-gradient);
     min-height: 100vh;
   }
 
@@ -135,9 +139,9 @@
   background: rgba(167, 139, 250, 0.1);
 }
 
-/* Glassmorphism utility for the card */
+/* Glassmorphism utility - Theme aware */
 @utility glass {
-  @apply bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl;
+  @apply bg-card/60 backdrop-blur-xl border border-border shadow-2xl;
 }
 
 /* Masterclass Animations */

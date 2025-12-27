@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useMemo } from "react";
+import { Reorder } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, Users, Plus, Trash2, Info, MessageSquare, User, ChevronDown, ChevronUp, Play } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check, Users, Plus, Trash2, Info, MessageSquare, User, ChevronDown, ChevronUp, Play, GripVertical, X, FileText } from "lucide-react";
 import { saveSessionPlan } from "@/lib/actions/session";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -29,9 +31,10 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
     const initialIds = (initialPlan.selected_scenes || []).map((s: any) => typeof s === 'string' ? s : s.id);
 
     const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>(initialIds);
-    const [notes, setNotes] = useState(initialPlan.general_notes || "");
+    const [generalNotes, setGeneralNotes] = useState(initialPlan.general_notes || "");
     const [isSaving, setIsSaving] = useState(false);
     const [filterMagic, setFilterMagic] = useState(false);
+    const [focusActorId, setFocusActorId] = useState<string | null>(null);
     const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
 
     // Collect all play characters for easy lookup
@@ -148,16 +151,44 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
         });
     }, [selectedPlay, presentIds]);
 
+    // Get list of present actors for filter dropdown
+    const presentActors = useMemo(() => {
+        const actors: { id: string; name: string }[] = [];
+        attendance.filter((a: any) => a.status === 'present').forEach((a: any) => {
+            const actorId = a.user_id || a.guest_id;
+            const member = members.find((m: any) => (m.user_id || m.id) === actorId);
+            const guest = guests.find((g: any) => g.id === actorId);
+            const name = member ? member.profiles?.first_name || member.profiles?.email : guest?.name || "Inconnu";
+            if (actorId) actors.push({ id: actorId, name });
+        });
+        return actors;
+    }, [attendance, members, guests]);
 
     const filteredScenes = useMemo(() => {
-        if (!filterMagic) return scenesWithMetadata;
-        return scenesWithMetadata.filter((s: any) => s.isPlayable);
-    }, [scenesWithMetadata, filterMagic]);
+        let scenes = scenesWithMetadata;
+
+        // Apply magic filter (playable only)
+        if (filterMagic) {
+            scenes = scenes.filter((s: any) => s.isPlayable);
+        }
+
+        // Apply focus actor filter
+        if (focusActorId) {
+            scenes = scenes.filter((s: any) => {
+                return s.requiredCharacters.some((char: any) => {
+                    const actorId = char.actor_id || char.guest_id;
+                    return actorId === focusActorId;
+                });
+            });
+        }
+
+        return scenes;
+    }, [scenesWithMetadata, filterMagic, focusActorId]);
 
     const handleSave = async (shouldLaunch = false) => {
         setIsSaving(true);
         try {
-            await saveSessionPlan(sessionData.id, scenesWithObjectives, notes);
+            await saveSessionPlan(sessionData.id, scenesWithObjectives, generalNotes);
             if (shouldLaunch) {
                 router.push(`/troupes/${troupeId}/sessions/${sessionData.id}/live`);
             } else {
@@ -220,10 +251,10 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
             {/* Left: Matching Grid */}
-            <div className="lg:col-span-8 space-y-8">
+            <div className="lg:col-span-6 space-y-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                        <h2 className="text-2xl font-black text-foreground flex items-center gap-3">
                             <Users className="w-6 h-6 text-primary" />
                             Préparation des scènes
                         </h2>
@@ -238,7 +269,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                         "rounded-xl text-xs font-bold px-4 py-2 h-auto border transition-all",
                                         selectedPlayId === p.id
                                             ? "bg-primary/20 text-primary border-primary/50"
-                                            : "text-gray-400 border-white/5 hover:bg-white/5"
+                                            : "text-muted-foreground border-border hover:bg-muted"
                                     )}
                                 >
                                     {p.title}
@@ -247,23 +278,57 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setFilterMagic(false)}
-                            className={cn("rounded-lg text-[10px] uppercase font-bold px-3", !filterMagic && "bg-primary text-white hover:bg-primary")}
-                        >
-                            Toutes
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setFilterMagic(true)}
-                            className={cn("rounded-lg text-[10px] uppercase font-bold px-3", filterMagic && "bg-green-500 text-white hover:bg-green-500")}
-                        >
-                            Filtre Magique
-                        </Button>
+                    <div className="flex items-center gap-3">
+                        {/* Focus Actor Filter */}
+                        <div className="flex items-center gap-2">
+                            <Select
+                                value={focusActorId || "all"}
+                                onValueChange={(v) => setFocusActorId(v === "all" ? null : v)}
+                            >
+                                <SelectTrigger className="w-[160px] bg-muted/50 border-border text-xs font-bold rounded-xl h-9">
+                                    <User className="w-3 h-3 mr-2 text-muted-foreground" />
+                                    <SelectValue placeholder="Focus acteur" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Tous les acteurs</SelectItem>
+                                    {presentActors.map(actor => (
+                                        <SelectItem key={actor.id} value={actor.id}>
+                                            {actor.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {focusActorId && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setFocusActorId(null)}
+                                    className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-500"
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            )}
+                        </div>
+
+                        {/* Magic Filter */}
+                        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-xl border border-border">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setFilterMagic(false)}
+                                className={cn("rounded-lg text-[10px] uppercase font-bold px-3", !filterMagic && "bg-primary text-primary-foreground hover:bg-primary")}
+                            >
+                                Toutes
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setFilterMagic(true)}
+                                className={cn("rounded-lg text-[10px] uppercase font-bold px-3", filterMagic && "bg-green-500 text-white hover:bg-green-500")}
+                            >
+                                Jouables
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -273,11 +338,18 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                             key={scene.id}
                             onClick={() => toggleSceneSelection(scene.id)}
                             className={cn(
-                                "cursor-pointer transition-all border-white/10 relative overflow-hidden group",
-                                selectedSceneIds.includes(scene.id) ? "ring-2 ring-primary border-primary/50" : "hover:border-white/20 bg-white/5",
-                                scene.isPlayable ? "hover:bg-green-500/5" : "opacity-80"
+                                "cursor-pointer transition-all border-border relative overflow-hidden group",
+                                selectedSceneIds.includes(scene.id) ? "ring-2 ring-primary border-primary/50" : "hover:border-primary/20 bg-card",
+                                scene.isPlayable ? "hover:bg-green-500/5" : (scene.isUnplayable ? "opacity-40 grayscale" : "opacity-80")
                             )}
                         >
+                            {scene.isUnplayable && (
+                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
+                                    <div className="bg-red-500 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-full shadow-xl rotate-[-5deg] border-2 border-white/10">
+                                        {scene.missingCharacters.length} absents
+                                    </div>
+                                </div>
+                            )}
                             <CardHeader className="p-4 pb-2">
                                 <div className="flex justify-between items-start">
                                     <div className="flex items-center gap-2">
@@ -286,7 +358,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                             scene.isPlayable ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" :
                                                 scene.isIncomplete ? "bg-orange-500" : "bg-red-500"
                                         )} />
-                                        <CardTitle className="text-sm font-bold text-white truncate max-w-[150px]">
+                                        <CardTitle className="text-sm font-bold text-foreground truncate max-w-[150px]">
                                             {scene.title}
                                         </CardTitle>
                                     </div>
@@ -294,7 +366,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                         <Check className="w-4 h-4 text-primary" />
                                     )}
                                 </div>
-                                <CardDescription className="text-[10px] uppercase font-black tracking-widest text-gray-400 flex justify-between items-center">
+                                <CardDescription className="text-[10px] uppercase font-black tracking-widest text-muted-foreground flex justify-between items-center">
                                     <span>{scene.requiredCharacters.length} personnages</span>
                                     {scene.lineStats && (
                                         <span className="text-primary/60">
@@ -305,7 +377,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                             </CardHeader>
                             <CardContent className="p-4 pt-0 space-y-3">
                                 {scene.summary && (
-                                    <p className="text-[11px] text-gray-500 line-clamp-2 italic leading-relaxed">
+                                    <p className="text-[11px] text-muted-foreground line-clamp-2 italic leading-relaxed">
                                         "{scene.summary}"
                                     </p>
                                 )}
@@ -317,8 +389,8 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                                 key={char.id}
                                                 variant="outline"
                                                 className={cn(
-                                                    "text-[8px] px-1.5 py-0 leading-none h-4 rounded-full border-white/10",
-                                                    isMissing ? "bg-black/40 text-gray-600 line-through" : "bg-white/10 text-white"
+                                                    "text-[8px] px-1.5 py-0 leading-none h-4 rounded-full border-border",
+                                                    isMissing ? "bg-muted/50 text-muted-foreground/40 line-through" : "bg-muted text-foreground"
                                                 )}
                                             >
                                                 {char.name}
@@ -333,15 +405,15 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
             </div>
 
             {/* Right: Planning Playlist */}
-            <div className="lg:col-span-4 space-y-6">
+            <div className="lg:col-span-6 space-y-6">
 
                 {/* 1. Projections de Prestation */}
                 {/* 1. Projections de Prestation & Conseils du Coach */}
                 {selectedSceneIds.length > 0 && (
                     <div className="space-y-4">
-                        <Card className="bg-white/5 border-white/10 backdrop-blur-xl border-2">
-                            <CardHeader className="p-4 border-b border-white/5">
-                                <h3 className="text-[10px] uppercase font-black text-gray-500 tracking-widest">Temps de prestation prévu</h3>
+                        <Card className="bg-muted/30 border-border backdrop-blur-xl border-2">
+                            <CardHeader className="p-4 border-b border-border">
+                                <h3 className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Temps de prestation prévu</h3>
                             </CardHeader>
                             <CardContent className="p-4 space-y-2">
                                 {Object.entries(performanceProjections).map(([actorId, lineCount]) => {
@@ -351,12 +423,12 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
                                     return (
                                         <div key={actorId} className="flex justify-between items-center text-xs">
-                                            <span className="text-gray-400 font-medium">{name}</span>
+                                            <span className="text-muted-foreground font-medium">{name}</span>
                                             <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="text-[10px] font-bold border-white/5 bg-white/5">
+                                                <Badge variant="outline" className="text-[10px] font-bold border-border bg-muted/50">
                                                     {lineCount} répliques
                                                 </Badge>
-                                                <span className="text-gray-600 font-bold">~{Math.round(lineCount * 0.3)} min</span>
+                                                <span className="text-muted-foreground/60 font-bold">~{Math.round(lineCount * 0.3)} min</span>
                                             </div>
                                         </div>
                                     );
@@ -373,7 +445,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                             </CardHeader>
                             <CardContent className="p-4 space-y-2">
                                 {coachMessages.map((msg, i) => (
-                                    <p key={i} className="text-[11px] font-medium text-white/80 leading-relaxed italic">
+                                    <p key={i} className="text-[11px] font-medium text-foreground/80 leading-relaxed italic">
                                         • {msg}
                                     </p>
                                 ))}
@@ -382,17 +454,36 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                     </div>
                 )}
 
-                <Card className="bg-white/5 border-white/10 backdrop-blur-xl sticky top-24 border-2">
-                    <CardHeader className="p-6 border-b border-white/5">
-                        <h2 className="text-xl font-extrabold text-white tracking-tight leading-loose">Planifiez votre<br />séance</h2>
-                        <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest leading-none mb-1">Résumé & Objectifs</p>
+                <Card className="bg-card border-border backdrop-blur-xl sticky top-24 border-2">
+                    <CardHeader className="p-6 border-b border-border">
+                        <h2 className="text-xl font-extrabold text-foreground tracking-tight leading-loose">Planifiez votre<br />séance</h2>
+                        <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1">Résumé & Objectifs</p>
                     </CardHeader>
-                    <CardContent className="p-6">
-                        <div className="space-y-4">
+                    <CardContent className="p-6 space-y-6">
+                        {/* General Notes Section */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest flex items-center gap-2">
+                                <FileText className="w-3 h-3" />
+                                Notes générales de séance
+                            </label>
+                            <textarea
+                                placeholder="Objectifs généraux, points d'attention, consignes pour tous..."
+                                value={generalNotes}
+                                onChange={(e) => setGeneralNotes(e.target.value)}
+                                className="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/30 transition-all resize-none min-h-[80px]"
+                            />
+                        </div>
+
+                        <Reorder.Group
+                            axis="y"
+                            values={selectedSceneIds}
+                            onReorder={setSelectedSceneIds}
+                            className="space-y-4"
+                        >
                             {selectedScenesData.length === 0 ? (
-                                <div className="py-10 text-center border-2 border-dashed border-white/5 rounded-3xl">
-                                    <Plus className="w-10 h-10 text-gray-700 mx-auto mb-2" />
-                                    <p className="text-sm text-gray-500 font-medium px-10 leading-relaxed text-balance text-center">Sélectionnez des scènes à gauche pour commencer.</p>
+                                <div className="py-10 text-center border-2 border-dashed border-border rounded-3xl">
+                                    <Plus className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                                    <p className="text-sm text-muted-foreground font-medium px-10 leading-relaxed text-balance text-center">Sélectionnez des scènes à gauche pour commencer.</p>
                                 </div>
                             ) : (
                                 selectedScenesData.map((scene: any, index) => {
@@ -400,26 +491,37 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                     const sceneObj = scenesWithObjectives.find(s => s.id === scene.id);
 
                                     return (
-                                        <div key={scene.id} className={cn(
-                                            "flex flex-col gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 group relative transition-all",
-                                            isExpanded && "border-primary/50 bg-primary/5"
-                                        )}>
-                                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}>
-                                                <div className="w-6 h-6 rounded-lg bg-primary/20 flex items-center justify-center text-[10px] font-black text-primary">
-                                                    {index + 1}
+                                        <Reorder.Item
+                                            key={scene.id}
+                                            value={scene.id}
+                                            className={cn(
+                                                "flex flex-col gap-3 p-4 rounded-2xl bg-muted/30 border border-border group relative transition-all",
+                                                isExpanded && "border-primary/50 bg-primary/5"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground">
+                                                    <GripVertical className="w-4 h-4" />
                                                 </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <span className="text-sm font-bold text-white block truncate">{scene.title}</span>
-                                                    <span className="text-[9px] uppercase font-black text-gray-500 block">{scene.playTitle}</span>
+                                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}>
+                                                    <span className="text-sm font-bold text-foreground block truncate">{scene.title}</span>
+                                                    <span className="text-[9px] uppercase font-black text-muted-foreground block">{scene.playTitle}</span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); toggleSceneSelection(scene.id); }}
-                                                        className="p-1 text-gray-500 hover:text-red-500 transition-all"
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            toggleSceneSelection(scene.id);
+                                                        }}
+                                                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
-                                                    {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                                                    <div className="cursor-pointer p-1" onClick={() => setExpandedSceneId(isExpanded ? null : scene.id)}>
+                                                        {isExpanded ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                                                    </div>
                                                 </div>
                                             </div>
 
@@ -434,7 +536,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                                             placeholder="Ex: Rythme et silences..."
                                                             value={sceneObj?.objective || ""}
                                                             onChange={(e) => handleUpdateSceneObjective(scene.id, e.target.value)}
-                                                            className="w-full bg-black/20 border border-white/5 rounded-xl px-3 py-2 text-xs text-white placeholder:text-gray-700 outline-none focus:border-primary/30 transition-all font-medium"
+                                                            className="w-full bg-background/50 border border-border rounded-xl px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground/30 outline-none focus:border-primary/30 transition-all font-medium"
                                                         />
                                                     </div>
 
@@ -450,13 +552,13 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
                                                                 return (
                                                                     <div key={char.id} className="space-y-1">
-                                                                        <span className="text-[9px] font-bold text-white/60 block">{char.name}</span>
+                                                                        <span className="text-[9px] font-bold text-muted-foreground block">{char.name}</span>
                                                                         <input
                                                                             type="text"
                                                                             placeholder={`Focaliser sur...`}
                                                                             value={charObj}
                                                                             onChange={(e) => handleUpdateCharacterObjective(scene.id, char.id, e.target.value)}
-                                                                            className="w-full bg-black/40 border border-white/5 rounded-lg px-3 py-1.5 text-[10px] text-white placeholder:text-gray-800 outline-none focus:border-primary/20 transition-all"
+                                                                            className="w-full bg-background/50 border border-border rounded-lg px-3 py-1.5 text-[10px] text-foreground placeholder:text-muted-foreground/30 outline-none focus:border-primary/20 transition-all"
                                                                         />
                                                                     </div>
                                                                 );
@@ -465,18 +567,18 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                                     </div>
                                                 </div>
                                             )}
-                                        </div>
+                                        </Reorder.Item>
                                     );
                                 })
                             )}
-                        </div>
+                        </Reorder.Group>
 
                         {selectedScenesData.length > 0 && (
-                            <div className="space-y-3 mt-6">
+                            <div className="sticky bottom-0 -mx-6 -mb-6 p-6 bg-gradient-to-t from-background/95 via-background/90 to-transparent backdrop-blur-sm pt-10 mt-6 rounded-b-3xl border-t border-border space-y-3">
                                 <Button
                                     onClick={() => handleSave(true)}
                                     disabled={isSaving}
-                                    className="w-full rounded-2xl py-7 bg-primary hover:bg-primary/80 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-primary/20 transition-all active:scale-95"
+                                    className="w-full rounded-2xl py-7 bg-primary hover:bg-primary/80 text-primary-foreground font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-primary/20 transition-all active:scale-95"
                                 >
                                     <Play className="w-4 h-4 mr-2" />
                                     {isSaving ? "Chargement..." : "Ouvrir la Séance"}
@@ -494,6 +596,6 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                     </CardContent>
                 </Card>
             </div>
-        </div>
+        </div >
     );
 }

@@ -19,14 +19,14 @@ export default function LandingPage() {
                     <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-300">
                         <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-white" />
                     </div>
-                    <span className="text-lg md:text-xl tracking-tight font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">Repeto</span>
+                    <span className="text-lg md:text-xl tracking-tight font-bold bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">Repeto</span>
                 </div>
                 <div className="flex items-center gap-3 md:gap-6">
-                    <Link href="/login" className="hidden md:block text-sm font-medium text-muted-foreground hover:text-white transition-colors">
+                    <Link href="/login" className="hidden md:block text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                         Se connecter
                     </Link>
                     <Link href="/signup" className="hidden md:block">
-                        <Button className="rounded-full bg-white text-black hover:bg-white/90 px-4 py-4 md:px-6 md:py-5 font-semibold text-xs md:text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] transition-all transform hover:-translate-y-0.5">
+                        <Button className="rounded-full bg-foreground text-background hover:bg-foreground/90 px-4 py-4 md:px-6 md:py-5 font-semibold text-xs md:text-sm shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-lg transition-all transform hover:-translate-y-0.5">
                             Essayer gratuitement
                         </Button>
                     </Link>
@@ -40,9 +40,9 @@ export default function LandingPage() {
 
 
 
-                    <h1 className="text-4xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.2] md:leading-[1.1]">
+                    <h1 className="text-4xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.2] md:leading-[1.1] text-foreground">
                         Votre partenaire de répétition, <br />
-                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-300 to-white text-glow">
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-teal-400 to-primary">
                             disponible 24/7.
                         </span>
                     </h1>
@@ -59,12 +59,12 @@ export default function LandingPage() {
                             </Button>
                         </Link>
                         <Link href="/login" className="w-full sm:w-auto md:hidden">
-                            <Button size="lg" variant="outline" className="w-full h-12 rounded-full border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white hover:border-white/40 transition-all">
+                            <Button size="lg" variant="outline" className="w-full h-12 rounded-full border-border bg-background/50 text-foreground hover:bg-muted transition-all">
                                 Se connecter
                             </Button>
                         </Link>
                         <Link href="/demo">
-                            <Button size="lg" variant="ghost" className="h-14 px-8 rounded-full text-gray-400 hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 transition-all group">
+                            <Button size="lg" variant="ghost" className="h-14 px-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent hover:border-border transition-all group">
                                 <Play className="mr-2 w-4 h-4 fill-current opacity-50 group-hover:opacity-100 transition-opacity" />
                                 Voir la démo
                             </Button>
@@ -82,7 +82,7 @@ export default function LandingPage() {
 
                 {/* How it Works Section */}
                 <div className="w-full max-w-6xl mx-auto px-6 mt-32">
-                    <h2 className="text-3xl md:text-5xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
+                    <h2 className="text-3xl md:text-5xl font-bold text-center mb-16 bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70">
                         Comment ça marche ?
                     </h2>
 
@@ -91,30 +91,30 @@ export default function LandingPage() {
                         <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-gradient-to-r from-primary/0 via-primary/30 to-primary/0" />
 
                         <div className="flex flex-col items-center text-center group">
-                            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 shadow-[0_0_30px_rgba(var(--primary),0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-[#0a0a0a]">
+                            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 shadow-[0_0_30px_rgba(var(--primary),0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-background">
                                 <BookOpen className="w-10 h-10 text-primary" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-3">Bibliothèque ou Import</h3>
+                            <h3 className="text-xl font-bold text-foreground mb-3">Bibliothèque ou Import</h3>
                             <p className="text-muted-foreground leading-relaxed max-w-xs">
                                 Vous prenez un texte de la biblio ou importez le votre en pdf.
                             </p>
                         </div>
 
                         <div className="flex flex-col items-center text-center group">
-                            <div className="w-24 h-24 rounded-full bg-teal-500/10 flex items-center justify-center mb-6 border border-teal-500/20 shadow-[0_0_30px_rgba(20,184,166,0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-[#0a0a0a]">
-                                <Sliders className="w-10 h-10 text-teal-400" />
+                            <div className="w-24 h-24 rounded-full bg-teal-500/10 flex items-center justify-center mb-6 border border-teal-500/20 shadow-[0_0_30px_rgba(20,184,166,0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-background">
+                                <Sliders className="w-10 h-10 text-teal-500 dark:text-teal-400" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-3">Choisissez votre mode</h3>
+                            <h3 className="text-xl font-bold text-foreground mb-3">Choisissez votre mode</h3>
                             <p className="text-muted-foreground leading-relaxed max-w-xs">
                                 Lecture, répétition totale, etc.
                             </p>
                         </div>
 
                         <div className="flex flex-col items-center text-center group">
-                            <div className="w-24 h-24 rounded-full bg-purple-500/10 flex items-center justify-center mb-6 border border-purple-500/20 shadow-[0_0_30px_rgba(168,85,247,0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-[#0a0a0a]">
-                                <Repeat className="w-10 h-10 text-purple-400" />
+                            <div className="w-24 h-24 rounded-full bg-purple-500/10 flex items-center justify-center mb-6 border border-purple-500/20 shadow-[0_0_30px_rgba(168,85,247,0.2)] group-hover:scale-110 transition-transform duration-500 relative z-10 bg-background">
+                                <Repeat className="w-10 h-10 text-purple-500 dark:text-purple-400" />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-3">Répétez à l'infini</h3>
+                            <h3 className="text-xl font-bold text-foreground mb-3">Répétez à l'infini</h3>
                             <p className="text-muted-foreground leading-relaxed max-w-xs">
                                 Progressez à votre rythme.
                             </p>
@@ -125,7 +125,7 @@ export default function LandingPage() {
 
             </main>
 
-            <footer className="relative z-10 w-full py-12 text-center border-t border-white/5 bg-black/40 backdrop-blur-xl">
+            <footer className="relative z-10 w-full py-12 text-center border-t border-border bg-background/80 dark:bg-black/40 backdrop-blur-xl">
                 <p className="text-muted-foreground text-sm">
                     &copy; {new Date().getFullYear()} Repeto. Conçu pour l'excellence.
                 </p>

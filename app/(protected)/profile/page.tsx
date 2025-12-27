@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getFeedbackHistory, getFeedbackStats, FeedbackEntry } from "../dashboard/feedback-actions";
 import { cn } from "@/lib/utils";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -93,9 +94,9 @@ export default function ProfilePage() {
         <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-20">
 
             {/* Header */}
-            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 pb-8 border-b border-white/10">
-                <div className="w-24 h-24 rounded-full bg-linear-to-br from-primary to-purple-600 flex items-center justify-center shadow-2xl ring-4 ring-white/5">
-                    <UserIcon className="w-10 h-10 text-white" />
+            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 pb-8 border-b border-border">
+                <div className="w-24 h-24 rounded-full bg-linear-to-br from-primary to-purple-600 flex items-center justify-center shadow-2xl ring-4 ring-border">
+                    <UserIcon className="w-10 h-10 text-primary-foreground" />
                 </div>
                 <div className="text-center md:text-left space-y-2">
                     <div className="flex items-center justify-center md:justify-start gap-2">
@@ -105,7 +106,7 @@ export default function ProfilePage() {
                                     type="text"
                                     value={editedName}
                                     onChange={(e) => setEditedName(e.target.value)}
-                                    className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-2xl font-bold text-white focus:outline-none focus:ring-2 focus:ring-primary/50 w-48"
+                                    className="bg-muted border border-border rounded-xl px-4 py-2 text-2xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-48"
                                     autoFocus
                                     placeholder="Votre prénom"
                                 />
@@ -125,7 +126,7 @@ export default function ProfilePage() {
                             </div>
                         ) : (
                             <>
-                                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-linear-to-r from-white to-gray-400">
+                                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-linear-to-r from-foreground to-foreground/60">
                                     {displayName}
                                 </h1>
                                 <button
@@ -133,7 +134,7 @@ export default function ProfilePage() {
                                         setEditedName(firstName);
                                         setIsEditingName(true);
                                     }}
-                                    className="p-2 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                                    className="p-2 rounded-lg bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                                     title="Modifier le prénom"
                                 >
                                     <Edit2 className="w-4 h-4" />
@@ -159,39 +160,39 @@ export default function ProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                 {/* Sessions Stat */}
-                <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
+                <div className="p-5 rounded-2xl bg-card border border-border flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-primary/20">
                         <MessageSquare className="w-6 h-6 text-primary" />
                     </div>
                     <div>
-                        <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Sessions</p>
-                        <p className="text-2xl font-bold text-white">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Sessions</p>
+                        <p className="text-2xl font-bold text-foreground">
                             {stats.totalSessions}
                         </p>
                     </div>
                 </div>
 
                 {/* Average Rating */}
-                <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
+                <div className="p-5 rounded-2xl bg-card border border-border flex items-center gap-4">
                     <div className="p-3 rounded-xl bg-yellow-500/20">
-                        <Star className="w-6 h-6 text-yellow-400" />
+                        <Star className="w-6 h-6 text-yellow-500" />
                     </div>
                     <div>
-                        <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Note Moyenne</p>
-                        <p className="text-2xl font-bold text-white">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Note Moyenne</p>
+                        <p className="text-2xl font-bold text-foreground">
                             {stats.averageRating > 0 ? `${stats.averageRating}/5` : "-"}
                         </p>
                     </div>
                 </div>
 
                 {/* Time Stat */}
-                <div className="p-5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-purple-500/20">
-                        <Clock className="w-6 h-6 text-purple-400" />
+                <div className="p-5 rounded-2xl bg-card border border-border flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-indigo-500/20">
+                        <Clock className="w-6 h-6 text-indigo-500" />
                     </div>
                     <div>
-                        <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Temps Total</p>
-                        <p className="text-2xl font-bold text-white">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Temps Total</p>
+                        <p className="text-2xl font-bold text-foreground">
                             {stats.totalDuration > 0 ? formatDuration(stats.totalDuration) : "0m"}
                         </p>
                     </div>
@@ -201,22 +202,22 @@ export default function ProfilePage() {
 
             {/* Feedback History */}
             <div className="space-y-4">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                     <MessageSquare className="w-5 h-5 text-primary" />
                     Mes Retours Beta
                 </h2>
 
                 {feedbackHistory.length === 0 ? (
-                    <div className="p-8 rounded-2xl bg-white/5 border border-white/10 text-center">
-                        <p className="text-gray-400">Aucun retour pour le moment.</p>
-                        <p className="text-gray-500 text-sm mt-2">Vos retours apparaîtront ici après chaque répétition.</p>
+                    <div className="p-8 rounded-2xl bg-card border border-border text-center">
+                        <p className="text-muted-foreground">Aucun retour pour le moment.</p>
+                        <p className="text-muted-foreground/60 text-sm mt-2">Vos retours apparaîtront ici après chaque répétition.</p>
                     </div>
                 ) : (
                     <div className="space-y-3">
                         {feedbackHistory.map((feedback) => (
                             <div
                                 key={feedback.id}
-                                className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+                                className="p-4 rounded-2xl bg-card border border-border hover:border-primary/20 transition-all"
                             >
                                 {/* Header Row */}
                                 <div
@@ -231,48 +232,54 @@ export default function ProfilePage() {
                                                     className={cn(
                                                         "w-4 h-4",
                                                         star <= feedback.rating
-                                                            ? "fill-yellow-400 text-yellow-400"
-                                                            : "text-gray-600"
+                                                            ? "fill-yellow-500 text-yellow-500"
+                                                            : "text-muted-foreground/30"
                                                     )}
                                                 />
                                             ))}
                                         </div>
                                         <div>
-                                            <p className="text-white font-medium">{feedback.script_title}</p>
-                                            <p className="text-xs text-gray-500">
+                                            <p className="text-foreground font-bold">{feedback.script_title}</p>
+                                            <p className="text-xs text-muted-foreground">
                                                 {feedback.character_name} • {formatDate(feedback.created_at)}
                                             </p>
                                         </div>
                                     </div>
                                     {expandedFeedback === feedback.id ? (
-                                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                                        <ChevronUp className="w-5 h-5 text-muted-foreground" />
                                     ) : (
-                                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                                        <ChevronDown className="w-5 h-5 text-muted-foreground" />
                                     )}
                                 </div>
 
                                 {/* Expanded Content */}
                                 {expandedFeedback === feedback.id && (
-                                    <div className="mt-4 pt-4 border-t border-white/10 space-y-3 animate-in slide-in-from-top-2">
+                                    <div className="mt-4 pt-4 border-t border-border space-y-4 animate-in slide-in-from-top-2">
                                         {feedback.what_worked && (
-                                            <div>
-                                                <p className="text-xs text-green-400 font-bold uppercase mb-1">✓ Ce qui a fonctionné</p>
-                                                <p className="text-sm text-gray-300">{feedback.what_worked}</p>
+                                            <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/10">
+                                                <p className="text-[10px] text-green-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <Check className="w-3 h-3" /> Points forts
+                                                </p>
+                                                <p className="text-sm text-foreground/80 leading-relaxed italic">"{feedback.what_worked}"</p>
                                             </div>
                                         )}
                                         {feedback.what_didnt_work && (
-                                            <div>
-                                                <p className="text-xs text-red-400 font-bold uppercase mb-1">✗ Ce qui n'a pas fonctionné</p>
-                                                <p className="text-sm text-gray-300">{feedback.what_didnt_work}</p>
+                                            <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/10">
+                                                <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <X className="w-3 h-3" /> Difficultés
+                                                </p>
+                                                <p className="text-sm text-foreground/80 leading-relaxed italic">"{feedback.what_didnt_work}"</p>
                                             </div>
                                         )}
                                         {feedback.improvement_ideas && (
-                                            <div>
-                                                <p className="text-xs text-blue-400 font-bold uppercase mb-1">💡 Idées d'amélioration</p>
-                                                <p className="text-sm text-gray-300">{feedback.improvement_ideas}</p>
+                                            <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                                                <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                                                    <Star className="w-3 h-3" /> Pistes pour la suite
+                                                </p>
+                                                <p className="text-sm text-foreground/80 leading-relaxed italic">"{feedback.improvement_ideas}"</p>
                                             </div>
                                         )}
-                                        <p className="text-xs text-gray-500 pt-2">
+                                        <p className="text-[10px] text-muted-foreground/60 font-bold uppercase tracking-wider text-right">
                                             Durée de session: {formatDuration(feedback.duration_seconds)}
                                         </p>
                                     </div>
@@ -283,19 +290,31 @@ export default function ProfilePage() {
                 )}
             </div>
 
+            {/* Settings */}
+            <div className="p-6 rounded-3xl bg-card border border-border space-y-6">
+                <h3 className="text-xl font-semibold text-foreground">Préférences</h3>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-foreground font-medium">Thème de l'application</p>
+                        <p className="text-sm text-muted-foreground">Choisissez entre le mode clair et sombre</p>
+                    </div>
+                    <ThemeSwitcher />
+                </div>
+            </div>
+
             {/* Personal Info */}
-            <div className="p-6 rounded-3xl bg-black/20 border border-white/5 space-y-6">
-                <h3 className="text-xl font-semibold text-white">Informations Personnelles</h3>
+            <div className="p-6 rounded-3xl bg-card border border-border space-y-6">
+                <h3 className="text-xl font-semibold text-foreground">Informations Personnelles</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <label className="text-xs text-gray-500 uppercase font-semibold">Email</label>
-                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-gray-300">
+                        <label className="text-xs text-muted-foreground uppercase font-semibold">Email</label>
+                        <div className="p-4 rounded-xl bg-muted border border-border text-foreground">
                             {user?.email || "Chargement..."}
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs text-gray-500 uppercase font-semibold">Plan</label>
-                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 text-primary font-medium flex justify-between items-center">
+                        <label className="text-xs text-muted-foreground uppercase font-semibold">Plan</label>
+                        <div className="p-4 rounded-xl bg-muted border border-border text-primary font-medium flex justify-between items-center">
                             Beta Testeur
                             <span className="text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full">Actif</span>
                         </div>

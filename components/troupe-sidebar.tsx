@@ -33,16 +33,22 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
             active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
         },
         {
-            label: "Séances",
-            href: `/troupes/${troupeId}/sessions`,
-            icon: ClipboardList,
-            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
-        },
-        {
             label: "Pièces & Scripts",
             href: `/troupes/${troupeId}/plays`,
             icon: BookOpen,
             active: pathname.startsWith(`/troupes/${troupeId}/plays`)
+        },
+        {
+            label: "Préparation Séance",
+            href: `/troupes/${troupeId}/sessions`,
+            icon: ClipboardList,
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`) && !pathname.includes('/live')
+        },
+        {
+            label: "Séance Live",
+            href: `/troupes/${troupeId}/sessions/live`,
+            icon: Users,
+            active: pathname === `/troupes/${troupeId}/sessions/live` || pathname.includes('/live')
         }
     ];
 
@@ -53,12 +59,20 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
     const eventId = (rawEventId && !['my-feedbacks', 'new'].includes(rawEventId)) ? rawEventId : null;
     const isLive = pathname.endsWith('/live');
 
+    // Update Séance Live href dynamically based on selected session
+    const navItemsWithLiveHref = navItems.map(item => {
+        if (item.label === "Séance Live" && eventId) {
+            return { ...item, href: `/troupes/${troupeId}/sessions/${eventId}/live` };
+        }
+        return item;
+    });
+
     return (
-        <aside className="w-64 h-screen fixed left-0 top-0 border-r border-white/10 bg-black/20 backdrop-blur-xl z-50 flex flex-col pt-24">
+        <aside className="w-64 h-screen fixed left-0 top-0 border-r border-border bg-background/80 dark:bg-black/20 backdrop-blur-xl z-50 flex flex-col pt-24">
             <div className="px-6 mb-8">
                 <Link
                     href="/troupes"
-                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors group"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group"
                 >
                     <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     <span>Retour aux troupes</span>
@@ -66,68 +80,31 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
             </div>
 
             <nav className="flex-1 px-4 space-y-1">
-                {navItems.map((item) => {
-                    const isSessionMenu = item.label === "Séances";
-                    const showSubMenu = isSessionMenu && isInSessions;
-
-                    return (
-                        <div key={item.href} className="space-y-1">
-                            <Link
-                                href={item.href}
-                                className={cn(
-                                    "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group",
-                                    item.active
-                                        ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
-                                        : "text-gray-400 hover:text-white hover:bg-white/5 border border-transparent"
-                                )}
-                            >
-                                <item.icon className={cn(
-                                    "w-5 h-5 transition-transform group-hover:scale-110",
-                                    item.active ? "text-primary" : "text-gray-500 group-hover:text-white"
-                                )} />
-                                <span className="font-semibold text-sm">{item.label}</span>
-                            </Link>
-
-                            {/* Sub-menu for sessions workflow */}
-                            {showSubMenu && (
-                                <div className="ml-12 space-y-1 py-1 border-l border-white/5 pl-4 transition-all animate-in fade-in slide-in-from-left-2 duration-300">
-                                    <Link
-                                        href={eventId
-                                            ? `/troupes/${troupeId}/sessions/${eventId}`
-                                            : `/troupes/${troupeId}/sessions?view=prep`}
-                                        className={cn(
-                                            "block py-2 text-xs font-bold transition-all",
-                                            (pathname === `/troupes/${troupeId}/sessions/${eventId}` || (isInSessions && !eventId && pathname.includes('view=prep')))
-                                                ? "text-primary translate-x-1"
-                                                : "text-gray-500 hover:text-white hover:translate-x-1"
-                                        )}
-                                    >
-                                        • Préparation
-                                    </Link>
-                                    <Link
-                                        href={eventId
-                                            ? `/troupes/${troupeId}/sessions/${eventId}/live`
-                                            : `/troupes/${troupeId}/sessions?view=live`}
-                                        className={cn(
-                                            "block py-2 text-xs font-bold transition-all",
-                                            (isLive || (isInSessions && !eventId && pathname.includes('view=live')))
-                                                ? "text-primary translate-x-1"
-                                                : "text-gray-500 hover:text-white hover:translate-x-1"
-                                        )}
-                                    >
-                                        • La Séance
-                                    </Link>
-                                </div>
+                {navItemsWithLiveHref.map((item) => (
+                    <div key={item.label} className="space-y-1">
+                        <Link
+                            href={item.href}
+                            className={cn(
+                                "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group",
+                                item.active
+                                    ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
                             )}
-                        </div>
-                    );
-                })}
+                        >
+                            <item.icon className={cn(
+                                "w-5 h-5 transition-transform group-hover:scale-110",
+                                item.active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                            )} />
+                            <span className="font-semibold text-sm">{item.label}</span>
+                        </Link>
+                    </div>
+                ))}
             </nav>
 
-            <div className="p-6 border-t border-white/5">
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                    <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Espace de travail</p>
-                    <p className="text-white text-xs font-bold truncate">Repeto Studio</p>
+            <div className="p-6 border-t border-border">
+                <div className="p-4 rounded-2xl bg-muted/50 border border-border">
+                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">Espace de travail</p>
+                    <p className="text-foreground text-xs font-bold truncate">Repeto Studio</p>
                 </div>
             </div>
         </aside>

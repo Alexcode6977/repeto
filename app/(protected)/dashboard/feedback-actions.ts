@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 interface SubmitFeedbackParams {
     scriptId?: string;
     scriptTitle: string;
-    characterName: string;
+    characterName: string | string[];
     durationSeconds: number;
     linesRehearsed: number;
     completionPercentage: number;
@@ -32,7 +32,7 @@ export async function submitFeedback(params: SubmitFeedbackParams) {
         user_id: user.id,
         script_id: params.scriptId || null,
         script_title: params.scriptTitle,
-        character_name: params.characterName,
+        character_name: Array.isArray(params.characterName) ? params.characterName.join(", ") : params.characterName,
         duration_seconds: params.durationSeconds,
         lines_rehearsed: params.linesRehearsed,
         completion_percentage: params.completionPercentage,

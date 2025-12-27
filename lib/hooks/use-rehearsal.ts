@@ -19,7 +19,7 @@ export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimme
 
 interface UseRehearsalProps {
     script: ParsedScript;
-    userCharacter: string;
+    userCharacters: string[];
     similarityThreshold?: number;
     initialLineIndex?: number;
     mode?: "full" | "cue" | "check";
@@ -33,7 +33,7 @@ import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { isNextCommand, isPrevCommand } from "../speech-utils";
 import { getPlayRecordings } from "../actions/recordings";
 
-export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId }: UseRehearsalProps) {
+export function useRehearsal({ script, userCharacters, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const openaiSpeech = useOpenAITTS();
     const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
@@ -129,10 +129,10 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
     const [retryCount, setRetryCount] = useState(0);
 
     // Ref to track auto-play preventing stale closures
-    const stateRef = useRef({ currentLineIndex, status, userCharacter });
+    const stateRef = useRef({ currentLineIndex, status, userCharacters });
     useEffect(() => {
-        stateRef.current = { currentLineIndex, status, userCharacter };
-    }, [currentLineIndex, status, userCharacter]);
+        stateRef.current = { currentLineIndex, status, userCharacters };
+    }, [currentLineIndex, status, userCharacters]);
 
     // Track mount status to prevent zombie execution loops
     const isMountedRef = useRef(true);
@@ -169,7 +169,16 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
         if (status === "paused") {
             // Resume
             const line = script.lines[currentLineIndex];
-            if (line.character.includes(userCharacter)) {
+            const isUser = (() => {
+                const normalizedLineChar = line.character.toLowerCase().trim();
+                const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+                return userCharacters.some(userChar => {
+                    const normalizedUserChar = userChar.toLowerCase().trim();
+                    return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+                });
+            })();
+
+            if (isUser) {
                 setStatus("listening_user");
             } else {
                 setStatus("playing_other");
@@ -183,10 +192,15 @@ export function useRehearsal({ script, userCharacter, similarityThreshold = 0.85
 
     // Helper for character matching
     const isUserLine = (lineChar: string) => {
+        if (!lineChar || !userCharacters || userCharacters.length === 0) return false;
+
         const normalizedLineChar = lineChar.toLowerCase().trim();
-        const normalizedUserChar = userCharacter.toLowerCase().trim();
-        return normalizedLineChar === normalizedUserChar ||
-            normalizedLineChar.split(',').map(s => s.trim()).includes(normalizedUserChar);
+        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+
+        return userCharacters.some(userChar => {
+            const normalizedUserChar = userChar.toLowerCase().trim();
+            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+        });
     };
 
     // Helper to check if a line should be skipped (e.g., DIDASCALIES)

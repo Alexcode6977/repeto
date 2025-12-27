@@ -45,7 +45,7 @@ export function TroupeMobileNav({ troupeId }: TroupeMobileNavProps) {
     ];
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-16 bg-black/40 backdrop-blur-xl border-t border-white/10 z-50 flex items-center justify-around px-2 md:hidden">
+        <div className="fixed bottom-0 left-0 right-0 h-16 bg-background/80 dark:bg-black/40 backdrop-blur-xl border-t border-border z-50 flex items-center justify-around px-2 md:hidden">
             {navItems.map((item) => (
                 <Link
                     key={item.href}
@@ -54,7 +54,7 @@ export function TroupeMobileNav({ troupeId }: TroupeMobileNavProps) {
                         "flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all duration-300",
                         item.active
                             ? "text-primary"
-                            : "text-gray-500 hover:text-white"
+                            : "text-muted-foreground hover:text-foreground"
                     )}
                 >
                     <item.icon className={cn(

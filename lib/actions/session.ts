@@ -191,3 +191,34 @@ export async function getMyFeedbacks(troupeId: string) {
 
     return data;
 }
+
+/**
+ * Get the most recent feedback for a list of characters.
+ */
+export async function getLastFeedbacksForCharacters(characterIds: string[]) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('rehearsal_feedbacks')
+        .select(`
+            *,
+            events (title, start_time)
+        `)
+        .in('character_id', characterIds)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Error fetching last feedbacks:', error);
+        return {};
+    }
+
+    // Group by character_id and pick the first one (most recent)
+    const latest: Record<string, any> = {};
+    data.forEach(f => {
+        if (!latest[f.character_id]) {
+            latest[f.character_id] = f;
+        }
+    });
+
+    return latest;
+}

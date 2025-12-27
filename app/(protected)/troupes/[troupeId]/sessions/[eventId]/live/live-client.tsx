@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MessageSquare, ChevronRight, ChevronLeft, Send, CheckCircle2, User, Play } from "lucide-react";
-import { submitSessionFeedback } from "@/lib/actions/session";
-// import { toast } from "sonner";
+import { MessageSquare, ChevronRight, ChevronLeft, Send, CheckCircle2, User, Play, Mic, MicOff, History, Clock, ArrowUpRight, Loader2 } from "lucide-react";
+import { submitSessionFeedback, getLastFeedbacksForCharacters } from "@/lib/actions/session";
 import { cn } from "@/lib/utils";
 
 interface LiveProps {
@@ -22,8 +20,11 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
     const selectedSceneIds = selectedScenes.map((s: any) => typeof s === 'string' ? s : s.id);
 
     const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
-    const [feedbackText, setFeedbackText] = useState("");
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [characterFeedbacks, setCharacterFeedbacks] = useState<Record<string, string>>({});
+    const [lastFeedbacks, setLastFeedbacks] = useState<Record<string, any>>({});
+    const [isSubmittingMap, setIsSubmittingMap] = useState<Record<string, boolean>>({});
+    const [isListening, setIsListening] = useState<string | null>(null); // characterId
+    const recognitionRef = useRef<any>(null);
 
     // Derived data - Find scene and its parent play
     let sceneAndPlay = null;
@@ -41,25 +42,80 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
     const charactersInSceneIds = currentScene?.scene_characters?.map((sc: any) => sc.character_id) || [];
     const charactersInScene = currentPlay?.play_characters.filter((pc: any) => charactersInSceneIds.includes(pc.id)) || [];
 
+    // Fetch history when scene changes
+    useEffect(() => {
+        if (charactersInSceneIds.length > 0) {
+            getLastFeedbacksForCharacters(charactersInSceneIds).then(setLastFeedbacks);
+        }
+    }, [currentSceneIndex, charactersInSceneIds]);
+
+    // Speech Recognition Setup
+    useEffect(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'fr-FR';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onresult = (event: any) => {
+                const transcript = Array.from(event.results)
+                    .map((result: any) => result[0])
+                    .map((result: any) => result.transcript)
+                    .join('');
+
+                if (isListening) {
+                    setCharacterFeedbacks(prev => ({
+                        ...prev,
+                        [isListening]: transcript
+                    }));
+                }
+            };
+
+            recognition.onend = () => {
+                setIsListening(null);
+            };
+
+            recognitionRef.current = recognition;
+        }
+    }, [isListening]);
+
+    const toggleListening = (charId: string) => {
+        if (isListening === charId) {
+            recognitionRef.current?.stop();
+            setIsListening(null);
+        } else {
+            if (isListening) recognitionRef.current?.stop();
+            setIsListening(charId);
+            setCharacterFeedbacks(prev => ({ ...prev, [charId]: prev[charId] || "" }));
+            recognitionRef.current?.start();
+        }
+    };
 
     const handleSendFeedback = async (char: any) => {
-        if (!feedbackText.trim()) return;
+        const text = characterFeedbacks[char.id];
+        if (!text?.trim()) return;
 
-        setIsSubmitting(true);
+        setIsSubmittingMap(prev => ({ ...prev, [char.id]: true }));
         try {
             await submitSessionFeedback(
                 sessionData.id,
                 char.id,
-                feedbackText,
+                text,
                 char.actor_id,
                 char.guest_id
             );
-            alert(`Note envoyée pour ${char.name}`);
-            setFeedbackText("");
+
+            // Re-fetch history for this character
+            const latest = await getLastFeedbacksForCharacters([char.id]);
+            setLastFeedbacks(prev => ({ ...prev, ...latest }));
+
+            // Clear input
+            setCharacterFeedbacks(prev => ({ ...prev, [char.id]: "" }));
         } catch (error) {
             alert("Erreur d'envoi");
         } finally {
-            setIsSubmitting(false);
+            setIsSubmittingMap(prev => ({ ...prev, [char.id]: false }));
         }
     };
 
@@ -68,9 +124,9 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
 
             {/* Sidebar: Program Progress */}
             <div className="lg:col-span-1 space-y-4">
-                <Card className="bg-white/5 border-white/10 h-full flex flex-col border-2 overflow-hidden">
-                    <CardHeader className="p-4 border-b border-white/5 bg-white/5">
-                        <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Programme de Travail</CardTitle>
+                <Card className="bg-card border-border h-full flex flex-col border-2 overflow-hidden">
+                    <CardHeader className="p-4 border-b border-border bg-muted/30">
+                        <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Programme de Travail</CardTitle>
                     </CardHeader>
                     <CardContent className="p-2 space-y-1 flex-1 overflow-y-auto">
                         {selectedSceneIds.map((sid: any, idx: any) => {
@@ -88,17 +144,17 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
 
                             return (
                                 <button
-                                    key={sid}
+                                    key={`${sid}-${idx}`}
                                     onClick={() => setCurrentSceneIndex(idx)}
                                     className={cn(
                                         "w-full text-left p-4 rounded-2xl transition-all flex items-center gap-4 group",
-                                        isActive ? "bg-primary text-white shadow-xl shadow-primary/20" :
-                                            isDone ? "opacity-30 hover:opacity-100 hover:bg-white/5" : "hover:bg-white/5"
+                                        isActive ? "bg-primary text-primary-foreground shadow-xl shadow-primary/20" :
+                                            isDone ? "opacity-30 hover:opacity-100 hover:bg-muted/50" : "hover:bg-muted/50"
                                     )}
                                 >
                                     <div className={cn(
                                         "w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-black shrink-0 transition-transform",
-                                        isActive ? "bg-white text-primary scale-110" : "bg-white/5 text-gray-500 group-hover:bg-white/10"
+                                        isActive ? "bg-primary-foreground text-primary scale-110" : "bg-muted text-muted-foreground group-hover:bg-muted/10"
                                     )}>
                                         {isDone ? <CheckCircle2 className="w-5 h-5" /> : idx + 1}
                                     </div>
@@ -106,7 +162,7 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                                         <p className="text-sm font-black truncate leading-tight">{scene?.title}</p>
                                         <p className={cn(
                                             "text-[9px] uppercase tracking-wider truncate mt-0.5 font-bold",
-                                            isActive ? "text-white/60" : "text-gray-600"
+                                            isActive ? "text-primary-foreground/60" : "text-muted-foreground/60"
                                         )}>
                                             {itemSceneAndPlay?.play?.title}
                                         </p>
@@ -115,10 +171,10 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                             );
                         })}
                     </CardContent>
-                    <div className="p-4 border-t border-white/5 bg-white/5">
+                    <div className="p-4 border-t border-border bg-muted/30">
                         <Button
                             variant="ghost"
-                            className="w-full rounded-xl text-[10px] uppercase font-black tracking-widest text-gray-500 hover:text-white"
+                            className="w-full rounded-xl text-[10px] uppercase font-black tracking-widest text-muted-foreground hover:text-foreground"
                             asChild
                         >
                             <a href={`/troupes/${troupeId}/sessions`}>Quitter la séance</a>
@@ -137,9 +193,9 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                     <CardContent className="p-8 flex items-center justify-between relative">
                         <div>
                             <p className="text-[10px] uppercase font-black text-primary tracking-[0.3em] mb-3 leading-none">Scène en cours</p>
-                            <h2 className="text-5xl font-black text-white tracking-tighter leading-none mb-3">
+                            <h2 className="text-5xl font-black text-foreground tracking-tighter leading-none mb-3">
                                 {currentSceneIndex + 1}. {currentScene?.title}
-                                <span className="text-sm font-bold text-white/40 ml-4 uppercase tracking-widest">{currentPlay?.title}</span>
+                                <span className="text-sm font-bold text-muted-foreground ml-4 uppercase tracking-widest">{currentPlay?.title}</span>
                             </h2>
 
                             <div className="flex items-center gap-4">
@@ -147,14 +203,14 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                                     <Badge variant="outline" className="bg-primary/20 border-primary/30 text-primary uppercase text-[8px] font-black px-2 py-0.5">
                                         Objectif
                                     </Badge>
-                                    <p className="text-sm font-medium text-white/90 italic">
+                                    <p className="text-sm font-medium text-muted-foreground italic">
                                         {plan.selected_scenes.find((s: any) => s.id === currentScene?.id)?.objective || "Travailler librement"}
                                     </p>
                                 </div>
                                 <Button
                                     size="sm"
                                     onClick={() => setCurrentSceneIndex(prev => Math.min(selectedSceneIds.length - 1, prev + 1))}
-                                    className="bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest h-8 rounded-lg border border-white/5"
+                                    className="bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest h-8 rounded-lg border border-primary/20"
                                 >
                                     Terminer la scène
                                 </Button>
@@ -164,7 +220,7 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all active:scale-95"
+                                className="w-12 h-12 rounded-2xl bg-muted/50 hover:bg-muted border border-border transition-all active:scale-95 text-foreground"
                                 onClick={() => setCurrentSceneIndex(prev => Math.max(0, prev - 1))}
                                 disabled={currentSceneIndex === 0}
                             >
@@ -173,7 +229,7 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="w-12 h-12 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all active:scale-95"
+                                className="w-12 h-12 rounded-2xl bg-muted/50 hover:bg-muted border border-border transition-all active:scale-95 text-foreground"
                                 onClick={() => setCurrentSceneIndex(prev => Math.min(selectedSceneIds.length - 1, prev + 1))}
                                 disabled={currentSceneIndex === selectedSceneIds.length - 1}
                             >
@@ -183,73 +239,115 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                     </CardContent>
                 </Card>
 
-                {/* Feedback Input Zone */}
-                <Card className="flex-1 bg-white/5 border-white/10 overflow-hidden flex flex-col border-2 relative">
-                    <Tabs defaultValue={charactersInScene[0]?.id} className="flex-1 flex flex-col">
-                        <div className="border-b border-white/5 px-8 pt-6">
-                            <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest mb-4">Feedback par personnage</p>
-                            <TabsList className="bg-transparent h-12 gap-8 p-0">
-                                {charactersInScene.map((char: any) => (
-                                    <TabsTrigger
-                                        key={char.id}
-                                        value={char.id}
-                                        className="data-[state=active]:text-primary data-[state=active]:bg-transparent border-b-2 border-transparent data-[state=active]:border-primary rounded-none h-full px-0 text-xs font-black transition-all uppercase tracking-widest"
-                                    >
-                                        {char.name}
-                                    </TabsTrigger>
-                                ))}
-                            </TabsList>
-                        </div>
+                {/* Feedback Input Zone - Refactored to Cards for Speed */}
+                <div className="flex-1 space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                        <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Feedback par personnage</p>
+                        <Badge variant="outline" className="border-border bg-muted/50 text-[9px] font-bold text-muted-foreground">
+                            {charactersInScene.length} personnages sur scène
+                        </Badge>
+                    </div>
 
-                        <div className="flex-1 relative">
-                            {charactersInScene.map((char: any) => (
-                                <TabsContent key={char.id} value={char.id} className="m-0 h-full flex flex-col p-8 lg:p-12">
-                                    <div className="flex items-center gap-6 mb-10">
-                                        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-transparent border border-white/10 flex items-center justify-center shadow-2xl">
-                                            <User className="w-10 h-10 text-primary/60" />
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-3 mb-1">
-                                                <h3 className="text-3xl font-black text-white tracking-tight">{char.name}</h3>
-                                                <Badge className="bg-white/5 text-gray-400 text-[8px] uppercase font-black border-white/10">
-                                                    {char.actor_id ? "Membre" : char.guest_id ? "Invité" : "Unassigned"}
-                                                </Badge>
+                    <div className="grid grid-cols-1 gap-6">
+                        {charactersInScene.map((char: any) => {
+                            const scenePlan = plan.selected_scenes.find((s: any) => s.id === currentScene?.id);
+                            const charGoal = scenePlan?.characterObjectives?.find((co: any) => co.id === char.id)?.objective;
+                            const text = characterFeedbacks[char.id] || "";
+                            const isSubmitting = isSubmittingMap[char.id];
+                            const history = lastFeedbacks[char.id];
+                            const listening = isListening === char.id;
+
+                            return (
+                                <Card key={char.id} className="bg-card border-border overflow-hidden border-2 transition-all hover:border-primary/20">
+                                    <div className="grid grid-cols-1 lg:grid-cols-12">
+                                        {/* Char Info Section */}
+                                        <div className="lg:col-span-3 p-6 border-b lg:border-b-0 lg:border-r border-border bg-muted/20">
+                                            <div className="flex items-center gap-4 mb-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-transparent border border-primary/20 flex items-center justify-center">
+                                                    <User className="w-6 h-6 text-primary" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className="text-xl font-black text-foreground truncate">{char.name}</h3>
+                                                    <p className="text-[9px] text-muted-foreground font-bold uppercase">{char.actor_id ? "Membre" : "Invité"}</p>
+                                                </div>
                                             </div>
 
-                                            {(() => {
-                                                const scenePlan = plan.selected_scenes.find((s: any) => s.id === currentScene?.id);
-                                                const charGoal = scenePlan?.characterObjectives?.find((co: any) => co.id === char.id)?.objective;
-                                                return charGoal ? (
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <MessageSquare className="w-3.5 h-3.5 text-primary" />
-                                                        <span className="text-sm text-primary font-bold uppercase tracking-widest text-[10px]">Cible : {charGoal}</span>
+                                            {charGoal && (
+                                                <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 mb-4">
+                                                    <p className="text-[8px] font-black text-primary uppercase tracking-widest mb-1 flex items-center gap-1">
+                                                        <ArrowUpRight className="w-3 h-3" /> Objectif
+                                                    </p>
+                                                    <p className="text-xs font-medium text-foreground/90 leading-tight italic">
+                                                        {charGoal}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {history && (
+                                                <div className="space-y-2 opacity-60 hover:opacity-100 transition-opacity">
+                                                    <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest flex items-center gap-1">
+                                                        <History className="w-3 h-3" /> Dernière note
+                                                    </p>
+                                                    <div className="text-[11px] text-muted-foreground leading-relaxed italic line-clamp-3">
+                                                        "{history.text}"
                                                     </div>
-                                                ) : <p className="text-xs text-gray-600 font-medium">Pas de consigne spécifique</p>;
-                                            })()}
+                                                    <p className="text-[9px] font-bold text-muted-foreground/60">
+                                                        {history.events?.title} - {new Date(history.created_at).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Interaction Section */}
+                                        <div className="lg:col-span-9 p-6 relative flex flex-col bg-muted/30">
+                                            <div className="relative flex-1 group">
+                                                <textarea
+                                                    className={cn(
+                                                        "w-full bg-transparent text-xl font-medium text-foreground placeholder:text-muted-foreground/30 outline-none resize-none leading-relaxed transition-all",
+                                                        listening && "text-primary brightness-110"
+                                                    )}
+                                                    placeholder={`Notez vos impressions pour ${char.name}...`}
+                                                    rows={3}
+                                                    value={text}
+                                                    onChange={(e) => setCharacterFeedbacks(prev => ({ ...prev, [char.id]: e.target.value }))}
+                                                />
+
+                                                <div className="absolute top-0 right-0 flex gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => toggleListening(char.id)}
+                                                        className={cn(
+                                                            "w-10 h-10 rounded-full transition-all",
+                                                            listening ? "bg-red-500 text-white animate-pulse" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                                        )}
+                                                    >
+                                                        {listening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                                                    </Button>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end mt-4">
+                                                <Button
+                                                    size="sm"
+                                                    disabled={isSubmitting || !text.trim()}
+                                                    onClick={() => handleSendFeedback(char as any)}
+                                                    className="rounded-xl px-6 py-5 bg-primary hover:bg-primary/80 text-primary-foreground font-black uppercase text-[10px] tracking-widest shadow-lg transition-all active:scale-95"
+                                                >
+                                                    {isSubmitting ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <><Send className="w-4 h-4 mr-2" /> Envoyer</>
+                                                    )}
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
-
-                                    <div className="flex-1 bg-black/40 rounded-[2.5rem] border border-white/5 p-8 relative shadow-inner">
-                                        <textarea
-                                            className="w-full h-full bg-transparent text-2xl font-medium text-white placeholder:text-gray-800 outline-none resize-none leading-relaxed"
-                                            placeholder={`Notez vos impressions pour ${char.name}...`}
-                                            value={feedbackText}
-                                            onChange={(e) => setFeedbackText(e.target.value)}
-                                        />
-                                        <Button
-                                            size="lg"
-                                            disabled={isSubmitting || !feedbackText.trim()}
-                                            onClick={() => handleSendFeedback(char as any)}
-                                            className="absolute bottom-10 right-10 rounded-2xl px-10 py-8 bg-primary hover:bg-primary/80 text-white font-black uppercase text-sm tracking-widest shadow-[0_20px_50px_rgba(var(--primary),0.3)] transition-all active:scale-95"
-                                        >
-                                            {isSubmitting ? "Envoi..." : <><Send className="w-5 h-5 mr-3" /> Envoyer la note</>}
-                                        </Button>
-                                    </div>
-                                </TabsContent>
-                            ))}
-                        </div>
-                    </Tabs>
-                </Card>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
         </div>
     );
