@@ -241,13 +241,23 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
     // Refs for auto-scroll
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const containerRef = useRef<HTMLDivElement>(null);
+    const isFirstScrollRef = useRef(true);
 
-    // Auto-scroll to active line when index changes
+    // Auto-scroll to active line when index changes - INSTANT on first scroll, smooth after
     useEffect(() => {
         if (hasStarted && lineRefs.current.has(currentLineIndex)) {
             const activeEl = lineRefs.current.get(currentLineIndex);
             if (activeEl) {
-                activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                if (isFirstScrollRef.current) {
+                    // First scroll: use requestAnimationFrame to ensure DOM is ready, then instant scroll
+                    requestAnimationFrame(() => {
+                        activeEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
+                    });
+                    isFirstScrollRef.current = false;
+                } else {
+                    // Subsequent scrolls: smooth animation
+                    activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
             }
         }
     }, [currentLineIndex, hasStarted]);
@@ -961,10 +971,13 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                         </div>
                     </div>
 
-                    {/* Main Script View - Scrolling List (scroll locked during active states) */}
+                    {/* Main Script View - Scrolling List */}
                     <div
                         ref={containerRef}
-                        className="flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin"
+                        className={cn(
+                            "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin transition-opacity duration-300",
+                            isFirstScrollRef.current ? "opacity-0" : "opacity-100"
+                        )}
                         id="script-container"
                     >
                         {script.lines.map((line, index) => {

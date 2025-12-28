@@ -229,16 +229,47 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         setStatus("setup"); // BREAK the engine loop immediately
         setRetryCount(0); // Reset retries
 
-        // Find first valid line (skip DIDASCALIES etc.)
-        const validStartIdx = findNextValidIndex(initialLineIndex, 1);
-        if (validStartIdx >= script.lines.length) {
+        // NEW: Jump directly to first relevant line based on mode
+        let entryIdx = initialLineIndex;
+        while (entryIdx < script.lines.length) {
+            const line = script.lines[entryIdx];
+
+            // 1. Skip if character is in skip list (e.g. DIDASCALIES)
+            if (shouldSkipLine(line.character)) {
+                entryIdx++;
+                continue;
+            }
+
+            // 2. Mode logic jump
+            let isRelevant = true;
+            if (mode === "check") {
+                // Only user lines are relevant
+                isRelevant = isUserLine(line.character);
+            } else if (mode === "cue") {
+                // User lines OR lines just before user lines are relevant
+                const nextRelevantIdx = (() => {
+                    let nextIdx = entryIdx + 1;
+                    while (nextIdx < script.lines.length && shouldSkipLine(script.lines[nextIdx].character)) {
+                        nextIdx++;
+                    }
+                    return nextIdx;
+                })();
+                const nextLine = script.lines[nextRelevantIdx];
+                isRelevant = isUserLine(line.character) || (nextLine && isUserLine(nextLine.character));
+            }
+
+            if (isRelevant) break;
+            entryIdx++;
+        }
+
+        if (entryIdx >= script.lines.length) {
             setStatus("finished");
             transitionLockRef.current = false;
             return;
         }
 
-        setCurrentLineIndex(validStartIdx);
-        const line = script.lines[validStartIdx];
+        setCurrentLineIndex(entryIdx);
+        const line = script.lines[entryIdx];
 
         // Brief delay to ensure cleanup
         setTimeout(() => {
@@ -252,6 +283,38 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         }, 300); // More generous window for mobile
     };
 
+    // Find next relevant index based on mode
+    const findNextRelevantIndex = (currentIdx: number, direction: 1 | -1 = 1): number => {
+        let idx = currentIdx + direction;
+        while (idx >= 0 && idx < script.lines.length) {
+            const line = script.lines[idx];
+
+            if (shouldSkipLine(line.character)) {
+                idx += direction;
+                continue;
+            }
+
+            let isRelevant = true;
+            if (mode === "check") {
+                isRelevant = isUserLine(line.character);
+            } else if (mode === "cue") {
+                const nextRelevantIdx = (() => {
+                    let nIdx = idx + 1;
+                    while (nIdx < script.lines.length && shouldSkipLine(script.lines[nIdx].character)) {
+                        nIdx++;
+                    }
+                    return nIdx;
+                })();
+                const nextLine = script.lines[nextRelevantIdx];
+                isRelevant = isUserLine(line.character) || (nextLine && isUserLine(nextLine.character));
+            }
+
+            if (isRelevant) return idx;
+            idx += direction;
+        }
+        return direction === 1 ? script.lines.length : -1;
+    };
+
     const next = () => {
         if (!isMountedRef.current || transitionLockRef.current) return;
         transitionLockRef.current = true;
@@ -260,12 +323,10 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         setStatus("setup");
         setRetryCount(0); // Reset retries
 
-        // Find next valid line (skip DIDASCALIES etc.)
-        const nextIdx = findNextValidIndex(stateRef.current.currentLineIndex + 1, 1);
+        const nextIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, 1);
         if (nextIdx < script.lines.length) {
             setCurrentLineIndex(nextIdx);
             const nextLine = script.lines[nextIdx];
-            // Brief delay to allow speech recognition and audio to reset
             setTimeout(() => {
                 manualSkipRef.current = false;
                 if (isUserLine(nextLine.character)) {
@@ -288,11 +349,10 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         transitionLockRef.current = true;
         manualSkipRef.current = true;
         stopAll();
-        setStatus("setup"); // Break the loop
+        setStatus("setup");
         setRetryCount(0);
 
-        // Find previous valid line (skip DIDASCALIES etc.)
-        const prevIdx = findNextValidIndex(stateRef.current.currentLineIndex - 1, -1);
+        const prevIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, -1);
         if (prevIdx >= 0) {
             setCurrentLineIndex(prevIdx);
             const prevLine = script.lines[prevIdx];
