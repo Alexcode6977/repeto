@@ -18,7 +18,7 @@ export default async function TroupeLayout({
     }
 
     return (
-        <div className="min-h-screen bg-black">
+        <div className="min-h-screen bg-background">
             {/* Sidebar - Visible on Desktop */}
             <div className="hidden md:block">
                 <TroupeSidebar troupeId={troupeId} />

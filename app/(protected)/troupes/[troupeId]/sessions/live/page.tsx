@@ -88,7 +88,7 @@ export default async function LiveSessionsPage({
                                         </div>
                                     </div>
 
-                                    <Button asChild size="lg" className="rounded-xl bg-green-500 hover:bg-green-600 text-white font-black text-xs uppercase tracking-widest px-6 h-12 shadow-lg shadow-green-500/20 transition-all active:scale-95 ml-4">
+                                    <Button asChild size="lg" className="rounded-xl bg-green-500 hover:bg-green-600 text-foreground font-black text-xs uppercase tracking-widest px-6 h-12 shadow-lg shadow-green-500/20 transition-all active:scale-95 ml-4">
                                         <Link href={`/troupes/${troupeId}/sessions/${session.id}/live`}>
                                             <Play className="w-4 h-4 mr-2 fill-current" />
                                             Lancer

@@ -27,14 +27,14 @@ export default async function TroupePlaysPage({
 
                 <div className="relative">
                     <div className="flex items-center gap-3 mb-2">
-                        <Link href={`/troupes/${troupeId}`} className="text-gray-500 hover:text-white transition-colors text-sm font-medium flex items-center gap-1 group">
+                        <Link href={`/troupes/${troupeId}`} className="text-gray-500 hover:text-foreground transition-colors text-sm font-medium flex items-center gap-1 group">
                             <span className="group-hover:-translate-x-1 transition-transform">←</span> Retour au dashboard
                         </Link>
                     </div>
-                    <h1 className="text-5xl font-extrabold tracking-tighter text-white mb-2 leading-none">
+                    <h1 className="text-5xl font-extrabold tracking-tighter text-foreground mb-2 leading-none">
                         Pièces & <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400">Scripts</span>
                     </h1>
-                    <p className="text-gray-400 font-medium flex items-center gap-2">
+                    <p className="text-muted-foreground font-medium flex items-center gap-2">
                         <BookOpen className="w-4 h-4 text-primary" />
                         Gestion de la bibliothèque de la troupe {troupe.name}
                     </p>
@@ -43,7 +43,7 @@ export default async function TroupePlaysPage({
                 {isAdmin && (
                     <div className="relative shrink-0">
                         <Link href={`/troupes/${troupeId}/plays/new`}>
-                            <Button className="rounded-full px-8 bg-primary hover:bg-primary/90 text-white shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] transition-all uppercase text-xs font-bold tracking-widest h-12">
+                            <Button className="rounded-full px-8 bg-primary hover:bg-primary/90 text-foreground shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] transition-all uppercase text-xs font-bold tracking-widest h-12">
                                 <Plus className="mr-2 h-5 w-5" />
                                 Ajouter une pièce
                             </Button>
@@ -61,12 +61,12 @@ export default async function TroupePlaysPage({
                             </div>
                         )}
                         <Link href={`/troupes/${troupeId}/plays/${play.id}`} className="block h-full">
-                            <Card className="h-full bg-white/5 border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] rounded-3xl border">
+                            <Card className="h-full bg-card border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] rounded-3xl border">
                                 <CardHeader className="p-8 pb-4">
                                     <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-white/10 flex items-center justify-center mb-4 group-hover:bg-primary/30 transition-colors">
                                         <BookOpen className="h-6 w-6 text-primary" />
                                     </div>
-                                    <CardTitle className="text-2xl font-bold text-white group-hover:text-primary transition-colors pr-10">
+                                    <CardTitle className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors pr-10">
                                         {play.title}
                                     </CardTitle>
                                 </CardHeader>
@@ -85,7 +85,7 @@ export default async function TroupePlaysPage({
                                     </div>
                                     <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
                                         <span className="text-xs text-gray-500 uppercase tracking-widest font-black">Voir les détails</span>
-                                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:bg-primary transition-all">
+                                        <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-foreground group-hover:bg-primary transition-all">
                                             <span className="text-sm">→</span>
                                         </div>
                                     </div>
@@ -96,9 +96,9 @@ export default async function TroupePlaysPage({
                 ))}
 
                 {plays.length === 0 && (
-                    <div className="col-span-full py-24 rounded-3xl border border-dashed border-white/10 bg-white/5 backdrop-blur-sm flex flex-col items-center justify-center text-center">
-                        <BookOpen className="h-20 w-20 text-white/10 mb-6" />
-                        <h3 className="text-xl font-bold text-white mb-2">Aucune pièce ajoutée</h3>
+                    <div className="col-span-full py-24 rounded-3xl border border-dashed border-white/10 bg-card backdrop-blur-sm flex flex-col items-center justify-center text-center">
+                        <BookOpen className="h-20 w-20 text-foreground/10 mb-6" />
+                        <h3 className="text-xl font-bold text-foreground mb-2">Aucune pièce ajoutée</h3>
                         <p className="text-gray-500 mb-8 max-w-sm font-medium">
                             Importez votre premier texte pour commencer la distribution et les répétitions.
                         </p>

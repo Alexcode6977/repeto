@@ -24,7 +24,7 @@ export default async function SessionDetailsPage({
             <div className="flex flex-col gap-4">
                 <Link
                     href={`/troupes/${troupeId}/sessions`}
-                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-white transition-colors group w-fit"
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors group w-fit"
                 >
                     <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     Retour aux séances
@@ -32,10 +32,10 @@ export default async function SessionDetailsPage({
 
                 <div className="flex justify-between items-end">
                     <div>
-                        <h1 className="text-4xl font-black text-white tracking-tighter">
+                        <h1 className="text-4xl font-black text-foreground tracking-tighter">
                             Préparation : {sessionData.title || "Nouvelle Séance"}
                         </h1>
-                        <p className="text-gray-400 font-medium">
+                        <p className="text-muted-foreground font-medium">
                             {new Date(sessionData.start_time).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} • {sessionData.plays?.length} pièce{sessionData.plays?.length > 1 ? 's' : ''} disponible{sessionData.plays?.length > 1 ? 's' : ''}
                         </p>
 

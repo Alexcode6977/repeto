@@ -82,7 +82,7 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
                                 <div key={id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-transparent hover:border-secondary/50 transition-all">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-10 w-10">
-                                            <AvatarFallback className={isPresent ? "bg-green-600 text-white" : ""}>
+                                            <AvatarFallback className={isPresent ? "bg-green-600 text-foreground" : ""}>
                                                 {(member.first_name?.[0] || member.email?.[0] || "?").toUpperCase()}
                                             </AvatarFallback>
                                         </Avatar>
@@ -103,7 +103,7 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
                                             disabled={isUpdating}
                                             className={cn(
                                                 "h-9 w-9 rounded-full flex items-center justify-center transition-all border",
-                                                isPresent ? "bg-green-600 border-green-600 text-white shadow-lg shadow-green-900/20" : "border-slate-700 hover:bg-green-950/30 text-slate-500 hover:text-green-500"
+                                                isPresent ? "bg-green-600 border-green-600 text-foreground shadow-lg shadow-green-900/20" : "border-slate-700 hover:bg-green-950/30 text-slate-500 hover:text-green-500"
                                             )}
                                         >
                                             <Check className="w-4 h-4" />
@@ -113,7 +113,7 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin }: 
                                             disabled={isUpdating}
                                             className={cn(
                                                 "h-9 w-9 rounded-full flex items-center justify-center transition-all border",
-                                                isAbsent ? "bg-red-600 border-red-600 text-white shadow-lg shadow-red-900/20" : "border-slate-700 hover:bg-red-950/30 text-slate-500 hover:text-red-500"
+                                                isAbsent ? "bg-red-600 border-red-600 text-foreground shadow-lg shadow-red-900/20" : "border-slate-700 hover:bg-red-950/30 text-slate-500 hover:text-red-500"
                                             )}
                                         >
                                             <X className="w-4 h-4" />

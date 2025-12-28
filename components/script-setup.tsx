@@ -31,23 +31,23 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                 <Button
                     variant="ghost"
                     onClick={onBack}
-                    className="text-gray-500 hover:text-white mb-4"
+                    className="text-muted-foreground hover:text-foreground mb-4"
                 >
                     ← Changer de personnage
                 </Button>
-                <h2 className="text-3xl font-bold text-white tracking-tight">
+                <h2 className="text-3xl font-bold text-foreground tracking-tight">
                     Configuration de lecture
                 </h2>
-                <p className="text-gray-400">
+                <p className="text-muted-foreground">
                     Rôle : <span className="text-primary font-bold">{character}</span>
                 </p>
             </div>
 
             {/* Settings Grid */}
-            <div className="max-w-2xl mx-auto space-y-8 bg-white/5 backdrop-blur-md border border-white/10 p-8 rounded-[2rem]">
+            <div className="max-w-2xl mx-auto space-y-8 bg-card backdrop-blur-md border border-white/10 p-8 rounded-[2rem]">
                 <div className="space-y-6">
                     <div className="space-y-3">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-2">Visibilité de vos répliques</label>
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Visibilité de vos répliques</label>
                         <div className="grid grid-cols-3 gap-2">
                             {[
                                 { id: "visible", label: "Visibles", sub: "Texte complet" },
@@ -61,18 +61,18 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                                         "p-4 rounded-2xl text-left transition-all duration-300 border flex flex-col gap-1",
                                         settings.visibility === v.id
                                             ? "bg-white text-black border-white shadow-xl scale-[1.02] z-10"
-                                            : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10"
+                                            : "bg-card border-transparent text-muted-foreground hover:bg-white/10"
                                     )}
                                 >
                                     <span className="text-xs font-bold">{v.label}</span>
-                                    <span className={cn("text-[9px]", settings.visibility === v.id ? "text-gray-600" : "text-gray-500")}>{v.sub}</span>
+                                    <span className={cn("text-[9px]", settings.visibility === v.id ? "text-gray-600" : "text-muted-foreground")}>{v.sub}</span>
                                 </button>
                             ))}
                         </div>
                     </div>
 
                     <div className="space-y-3">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-2">Mode de lecture</label>
+                        <label className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] ml-2">Mode de lecture</label>
                         <div className="grid grid-cols-3 gap-2">
                             {[
                                 { id: "full", label: "Intégrale", sub: "Tout le cast" },
@@ -85,12 +85,12 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                                     className={cn(
                                         "p-4 rounded-2xl text-left transition-all duration-300 border flex flex-col gap-1",
                                         settings.mode === m.id
-                                            ? "bg-primary text-white border-primary shadow-xl scale-[1.02] z-10"
-                                            : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10"
+                                            ? "bg-primary text-foreground border-primary shadow-xl scale-[1.02] z-10"
+                                            : "bg-card border-transparent text-muted-foreground hover:bg-white/10"
                                     )}
                                 >
                                     <span className="text-xs font-bold">{m.label}</span>
-                                    <span className={cn("text-[9px]", settings.mode === m.id ? "text-primary-foreground/70" : "text-gray-500")}>{m.sub}</span>
+                                    <span className={cn("text-[9px]", settings.mode === m.id ? "text-primary-foreground/70" : "text-muted-foreground")}>{m.sub}</span>
                                 </button>
                             ))}
                         </div>
@@ -100,7 +100,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                 <div className="pt-4">
                     <Button
                         size="lg"
-                        className="w-full py-8 rounded-2xl bg-primary text-white font-black text-xl shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all"
+                        className="w-full py-8 rounded-2xl bg-primary text-foreground font-black text-xl shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all"
                         onClick={() => onStart(settings)}
                     >
                         Lancer la lecture

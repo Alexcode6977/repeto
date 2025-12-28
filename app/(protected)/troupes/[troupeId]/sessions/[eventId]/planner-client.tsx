@@ -324,7 +324,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setFilterMagic(true)}
-                                className={cn("rounded-lg text-[10px] uppercase font-bold px-3", filterMagic && "bg-green-500 text-white hover:bg-green-500")}
+                                className={cn("rounded-lg text-[10px] uppercase font-bold px-3", filterMagic && "bg-green-500 text-foreground hover:bg-green-500")}
                             >
                                 Jouables
                             </Button>
@@ -345,7 +345,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                         >
                             {scene.isUnplayable && (
                                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
-                                    <div className="bg-red-500 text-white text-[10px] font-black uppercase px-3 py-1.5 rounded-full shadow-xl rotate-[-5deg] border-2 border-white/10">
+                                    <div className="bg-red-500 text-foreground text-[10px] font-black uppercase px-3 py-1.5 rounded-full shadow-xl rotate-[-5deg] border-2 border-white/10">
                                         {scene.missingCharacters.length} absents
                                     </div>
                                 </div>
@@ -587,7 +587,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                     variant="ghost"
                                     onClick={() => handleSave(false)}
                                     disabled={isSaving}
-                                    className="w-full rounded-xl py-4 text-gray-500 hover:text-white font-bold uppercase text-[9px] tracking-widest transition-all"
+                                    className="w-full rounded-xl py-4 text-gray-500 hover:text-foreground font-bold uppercase text-[9px] tracking-widest transition-all"
                                 >
                                     Enregistrer la préparation
                                 </Button>

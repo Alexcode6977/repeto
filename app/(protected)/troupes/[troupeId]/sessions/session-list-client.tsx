@@ -51,16 +51,16 @@ export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListCl
                 </div>
             )}
             <div className="flex justify-center mb-8">
-                <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-12">
+                <TabsList className="bg-card border border-white/10 p-1 rounded-2xl h-12">
                     <TabsTrigger
                         value="upcoming"
-                        className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all font-bold text-xs uppercase tracking-widest"
+                        className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-foreground transition-all font-bold text-xs uppercase tracking-widest"
                     >
                         À venir ({upcoming.length})
                     </TabsTrigger>
                     <TabsTrigger
                         value="past"
-                        className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-white transition-all font-bold text-xs uppercase tracking-widest"
+                        className="rounded-xl px-8 data-[state=active]:bg-primary data-[state=active]:text-foreground transition-all font-bold text-xs uppercase tracking-widest"
                     >
                         Passées ({past.length})
                     </TabsTrigger>
@@ -69,7 +69,7 @@ export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListCl
 
             <TabsContent value="upcoming" className="space-y-4 focus-visible:outline-none">
                 {upcoming.length === 0 ? (
-                    <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
+                    <div className="text-center py-20 bg-card rounded-3xl border border-dashed border-white/10">
                         <p className="text-gray-500 italic">Aucune séance prévue pour le moment.</p>
                     </div>
                 ) : (
@@ -81,7 +81,7 @@ export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListCl
 
             <TabsContent value="past" className="space-y-4 focus-visible:outline-none">
                 {past.length === 0 ? (
-                    <div className="text-center py-20 bg-white/5 rounded-3xl border border-dashed border-white/10">
+                    <div className="text-center py-20 bg-card rounded-3xl border border-dashed border-white/10">
                         <p className="text-gray-500 italic">Aucun historique de séance.</p>
                     </div>
                 ) : (
@@ -100,24 +100,24 @@ function SessionCard({ session, troupeId, isAdmin, isPast }: { session: any, tro
 
     return (
         <Card className={cn(
-            "bg-white/5 border-white/10 backdrop-blur-sm hover:border-white/20 transition-all group overflow-hidden relative",
+            "bg-card border-white/10 backdrop-blur-sm hover:border-white/20 transition-all group overflow-hidden relative",
             isPast && "opacity-75 hover:opacity-100"
         )}>
             <div className="flex items-center justify-between p-6">
                 <Link href={`/troupes/${troupeId}/sessions/${session.id}`} className="flex items-center gap-6 flex-1 min-w-0">
                     {/* Date Block */}
-                    <div className="text-center min-w-[60px] p-3 rounded-2xl bg-white/5 border border-white/10 group-hover:border-primary/30 transition-colors">
+                    <div className="text-center min-w-[60px] p-3 rounded-2xl bg-card border border-white/10 group-hover:border-primary/30 transition-colors">
                         <p className="text-[10px] uppercase font-black text-gray-500 leading-none mb-1">
                             {date.toLocaleDateString('fr-FR', { month: 'short' })}
                         </p>
-                        <p className="text-2xl font-black text-white leading-none">
+                        <p className="text-2xl font-black text-foreground leading-none">
                             {date.getDate()}
                         </p>
                     </div>
 
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-bold text-white text-lg group-hover:text-primary transition-colors truncate">
+                            <h3 className="font-bold text-foreground text-lg group-hover:text-primary transition-colors truncate">
                                 {session.title || "Répétition"}
                             </h3>
                             {hasPlan ? (
@@ -137,10 +137,10 @@ function SessionCard({ session, troupeId, isAdmin, isPast }: { session: any, tro
                     {hasPlan && (
                         <div className="text-right hidden lg:block">
                             <p className="text-[10px] uppercase font-black text-gray-500 tracking-widest leading-none mb-1">Programme fixé</p>
-                            <p className="text-white font-bold text-xs leading-none">{session.session_plans.selected_scenes.length} scènes</p>
+                            <p className="text-foreground font-bold text-xs leading-none">{session.session_plans.selected_scenes.length} scènes</p>
                         </div>
                     )}
-                    <Link href={`/troupes/${troupeId}/sessions/${session.id}`} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 hover:text-white transition-all">
+                    <Link href={`/troupes/${troupeId}/sessions/${session.id}`} className="w-10 h-10 rounded-full bg-card flex items-center justify-center hover:bg-white/10 hover:text-foreground transition-all">
                         <ChevronRight className="w-5 h-5" />
                     </Link>
                 </div>

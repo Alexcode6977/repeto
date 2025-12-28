@@ -31,10 +31,10 @@ export default async function TroupeDashboard({
                 <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
 
                 <div className="relative">
-                    <h1 className="text-5xl font-extrabold tracking-tighter text-white mb-2">
+                    <h1 className="text-5xl font-extrabold tracking-tighter text-foreground mb-2">
                         {troupe?.name}
                     </h1>
-                    <p className="text-gray-400 font-medium flex items-center gap-2">
+                    <p className="text-muted-foreground font-medium flex items-center gap-2">
                         <Users className="w-4 h-4" />
                         Espace de travail de la troupe
                     </p>
@@ -48,15 +48,15 @@ export default async function TroupeDashboard({
 
 
             {/* Members Section - Embedded directly */}
-            <Card className="bg-white/5 border-white/10 backdrop-blur-md rounded-3xl border overflow-hidden">
+            <Card className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden">
                 <CardHeader className="p-8 pb-6 border-b border-white/5">
                     <div className="flex justify-between items-center">
                         <div>
-                            <CardTitle className="text-2xl font-bold text-white flex items-center gap-3">
+                            <CardTitle className="text-2xl font-bold text-foreground flex items-center gap-3">
                                 <Users className="h-6 w-6 text-primary" />
                                 Membres de la troupe
                             </CardTitle>
-                            <CardDescription className="text-gray-500 font-medium">
+                            <CardDescription className="text-muted-foreground font-medium">
                                 {members.length + guests.length} collaborateur{(members.length + guests.length) > 1 ? 's' : ''} actif{(members.length + guests.length) > 1 ? 's' : ''}.
                             </CardDescription>
                         </div>
@@ -67,22 +67,22 @@ export default async function TroupeDashboard({
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {/* Real Members */}
                         {members.map((member: any) => (
-                            <div key={member.id} className="flex items-center gap-4 p-5 rounded-2xl border border-white/5 bg-white/0 hover:bg-white/5 transition-all group relative overflow-hidden">
-                                <Avatar className="h-12 w-12 border border-white/10">
+                            <div key={member.id} className="flex items-center gap-4 p-5 rounded-2xl border border-white/5 bg-white/0 hover:bg-card transition-all group relative overflow-hidden">
+                                <Avatar className="h-12 w-12 border border-border">
                                     <AvatarFallback className="bg-primary/20 text-primary font-bold">
                                         {(member.first_name?.[0] || member.email?.[0] || "?").toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-base font-bold text-white leading-none truncate mb-1">
+                                    <p className="text-base font-bold text-foreground leading-none truncate mb-1">
                                         {member.first_name || "Utilisateur"}
                                     </p>
-                                    <p className="text-xs text-gray-500 truncate font-medium">
+                                    <p className="text-xs text-muted-foreground truncate font-medium">
                                         {member.email}
                                     </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
-                                    <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider rounded-full px-2 py-0 border-white/10 ${member.role === 'admin' ? 'text-primary' : 'text-gray-500'}`}>
+                                    <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider rounded-full px-2 py-0 border-border ${member.role === 'admin' ? 'text-primary' : 'text-muted-foreground'}`}>
                                         {member.role === 'admin' ? 'Admin' : 'Membre'}
                                     </Badge>
                                 </div>
@@ -91,14 +91,14 @@ export default async function TroupeDashboard({
 
                         {/* Guest Members */}
                         {guests.map((guest: any) => (
-                            <div key={guest.id} className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-white/10 bg-white/0 opacity-70 hover:opacity-100 transition-all group relative">
-                                <Avatar className="h-12 w-12 border border-white/10">
-                                    <AvatarFallback className="bg-white/10 text-gray-400 font-bold">
+                            <div key={guest.id} className="flex items-center gap-4 p-5 rounded-2xl border border-dashed border-border bg-white/0 opacity-70 hover:opacity-100 transition-all group relative">
+                                <Avatar className="h-12 w-12 border border-border">
+                                    <AvatarFallback className="bg-white/10 text-muted-foreground font-bold">
                                         {(guest.name?.[0] || "?").toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="text-base font-bold text-white leading-none truncate mb-1">
+                                    <p className="text-base font-bold text-foreground leading-none truncate mb-1">
                                         {guest.name}
                                     </p>
                                     <p className="text-[10px] text-primary/70 uppercase tracking-widest font-black leading-none">

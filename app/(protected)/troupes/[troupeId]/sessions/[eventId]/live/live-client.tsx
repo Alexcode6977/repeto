@@ -319,7 +319,7 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                                                         onClick={() => toggleListening(char.id)}
                                                         className={cn(
                                                             "w-10 h-10 rounded-full transition-all",
-                                                            listening ? "bg-red-500 text-white animate-pulse" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                                            listening ? "bg-red-500 text-foreground animate-pulse" : "bg-muted text-muted-foreground hover:bg-muted/80"
                                                         )}
                                                     >
                                                         {listening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}

@@ -3,16 +3,24 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo, useCallback } from "react";
 import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction, renameScriptAction } from "./actions";
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewer } from "@/components/script-viewer";
-import { RehearsalMode } from "@/components/rehearsal-mode";
-import { ScriptReader } from "@/components/script-reader";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Globe, Lock, Check, UserPlus } from "lucide-react";
+import dynamic from "next/dynamic";
+
+// Lazy load heavy components for better initial load
+const RehearsalMode = dynamic(() => import("@/components/rehearsal-mode").then(mod => ({ default: mod.RehearsalMode })), {
+  loading: () => <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+});
+
+const ScriptReader = dynamic(() => import("@/components/script-reader").then(mod => ({ default: mod.ScriptReader })), {
+  loading: () => <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+});
 
 // Extend ParsedScript to include DB fields
 // type SavedScript = ParsedScript & { id: string; created_at: string };
@@ -270,8 +278,9 @@ export default function Home() {
     }
   }
 
-  const handleConfirmSelection = (characterName: string, mode: 'reader' | 'rehearsal') => {
-    setRehearsalChar(characterName);
+
+  const handleConfirmSelection = (characters: string[], mode: 'reader' | 'rehearsal') => {
+    setRehearsalChar(characters[0]); // Store first character for backward compatibility
     if (mode === 'rehearsal') {
       setViewMode("rehearsal");
     } else {
@@ -314,7 +323,7 @@ export default function Home() {
     return (
       <RehearsalMode
         script={script}
-        userCharacter={rehearsalChar}
+        userCharacters={[rehearsalChar]}
         onExit={handleExitView}
         initialSettings={sessionSettings}
       />
@@ -325,7 +334,7 @@ export default function Home() {
     return (
       <ScriptReader
         script={script}
-        userCharacter={rehearsalChar}
+        userCharacters={[rehearsalChar]}
         onExit={handleExitView}
         settings={sessionSettings}
         userId={userId}
@@ -351,7 +360,7 @@ export default function Home() {
           <Button
             variant="ghost"
             onClick={() => setScript(null)}
-            className="text-gray-400 hover:text-white"
+            className="text-muted-foreground hover:text-foreground"
           >
             ← Retour
           </Button>
@@ -376,9 +385,9 @@ export default function Home() {
       <div className="fixed bottom-6 right-6 z-50 md:hidden">
         <label className="flex items-center justify-center w-16 h-16 bg-primary rounded-full shadow-[0_0_30px_rgba(124,58,237,0.5)] active:scale-95 transition-transform cursor-pointer">
           {isPending ? (
-            <Loader2 className="w-8 h-8 text-white animate-spin" />
+            <Loader2 className="w-8 h-8 text-foreground animate-spin" />
           ) : (
-            <Plus className="w-8 h-8 text-white" />
+            <Plus className="w-8 h-8 text-foreground" />
           )}
           <input
             type="file"
@@ -393,16 +402,16 @@ export default function Home() {
       <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0 mb-8 md:mb-12 pt-4 md:pt-0">
         <div className="w-full flex items-center justify-between md:block">
           <div className="text-left">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white mb-1">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-1">
               Bonjour, <span className="text-primary">{userName || "Artiste"}</span>
             </h1>
-            <p className="text-xs md:text-base text-gray-400 font-medium tracking-wide uppercase">Prêt à répéter ?</p>
+            <p className="text-xs md:text-base text-muted-foreground font-medium tracking-wide uppercase">Prêt à répéter ?</p>
           </div>
 
           <Button
             variant="ghost"
             onClick={handleLogout}
-            className="text-gray-400 hover:text-red-400 md:hidden"
+            className="text-muted-foreground hover:text-red-400 md:hidden"
           >
             <LogOut className="w-5 h-5" />
           </Button>
@@ -411,7 +420,7 @@ export default function Home() {
         {/* Desktop Import Button */}
         <div className="hidden md:flex items-center gap-4">
           <Button
-            className="rounded-full px-6 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 group relative overflow-hidden"
+            className="rounded-full px-6 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 btn-glow active:scale-95 group relative overflow-hidden"
             asChild
             disabled={isPending}
           >
@@ -434,14 +443,14 @@ export default function Home() {
       </div>
 
       {/* Library View Tabs - NEW */}
-      <div className="flex items-center gap-2 mb-8 p-1 bg-white/5 border border-white/10 rounded-2xl w-fit mx-auto md:mx-0 backdrop-blur-md">
+      <div className="flex items-center gap-2 mb-8 p-1 bg-card border border-white/10 rounded-2xl w-fit mx-auto md:mx-0 backdrop-blur-md">
         <button
           onClick={() => setLibraryView("personal")}
           className={`
             px-6 py-2.5 rounded-xl text-[10px] uppercase font-black tracking-[0.15em] transition-all duration-300
             ${libraryView === "personal"
-              ? "bg-primary text-white shadow-lg shadow-primary/30"
-              : "text-gray-500 hover:text-white hover:bg-white/5"}
+              ? "bg-primary text-foreground shadow-lg shadow-primary/30"
+              : "text-muted-foreground hover:text-foreground hover:bg-card"}
           `}
         >
           Ma Bibliothèque
@@ -451,8 +460,8 @@ export default function Home() {
           className={`
             px-6 py-2.5 rounded-xl text-[10px] uppercase font-black tracking-[0.15em] transition-all duration-300
             ${libraryView === "shared"
-              ? "bg-primary text-white shadow-lg shadow-primary/30"
-              : "text-gray-500 hover:text-white hover:bg-white/5"}
+              ? "bg-primary text-foreground shadow-lg shadow-primary/30"
+              : "text-muted-foreground hover:text-foreground hover:bg-card"}
           `}
         >
           Bibliothèque partagée
@@ -472,7 +481,7 @@ export default function Home() {
         {isLoading ? (
           // Skeleton Loading
           [1, 2, 3].map((i) => (
-            <div key={i} className="aspect-[4/5] bg-white/5 rounded-3xl animate-pulse" />
+            <div key={i} className="aspect-[4/5] bg-card rounded-3xl skeleton-shimmer" />
           ))
         ) : scriptsList.length > 0 ? (
           (() => {
@@ -482,12 +491,12 @@ export default function Home() {
 
             if (filteredScripts.length === 0) {
               return (
-                <div className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-white/5 rounded-[2rem] bg-white/5 mx-4 md:mx-0">
+                <div className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-border rounded-[2rem] bg-card mx-4 md:mx-0">
                   <div className="w-20 h-20 mx-auto mb-4 opacity-20">
-                    <FileText className="w-full h-full text-white" />
+                    <FileText className="w-full h-full text-foreground" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-500">Aucun document ici</h3>
-                  <p className="text-gray-600 max-w-sm mx-auto px-4">
+                  <h3 className="text-xl font-bold text-muted-foreground">Aucun document ici</h3>
+                  <p className="text-muted-foreground max-w-sm mx-auto px-4">
                     {libraryView === "personal"
                       ? "Commencez par importer votre premier script."
                       : "Les scripts partagés avec vous apparaîtront ici."}
@@ -502,13 +511,13 @@ export default function Home() {
                 onClick={() => handleLoadScript(s)}
                 style={{ animationDelay: `${index * 100}ms` }}
                 className={`
-                  group relative aspect-[3/4] md:aspect-[4/5] bg-white/5 border border-white/5 rounded-[2rem] overflow-hidden cursor-pointer 
-                  active:scale-[0.98] md:hover:border-primary/50 md:hover:shadow-2xl md:hover:shadow-primary/10 transition-all duration-300 animate-in-up
+                  group relative aspect-[3/4] md:aspect-[4/5] bg-card border border-border rounded-[2rem] overflow-hidden cursor-pointer card-3d hover-glow 
+                  active:scale-[0.98] md:hover:border-primary/50 md:hover:shadow-2xl md:hover:shadow-primary/10 transition-all duration-300 animate-bounce-in
                   ${s.is_public ? 'border-amber-500/20' : ''}
                 `}
               >
                 {/* Card Background gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/90 z-10" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background z-10" />
 
                 {/* Public Badge - Floating */}
                 {s.is_public && (
@@ -520,7 +529,7 @@ export default function Home() {
 
                 {/* Icon / Preview - Large & Centered */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700">
-                  <FileText className={`w-32 h-32 md:w-40 md:h-40 ${s.is_public ? 'text-amber-500' : 'text-white'}`} />
+                  <FileText className={`w-32 h-32 md:w-40 md:h-40 ${s.is_public ? 'text-amber-500' : 'text-foreground'}`} />
                 </div>
 
                 {/* Content - Bottom Aligned */}
@@ -538,12 +547,12 @@ export default function Home() {
                           value={renamingScriptTitle}
                           onChange={(e) => setRenamingScriptTitle(e.target.value)}
                           onBlur={(e) => handleRenameSubmit(e as any, s.id)}
-                          className="w-full bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-white text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          className="w-full bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
                         />
                       </form>
                     ) : (
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="text-2xl md:text-xl font-bold text-white leading-tight drop-shadow-md truncate flex-1">
+                        <h3 className="text-2xl md:text-xl font-bold text-foreground leading-tight drop-shadow-md truncate flex-1">
                           {s.title || "Script Sans Titre"}
                         </h3>
                         {s.is_owner && (
@@ -553,14 +562,14 @@ export default function Home() {
                               setRenamingScriptId(s.id);
                               setRenamingScriptTitle(s.title);
                             }}
-                            className="text-white/40 hover:text-white transition-colors"
+                            className="text-foreground/40 hover:text-foreground transition-colors"
                           >
                             <Edit3 className="w-4 h-4" />
                           </button>
                         )}
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-gray-400/80 uppercase tracking-wider">
+                    <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground/80 uppercase tracking-wider">
                       <span>{s.characterCount} rôles</span>
                       <span className="w-1 h-1 bg-gray-500 rounded-full" />
                       <span>{s.lineCount} répliques</span>
@@ -569,12 +578,12 @@ export default function Home() {
 
                   {/* Mobile Play Button overlay */}
                   <div className="md:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-xl pointer-events-none">
-                    <Play className="w-6 h-6 text-white fill-white ml-1" />
+                    <Play className="w-6 h-6 text-foreground fill-white ml-1" />
                   </div>
 
                   {/* Desktop Hover Actions */}
                   <div className="hidden md:flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                    <Button className="flex-1 bg-white text-black hover:bg-primary hover:text-white border-0 font-bold rounded-xl" size="sm">
+                    <Button className="flex-1 bg-white text-black hover:bg-primary hover:text-foreground border-0 font-bold rounded-xl" size="sm">
                       <Play className="w-4 h-4 mr-2 fill-current" />
                       Répéter
                     </Button>
@@ -583,7 +592,7 @@ export default function Home() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-white rounded-xl"
+                        className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-foreground rounded-xl"
                         onClick={(e) => handleDeleteScript(e, s.id)}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -593,7 +602,7 @@ export default function Home() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={`rounded-xl ${s.is_public ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-gray-400'}`}
+                        className={`rounded-xl ${s.is_public ? 'bg-amber-500/20 text-amber-400' : 'bg-white/10 text-muted-foreground'}`}
                         onClick={(e) => handleTogglePublic(e, s)}
                       >
                         {s.is_public ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
@@ -606,13 +615,13 @@ export default function Home() {
           })()
         ) : (
           /* Empty State */
-          <div className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-white/5 rounded-[2rem] bg-white/5 mx-4 md:mx-0">
+          <div className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-border rounded-[2rem] bg-card mx-4 md:mx-0">
             <div className="w-32 h-32 mx-auto mb-4 relative">
-              <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
+              <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full skeleton-shimmer" />
               <img src="/repeto.png" alt="Repeto Mascot" className="relative w-full h-full object-contain opacity-80" />
             </div>
-            <h3 className="text-xl font-bold text-gray-300">Votre bibliothèque est vide</h3>
-            <p className="text-gray-500 max-w-sm mx-auto px-4">
+            <h3 className="text-xl font-bold text-foreground">Votre bibliothèque est vide</h3>
+            <p className="text-muted-foreground max-w-sm mx-auto px-4">
               Touchez le bouton + pour importer votre premier script PDF.
             </p>
           </div>
@@ -623,19 +632,19 @@ export default function Home() {
       {/* Import / Deep Parsing Progress Modal */}
       {(isImporting || isDeepParsing) && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-[#1a1a1a] border border-primary/20 p-8 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(124,58,237,0.3)] animate-in zoom-in-95 duration-200">
+          <div className="bg-popover border border-primary/20 p-8 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(124,58,237,0.3)] animate-in zoom-in-95 duration-200">
             <div className="text-center space-y-6">
               {/* Icon */}
-              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
+              <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto skeleton-shimmer">
                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
               </div>
 
               {/* Title */}
               <div>
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-foreground mb-2">
                   {isImporting ? "Détection des rôles..." : "Analyse approfondie..."}
                 </h3>
-                <p className="text-gray-400 text-sm">
+                <p className="text-muted-foreground text-sm">
                   {isImporting
                     ? "L'IA identifie les personnages du script"
                     : "Repeto relie chaque réplique à son personnage"}
@@ -664,34 +673,34 @@ export default function Home() {
             <Button
               variant="ghost"
               size="icon"
-              className="absolute top-4 right-4 text-white/50 hover:text-white"
+              className="absolute top-4 right-4 text-foreground/50 hover:text-foreground"
               onClick={() => setValidationModalOpen(false)}
             >
               <X className="w-5 h-5" />
             </Button>
 
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white">Prêt à importer ?</h2>
-              <p className="text-gray-400 text-sm mt-1">
+              <h2 className="text-2xl font-bold text-foreground">Prêt à importer ?</h2>
+              <p className="text-muted-foreground text-sm mt-1">
                 Vérifiez la liste des personnages détectés. Seuls les sélectionnés seront importés.
               </p>
             </div>
 
             <div className="space-y-6 flex-1 overflow-y-auto pr-2">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Titre du script</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Titre du script</label>
                 <input
                   type="text"
                   value={customTitle}
                   onChange={(e) => setCustomTitle(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                   placeholder="Ex: Roméo et Juliette"
                 />
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Personnages ({selectedCharacters.length})</label>
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Personnages ({selectedCharacters.length})</label>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -701,8 +710,8 @@ export default function Home() {
                       className={`
                         flex items-center gap-3 p-3 rounded-xl border transition-all 
                         ${selectedCharacters.includes(char)
-                          ? 'bg-primary/20 border-primary/50 text-white'
-                          : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}
+                          ? 'bg-primary/20 border-primary/50 text-foreground'
+                          : 'bg-card border-white/10 text-muted-foreground hover:bg-white/10'}
                       `}
                     >
                       <div
@@ -711,7 +720,7 @@ export default function Home() {
                         w-5 h-5 rounded flex items-center justify-center border shrink-0 cursor-pointer
                         ${selectedCharacters.includes(char) ? 'bg-primary border-primary' : 'border-white/20'}
                       `}>
-                        {selectedCharacters.includes(char) && <Check className="w-3 h-3 text-white" />}
+                        {selectedCharacters.includes(char) && <Check className="w-3 h-3 text-foreground" />}
                       </div>
 
                       {editingChar === char ? (
@@ -722,7 +731,7 @@ export default function Home() {
                           onChange={(e) => setTempCharName(e.target.value)}
                           onBlur={() => handleRenameCharacter(char)}
                           onKeyDown={(e) => e.key === 'Enter' && handleRenameCharacter(char)}
-                          className="flex-1 bg-white/10 border-none rounded px-2 py-0.5 text-white focus:outline-none"
+                          className="flex-1 bg-white/10 border-none rounded px-2 py-0.5 text-foreground focus:outline-none"
                         />
                       ) : (
                         <div className="flex-1 flex items-center justify-between min-w-0">
@@ -735,7 +744,7 @@ export default function Home() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-white/30 hover:text-white"
+                            className="h-6 w-6 text-foreground/30 hover:text-foreground"
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditingChar(char);
@@ -757,7 +766,7 @@ export default function Home() {
                     value={newCharName}
                     onChange={(e) => setNewCharName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addCharacter()}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    className="flex-1 bg-card border border-white/10 rounded-xl px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                     placeholder="Ajouter un personnage..."
                   />
                   <Button
@@ -787,7 +796,7 @@ export default function Home() {
       {scriptToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200 p-4">
           <div
-            className="bg-[#1a1a1a] border border-red-500/20 p-6 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 relative overflow-hidden"
+            className="bg-popover border border-red-500/20 p-6 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(239,68,68,0.2)] animate-in zoom-in-95 duration-200 relative overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Background Red Glow */}
@@ -799,9 +808,9 @@ export default function Home() {
               </div>
 
               <div>
-                <h3 className="text-xl font-bold text-white">Supprimer le script ?</h3>
-                <p className="text-gray-400 text-sm mt-2 leading-relaxed">
-                  Vous êtes sur le point de supprimer <span className="text-white font-semibold">"{scriptToDelete.title}"</span>.
+                <h3 className="text-xl font-bold text-foreground">Supprimer le script ?</h3>
+                <p className="text-muted-foreground text-sm mt-2 leading-relaxed">
+                  Vous êtes sur le point de supprimer <span className="text-foreground font-semibold">"{scriptToDelete.title}"</span>.
                   Cette action est irréversible.
                 </p>
               </div>
@@ -810,14 +819,14 @@ export default function Home() {
                 <Button
                   variant="ghost"
                   onClick={() => setScriptToDelete(null)}
-                  className="py-6 rounded-xl hover:bg-white/5 text-gray-400 font-medium"
+                  className="py-6 rounded-xl hover:bg-card text-muted-foreground font-medium"
                 >
                   Annuler
                 </Button>
                 <Button
                   variant="destructive"
                   onClick={confirmDeleteScript}
-                  className="py-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg shadow-red-900/20"
+                  className="py-6 rounded-xl bg-red-600 hover:bg-red-700 text-foreground font-bold shadow-lg shadow-red-900/20"
                 >
                   Supprimer
                 </Button>

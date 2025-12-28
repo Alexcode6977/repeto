@@ -29,10 +29,10 @@ export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
     return (
         <div className="space-y-12 w-full max-w-2xl py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="text-center space-y-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
                     Choisissez vos personnages
                 </h2>
-                <p className="text-gray-400 text-sm md:text-base">
+                <p className="text-muted-foreground text-sm md:text-base">
                     Sélectionnez les rôles que vous souhaitez interpréter (mode collectif possible)
                 </p>
             </div>
@@ -51,7 +51,7 @@ export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
                         variant="ghost"
                         size="sm"
                         onClick={deselectAll}
-                        className="text-[10px] uppercase font-bold tracking-widest text-gray-500 hover:text-white"
+                        className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground hover:text-foreground"
                     >
                         Tout désélectionner
                     </Button>
@@ -83,14 +83,14 @@ export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-8 animate-in fade-in zoom-in duration-500 max-w-lg mx-auto w-full">
                     <button
                         onClick={() => onConfirm(selectedChars, 'reader')}
-                        className="group relative flex flex-col items-center justify-center gap-4 p-8 bg-white/5 border border-white/10 rounded-[2rem] hover:bg-white/10 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl"
+                        className="group relative flex flex-col items-center justify-center gap-4 p-8 bg-card border border-border rounded-[2rem] hover:bg-white/10 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl"
                     >
                         <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                             <BookOpen className="w-8 h-8 text-yellow-400" />
                         </div>
                         <div className="text-center">
-                            <h3 className="text-xl font-black text-white uppercase tracking-wider">Lire</h3>
-                            <p className="text-gray-400 text-[10px]">{selectedChars.length > 1 ? 'Lecture collective' : 'Découvrir le texte'}</p>
+                            <h3 className="text-xl font-black text-foreground uppercase tracking-wider">Lire</h3>
+                            <p className="text-muted-foreground text-[10px]">{selectedChars.length > 1 ? 'Lecture collective' : 'Découvrir le texte'}</p>
                         </div>
                     </button>
 
@@ -99,10 +99,10 @@ export function ScriptViewer({ script, onConfirm }: ScriptViewerProps) {
                         className="group relative flex flex-col items-center justify-center gap-4 p-8 bg-primary/10 border border-primary/20 rounded-[2rem] hover:bg-primary/20 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20"
                     >
                         <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                            <Play className="w-8 h-8 text-white fill-white" />
+                            <Play className="w-8 h-8 text-foreground fill-white" />
                         </div>
                         <div className="text-center">
-                            <h3 className="text-xl font-black text-white uppercase tracking-wider">Répéter</h3>
+                            <h3 className="text-xl font-black text-foreground uppercase tracking-wider">Répéter</h3>
                             <p className="text-gray-300 text-[10px]">{selectedChars.length > 1 ? 'L\'IA complète le groupe' : 'L\'IA donne la réplique'}</p>
                         </div>
                     </button>

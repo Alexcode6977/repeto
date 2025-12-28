@@ -42,7 +42,7 @@ export function JoinRequestsList({ troupeId, requests }: JoinRequestsListProps) 
 
     return (
         <div className="mb-10 animate-in fade-in slide-in-from-top-4 duration-500">
-            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+            <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-primary" />
                 Demandes d'adhésion en attente
                 <span className="ml-2 bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded-full border border-primary/20">
@@ -58,10 +58,10 @@ export function JoinRequestsList({ troupeId, requests }: JoinRequestsListProps) 
                             </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-white truncate">
+                            <p className="text-sm font-bold text-foreground truncate">
                                 {request.first_name || "Nouvel utilisateur"}
                             </p>
-                            <p className="text-[10px] text-gray-500 truncate">
+                            <p className="text-[10px] text-muted-foreground truncate">
                                 {request.email}
                             </p>
                         </div>
@@ -69,7 +69,7 @@ export function JoinRequestsList({ troupeId, requests }: JoinRequestsListProps) 
                             <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 rounded-full bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white transition-all border border-green-500/20"
+                                className="h-8 w-8 rounded-full bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-foreground transition-all border border-green-500/20"
                                 onClick={() => handleApprove(request.id, request.user_id)}
                                 disabled={!!loadingId}
                             >
@@ -78,7 +78,7 @@ export function JoinRequestsList({ troupeId, requests }: JoinRequestsListProps) 
                             <Button
                                 size="icon"
                                 variant="ghost"
-                                className="h-8 w-8 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
+                                className="h-8 w-8 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-foreground transition-all border border-red-500/20"
                                 onClick={() => handleReject(request.id)}
                                 disabled={!!loadingId}
                             >

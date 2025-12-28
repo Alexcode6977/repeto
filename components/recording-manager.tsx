@@ -117,10 +117,10 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
 
     if (userLines.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center p-12 text-center bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                <AlertCircle className="w-12 h-12 text-gray-500 mb-4" />
-                <h3 className="text-xl font-bold text-white mb-2">Aucune réplique trouvée</h3>
-                <p className="text-gray-400 max-w-sm">Le personnage "{userCharacter}" n'a pas été détecté dans le texte de cette pièce.</p>
+            <div className="flex flex-col items-center justify-center p-12 text-center bg-card rounded-3xl border border-white/10 border-dashed">
+                <AlertCircle className="w-12 h-12 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-bold text-foreground mb-2">Aucune réplique trouvée</h3>
+                <p className="text-muted-foreground max-w-sm">Le personnage "{userCharacter}" n'a pas été détecté dans le texte de cette pièce.</p>
             </div>
         );
     }
@@ -130,7 +130,7 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Context Card */}
-            <Card className="bg-white/5 border-white/10 backdrop-blur-md rounded-3xl border overflow-hidden">
+            <Card className="bg-card border-white/10 backdrop-blur-md rounded-3xl border overflow-hidden">
                 <CardContent className="p-8">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
@@ -138,15 +138,15 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
                                 <Sparkles className="w-4 h-4 text-primary" />
                                 <span className="text-[10px] uppercase font-black tracking-widest text-primary">Assistant d'enregistrement</span>
                             </div>
-                            <h2 className="text-3xl font-black text-white tracking-tighter">
+                            <h2 className="text-3xl font-black text-foreground tracking-tighter">
                                 {userCharacter}
                             </h2>
-                            <p className="text-gray-500 font-medium mt-1">
+                            <p className="text-muted-foreground font-medium mt-1">
                                 Enregistrez vos répliques pour que vos partenaires puissent répéter avec votre voix.
                             </p>
                         </div>
                         <div className="text-right shrink-0">
-                            <div className="text-4xl font-black text-white leading-none mb-2">
+                            <div className="text-4xl font-black text-foreground leading-none mb-2">
                                 {currentIndex + 1} <span className="text-gray-600 text-xl font-medium">/ {userLines.length}</span>
                             </div>
                             <Progress value={progress} className="h-2 w-32 ml-auto bg-white/10" />
@@ -158,13 +158,13 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
             {/* Main Stage */}
             <div className="relative min-h-[400px] flex flex-col items-center justify-center py-12 px-4">
                 {/* Visual Cue - Current Line */}
-                <div className="w-full max-w-2xl bg-white/5 p-12 rounded-[3rem] border border-white/10 shadow-2xl relative group">
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-black uppercase px-4 py-1.5 rounded-full tracking-widest shadow-lg">
+                <div className="w-full max-w-2xl bg-card p-12 rounded-[3rem] border border-white/10 shadow-2xl relative group">
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-foreground text-[10px] font-black uppercase px-4 py-1.5 rounded-full tracking-widest shadow-lg">
                         Réplique en cours
                     </div>
 
                     <div className="text-center space-y-8">
-                        <p className="text-2xl md:text-3xl font-medium text-white leading-relaxed font-serif italic">
+                        <p className="text-2xl md:text-3xl font-medium text-foreground leading-relaxed font-serif italic">
                             "{activeLine.text}"
                         </p>
 
@@ -181,7 +181,7 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
                                         setJustFinishedRecording(null);
                                     }}
                                     disabled={currentIndex === 0 || isRecording}
-                                    className="h-14 w-14 rounded-full border border-white/5 hover:bg-white/10 text-gray-400 disabled:opacity-20"
+                                    className="h-14 w-14 rounded-full border border-border hover:bg-white/10 text-muted-foreground disabled:opacity-20"
                                 >
                                     <ChevronLeft className="w-8 h-8" />
                                 </Button>
@@ -190,7 +190,7 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
                                     {!isRecording && !currentRecording && (
                                         <Button
                                             onClick={() => handleStartRecord(activeLine.id)}
-                                            className="h-24 w-24 rounded-full bg-primary hover:bg-primary/90 text-white shadow-2xl shadow-primary/40 transform transition-all active:scale-90 hover:scale-105"
+                                            className="h-24 w-24 rounded-full bg-primary hover:bg-primary/90 text-foreground shadow-2xl shadow-primary/40 transform transition-all active:scale-90 hover:scale-105"
                                         >
                                             <Mic className="w-10 h-10" />
                                         </Button>
@@ -200,7 +200,7 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
                                         <Button
                                             onClick={() => handleStopRecord(activeLine.id, userCharacter)}
                                             variant="destructive"
-                                            className="h-24 w-24 rounded-full bg-red-500 hover:bg-red-600 animate-pulse text-white shadow-2xl shadow-red-500/40 transform transition-all active:scale-90"
+                                            className="h-24 w-24 rounded-full bg-red-500 hover:bg-red-600 animate-pulse text-foreground shadow-2xl shadow-red-500/40 transform transition-all active:scale-90"
                                         >
                                             <Square className="w-10 h-10" />
                                         </Button>
@@ -210,7 +210,7 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
                                         <div className="flex items-center gap-4">
                                             <Button
                                                 onClick={() => playRecording(currentRecording.audio_url)}
-                                                className="h-24 w-24 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-2xl shadow-emerald-500/40 transform transition-all active:scale-90 hover:scale-105"
+                                                className="h-24 w-24 rounded-full bg-emerald-500 hover:bg-emerald-600 text-foreground shadow-2xl shadow-emerald-500/40 transform transition-all active:scale-90 hover:scale-105"
                                             >
                                                 <Volume2 className="w-10 h-10" />
                                             </Button>
@@ -234,7 +234,7 @@ export function RecordingManager({ script, userCharacter, playId, userId }: Reco
                                         setJustFinishedRecording(null);
                                     }}
                                     disabled={currentIndex === userLines.length - 1 || isRecording}
-                                    className="h-14 w-14 rounded-full border border-white/5 hover:bg-white/10 text-gray-400 disabled:opacity-20 transition-all"
+                                    className="h-14 w-14 rounded-full border border-border hover:bg-white/10 text-muted-foreground disabled:opacity-20 transition-all"
                                 >
                                     {justFinishedRecording ? (
                                         <Check className="w-8 h-8 text-emerald-400" />

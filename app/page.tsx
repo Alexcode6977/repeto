@@ -4,7 +4,8 @@ import { Sparkles, ArrowRight, Mic, BookOpen, Podcast, Play, Star, Sliders, Repe
 
 export default function LandingPage() {
     return (
-        <div className="flex flex-col min-h-screen font-sans selection:bg-primary/30 overflow-x-hidden">
+        // Added 'dark' class to force dark mode variables, and 'bg-background' to apply the dark background color
+        <div className="dark bg-background text-foreground min-h-screen flex flex-col font-sans selection:bg-primary/30 overflow-x-hidden">
 
             {/* Cinematic Background */}
             <div className="fixed inset-0 z-0 pointer-events-none">

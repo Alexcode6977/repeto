@@ -70,14 +70,14 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-md p-4">
             <div className="bg-gradient-to-b from-[#1f1f1f] to-[#141414] border border-white/10 rounded-3xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 fade-in duration-300">
 
                 {/* Header with Repeto */}
                 <div className="relative p-6 pb-4 text-center border-b border-white/10">
                     <button
                         onClick={onClose}
-                        className="absolute right-4 top-4 text-gray-500 hover:text-white transition-colors"
+                        className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
                         disabled={isSubmitting}
                     >
                         <X className="w-5 h-5" />
@@ -92,15 +92,15 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                         />
                     </div>
 
-                    <h2 className="text-xl font-bold text-white">
+                    <h2 className="text-xl font-bold text-foreground">
                         Comment c'était ? 🎭
                     </h2>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                         Ton avis m'aide à m'améliorer !
                     </p>
 
                     {/* Session Summary */}
-                    <div className="mt-4 flex justify-center gap-4 text-xs text-gray-500">
+                    <div className="mt-4 flex justify-center gap-4 text-xs text-muted-foreground">
                         <span>{sessionData.scriptTitle}</span>
                         <span>•</span>
                         <span className="text-yellow-400 font-medium">
@@ -118,7 +118,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
 
                     {/* Star Rating */}
                     <div className="text-center">
-                        <p className="text-sm text-white font-medium mb-3">
+                        <p className="text-sm text-foreground font-medium mb-3">
                             🌟 Note cette session
                         </p>
                         <div className="flex gap-1 justify-center">
@@ -142,7 +142,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                                 </button>
                             ))}
                         </div>
-                        <p className="text-xs text-gray-500 mt-2 h-4">
+                        <p className="text-xs text-muted-foreground mt-2 h-4">
                             {rating === 1 && "😞 Pas top..."}
                             {rating === 2 && "😕 Bof"}
                             {rating === 3 && "😐 Correct"}
@@ -153,7 +153,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
 
                     {/* What worked - Repeto asks */}
                     <div>
-                        <label className="flex items-center gap-2 text-sm text-white font-medium mb-2">
+                        <label className="flex items-center gap-2 text-sm text-foreground font-medium mb-2">
                             <span className="text-green-400">✓</span>
                             Qu'est-ce qui t'a plu ?
                         </label>
@@ -161,13 +161,13 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                             value={whatWorked}
                             onChange={(e) => setWhatWorked(e.target.value)}
                             placeholder="La reconnaissance vocale, l'interface..."
-                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
+                            className="w-full h-20 bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
                         />
                     </div>
 
                     {/* What didn't work */}
                     <div>
-                        <label className="flex items-center gap-2 text-sm text-white font-medium mb-2">
+                        <label className="flex items-center gap-2 text-sm text-foreground font-medium mb-2">
                             <span className="text-red-400">✗</span>
                             Un truc qui t'a gêné ?
                         </label>
@@ -175,13 +175,13 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                             value={whatDidntWork}
                             onChange={(e) => setWhatDidntWork(e.target.value)}
                             placeholder="Bug, confusion, fonctionnalité manquante..."
-                            className="w-full h-20 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
+                            className="w-full h-20 bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
                         />
                     </div>
 
                     {/* Improvement ideas */}
                     <div>
-                        <label className="flex items-center gap-2 text-sm text-white font-medium mb-2">
+                        <label className="flex items-center gap-2 text-sm text-foreground font-medium mb-2">
                             <span className="text-blue-400">💡</span>
                             Une idée d'amélioration ?
                             <span className="text-gray-600 font-normal">(optionnel)</span>
@@ -190,7 +190,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                             value={improvementIdeas}
                             onChange={(e) => setImprovementIdeas(e.target.value)}
                             placeholder="Ce serait cool si..."
-                            className="w-full h-16 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
+                            className="w-full h-16 bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
                         />
                     </div>
 

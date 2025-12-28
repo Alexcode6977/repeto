@@ -17,10 +17,10 @@ export default async function LiveSessionPage({
     return (
         <div className="h-[calc(100vh-120px)] flex flex-col space-y-6">
             <div>
-                <h1 className="text-4xl font-black text-white tracking-tighter">
+                <h1 className="text-4xl font-black text-foreground tracking-tighter">
                     Séance : {sessionData.title || "En cours"}
                 </h1>
-                <p className="text-gray-400 font-medium">
+                <p className="text-muted-foreground font-medium">
                     {new Date(sessionData.start_time).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} • {sessionData.session_plans.selected_scenes.length} scènes au programme
                 </p>
             </div>

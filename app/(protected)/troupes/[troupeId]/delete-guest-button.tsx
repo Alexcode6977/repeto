@@ -48,11 +48,11 @@ export function DeleteGuestButton({ troupeId, guestId, guestName }: DeleteGuestB
                     <Trash2 className="h-4 w-4" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#121212] border-white/10 text-white rounded-3xl">
+            <DialogContent className="bg-[#121212] border-border text-foreground rounded-3xl">
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold">Retirer cet invité ?</DialogTitle>
-                    <DialogDescription className="text-gray-400">
-                        Voulez-vous vraiment retirer <span className="text-white font-bold">{guestName}</span> de la troupe ?
+                    <DialogDescription className="text-muted-foreground">
+                        Voulez-vous vraiment retirer <span className="text-foreground font-bold">{guestName}</span> de la troupe ?
                     </DialogDescription>
                 </DialogHeader>
                 <DialogFooter className="flex gap-2 sm:gap-0">
