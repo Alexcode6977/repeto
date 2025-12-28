@@ -426,26 +426,57 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                     <div className="space-y-4">
                         <Card className="bg-muted/30 border-border backdrop-blur-xl border-2">
                             <CardHeader className="p-4 border-b border-border">
-                                <h3 className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Temps de prestation prévu</h3>
+                                <h3 className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Charge de travail par acteur</h3>
                             </CardHeader>
-                            <CardContent className="p-4 space-y-2">
-                                {Object.entries(performanceProjections).map(([actorId, lineCount]) => {
-                                    const member = members.find((m: any) => m.user_id === actorId);
-                                    const guest = guests.find((g: any) => g.id === actorId);
-                                    const name = member ? member.profiles?.first_name || member.profiles?.email : guest?.name || "Inconnu";
+                            <CardContent className="p-4 space-y-3">
+                                {(() => {
+                                    const entries = Object.entries(performanceProjections);
+                                    const maxLines = Math.max(...entries.map(([, count]) => count as number), 1);
+                                    const avgLines = entries.reduce((acc, [, count]) => acc + (count as number), 0) / entries.length;
 
-                                    return (
-                                        <div key={actorId} className="flex justify-between items-center text-xs">
-                                            <span className="text-muted-foreground font-medium">{name}</span>
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="text-[10px] font-bold border-border bg-muted/50">
-                                                    {lineCount} répliques
-                                                </Badge>
-                                                <span className="text-muted-foreground/60 font-bold">~{Math.round(lineCount * 0.3)} min</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                                    return entries.map(([actorId, lineCount]) => {
+                                        const member = members.find((m: any) => m.user_id === actorId);
+                                        const guest = guests.find((g: any) => g.id === actorId);
+                                        const name = member ? member.profiles?.first_name || member.profiles?.email : guest?.name || "Inconnu";
+                                        const percentage = (lineCount as number) / maxLines * 100;
+
+                                        // Determine color based on workload
+                                        const ratio = (lineCount as number) / avgLines;
+                                        let barColor = "bg-green-500";
+                                        if (ratio > 1.5) barColor = "bg-red-500";
+                                        else if (ratio > 1.2) barColor = "bg-orange-500";
+                                        else if (ratio < 0.5) barColor = "bg-blue-400";
+
+                                        const isSelected = focusActorId === actorId;
+
+                                        return (
+                                            <button
+                                                key={actorId}
+                                                onClick={() => setFocusActorId(isSelected ? null : actorId)}
+                                                className={cn(
+                                                    "w-full text-left p-2 rounded-xl transition-all",
+                                                    isSelected ? "bg-primary/20 ring-2 ring-primary" : "hover:bg-muted/50"
+                                                )}
+                                            >
+                                                <div className="flex justify-between items-center mb-1.5">
+                                                    <span className={cn(
+                                                        "text-xs font-bold truncate",
+                                                        isSelected ? "text-primary" : "text-foreground"
+                                                    )}>{name}</span>
+                                                    <span className="text-[10px] text-muted-foreground font-bold">
+                                                        {lineCount} répl. • ~{Math.round((lineCount as number) * 0.3)} min
+                                                    </span>
+                                                </div>
+                                                <div className="h-2 bg-muted/50 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={cn("h-full rounded-full transition-all duration-500", barColor)}
+                                                        style={{ width: `${percentage}%` }}
+                                                    />
+                                                </div>
+                                            </button>
+                                        );
+                                    });
+                                })()}
                             </CardContent>
                         </Card>
 
@@ -486,6 +517,74 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                 className="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/30 transition-all resize-none min-h-[80px]"
                             />
                         </div>
+
+                        {/* Horizontal Timeline */}
+                        {selectedScenesData.length > 0 && (
+                            <div className="space-y-2">
+                                <label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest flex items-center gap-2">
+                                    <Play className="w-3 h-3" />
+                                    Timeline de la séance
+                                </label>
+                                <Reorder.Group
+                                    axis="x"
+                                    values={selectedSceneIds}
+                                    onReorder={setSelectedSceneIds}
+                                    className="flex gap-1 p-3 bg-muted/20 rounded-2xl border border-border overflow-x-auto"
+                                >
+                                    {(() => {
+                                        // Calculate total duration
+                                        const sceneDurations = selectedScenesData.map((scene: any) => {
+                                            const play = plays.find((p: any) => (p.play_scenes || []).some((s: any) => s.id === scene.id));
+                                            const lineStats = play?.lineStats?.filter((ls: any) => ls.scene_id === scene.id) || [];
+                                            const lineCount = lineStats.reduce((acc: number, ls: any) => acc + (ls.line_count || 0), 0);
+                                            return { ...scene, lineCount, duration: Math.max(lineCount * 0.3, 2) };
+                                        });
+                                        const totalDuration = sceneDurations.reduce((acc, s) => acc + s.duration, 0);
+
+                                        // Generate colors for each play
+                                        const playColors: Record<string, string> = {};
+                                        const colors = ["bg-primary", "bg-teal-500", "bg-purple-500", "bg-orange-500", "bg-pink-500"];
+                                        plays.forEach((p: any, i: number) => {
+                                            playColors[p.id] = colors[i % colors.length];
+                                        });
+
+                                        return sceneDurations.map((scene: any) => {
+                                            const widthPercent = Math.max((scene.duration / totalDuration) * 100, 10);
+                                            const play = plays.find((p: any) => (p.play_scenes || []).some((s: any) => s.id === scene.id));
+                                            const colorClass = playColors[play?.id] || "bg-primary";
+
+                                            return (
+                                                <Reorder.Item
+                                                    key={scene.id}
+                                                    value={scene.id}
+                                                    className={cn(
+                                                        "flex-shrink-0 cursor-grab active:cursor-grabbing rounded-xl p-2 transition-all hover:scale-105",
+                                                        colorClass,
+                                                        expandedSceneId === scene.id && "ring-2 ring-white/50"
+                                                    )}
+                                                    style={{ minWidth: `${Math.max(widthPercent * 2, 60)}px` }}
+                                                    onClick={() => setExpandedSceneId(expandedSceneId === scene.id ? null : scene.id)}
+                                                >
+                                                    <div className="text-[9px] font-bold text-white truncate">{scene.title}</div>
+                                                    <div className="text-[8px] text-white/70">~{Math.round(scene.duration)} min</div>
+                                                </Reorder.Item>
+                                            );
+                                        });
+                                    })()}
+                                </Reorder.Group>
+                                <div className="flex justify-between text-[9px] text-muted-foreground px-1">
+                                    <span>Début</span>
+                                    <span>
+                                        Durée totale : ~{Math.round(selectedScenesData.reduce((acc: number, scene: any) => {
+                                            const play = plays.find((p: any) => (p.play_scenes || []).some((s: any) => s.id === scene.id));
+                                            const lineStats = play?.lineStats?.filter((ls: any) => ls.scene_id === scene.id) || [];
+                                            return acc + lineStats.reduce((a: number, ls: any) => a + (ls.line_count || 0), 0) * 0.3;
+                                        }, 0))} min
+                                    </span>
+                                    <span>Fin</span>
+                                </div>
+                            </div>
+                        )}
 
                         <Reorder.Group
                             axis="y"
