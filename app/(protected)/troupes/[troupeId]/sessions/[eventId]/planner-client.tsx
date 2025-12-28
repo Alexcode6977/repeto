@@ -27,8 +27,11 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
     const [selectedPlayId, setSelectedPlayId] = useState<string>(plays[0]?.id || "");
     const selectedPlay = useMemo(() => plays.find((p: any) => p.id === selectedPlayId), [plays, selectedPlayId]);
 
-    // Normalize IDs from potential object structure
-    const initialIds = (initialPlan.selected_scenes || []).map((s: any) => typeof s === 'string' ? s : s.id);
+    // Normalize IDs from potential object structure and deduplicate
+    const initialIds = useMemo(() => {
+        const ids = (initialPlan.selected_scenes || []).map((s: any) => typeof s === 'string' ? s : s.id);
+        return Array.from(new Set(ids)) as string[];
+    }, [initialPlan.selected_scenes]);
 
     const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>(initialIds);
     const [generalNotes, setGeneralNotes] = useState(initialPlan.general_notes || "");
@@ -44,11 +47,21 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
     // Initial objectives from plan
     const [scenesWithObjectives, setScenesWithObjectives] = useState<any[]>(() => {
-        return (initialPlan.selected_scenes || []).map((s: any) => ({
-            id: typeof s === 'string' ? s : s.id,
-            objective: s.objective || "",
-            characterObjectives: s.characterObjectives || []
-        }));
+        const seen = new Set();
+        return (initialPlan.selected_scenes || [])
+            .map((s: any) => {
+                const id = typeof s === 'string' ? s : s.id;
+                return {
+                    id,
+                    objective: s.objective || "",
+                    characterObjectives: s.characterObjectives || []
+                };
+            })
+            .filter((s: any) => {
+                if (seen.has(s.id)) return false;
+                seen.add(s.id);
+                return true;
+            });
     });
 
     // 1. Identify who is present
