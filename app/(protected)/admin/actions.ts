@@ -121,7 +121,8 @@ export async function getFeedbackStats() {
 // User Management
 interface UserProfile {
     id: string;
-    is_premium: boolean;
+    subscription_tier: string | null;
+    subscription_status: string | null;
     created_at: string;
     email?: string;
 }
@@ -134,10 +135,10 @@ export async function getAllUsers(): Promise<UserProfile[]> {
         return [];
     }
 
-    // Get profiles with email
+    // Get profiles with subscription info
     const { data: profiles, error } = await supabase
         .from("profiles")
-        .select("id, is_premium, created_at, email")
+        .select("id, subscription_tier, subscription_status, created_at, email")
         .order("created_at", { ascending: false });
 
     if (error || !profiles) {
@@ -148,7 +149,7 @@ export async function getAllUsers(): Promise<UserProfile[]> {
     return profiles;
 }
 
-export async function toggleUserPremium(userId: string, isPremium: boolean) {
+export async function toggleUserPremium(userId: string, currentTier: string | null) {
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -156,15 +157,23 @@ export async function toggleUserPremium(userId: string, isPremium: boolean) {
         throw new Error("Unauthorized");
     }
 
+    // Toggle between free and solo_pro
+    const newTier = currentTier === 'solo_pro' ? 'free' : 'solo_pro';
+    const newStatus = newTier === 'free' ? 'inactive' : 'active';
+
     const { error } = await supabase
         .from("profiles")
-        .update({ is_premium: isPremium })
+        .update({
+            subscription_tier: newTier,
+            subscription_status: newStatus
+        })
         .eq("id", userId);
 
     if (error) {
-        console.error("Error updating user premium status:", error);
+        console.error("Error updating user subscription:", error);
         throw new Error("Failed to update user");
     }
 
-    return { success: true };
+    return { success: true, newTier };
 }
+

@@ -27,7 +27,8 @@ interface FeedbackEntry {
 
 interface UserProfile {
     id: string;
-    is_premium: boolean;
+    subscription_tier: string | null;
+    subscription_status: string | null;
     created_at: string;
     email?: string;
 }
@@ -96,11 +97,11 @@ export default function AdminPage() {
         setSaving(null);
     };
 
-    const handleTogglePremium = async (userId: string, currentStatus: boolean) => {
+    const handleTogglePremium = async (userId: string, currentTier: string | null) => {
         setTogglingPremium(userId);
         try {
-            await toggleUserPremium(userId, !currentStatus);
-            setUsers(prev => prev.map(u => u.id === userId ? { ...u, is_premium: !currentStatus } : u));
+            const result = await toggleUserPremium(userId, currentTier);
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, subscription_tier: result.newTier, subscription_status: result.newTier === 'free' ? 'inactive' : 'active' } : u));
         } catch (e) {
             console.error(e);
         }
@@ -406,9 +407,9 @@ export default function AdminPage() {
             {activeTab === "users" && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-foreground">Gestion Premium</h2>
+                        <h2 className="text-lg font-bold text-foreground">Gestion Abonnements</h2>
                         <p className="text-sm text-muted-foreground">
-                            {users.filter(u => u.is_premium).length} utilisateurs premium
+                            {users.filter(u => u.subscription_tier === 'solo_pro' || u.subscription_tier === 'troupe').length} utilisateurs premium
                         </p>
                     </div>
 
@@ -423,7 +424,7 @@ export default function AdminPage() {
                                     key={user.id}
                                     className={cn(
                                         "p-4 rounded-xl border flex items-center justify-between",
-                                        user.is_premium
+                                        user.subscription_tier && user.subscription_tier !== 'free'
                                             ? "bg-emerald-500/10 border-emerald-500/30"
                                             : "bg-muted/50 border-border"
                                     )}
@@ -431,9 +432,9 @@ export default function AdminPage() {
                                     <div className="flex items-center gap-3">
                                         <div className={cn(
                                             "w-10 h-10 rounded-full flex items-center justify-center",
-                                            user.is_premium ? "bg-emerald-500/20" : "bg-muted"
+                                            user.subscription_tier && user.subscription_tier !== 'free' ? "bg-emerald-500/20" : "bg-muted"
                                         )}>
-                                            {user.is_premium ? (
+                                            {user.subscription_tier && user.subscription_tier !== 'free' ? (
                                                 <Crown className="w-5 h-5 text-emerald-500 dark:text-emerald-400" />
                                             ) : (
                                                 <Users className="w-5 h-5 text-muted-foreground" />
@@ -444,29 +445,29 @@ export default function AdminPage() {
                                                 {user.email || user.id.substring(0, 8) + "..."}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                                Inscrit le {formatDate(user.created_at)}
+                                                {user.subscription_tier || 'free'} • Inscrit le {formatDate(user.created_at)}
                                             </p>
                                         </div>
                                     </div>
 
                                     <button
-                                        onClick={() => handleTogglePremium(user.id, user.is_premium)}
+                                        onClick={() => handleTogglePremium(user.id, user.subscription_tier)}
                                         disabled={togglingPremium === user.id}
                                         className={cn(
                                             "flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all",
-                                            user.is_premium
+                                            user.subscription_tier && user.subscription_tier !== 'free'
                                                 ? "bg-emerald-500 text-white hover:bg-emerald-600"
                                                 : "bg-muted text-muted-foreground hover:bg-muted/80"
                                         )}
                                     >
                                         {togglingPremium === user.id ? (
                                             <Loader2 className="w-4 h-4 animate-spin" />
-                                        ) : user.is_premium ? (
+                                        ) : user.subscription_tier && user.subscription_tier !== 'free' ? (
                                             <ToggleRight className="w-5 h-5" />
                                         ) : (
                                             <ToggleLeft className="w-5 h-5" />
                                         )}
-                                        {user.is_premium ? "Premium" : "Standard"}
+                                        {user.subscription_tier && user.subscription_tier !== 'free' ? user.subscription_tier : "free"}
                                     </button>
                                 </div>
                             ))

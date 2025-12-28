@@ -2,15 +2,18 @@
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getFeedbackHistory, getFeedbackStats, FeedbackEntry } from "../dashboard/feedback-actions";
 import { cn } from "@/lib/utils";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { SubscriptionCard } from "@/components/subscription-card";
+import { SubscriptionTier } from "@/lib/subscription";
 
 export default function ProfilePage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [user, setUser] = useState<any>(null);
     const [firstName, setFirstName] = useState<string>("");
     const [isEditingName, setIsEditingName] = useState(false);
@@ -20,6 +23,23 @@ export default function ProfilePage() {
     const [stats, setStats] = useState({ totalSessions: 0, averageRating: 0, totalDuration: 0 });
     const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
 
+    // Subscription state
+    const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
+    const [subscriptionStatus, setSubscriptionStatus] = useState<string>('inactive');
+    const [subscriptionEndDate, setSubscriptionEndDate] = useState<string | null>(null);
+    const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+    useEffect(() => {
+        // Check for success query param from Stripe checkout
+        if (searchParams.get('success') === 'true') {
+            setShowSuccessMessage(true);
+            // Clear the URL params
+            window.history.replaceState({}, '', '/profile');
+            setTimeout(() => setShowSuccessMessage(false), 5000);
+        }
+    }, [searchParams]);
+
     useEffect(() => {
         const loadData = async () => {
             const supabase = createClient();
@@ -27,15 +47,19 @@ export default function ProfilePage() {
             setUser(user);
 
             if (user) {
-                // Load profile with first_name
+                // Load profile with first_name and subscription fields
                 const { data: profile } = await supabase
                     .from("profiles")
-                    .select("first_name")
+                    .select("first_name, subscription_tier, subscription_status, subscription_end_date, stripe_customer_id")
                     .eq("id", user.id)
                     .single();
 
-                if (profile?.first_name) {
-                    setFirstName(profile.first_name);
+                if (profile) {
+                    if (profile.first_name) setFirstName(profile.first_name);
+                    setSubscriptionTier((profile.subscription_tier as SubscriptionTier) || 'free');
+                    setSubscriptionStatus(profile.subscription_status || 'inactive');
+                    setSubscriptionEndDate(profile.subscription_end_date || null);
+                    setStripeCustomerId(profile.stripe_customer_id || null);
                 }
             }
 
@@ -92,6 +116,14 @@ export default function ProfilePage() {
 
     return (
         <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-20">
+
+            {/* Success Message */}
+            {showSuccessMessage && (
+                <div className="p-4 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 flex items-center gap-3">
+                    <Check className="w-5 h-5" />
+                    <p>Votre abonnement a été activé avec succès ! 🎉</p>
+                </div>
+            )}
 
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 pb-8 border-b border-border">
@@ -154,6 +186,20 @@ export default function ProfilePage() {
                     <LogOut className="w-4 h-4 mr-2" />
                     Se déconnecter
                 </Button>
+            </div>
+
+            {/* Subscription Section */}
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                    <Crown className="w-5 h-5 text-primary" />
+                    Mon Abonnement
+                </h2>
+                <SubscriptionCard
+                    tier={subscriptionTier}
+                    status={subscriptionStatus}
+                    endDate={subscriptionEndDate}
+                    hasStripeCustomer={!!stripeCustomerId}
+                />
             </div>
 
             {/* Stats Grid */}
@@ -305,19 +351,10 @@ export default function ProfilePage() {
             {/* Personal Info */}
             <div className="p-6 rounded-3xl bg-card border border-border space-y-6">
                 <h3 className="text-xl font-semibold text-foreground">Informations Personnelles</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground uppercase font-semibold">Email</label>
-                        <div className="p-4 rounded-xl bg-muted border border-border text-foreground">
-                            {user?.email || "Chargement..."}
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground uppercase font-semibold">Plan</label>
-                        <div className="p-4 rounded-xl bg-muted border border-border text-primary font-medium flex justify-between items-center">
-                            Beta Testeur
-                            <span className="text-[10px] bg-primary/20 text-primary px-2 py-1 rounded-full">Actif</span>
-                        </div>
+                <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground uppercase font-semibold">Email</label>
+                    <div className="p-4 rounded-xl bg-muted border border-border text-foreground">
+                        {user?.email || "Chargement..."}
                     </div>
                 </div>
             </div>

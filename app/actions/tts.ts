@@ -3,6 +3,7 @@
 import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
+import { hasAiVoiceAccess } from "@/lib/subscription";
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -12,7 +13,8 @@ export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimme
 
 export async function synthesizeSpeech(
     text: string,
-    voice: OpenAIVoice = "nova"
+    voice: OpenAIVoice = "nova",
+    troupeId?: string // Optional: pass troupe context to check troupe subscription
 ): Promise<{ audio: string } | { error: string }> {
     try {
         if (!process.env.OPENAI_API_KEY) {
@@ -22,18 +24,13 @@ export async function synthesizeSpeech(
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
 
-        if (!user) return { error: "Please log in to use AI voices." };
+        if (!user) return { error: "Veuillez vous connecter pour utiliser les voix IA." };
 
-        // Check premium status
-        const { data: profile } = await supabase
-            .from("profiles")
-            .select("is_premium")
-            .eq("id", user.id)
-            .single();
+        // Check subscription tier (including troupe membership)
+        const hasAccess = await hasAiVoiceAccess(user.id, troupeId);
 
-        if (!profile) return { error: "User profile not found." };
-        if (!profile.is_premium) {
-            return { error: "Premium access required for AI voices." };
+        if (!hasAccess) {
+            return { error: "Abonnement Solo Pro ou Troupe requis pour les voix IA." };
         }
 
         // --- CACHING LOGIC ---
