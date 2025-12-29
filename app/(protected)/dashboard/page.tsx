@@ -6,12 +6,13 @@ import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertica
 import { useState, useTransition, useEffect, useMemo, useCallback } from "react";
 import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction, renameScriptAction } from "./actions";
 import { ParsedScript } from "@/lib/types";
-import { ScriptViewer } from "@/components/script-viewer";
+import { ScriptViewerSingle } from "@/components/script-viewer-single";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Globe, Lock, Check, UserPlus } from "lucide-react";
 import dynamic from "next/dynamic";
+import { getScriptsWithVoiceConfig } from "@/lib/actions/voice-cache";
 
 // Lazy load heavy components for better initial load
 const RehearsalMode = dynamic(() => import("@/components/rehearsal-mode").then(mod => ({ default: mod.RehearsalMode })), {
@@ -71,6 +72,7 @@ export default function Home() {
   const [renamingScriptId, setRenamingScriptId] = useState<string | null>(null);
   const [renamingScriptTitle, setRenamingScriptTitle] = useState("");
   const [libraryView, setLibraryView] = useState<"personal" | "shared">("personal");
+  const [selectedScriptMeta, setSelectedScriptMeta] = useState<{ id: string; isPublic: boolean } | null>(null);
 
   const router = useRouter();
 
@@ -109,8 +111,18 @@ export default function Home() {
 
   const refreshScripts = async () => {
     try {
-      const fetchedScripts = await getScripts();
-      setScriptsList(fetchedScripts);
+      const [fetchedScripts, voiceConfigIds] = await Promise.all([
+        getScripts(),
+        getScriptsWithVoiceConfig()
+      ]);
+
+      // Merge voice config status into scripts
+      const scriptsWithVoiceStatus = fetchedScripts.map(s => ({
+        ...s,
+        hasVoiceConfig: voiceConfigIds.includes(s.id)
+      }));
+
+      setScriptsList(scriptsWithVoiceStatus);
     } catch (err) {
       console.error("Failed to fetch scripts", err);
     } finally {
@@ -217,6 +229,7 @@ export default function Home() {
       const fullScript = await getScriptById(s.id);
       if (fullScript) {
         setScript(fullScript as unknown as ParsedScript);
+        setSelectedScriptMeta({ id: s.id, isPublic: s.is_public || false });
       } else {
         setError("Impossible de charger le script.");
       }
@@ -279,8 +292,8 @@ export default function Home() {
   }
 
 
-  const handleConfirmSelection = (characters: string[], mode: 'reader' | 'rehearsal') => {
-    setRehearsalChar(characters[0]); // Store first character for backward compatibility
+  const handleConfirmSelection = (character: string, mode: 'reader' | 'rehearsal') => {
+    setRehearsalChar(character);
     if (mode === 'rehearsal') {
       setViewMode("rehearsal");
     } else {
@@ -326,6 +339,8 @@ export default function Home() {
         userCharacters={[rehearsalChar]}
         onExit={handleExitView}
         initialSettings={sessionSettings}
+        scriptId={selectedScriptMeta?.id}
+        isPublicScript={selectedScriptMeta?.isPublic}
       />
     );
   }
@@ -373,7 +388,7 @@ export default function Home() {
           </div>
         )}
 
-        <ScriptViewer script={script} onConfirm={handleConfirmSelection} />
+        <ScriptViewerSingle script={script} onConfirm={handleConfirmSelection} />
       </div>
     );
   }

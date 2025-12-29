@@ -63,3 +63,40 @@ export async function signup(formData: FormData) {
     revalidatePath("/", "layout");
     redirect("/auth/check-email");
 }
+
+export async function forgotPassword(formData: FormData) {
+    const supabase = await createClient();
+    const headersList = await headers();
+    const origin = headersList.get("origin") || headersList.get("x-forwarded-host")
+        ? `https://${headersList.get("x-forwarded-host")}`
+        : headersList.get("host")
+            ? `https://${headersList.get("host")}`
+            : "http://localhost:3000";
+
+    const email = formData.get("email") as string;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${origin}/auth/callback?next=/reset-password`,
+    });
+
+    if (error) {
+        redirect("/forgot-password?error=" + encodeURIComponent(error.message));
+    }
+
+    redirect("/forgot-password?message=" + encodeURIComponent("L'email de réinitialisation a été envoyé."));
+}
+
+export async function resetPassword(formData: FormData) {
+    const supabase = await createClient();
+    const password = formData.get("password") as string;
+
+    const { error } = await supabase.auth.updateUser({
+        password: password,
+    });
+
+    if (error) {
+        redirect("/reset-password?error=" + encodeURIComponent(error.message));
+    }
+
+    redirect("/login?message=" + encodeURIComponent("Votre mot de passe a été mis à jour avec succès."));
+}

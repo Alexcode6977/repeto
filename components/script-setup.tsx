@@ -97,10 +97,10 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                     </div>
                 </div>
 
-                <div className="pt-4">
+                <div className="pt-4 flex justify-center">
                     <Button
                         size="lg"
-                        className="w-full py-8 rounded-2xl bg-primary text-foreground font-black text-xl shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all"
+                        className="max-w-md w-full py-8 rounded-2xl bg-primary text-foreground font-black text-xl shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all"
                         onClick={() => onStart(settings)}
                     >
                         Lancer la lecture

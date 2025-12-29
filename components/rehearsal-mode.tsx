@@ -6,10 +6,11 @@ import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { synthesizeSpeech } from "@/app/actions/tts";
 import { getVoiceStatus } from "@/app/actions/voice";
+import { getVoiceConfig, createVoiceConfig, VoiceConfig, determineSourceType, SourceType } from "@/lib/actions/voice-cache";
 import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock } from "lucide-react";
+import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
@@ -86,9 +87,22 @@ interface RehearsalModeProps {
     isDemo?: boolean;
     initialSettings?: ScriptSettings;
     playId?: string;
+    scriptId?: string;
+    isPublicScript?: boolean;
+    troupeId?: string;
 }
 
-export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = false, initialSettings, playId }: RehearsalModeProps) {
+export function RehearsalMode({
+    script,
+    userCharacters = [],
+    onExit,
+    isDemo = false,
+    initialSettings,
+    playId,
+    scriptId,
+    isPublicScript = false,
+    troupeId
+}: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
@@ -125,6 +139,48 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
         };
         fetchStatus();
     }, []);
+
+    // Voice Cache State
+    const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
+    const [isLoadingVoiceConfig, setIsLoadingVoiceConfig] = useState(false);
+    const [voiceCacheSourceType, setVoiceCacheSourceType] = useState<SourceType | null>(null);
+    const [voiceCacheSourceId, setVoiceCacheSourceId] = useState<string | null>(null);
+
+    // Fetch existing voice config on mount
+    useEffect(() => {
+        const fetchVoiceConfig = async () => {
+            // Determine source type and ID
+            const sourceType = await determineSourceType(isPublicScript, troupeId, playId);
+            const sourceId = playId || scriptId;
+
+            if (!sourceId) return;
+
+            setVoiceCacheSourceType(sourceType);
+            setVoiceCacheSourceId(sourceId);
+            setIsLoadingVoiceConfig(true);
+
+            try {
+                const config = await getVoiceConfig(sourceType, sourceId);
+                if (config) {
+                    setExistingVoiceConfig(config);
+                    // Pre-fill voice assignments from config
+                    const assignments: Record<string, OpenAIVoice> = {};
+                    config.forEach(c => {
+                        assignments[c.character_name] = c.voice as OpenAIVoice;
+                    });
+                    setOpenaiVoiceAssignments(assignments);
+                }
+            } catch (error) {
+                console.error("Failed to fetch voice config", error);
+            } finally {
+                setIsLoadingVoiceConfig(false);
+            }
+        };
+
+        if (scriptId || playId) {
+            fetchVoiceConfig();
+        }
+    }, [scriptId, playId, troupeId, isPublicScript]);
 
     useEffect(() => {
         if (initialSettings && !hasStarted) {
@@ -454,10 +510,10 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
         const sampleOtherLine = script.lines.find(l => !(userCharacters || []).includes(l.character));
 
         return (
-            <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full animate-in fade-in duration-500 bg-gradient-to-br from-black via-gray-900/50 to-black">
+            <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full max-w-7xl mx-auto animate-in fade-in duration-500 bg-gradient-to-br from-black via-gray-900/50 to-black">
 
                 {/* LEFT PANEL - Live Preview */}
-                <div className="lg:w-[40%] flex flex-col items-center justify-start pt-12 lg:pt-20 p-6 lg:p-8 lg:border-r border-border order-2 lg:order-1">
+                <div className="lg:w-[45%] flex flex-col items-center justify-start pt-12 lg:pt-16 p-6 lg:p-8 lg:border-r border-border order-2 lg:order-1">
                     {/* Logo & Character */}
                     <div className="text-center space-y-4 mb-8">
                         <div className="relative inline-block">
@@ -537,41 +593,56 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                 </div>
 
                 {/* RIGHT PANEL - Settings */}
-                <div className="lg:w-[60%] flex flex-col p-6 lg:p-8 lg:py-12 overflow-y-auto order-1 lg:order-2">
-                    {/* Stepper */}
-                    <div className="flex items-center justify-center gap-2 mb-8">
+                <div className="lg:w-[55%] flex flex-col items-center p-6 lg:p-8 lg:py-10 overflow-y-auto order-1 lg:order-2">
+                    {/* Stepper - Enhanced with labels */}
+                    <div className="flex items-center justify-center gap-1 mb-8">
                         {[
-                            { num: 1, label: "Scène", icon: "🎬" },
-                            { num: 2, label: "Texte", icon: "📝" },
-                            { num: 3, label: "Voix", icon: "🎙️" },
-                            { num: 4, label: "Go!", icon: "🚀" }
+                            { num: 1, label: "Scène", icon: "🎬", active: true },
+                            { num: 2, label: "Texte", icon: "📝", active: true },
+                            { num: 3, label: "Voix", icon: "🎙️", active: true },
+                            { num: 4, label: "Jouer", icon: "🎭", active: false }
                         ].map((step, i) => (
                             <div key={step.num} className="flex items-center">
-                                <div className={cn(
-                                    "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all",
-                                    i === 0 ? "bg-primary text-foreground shadow-lg shadow-primary/30" : "bg-card text-muted-foreground"
-                                )}>
-                                    {step.icon}
+                                <div className="flex flex-col items-center gap-1">
+                                    <div className={cn(
+                                        "w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all",
+                                        step.active
+                                            ? "bg-primary/20 text-foreground border-2 border-primary/50 shadow-lg shadow-primary/20"
+                                            : "bg-card/50 text-muted-foreground border border-border"
+                                    )}>
+                                        {step.icon}
+                                    </div>
+                                    <span className={cn(
+                                        "text-[9px] font-bold uppercase tracking-wider",
+                                        step.active ? "text-primary" : "text-muted-foreground/50"
+                                    )}>
+                                        {step.label}
+                                    </span>
                                 </div>
-                                {i < 3 && <div className="w-4 h-[2px] bg-white/10 mx-1" />}
+                                {i < 3 && (
+                                    <div className={cn(
+                                        "w-6 h-[2px] mx-1 mt-[-16px]",
+                                        step.active ? "bg-primary/30" : "bg-border"
+                                    )} />
+                                )}
                             </div>
                         ))}
                     </div>
 
-                    {/* Start Button - Moved to top for ergonomics */}
+                    {/* Start Button - Enhanced CTA */}
                     <div className="max-w-md mx-auto w-full mb-6">
                         <Button
                             size="lg"
                             onClick={() => {
-                                // Auto-select browser if no provider chosen
                                 if (!ttsProvider) setTtsProvider("browser");
                                 handleStart();
                             }}
-                            className="w-full text-lg font-bold py-6 rounded-2xl shadow-[0_0_40px_rgba(124,58,237,0.4)] bg-primary text-foreground hover:bg-primary/90 hover:scale-[1.02] transition-all active:scale-95"
+                            className="w-full text-xl font-black py-7 rounded-2xl bg-gradient-to-r from-primary via-primary to-purple-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(124,58,237,0.5)] animate-pulse-subtle group"
                         >
-                            <Play className="mr-2 h-6 w-6 fill-current" />
-                            COMMENCER
+                            <Play className="mr-3 h-7 w-7 fill-current group-hover:scale-110 transition-transform" />
+                            🎬 Entrer en scène
                         </Button>
+                        <p className="text-center text-[10px] text-muted-foreground mt-2">Votre micro sera activé</p>
                     </div>
 
                     {/* Settings Cards */}
@@ -606,14 +677,14 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                             </div>
                         )}
 
-                        {/* Card 2: Text Visibility */}
+                        {/* Card 2: Text Visibility - Enhanced with descriptions */}
                         <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">📝 Vos Répliques</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {[
-                                    { id: "visible", label: "Visibles", emoji: "👁️" },
-                                    { id: "hint", label: "Indices", emoji: "💡" },
-                                    { id: "hidden", label: "Cachées", emoji: "🙈" }
+                                    { id: "visible", label: "Visibles", emoji: "👁️", desc: "Texte complet" },
+                                    { id: "hint", label: "Indices", emoji: "💡", desc: "Premiers mots" },
+                                    { id: "hidden", label: "Cachées", emoji: "🙈", desc: "Test mémoire" }
                                 ].map(v => (
                                     <button
                                         key={v.id}
@@ -625,7 +696,7 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                                             setLineVisibility(v.id as typeof lineVisibility);
                                         }}
                                         className={cn(
-                                            "py-3 px-2 rounded-xl text-xs font-bold transition-all duration-300 touch-manipulation flex flex-col items-center gap-1",
+                                            "py-3 px-2 rounded-xl text-xs font-bold transition-all duration-300 touch-manipulation flex flex-col items-center gap-0.5",
                                             lineVisibility === v.id
                                                 ? "bg-white text-black shadow-lg scale-105"
                                                 : "bg-card text-muted-foreground border border-border hover:bg-white/10 active:scale-95",
@@ -633,20 +704,21 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                                         )}
                                     >
                                         <span className="text-lg">{v.emoji}</span>
-                                        {v.label}
+                                        <span className="font-bold">{v.label}</span>
+                                        <span className={cn("text-[8px]", lineVisibility === v.id ? "text-gray-600" : "text-muted-foreground/60")}>{v.desc}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Card 3: Rehearsal Mode */}
+                        {/* Card 3: Rehearsal Mode - Enhanced with clearer labels */}
                         <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎭 Mode de répétition</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {[
-                                    { id: "full", label: "Intégrale", sub: "Tout le cast" },
-                                    { id: "cue", label: "Réplique", sub: "Juste avant" },
-                                    { id: "check", label: "Filage", sub: "Rapide" },
+                                    { id: "full", label: "Intégrale", icon: "📖", desc: "Tout le texte lu" },
+                                    { id: "cue", label: "Réplique", icon: "💬", desc: "Avant vos lignes" },
+                                    { id: "check", label: "Filage", icon: "⚡", desc: "Vos lignes seules" },
                                 ].map(m => (
                                     <button
                                         key={m.id}
@@ -658,54 +730,68 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                                             setRehearsalMode(m.id as typeof rehearsalMode);
                                         }}
                                         className={cn(
-                                            "p-3 rounded-xl text-left transition-all duration-300 touch-manipulation border",
+                                            "p-3 rounded-xl text-center transition-all duration-300 touch-manipulation border flex flex-col items-center gap-1",
                                             rehearsalMode === m.id
                                                 ? "bg-primary/20 border-primary/50 shadow-lg shadow-primary/10"
                                                 : "bg-card border-border hover:bg-white/10 active:scale-95",
                                             isDemo && m.id !== 'full' && "opacity-50 cursor-not-allowed"
                                         )}
                                     >
-                                        <span className={cn("block text-xs font-bold mb-0.5", rehearsalMode === m.id ? "text-foreground" : "text-gray-300")}>{m.label}</span>
-                                        <span className="block text-[9px] text-muted-foreground leading-tight">{m.sub}</span>
+                                        <span className="text-lg">{m.icon}</span>
+                                        <span className={cn("text-xs font-bold", rehearsalMode === m.id ? "text-foreground" : "text-gray-300")}>{m.label}</span>
+                                        <span className="text-[8px] text-muted-foreground leading-tight">{m.desc}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Card 4: Voice Settings - Collapsible Logic */}
+                        {/* Card 4: Voice Settings */}
                         <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg space-y-4">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
 
-                            {/* TTS Provider Selector - Always visible */}
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={() => setTtsProvider("browser")}
-                                    className={cn(
-                                        "py-3 rounded-xl text-xs font-bold transition-all border",
-                                        ttsProvider === "browser"
-                                            ? "bg-white/10 border-white/30 text-foreground"
-                                            : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                    )}
-                                >
-                                    Standard
-                                </button>
-                                <button
-                                    onClick={() => isPremiumUnlocked && setTtsProvider("openai")}
-                                    disabled={!isPremiumUnlocked}
-                                    className={cn(
-                                        "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
-                                        ttsProvider === "openai"
-                                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                            : !isPremiumUnlocked
-                                                ? "bg-transparent border-border text-muted-foreground cursor-not-allowed opacity-60"
+                            {/* Premium users: show both options */}
+                            {isPremiumUnlocked ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        onClick={() => setTtsProvider("browser")}
+                                        className={cn(
+                                            "py-3 rounded-xl text-xs font-bold transition-all border",
+                                            ttsProvider === "browser"
+                                                ? "bg-white/10 border-white/30 text-foreground"
                                                 : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                    )}
-                                >
-                                    {!isPremiumUnlocked ? <Lock className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
-                                    Neural AI {!isPremiumUnlocked && "(Admin)"}
-                                </button>
-                                {isDemo && <div className="absolute inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }} />}
-                            </div>
+                                        )}
+                                    >
+                                        Standard
+                                    </button>
+                                    <button
+                                        onClick={() => setTtsProvider("openai")}
+                                        className={cn(
+                                            "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
+                                            ttsProvider === "openai"
+                                                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                                                : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                        )}
+                                    >
+                                        <Sparkles className="w-3 h-3" />
+                                        Neural AI
+                                    </button>
+                                </div>
+                            ) : (
+                                /* Non-premium users: Standard only + upgrade CTA */
+                                <div className="space-y-3">
+                                    <div className="py-3 rounded-xl text-xs font-bold bg-white/10 border border-white/30 text-foreground text-center">
+                                        Voix Standard
+                                    </div>
+                                    <a
+                                        href="/profile"
+                                        className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
+                                    >
+                                        <Sparkles className="w-3 h-3" />
+                                        Passez à Pro pour des voix IA réalistes
+                                    </a>
+                                </div>
+                            )}
+                            {isDemo && <div className="absolute inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }} />}
                         </div>
 
                         {/* Voice Distribution - Only shown when a provider is selected */}
@@ -753,25 +839,50 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                         {/* Voice Distribution - Neural AI (only if premium unlocked AND selected) */}
                         {ttsProvider === "openai" && isPremiumUnlocked && (
                             <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-widest block">Distribution Neural AI</span>
-                                {script.characters && script.characters.filter(c => !(userCharacters || []).includes(c)).length > 0 ? (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Distribution Neural AI</span>
+                                    {existingVoiceConfig && (
+                                        <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                            <Check className="w-3 h-3" />
+                                            Voix figées
+                                        </span>
+                                    )}
+                                </div>
+                                {isLoadingVoiceConfig ? (
+                                    <div className="flex items-center justify-center py-4">
+                                        <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+                                    </div>
+                                ) : script.characters && script.characters.filter(c => !(userCharacters || []).includes(c)).length > 0 ? (
                                     <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
                                         {script.characters.filter(c => !(userCharacters || []).includes(c)).map((char) => (
-                                            <div key={char} className="flex items-center gap-2 bg-emerald-900/20 p-2 rounded-lg border border-emerald-700/30">
+                                            <div key={char} className={cn(
+                                                "flex items-center gap-2 p-2 rounded-lg border",
+                                                existingVoiceConfig
+                                                    ? "bg-emerald-900/30 border-emerald-600/40"
+                                                    : "bg-emerald-900/20 border-emerald-700/30"
+                                            )}>
                                                 <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-[9px] font-bold text-emerald-300 shrink-0">
                                                     {char.substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-xs font-medium text-emerald-300 truncate">{char}</p>
-                                                    <select
-                                                        className="w-full bg-transparent text-[10px] text-emerald-500 focus:outline-none cursor-pointer"
-                                                        value={openaiVoiceAssignments[char] || "nova"}
-                                                        onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
-                                                    >
-                                                        {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
-                                                            <option key={v} value={v} className="bg-background text-foreground">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
-                                                        ))}
-                                                    </select>
+                                                    {existingVoiceConfig ? (
+                                                        /* Frozen voice - just display */
+                                                        <p className="text-[10px] text-emerald-500 font-medium">
+                                                            {(openaiVoiceAssignments[char] || "nova").charAt(0).toUpperCase() + (openaiVoiceAssignments[char] || "nova").slice(1)}
+                                                        </p>
+                                                    ) : (
+                                                        /* Editable select */
+                                                        <select
+                                                            className="w-full bg-transparent text-[10px] text-emerald-500 focus:outline-none cursor-pointer"
+                                                            value={openaiVoiceAssignments[char] || "nova"}
+                                                            onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
+                                                        >
+                                                            {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
+                                                                <option key={v} value={v} className="bg-background text-foreground">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
                                                 </div>
                                                 <button
                                                     onClick={() => testOpenAIVoice(char, openaiVoiceAssignments[char] || "nova")}
@@ -789,96 +900,61 @@ export function RehearsalMode({ script, userCharacters = [], onExit, isDemo = fa
                                 )}
                             </div>
                         )}
-                    </div>
 
-                    {/* Card 5: Advanced Options - Collapsible */}
-                    <details className="group">
-                        <summary className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-lg cursor-pointer transition-all hover:bg-white/[0.07] list-none">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">⚙️ Options avancées</label>
-                                <span className="text-muted-foreground group-open:rotate-180 transition-transform">▼</span>
-                            </div>
-                        </summary>
-                        <div className="mt-2 bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 space-y-4 animate-in slide-in-from-top-2 relative">
+                        {/* Card 5: Tolerance Slider */}
+                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07] relative">
                             {isDemo && (
                                 <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] z-20 flex items-center justify-center rounded-2xl"
                                     onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }}>
                                     <Lock className="w-6 h-6 text-foreground/50" />
                                 </div>
                             )}
-                            {/* Sensitivity Slider */}
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎯 Barre de Tolérance</label>
                             <div className="space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <span className="text-xs text-muted-foreground">Barre de Tolérance</span>
-                                    <span className="text-xs font-mono text-primary">{Math.round(threshold * 100)}%</span>
+                                    <span className="text-xs text-muted-foreground">Précision reconnaissance vocale</span>
+                                    <span className="text-sm font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">{Math.round(threshold * 100)}%</span>
                                 </div>
                                 <input
                                     type="range" min="0.5" max="0.95" step="0.05"
                                     value={threshold}
                                     onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
+                                    className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
                                 />
-                                <div className="flex justify-between text-[9px] text-muted-foreground">
-                                    <span>Relax</span><span>Strict</span>
-                                </div>
-                            </div>
-
-                            {/* Didascalies Toggle - Only show if script has didascalies */}
-                            {hasDidascalies && (
-                                <div className="pt-3 border-t border-white/10">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <span className="text-xs text-muted-foreground block">Didascalies</span>
-                                            <span className="text-[10px] text-muted-foreground">Indications scéniques</span>
-                                        </div>
-                                        <button
-                                            onClick={() => setSkipDidascalies(!skipDidascalies)}
-                                            className={cn(
-                                                "relative w-12 h-6 rounded-full transition-colors",
-                                                skipDidascalies ? "bg-gray-700" : "bg-primary"
-                                            )}
-                                        >
-                                            <span className={cn(
-                                                "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow",
-                                                skipDidascalies ? "left-1" : "left-7"
-                                            )} />
-                                        </button>
-                                    </div>
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                        {skipDidascalies ? "Désactivées (sautées)" : "Activées (lues à voix haute)"}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Car Mode Toggle (Experimental) */}
-                            <div className="pt-3 border-t border-white/10">
-                                <div className="flex items-center justify-center gap-2 mb-2">
-                                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20">Expérimental</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <span className="text-xs text-muted-foreground block flex items-center gap-1">🚗 Mode Voiture</span>
-                                        <span className="text-[10px] text-muted-foreground">Force la sortie audio (peut couper spotify)</span>
-                                    </div>
-                                    <button
-                                        onClick={() => setForceAudioOutput(!forceAudioOutput)}
-                                        className={cn(
-                                            "relative w-12 h-6 rounded-full transition-colors",
-                                            forceAudioOutput ? "bg-yellow-500" : "bg-gray-700"
-                                        )}
-                                    >
-                                        <span className={cn(
-                                            "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow",
-                                            forceAudioOutput ? "left-7" : "left-1"
-                                        )} />
-                                    </button>
+                                <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
+                                    <span>😌 Relax</span><span>🎯 Strict</span>
                                 </div>
                             </div>
                         </div>
-                    </details>
+
+                        {/* Card 6: Car Mode Toggle */}
+                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                        🚗 Mode Voiture
+                                        <span className="text-[8px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20">BETA</span>
+                                    </label>
+                                    <p className="text-[10px] text-muted-foreground mt-1">Force la sortie audio sur les hauts-parleurs</p>
+                                </div>
+                                <button
+                                    onClick={() => setForceAudioOutput(!forceAudioOutput)}
+                                    className={cn(
+                                        "relative w-14 h-7 rounded-full transition-colors shrink-0",
+                                        forceAudioOutput ? "bg-yellow-500" : "bg-gray-700"
+                                    )}
+                                >
+                                    <span className={cn(
+                                        "absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow",
+                                        forceAudioOutput ? "left-8" : "left-1"
+                                    )} />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
 
-                    <button onClick={onExit} className="w-full text-sm font-medium text-muted-foreground hover:text-foreground transition-colors text-center py-2">
+                    <button onClick={onExit} className="w-full max-w-md mx-auto text-sm font-medium text-muted-foreground hover:text-foreground transition-colors text-center py-2">
                         Retour au menu
                     </button>
                 </div>

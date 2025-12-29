@@ -2,7 +2,7 @@
 
 import { useState, memo } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Play, Trash2, Globe, Edit3 } from "lucide-react";
+import { FileText, Play, Trash2, Globe, Edit3, Mic } from "lucide-react";
 
 interface ScriptMetadata {
     id: string;
@@ -12,6 +12,7 @@ interface ScriptMetadata {
     created_at: string;
     is_public?: boolean;
     is_owner?: boolean;
+    hasVoiceConfig?: boolean;
 }
 
 interface ScriptCardProps {
@@ -52,13 +53,23 @@ export const ScriptCard = memo(function ScriptCard({
             {/* Card Background gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background z-10" />
 
-            {/* Public Badge - Floating */}
-            {s.is_public && (
-                <div className="absolute top-4 right-4 z-20 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
-                    <Globe className="w-3 h-3" />
-                    Shared
-                </div>
-            )}
+            {/* Badges Container - Top Right */}
+            <div className="absolute top-4 right-4 z-20 flex flex-col gap-2 items-end">
+                {/* Public Badge */}
+                {s.is_public && (
+                    <div className="bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
+                        <Globe className="w-3 h-3" />
+                        Shared
+                    </div>
+                )}
+                {/* Voice IA Badge */}
+                {s.hasVoiceConfig && (
+                    <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
+                        <Mic className="w-3 h-3" />
+                        Voix IA
+                    </div>
+                )}
+            </div>
 
             {/* Icon / Preview - Large & Centered */}
             <div className="absolute inset-0 flex items-center justify-center opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700">

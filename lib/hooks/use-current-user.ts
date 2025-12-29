@@ -4,6 +4,31 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { SubscriptionTier, SubscriptionLimits, TIER_LIMITS } from "@/lib/subscription";
+import { syncSubscriptionFromStripe } from "@/lib/actions/sync-subscription";
+
+// Simple in-memory cache to avoid syncing too often
+const SYNC_CACHE_KEY = 'stripe_sync_timestamp';
+const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Trigger a background Stripe sync if enough time has passed since last sync.
+ */
+function triggerStripeSync(userId: string) {
+    const lastSync = parseInt(sessionStorage.getItem(SYNC_CACHE_KEY) || '0', 10);
+    const now = Date.now();
+
+    if (now - lastSync > SYNC_INTERVAL_MS) {
+        sessionStorage.setItem(SYNC_CACHE_KEY, String(now));
+        // Fire and forget - don't await
+        syncSubscriptionFromStripe(userId).then((result) => {
+            if (!result.success) {
+                console.warn('[Stripe Sync] Background sync failed:', result.error);
+            }
+        }).catch((err) => {
+            console.error('[Stripe Sync] Error:', err);
+        });
+    }
+}
 
 interface UserProfile {
     first_name?: string | null;
@@ -75,6 +100,11 @@ export function useCurrentUser(): UseCurrentUserReturn {
                         }
 
                         setEffectiveTier(tier);
+
+                        // Trigger background Stripe sync if user has a customer ID
+                        if (profileData.stripe_customer_id) {
+                            triggerStripeSync(user.id);
+                        }
                     }
                 }
             } catch (error) {

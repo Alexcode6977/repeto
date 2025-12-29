@@ -171,8 +171,24 @@
     animation: pulseGlow 3s infinite ease-in-out;
   }
 
+  .animate-pulse-subtle {
+    animation: pulseSubtle 2s infinite ease-in-out;
+  }
+
   .touch-manipulation {
     touch-action: manipulation;
+  }
+}
+
+@keyframes pulseSubtle {
+
+  0%,
+  100% {
+    box-shadow: 0 0 30px rgba(124, 58, 237, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 50px rgba(124, 58, 237, 0.6);
   }
 }
 

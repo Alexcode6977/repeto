@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
             ? `${origin}/api/stripe/troupe-success?session_id={CHECKOUT_SESSION_ID}`
             : troupeId
                 ? `${origin}/troupes/${troupeId}?session_id={CHECKOUT_SESSION_ID}&success=true`
-                : `${origin}/profile?session_id={CHECKOUT_SESSION_ID}&success=true`;
+                : `${origin}/api/stripe/success?session_id={CHECKOUT_SESSION_ID}`;
 
         const cancelUrl = troupeName
             ? `${origin}/troupes/create?canceled=true`
