@@ -135,7 +135,7 @@ export default function ProfilePage() {
     const displayName = firstName || user?.email?.split('@')[0] || "Artiste";
 
     return (
-        <div className="w-full max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-20">
+        <div className="w-full max-w-4xl mx-auto space-y-6 md:space-y-8 px-4 md:px-0 animate-in fade-in slide-in-from-bottom-4 pb-20">
 
             {/* Success Message */}
             {showSuccessMessage && (
@@ -158,7 +158,7 @@ export default function ProfilePage() {
                                     type="text"
                                     value={editedName}
                                     onChange={(e) => setEditedName(e.target.value)}
-                                    className="bg-muted border border-border rounded-xl px-4 py-2 text-2xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-48"
+                                    className="bg-muted border border-border rounded-xl px-3 md:px-4 py-2 text-xl md:text-2xl font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 w-36 md:w-48"
                                     autoFocus
                                     placeholder="Votre prénom"
                                 />
@@ -178,7 +178,7 @@ export default function ProfilePage() {
                             </div>
                         ) : (
                             <>
-                                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-linear-to-r from-foreground to-foreground/60">
+                                <h1 className="text-2xl md:text-4xl font-bold bg-clip-text text-transparent bg-linear-to-r from-foreground to-foreground/60">
                                     {displayName}
                                 </h1>
                                 <button
@@ -357,8 +357,8 @@ export default function ProfilePage() {
             </div>
 
             {/* Settings */}
-            <div className="p-6 rounded-3xl bg-card border border-border space-y-6">
-                <h3 className="text-xl font-semibold text-foreground">Préférences</h3>
+            <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-card border border-border space-y-4 md:space-y-6">
+                <h3 className="text-lg md:text-xl font-semibold text-foreground">Préférences</h3>
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-foreground font-medium">Thème de l'application</p>
@@ -369,8 +369,8 @@ export default function ProfilePage() {
             </div>
 
             {/* Personal Info */}
-            <div className="p-6 rounded-3xl bg-card border border-border space-y-6">
-                <h3 className="text-xl font-semibold text-foreground">Informations Personnelles</h3>
+            <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-card border border-border space-y-4 md:space-y-6">
+                <h3 className="text-lg md:text-xl font-semibold text-foreground">Informations Personnelles</h3>
                 <div className="space-y-2">
                     <label className="text-xs text-muted-foreground uppercase font-semibold">Email</label>
                     <div className="p-4 rounded-xl bg-muted border border-border text-foreground">
@@ -380,8 +380,8 @@ export default function ProfilePage() {
             </div>
 
             {/* Danger Zone */}
-            <div className="p-6 rounded-3xl bg-red-500/5 border border-red-500/20 space-y-4">
-                <h3 className="text-xl font-semibold text-red-500 flex items-center gap-2">
+            <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-red-500/5 border border-red-500/20 space-y-3 md:space-y-4">
+                <h3 className="text-lg md:text-xl font-semibold text-red-500 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5" />
                     Zone Dangereuse
                 </h3>
@@ -399,15 +399,15 @@ export default function ProfilePage() {
 
             {/* Delete Account Modal */}
             {showDeleteModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-6 animate-in fade-in zoom-in-95">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4">
+                    <div className="bg-card border border-border rounded-t-2xl md:rounded-2xl p-4 md:p-6 max-w-md w-full space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-4 md:zoom-in-95 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 rounded-full bg-red-500/20">
-                                <AlertTriangle className="w-6 h-6 text-red-500" />
+                            <div className="p-2 md:p-3 rounded-full bg-red-500/20">
+                                <AlertTriangle className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-foreground">Supprimer votre compte</h3>
-                                <p className="text-sm text-muted-foreground">Cette action est irréversible</p>
+                                <h3 className="text-lg md:text-xl font-bold text-foreground">Supprimer votre compte</h3>
+                                <p className="text-xs md:text-sm text-muted-foreground">Cette action est irréversible</p>
                             </div>
                         </div>
 
@@ -436,7 +436,7 @@ export default function ProfilePage() {
                             </div>
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-col-reverse md:flex-row gap-2 md:gap-3">
                             <Button
                                 onClick={() => {
                                     setShowDeleteModal(false);
@@ -460,7 +460,7 @@ export default function ProfilePage() {
                                 ) : (
                                     <>
                                         <Trash2 className="w-4 h-4 mr-2" />
-                                        Confirmer la suppression
+                                        Confirmer
                                     </>
                                 )}
                             </Button>

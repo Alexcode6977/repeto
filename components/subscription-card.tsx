@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { CreditCard, Crown, Loader2, ExternalLink, Calendar, AlertTriangle, Info } from "lucide-react";
+import { CreditCard, Crown, Loader2, ExternalLink, Calendar, AlertTriangle, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PLANS } from "@/lib/stripe";
 import { SubscriptionTier } from "@/lib/subscription";
+import Link from "next/link";
 
 interface SubscriptionCardProps {
     tier: SubscriptionTier;
@@ -25,6 +26,7 @@ export function SubscriptionCard({
 }: SubscriptionCardProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showTroupeInfo, setShowTroupeInfo] = useState(false);
     const plan = PLANS[tier];
 
     const isActive = status === 'active' || status === 'trialing';
@@ -57,7 +59,6 @@ export function SubscriptionCard({
         setLoading(true);
         setError(null);
         try {
-            // Fetch price IDs from server (env vars not accessible on client)
             const pricesRes = await fetch('/api/stripe/prices');
             const prices = await pricesRes.json();
 
@@ -88,28 +89,28 @@ export function SubscriptionCard({
     };
 
     return (
-        <div className="rounded-2xl border border-border bg-card p-6">
-            <div className="flex items-start justify-between mb-6">
+        <div className="rounded-2xl border border-border bg-card p-4 md:p-6">
+            <div className="flex items-start justify-between mb-4 md:mb-6">
                 <div className="flex items-center gap-3">
                     <div className={`
-                        w-12 h-12 rounded-xl flex items-center justify-center
+                        w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center
                         ${tier === 'free' ? 'bg-muted text-muted-foreground' : 'bg-primary/20 text-primary'}
                     `}>
-                        <Crown className="w-6 h-6" />
+                        <Crown className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
                     <div>
-                        <h3 className="font-semibold text-lg">{plan.name}</h3>
-                        <p className="text-sm text-muted-foreground">{plan.priceLabel}</p>
+                        <h3 className="font-semibold text-base md:text-lg">{plan.name}</h3>
+                        <p className="text-xs md:text-sm text-muted-foreground">{plan.priceLabel}</p>
                     </div>
                 </div>
 
                 {isActive && tier !== 'free' && (
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-500">
+                    <span className="px-2 md:px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-500">
                         Actif
                     </span>
                 )}
                 {isPastDue && (
-                    <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-500 flex items-center gap-1">
+                    <span className="px-2 md:px-3 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-500 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
                         Paiement en attente
                     </span>
@@ -140,7 +141,7 @@ export function SubscriptionCard({
 
             {/* Error Display */}
             {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2 mb-4">
                     <AlertTriangle className="w-4 h-4 shrink-0" />
                     {error}
                 </div>
@@ -173,7 +174,7 @@ export function SubscriptionCard({
                 )}
 
                 {tier === 'free' && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         <Button
                             className="w-full"
                             onClick={() => handleUpgrade('solo_pro')}
@@ -185,24 +186,57 @@ export function SubscriptionCard({
                                 <>Passer à Solo Pro - {PLANS.solo_pro.priceLabel}</>
                             )}
                         </Button>
-                        <Button
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => handleUpgrade('troupe')}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <>Passer à Troupe - {PLANS.troupe.priceLabel}</>
+
+                        {/* Troupe Info Section */}
+                        <div className="border-t border-border pt-3">
+                            <button
+                                onClick={() => setShowTroupeInfo(!showTroupeInfo)}
+                                className="w-full flex items-center justify-between text-sm text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <span className="flex items-center gap-2">
+                                    <Users className="w-4 h-4" />
+                                    Vous jouez dans une troupe ?
+                                </span>
+                                {showTroupeInfo ? (
+                                    <ChevronUp className="w-4 h-4" />
+                                ) : (
+                                    <ChevronDown className="w-4 h-4" />
+                                )}
+                            </button>
+
+                            {showTroupeInfo && (
+                                <div className="mt-3 p-3 md:p-4 rounded-xl bg-gradient-to-br from-primary/5 to-purple-500/5 border border-primary/10 space-y-3 animate-in fade-in slide-in-from-top-2">
+                                    <div className="flex items-start gap-3">
+                                        <div className="p-2 rounded-lg bg-primary/20 shrink-0">
+                                            <Users className="w-4 h-4 text-primary" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h4 className="font-semibold text-foreground text-sm">Mode Troupe</h4>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                Créez ou rejoignez une troupe pour répéter ensemble. Le créateur paie un abonnement unique de 20€/mois et tous les membres bénéficient des fonctionnalités Pro.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <ul className="text-xs text-muted-foreground space-y-1 ml-9">
+                                        <li>• Calendrier de répétitions partagé</li>
+                                        <li>• Gestion des distributions et rôles</li>
+                                        <li>• Accès Pro pour tous les membres</li>
+                                    </ul>
+                                    <Link href="/troupes" className="block">
+                                        <Button variant="outline" size="sm" className="w-full gap-2 mt-1">
+                                            <Users className="w-4 h-4" />
+                                            Voir les troupes
+                                        </Button>
+                                    </Link>
+                                </div>
                             )}
-                        </Button>
+                        </div>
                     </div>
                 )}
 
                 {tier === 'solo_pro' && isActive && (
                     <p className="text-xs text-center text-muted-foreground">
-                        Pour passer à Troupe, utilisez le portail de gestion ci-dessus.
+                        Pour créer ou rejoindre une troupe, rendez-vous dans la section Troupes.
                     </p>
                 )}
             </div>
