@@ -2,9 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown } from "lucide-react";
+import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { deleteAccount } from "./actions";
 import { getFeedbackHistory, getFeedbackStats, FeedbackEntry } from "../dashboard/feedback-actions";
 import { cn } from "@/lib/utils";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -29,6 +30,11 @@ export default function ProfilePage() {
     const [subscriptionEndDate, setSubscriptionEndDate] = useState<string | null>(null);
     const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+    // Delete account state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
     useEffect(() => {
         // Check for success query param from Stripe checkout
@@ -95,6 +101,20 @@ export default function ProfilePage() {
             setIsEditingName(false);
         }
         setIsSaving(false);
+    };
+
+    const handleDeleteAccount = async () => {
+        if (deleteConfirmText !== "SUPPRIMER") return;
+
+        setIsDeleting(true);
+        const result = await deleteAccount();
+
+        if (result.success) {
+            router.push("/login?message=" + encodeURIComponent("Votre compte a été supprimé avec succès."));
+        } else {
+            alert(result.error || "Erreur lors de la suppression");
+            setIsDeleting(false);
+        }
     };
 
     const formatDuration = (seconds: number) => {
@@ -358,6 +378,96 @@ export default function ProfilePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Danger Zone */}
+            <div className="p-6 rounded-3xl bg-red-500/5 border border-red-500/20 space-y-4">
+                <h3 className="text-xl font-semibold text-red-500 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5" />
+                    Zone Dangereuse
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                    La suppression de votre compte est irréversible. Toutes vos données seront définitivement effacées.
+                </p>
+                <Button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-400 border border-red-500/20"
+                >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Supprimer mon compte
+                </Button>
+            </div>
+
+            {/* Delete Account Modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full space-y-6 animate-in fade-in zoom-in-95">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-full bg-red-500/20">
+                                <AlertTriangle className="w-6 h-6 text-red-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-foreground">Supprimer votre compte</h3>
+                                <p className="text-sm text-muted-foreground">Cette action est irréversible</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <p className="text-muted-foreground">
+                                Êtes-vous sûr de vouloir supprimer votre compte ? Toutes vos données seront définitivement supprimées :
+                            </p>
+                            <ul className="text-sm text-muted-foreground space-y-1 ml-4 list-disc">
+                                <li>Vos pièces et répétitions</li>
+                                <li>Vos enregistrements audio</li>
+                                <li>Vos retours et statistiques</li>
+                                <li>Votre abonnement</li>
+                            </ul>
+
+                            <div className="space-y-2">
+                                <label className="text-sm text-foreground font-medium">
+                                    Tapez <span className="font-bold text-red-500">SUPPRIMER</span> pour confirmer
+                                </label>
+                                <input
+                                    type="text"
+                                    value={deleteConfirmText}
+                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                    placeholder="SUPPRIMER"
+                                    className="w-full p-3 rounded-xl bg-muted border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-red-500/50"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <Button
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeleteConfirmText("");
+                                }}
+                                className="flex-1 bg-muted text-foreground hover:bg-muted/80 border border-border"
+                                disabled={isDeleting}
+                            >
+                                Annuler
+                            </Button>
+                            <Button
+                                onClick={handleDeleteAccount}
+                                disabled={deleteConfirmText !== "SUPPRIMER" || isDeleting}
+                                className="flex-1 bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Suppression...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Confirmer la suppression
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );
