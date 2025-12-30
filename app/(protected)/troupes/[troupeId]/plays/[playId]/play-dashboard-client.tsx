@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
 import { ScriptReader } from "@/components/script-reader";
-import { RecordingManager } from "@/components/recording-manager";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { CastingManager } from "@/components/casting-manager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -130,6 +129,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const lineCount = script?.lines?.filter((l: any) => l.type === 'dialogue').length || 0;
     const estimatedDuration = Math.round(lineCount * 0.5); // ~30 sec per line = 0.5 min
 
+    const hasUserRole = play.play_characters?.some((c: any) => c.actor_id === userId);
+
     return (
         <div className="space-y-10 pb-32">
             {/* Header Section with Shared Element Transition */}
@@ -166,10 +167,10 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
             </motion.div>
 
             {/* Two Column Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
 
                 {/* Left Column - Stats & Distribution */}
-                <div className="space-y-6">
+                <div className="flex flex-col gap-6 h-full">
                     {/* Stats Card */}
                     <Card className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden">
                         <CardHeader className="p-6 pb-4">
@@ -211,8 +212,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         </CardContent>
                     </Card>
 
-                    {/* Distribution Card */}
-                    <Card className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden">
+                    {/* Distribution Card - Allow expansion if needed */}
+                    <Card className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden flex-1">
                         <CardHeader className="p-4">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
@@ -224,7 +225,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-4 pt-0 max-h-[300px] overflow-y-auto">
+                        <CardContent className="p-4 pt-0 max-h-[400px] overflow-y-auto">
                             <CastingManager
                                 characters={play.play_characters}
                                 troupeMembers={troupeMembers}
@@ -236,28 +237,28 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 </div>
 
                 {/* Right Column - Actions */}
-                <div className="space-y-6">
+                <div className="flex flex-col gap-6 h-full">
                     {/* Jouer Card */}
                     <Card
-                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-green-500/30 hover:shadow-[0_0_30px_rgba(34,197,94,0.1)] transition-all group"
+                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-green-500/30 hover:shadow-[0_0_30px_rgba(34,197,94,0.1)] transition-all group flex-1 flex flex-col justify-center relative"
                         onClick={() => {
                             setIntendedMode("reader");
                             setViewMode("viewer");
                         }}
                     >
-                        <CardHeader className="p-6">
+                        <CardHeader className="p-8">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-2xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <BookOpen className="w-6 h-6 text-green-500" />
+                                <div className="flex items-center gap-6">
+                                    <div className="w-16 h-16 rounded-3xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <BookOpen className="w-8 h-8 text-green-500" />
                                     </div>
                                     <div>
-                                        <CardTitle className="text-xl font-bold text-foreground group-hover:text-green-500 transition-colors">Lire</CardTitle>
-                                        <CardDescription className="text-muted-foreground">Mode lecture du script</CardDescription>
+                                        <CardTitle className="text-2xl font-bold text-foreground group-hover:text-green-500 transition-colors mb-1">Lire</CardTitle>
+                                        <CardDescription className="text-muted-foreground text-base">Mode lecture du script</CardDescription>
                                     </div>
                                 </div>
-                                <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center group-hover:bg-green-500 transition-all">
-                                    <span className="text-green-500 group-hover:text-primary-foreground transition-colors">→</span>
+                                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center group-hover:bg-green-500 transition-all">
+                                    <span className="text-green-500 group-hover:text-primary-foreground transition-colors text-xl">→</span>
                                 </div>
                             </div>
                         </CardHeader>
@@ -265,64 +266,62 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
 
                     {/* Répéter Card */}
                     <Card
-                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-primary/30 hover:shadow-[0_0_30px_rgba(var(--primary-rgb),0.1)] transition-all group"
+                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-primary/30 hover:shadow-[0_0_30px_rgba(var(--primary-rgb),0.1)] transition-all group flex-1 flex flex-col justify-center relative"
                         onClick={() => {
                             setIntendedMode("rehearsal");
                             setViewMode("viewer");
                         }}
                     >
-                        <CardHeader className="p-6">
+                        <CardHeader className="p-8">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Play className="w-6 h-6 text-primary fill-current" />
+                                <div className="flex items-center gap-6">
+                                    <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Play className="w-8 h-8 text-primary fill-current" />
                                     </div>
                                     <div>
-                                        <CardTitle className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">Répéter</CardTitle>
-                                        <CardDescription className="text-muted-foreground">Mode répétition interactive</CardDescription>
+                                        <CardTitle className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors mb-1">Répéter</CardTitle>
+                                        <CardDescription className="text-muted-foreground text-base">Mode répétition interactive</CardDescription>
                                     </div>
                                 </div>
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all">
-                                    <span className="text-primary group-hover:text-primary-foreground transition-colors">→</span>
+                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all">
+                                    <span className="text-primary group-hover:text-primary-foreground transition-colors text-xl">→</span>
                                 </div>
                             </div>
                         </CardHeader>
                     </Card>
 
-                    {/* Enregistrer Voix Card - Only if user has assigned character */}
-                    {play.play_characters?.some((c: any) => c.actor_id === userId) && (
-                        <Card className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden">
-                            <CardHeader className="p-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-                                        <Mic className="w-5 h-5 text-red-500" />
+                    {/* Enregistrer Voix Card - Link-based */}
+                    {hasUserRole ? (
+                        <Link
+                            href={`/troupes/${troupeId}/plays/${play.id}/record`}
+                            className="bg-card border border-border backdrop-blur-md rounded-3xl overflow-hidden cursor-pointer hover:border-red-500/30 hover:shadow-[0_0_30px_rgba(239,68,68,0.1)] transition-all group flex-1 flex flex-col justify-center relative no-underline hover:scale-[1.01]"
+                        >
+                            <CardHeader className="p-8">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-6">
+                                        <div className="w-16 h-16 rounded-3xl bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            <Mic className="w-8 h-8 text-red-500" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-2xl font-bold text-foreground group-hover:text-red-500 transition-colors mb-1">Enregistrer</CardTitle>
+                                            <CardDescription className="text-muted-foreground text-base">Enregistrez vos répliques</CardDescription>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <CardTitle className="text-lg font-bold text-foreground">Enregistrer Voix</CardTitle>
-                                        <CardDescription className="text-muted-foreground text-xs">Enregistrez vos répliques</CardDescription>
+                                    <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center group-hover:bg-red-500 transition-all">
+                                        <span className="text-red-500 group-hover:text-primary-foreground transition-colors text-xl">→</span>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-4 pt-0 max-h-[200px] overflow-y-auto">
-                                {(() => {
-                                    const userChar = play.play_characters?.find((c: any) => c.actor_id === userId);
-                                    if (!userChar) return null;
-
-                                    return (
-                                        <RecordingManager
-                                            script={play.script_content as ParsedScript}
-                                            userCharacter={userChar.name}
-                                            playId={play.id}
-                                            userId={userId}
-                                        />
-                                    );
-                                })()}
-                            </CardContent>
-                        </Card>
+                        </Link>
+                    ) : (
+                        <div className="flex-1 rounded-3xl border border-dashed border-white/10 flex items-center justify-center p-8 text-center text-muted-foreground bg-muted/10">
+                            <p className="text-sm">Attribuez-vous un rôle pour accéder à l'enregistrement.</p>
+                        </div>
                     )}
                 </div>
             </div>
         </div>
     );
 }
+
 
