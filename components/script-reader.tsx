@@ -108,23 +108,23 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
     }, [script.lines, settings.mode, userCharacters]);
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-[#1a1a1a] text-foreground font-sans overflow-hidden">
+        <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground font-sans overflow-hidden">
             {/* Header */}
-            <div className="flex-none px-4 pt-8 pb-4 border-b border-white/10 bg-background/80 flex items-center justify-between">
+            <div className="flex-none px-4 pt-8 pb-4 border-b border-border bg-background/80 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-white/10 rounded-full text-foreground">
+                    <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-muted rounded-full text-foreground">
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                     <div>
                         <h2 className="text-lg font-bold leading-tight line-clamp-1 text-foreground">{script.title || "Lecture"}</h2>
-                        <p className="text-xs text-muted-foreground">Rôles : <span className="text-yellow-400 font-bold">{userCharacters.join(", ")}</span></p>
+                        <p className="text-xs text-muted-foreground">Rôles : <span className="text-yellow-600 dark:text-yellow-400 font-bold">{userCharacters.join(", ")}</span></p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                     <Button
                         onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneAtIndex)}
-                        className="bg-card hover:bg-white/15 border border-white/10 rounded-xl flex items-center gap-2 text-xs font-bold py-2 h-auto"
+                        className="bg-card hover:bg-muted border border-border rounded-xl flex items-center gap-2 text-xs font-bold py-2 h-auto"
                     >
                         <Download className="w-4 h-4" />
                         <span className="hidden sm:inline">Exporter PDF</span>
@@ -134,7 +134,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
 
             {/* Toggle Bar */}
             <div className="flex-none px-4 py-4 bg-background/60 border-b border-border flex justify-center">
-                <div className="flex items-center gap-0 bg-neutral-800 rounded-full p-1.5 border border-white/20 shadow-lg">
+                <div className="flex items-center gap-0 bg-muted rounded-full p-1.5 border border-border shadow-lg">
                     <button
                         onClick={() => setHighlightStyle("box")}
                         className={cn(
@@ -172,7 +172,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
                                 return (
                                     <div key={line.id}>
                                         {sceneTitle && (
-                                            <div className="flex items-center gap-3 py-4 mb-4 border-b border-white/10">
+                                            <div className="flex items-center gap-3 py-4 mb-4 border-b border-border">
                                                 <div className="bg-primary/20 text-primary text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
                                                     {sceneTitle}
                                                 </div>
@@ -191,7 +191,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
                                             )}
                                         >
                                             <div className="hidden md:flex flex-col items-center w-12 flex-shrink-0 pt-1">
-                                                <span className="text-[9px] text-gray-600 font-mono">
+                                                <span className="text-[9px] text-muted-foreground font-mono">
                                                     {getCurrentScene(idx)?.split(' ').slice(0, 2).join(' ')}
                                                 </span>
                                             </div>
@@ -199,13 +199,13 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-2">
                                                     {lineNumber && (
-                                                        <span className="text-yellow-400 text-[11px] font-bold">
+                                                        <span className="text-yellow-600 dark:text-yellow-400 text-[11px] font-bold">
                                                             #{lineNumber}
                                                         </span>
                                                     )}
                                                     <span className={cn(
                                                         "text-[11px] font-bold uppercase tracking-widest",
-                                                        isUser ? "text-yellow-400" : "text-muted-foreground"
+                                                        isUser ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"
                                                     )}>
                                                         {line.character}
                                                     </span>
@@ -213,8 +213,8 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
 
                                                 <p className="text-lg md:text-xl leading-relaxed">
                                                     <span className={cn(
-                                                        isUser && highlightStyle !== "text" ? "text-yellow-100 font-medium" : "",
-                                                        !isUser ? "text-gray-300" : "",
+                                                        isUser && highlightStyle !== "text" ? "text-yellow-800 dark:text-yellow-100 font-medium" : "",
+                                                        !isUser ? "text-muted-foreground" : "",
                                                         isUser && highlightStyle === "text" ? "bg-yellow-400 text-black px-1 rounded box-decoration-clone" : ""
                                                     )}
                                                         style={

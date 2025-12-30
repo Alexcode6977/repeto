@@ -5,7 +5,7 @@ import { ScriptLine, ParsedScript } from "@/lib/types";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { synthesizeSpeech } from "@/app/actions/tts";
-import { getVoiceStatus } from "@/app/actions/voice";
+import { getUserCapabilities, validateAndStartRehearsal } from "@/app/actions/rehearsal";
 import { getVoiceConfig, createVoiceConfig, VoiceConfig, determineSourceType, SourceType } from "@/lib/actions/voice-cache";
 import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
@@ -22,7 +22,7 @@ const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-[2px] p-4 animate-in fade-in duration-200">
-            <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-card border border-border rounded-2xl w-full max-w-sm shadow-2xl relative overflow-hidden animate-in zoom-in-95 duration-200">
                 {/* Close Button */}
                 <button
                     onClick={onClose}
@@ -117,28 +117,41 @@ export function RehearsalMode({
         ), [script.characters]);
     const [skipDidascalies, setSkipDidascalies] = useState(true); // Skip by default if present
 
-    // Premium / Credits State
+    // Premium / Feature State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
+    const [canRecordAudio, setCanRecordAudio] = useState(false);
 
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
     // Line Visibility State
     const [lineVisibility, setLineVisibility] = useState<"visible" | "hint" | "hidden">(initialSettings?.visibility || "visible");
 
-    // Fetch Premium Status on Mount
+    // Fetch User Capabilities on Mount (replaces getVoiceStatus)
     useEffect(() => {
-        const fetchStatus = async () => {
+        const fetchCapabilities = async () => {
             try {
-                const status = await getVoiceStatus();
-                setIsPremiumUnlocked(status.isPremium);
+                const capabilities = await getUserCapabilities(troupeId);
+                setIsPremiumUnlocked(capabilities.isPremium);
+                setCanRecordAudio(capabilities.features.recording);
+
+                // If not premium, ensure settings are reset to free tier defaults
+                if (!capabilities.features.advancedModes && rehearsalMode !== "full") {
+                    setRehearsalMode("full");
+                }
+                if (!capabilities.features.advancedVisibility && lineVisibility !== "visible") {
+                    setLineVisibility("visible");
+                }
+                if (!capabilities.features.aiVoices && ttsProvider === "openai") {
+                    setTtsProvider("browser");
+                }
             } catch (error) {
-                console.error("Failed to fetch voice status", error);
+                console.error("Failed to fetch user capabilities", error);
             } finally {
                 setIsLoadingStatus(false);
             }
         };
-        fetchStatus();
-    }, []);
+        fetchCapabilities();
+    }, [troupeId]);
 
     // Voice Cache State
     const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
@@ -263,6 +276,37 @@ export function RehearsalMode({
     };
 
     const handleStart = async () => {
+        // SERVER-SIDE VALIDATION: Validate and sanitize settings before starting
+        const validation = await validateAndStartRehearsal(
+            {
+                mode: rehearsalMode,
+                visibility: lineVisibility,
+                ttsProvider: ttsProvider || "browser"
+            },
+            troupeId
+        );
+
+        if (!validation.success) {
+            alert(validation.error || "Erreur lors du démarrage de la répétition");
+            return;
+        }
+
+        // Apply sanitized settings (server enforces tier limits)
+        if (validation.settings.mode !== rehearsalMode) {
+            setRehearsalMode(validation.settings.mode);
+        }
+        if (validation.settings.visibility !== lineVisibility) {
+            setLineVisibility(validation.settings.visibility);
+        }
+        if (validation.settings.ttsProvider !== ttsProvider) {
+            setTtsProvider(validation.settings.ttsProvider);
+        }
+
+        // Show warnings if any features were downgraded
+        if (validation.warnings.length > 0) {
+            console.warn("[Server Validation]", validation.warnings);
+        }
+
         // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)
         try {
             if (initializeAudio) {
@@ -510,7 +554,7 @@ export function RehearsalMode({
         const sampleOtherLine = script.lines.find(l => !(userCharacters || []).includes(l.character));
 
         return (
-            <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full max-w-7xl mx-auto animate-in fade-in duration-500 bg-gradient-to-br from-black via-gray-900/50 to-black">
+            <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full max-w-7xl mx-auto animate-in fade-in duration-500 bg-background">
 
                 {/* LEFT PANEL - Live Preview */}
                 <div className="lg:w-[45%] flex flex-col items-center justify-start pt-12 lg:pt-16 p-6 lg:p-8 lg:border-r border-border order-2 lg:order-1">
@@ -533,7 +577,7 @@ export function RehearsalMode({
                         </div>
 
                         {/* Preview Container */}
-                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl space-y-4 transition-all duration-500">
+                        <div className="bg-card backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl space-y-4 transition-all duration-500">
                             {/* Other character line example */}
                             {sampleOtherLine && (
                                 <div className="p-3 rounded-xl bg-card border border-border transition-all duration-300">
@@ -556,7 +600,7 @@ export function RehearsalMode({
                                             ? "bg-yellow-500/15 border-2 border-yellow-500/50"
                                             : lineVisibility === "hint"
                                                 ? "bg-orange-500/10 border-2 border-orange-500/30"
-                                                : "bg-gray-800/50 border-2 border-gray-700/50"
+                                                : "bg-muted/50 border-2 border-border"
                                     )}
                                 >
                                     <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-2 flex items-center gap-2">
@@ -660,10 +704,10 @@ export function RehearsalMode({
 
                         {/* Card 1: Scene Selection */}
                         {script.scenes && script.scenes.length > 0 && (
-                            <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
+                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎬 Point de départ</label>
                                 <select
-                                    className="w-full bg-background/50 border border-white/10 rounded-xl p-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
+                                    className="w-full bg-background/50 border border-border rounded-xl p-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
                                     onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
                                     value={startLineIndex}
                                 >
@@ -678,7 +722,7 @@ export function RehearsalMode({
                         )}
 
                         {/* Card 2: Text Visibility - Enhanced with descriptions */}
-                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
+                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">📝 Vos Répliques</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {[
@@ -705,14 +749,14 @@ export function RehearsalMode({
                                     >
                                         <span className="text-lg">{v.emoji}</span>
                                         <span className="font-bold">{v.label}</span>
-                                        <span className={cn("text-[8px]", lineVisibility === v.id ? "text-gray-600" : "text-muted-foreground/60")}>{v.desc}</span>
+                                        <span className={cn("text-[8px]", lineVisibility === v.id ? "text-foreground/60" : "text-muted-foreground/60")}>{v.desc}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
                         {/* Card 3: Rehearsal Mode - Enhanced with clearer labels */}
-                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
+                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎭 Mode de répétition</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {[
@@ -738,7 +782,7 @@ export function RehearsalMode({
                                         )}
                                     >
                                         <span className="text-lg">{m.icon}</span>
-                                        <span className={cn("text-xs font-bold", rehearsalMode === m.id ? "text-foreground" : "text-gray-300")}>{m.label}</span>
+                                        <span className={cn("text-xs font-bold", rehearsalMode === m.id ? "text-foreground" : "text-muted-foreground")}>{m.label}</span>
                                         <span className="text-[8px] text-muted-foreground leading-tight">{m.desc}</span>
                                     </button>
                                 ))}
@@ -746,7 +790,7 @@ export function RehearsalMode({
                         </div>
 
                         {/* Card 4: Voice Settings */}
-                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg space-y-4">
+                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-4">
                             <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
 
                             {/* Premium users: show both options */}
@@ -757,7 +801,7 @@ export function RehearsalMode({
                                         className={cn(
                                             "py-3 rounded-xl text-xs font-bold transition-all border",
                                             ttsProvider === "browser"
-                                                ? "bg-white/10 border-white/30 text-foreground"
+                                                ? "bg-muted/30 dark:bg-white/10 border-border dark:border-white/30 text-foreground"
                                                 : "bg-transparent border-border text-muted-foreground hover:bg-card"
                                         )}
                                     >
@@ -779,7 +823,7 @@ export function RehearsalMode({
                             ) : (
                                 /* Non-premium users: Standard only + upgrade CTA */
                                 <div className="space-y-3">
-                                    <div className="py-3 rounded-xl text-xs font-bold bg-white/10 border border-white/30 text-foreground text-center">
+                                    <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 dark:bg-white/10 border border-border dark:border-white/30 text-foreground text-center">
                                         Voix Standard
                                     </div>
                                     <a
@@ -802,11 +846,11 @@ export function RehearsalMode({
                                     <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
                                         {script.characters.filter(c => !(userCharacters || []).includes(c)).map((char) => (
                                             <div key={char} className="flex items-center gap-2 bg-background/30 p-2 rounded-lg">
-                                                <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-[9px] font-bold text-gray-300 shrink-0">
+                                                <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">
                                                     {char.substring(0, 2).toUpperCase()}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-medium text-gray-300 truncate">{char}</p>
+                                                    <p className="text-xs font-medium text-foreground truncate">{char}</p>
                                                     <select
                                                         className="w-full bg-transparent text-[10px] text-muted-foreground focus:outline-none cursor-pointer"
                                                         value={voiceAssignments[char]?.voiceURI || ""}
@@ -822,7 +866,7 @@ export function RehearsalMode({
                                                 </div>
                                                 <button
                                                     onClick={() => testBrowserVoice(char)}
-                                                    className="px-2 py-1.5 rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground text-[10px] font-bold border border-white/10 flex items-center gap-1 transition-colors"
+                                                    className="px-2 py-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-bold border border-border flex items-center gap-1 transition-colors"
                                                 >
                                                     <Play className="w-3 h-3 fill-current" />
                                                     Test
@@ -902,7 +946,7 @@ export function RehearsalMode({
                         )}
 
                         {/* Card 5: Tolerance Slider */}
-                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07] relative">
+                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50 relative">
                             {isDemo && (
                                 <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] z-20 flex items-center justify-center rounded-2xl"
                                     onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }}>
@@ -928,7 +972,7 @@ export function RehearsalMode({
                         </div>
 
                         {/* Card 6: Car Mode Toggle */}
-                        <div className="bg-card backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-lg transition-all hover:bg-white/[0.07]">
+                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
@@ -941,7 +985,7 @@ export function RehearsalMode({
                                     onClick={() => setForceAudioOutput(!forceAudioOutput)}
                                     className={cn(
                                         "relative w-14 h-7 rounded-full transition-colors shrink-0",
-                                        forceAudioOutput ? "bg-yellow-500" : "bg-gray-700"
+                                        forceAudioOutput ? "bg-yellow-500" : "bg-muted"
                                     )}
                                 >
                                     <span className={cn(
@@ -991,7 +1035,7 @@ export function RehearsalMode({
 
                 {/* Error Shake Container */}
                 <div className={cn(
-                    "w-full h-[100dvh] md:h-[85vh] md:max-w-3xl md:rounded-3xl md:border md:border-white/10 md:shadow-2xl md:bg-background/40 md:backdrop-blur-sm flex flex-col overflow-hidden bg-transparent text-foreground relative transition-all duration-300",
+                    "w-full h-[100dvh] md:h-[85vh] md:max-w-3xl md:rounded-3xl md:border md:border-border md:shadow-2xl md:bg-background/40 md:backdrop-blur-sm flex flex-col overflow-hidden bg-transparent text-foreground relative transition-all duration-300",
                     showErrorAnimation && "animate-[shake_0.4s_ease-in-out]"
                 )}>
 
@@ -1013,7 +1057,7 @@ export function RehearsalMode({
                                     ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
                                     : isUserTurn
                                         ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                                        : "bg-card text-muted-foreground border-white/10"
+                                        : "bg-card text-muted-foreground border-border"
                             )}>
                                 <span className="tabular-nums">{currentLineIndex + 1}/{totalLines}</span>
                                 <span className="text-muted-foreground">•</span>
@@ -1076,7 +1120,7 @@ export function RehearsalMode({
                                     className={cn(
                                         "transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4 md:p-6",
                                         isActive
-                                            ? "bg-white/10 scale-100 md:scale-105 shadow-2xl border border-white/10 opacity-100"
+                                            ? "bg-muted/30 dark:bg-white/10 scale-100 md:scale-105 shadow-2xl border border-border opacity-100"
                                             : "opacity-40 scale-95 blur-[0.5px]"
                                     )}
                                 >
@@ -1092,7 +1136,7 @@ export function RehearsalMode({
                                         isActive
                                             ? "text-xl md:text-3xl text-foreground"
                                             : "text-base md:text-lg text-muted-foreground grayscale",
-                                        isUser && isActive ? "text-yellow-300 drop-shadow-md" : ""
+                                        isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : ""
                                     )}>
                                         {/* Status Indicators for Active Line */}
                                         {isActive && status === "listening_user" && (
@@ -1159,7 +1203,7 @@ export function RehearsalMode({
                         {/* Back Button */}
                         <button
                             onClick={previous}
-                            className="p-3 md:p-4 rounded-full bg-card border border-white/10 text-foreground hover:bg-white/10 active:scale-90 transition-all flex flex-col items-center gap-1 group"
+                            className="p-3 md:p-4 rounded-full bg-card border border-border text-foreground hover:bg-muted active:scale-90 transition-all flex flex-col items-center gap-1 group"
                         >
                             <SkipBack className="w-5 h-5 md:w-6 md:h-6 group-active:-translate-x-1 transition-transform" />
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:block">Retour</span>
@@ -1191,14 +1235,14 @@ export function RehearsalMode({
                             </AnimatePresence>
 
                             {/* Progress Ring SVG */}
-                            <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] rotate-[-90deg]" viewBox="0 0 100 100">
+                            <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] rotate-[-90deg] text-border" viewBox="0 0 100 100">
                                 {/* Background Ring */}
                                 <circle
                                     cx="50"
                                     cy="50"
                                     r="46"
                                     fill="none"
-                                    stroke="rgba(255,255,255,0.1)"
+                                    stroke="currentColor"
                                     strokeWidth="4"
                                 />
                                 {/* Progress Ring */}
@@ -1235,7 +1279,7 @@ export function RehearsalMode({
                                             ? "bg-red-500 border-red-400 scale-95"
                                             : isUserTurn
                                                 ? "bg-white border-white scale-110 shadow-[0_0_50px_rgba(255,255,255,0.4)]"
-                                                : "bg-gray-900 border-gray-800 text-muted-foreground"
+                                                : "bg-muted border-border text-muted-foreground"
                                 )}
                             >
                                 {status === "listening_user" ? (
@@ -1260,19 +1304,19 @@ export function RehearsalMode({
                         {/* Skip Button */}
                         <button
                             onClick={next}
-                            className="p-3 md:p-4 rounded-full bg-card border border-white/10 text-foreground hover:bg-white/10 active:scale-90 transition-all flex flex-col items-center gap-1 group"
+                            className="p-3 md:p-4 rounded-full bg-card border border-border text-foreground hover:bg-muted active:scale-90 transition-all flex flex-col items-center gap-1 group"
                         >
                             <SkipForward className="w-5 h-5 md:w-6 md:h-6 group-active:translate-x-1 transition-transform" />
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:block">Passer</span>
                         </button>
                     </div>
                 </div>
-            </div>
+            </div >
 
 
 
             {/* Feedback Modal */}
-            <FeedbackModal
+            < FeedbackModal
                 isOpen={showFeedbackModal}
                 onClose={handleFeedbackClose}
                 onSubmit={handleFeedbackSubmit}

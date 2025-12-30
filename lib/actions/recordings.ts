@@ -2,21 +2,29 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { canRecord } from '@/lib/subscription';
 
 /**
  * Upload a voice recording for a specific line in a play.
- * Only allowed if the user is assigned to that character.
+ * Only allowed if the user is assigned to that character AND has recording permission.
  */
 export async function uploadLineRecording(
     playId: string,
     characterName: string,
     lineId: string,
-    audioBlob: Blob | File
+    audioBlob: Blob | File,
+    troupeId?: string
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error('Unauthorized');
+
+    // SUBSCRIPTION CHECK: Verify user has recording permission
+    const hasRecordingAccess = await canRecord(user.id, troupeId);
+    if (!hasRecordingAccess) {
+        throw new Error("L'enregistrement audio nécessite un abonnement Solo Pro ou Troupe.");
+    }
 
     // 1. Verify that the user is assigned to this character in this play
     const { data: character, error: charError } = await supabase
