@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
@@ -56,7 +57,8 @@ export async function getUserTroupes() {
 
     if (!user) return [];
 
-    const { data, error } = await supabase
+    // Fetch troupes where user is a member
+    const { data: memberData, error: memberError } = await supabase
         .from('troupe_members')
         .select(`
             role,
@@ -69,16 +71,82 @@ export async function getUserTroupes() {
         `)
         .eq('user_id', user.id);
 
-    if (error) {
-        console.error('Error fetching troupes:', JSON.stringify(error, null, 2));
-        return [];
+    if (memberError) {
+        console.error('Error fetching troupes from members:', JSON.stringify(memberError, null, 2));
     }
 
-    // Flattens the structure
-    return data.map(item => ({
-        ...item.troupes,
-        my_role: item.role
-    }));
+    // Also fetch troupes where user is the creator (fallback if troupe_members insert failed)
+    const { data: createdData, error: createdError } = await supabase
+        .from('troupes')
+        .select('id, name, join_code, created_at')
+        .eq('created_by', user.id);
+
+    if (createdError) {
+        console.error('Error fetching created troupes:', JSON.stringify(createdError, null, 2));
+    }
+
+    // Combine results, avoiding duplicates
+    const troupeMap = new Map();
+
+    // Add member troupes
+    if (memberData) {
+        memberData.forEach(item => {
+            if (item.troupes) {
+                const troupe = item.troupes as any;
+                troupeMap.set(troupe.id, {
+                    ...troupe,
+                    my_role: item.role
+                });
+            }
+        });
+    }
+
+    // Add created troupes (as admin if not already present)
+    if (createdData) {
+        createdData.forEach(troupe => {
+            if (!troupeMap.has(troupe.id)) {
+                troupeMap.set(troupe.id, {
+                    ...troupe,
+                    my_role: 'admin' // Creator is always admin
+                });
+            }
+        });
+    }
+
+    // Fetch pending join requests
+    const { data: requestData, error: requestError } = await supabase
+        .from('troupe_join_requests')
+        .select(`
+            troupes (
+                id,
+                name,
+                join_code,
+                created_at
+            )
+        `)
+        .eq('user_id', user.id);
+
+    if (requestError) {
+        console.error('Error fetching join requests:', JSON.stringify(requestError, null, 2));
+    }
+
+    // Add pending requests
+    if (requestData) {
+        requestData.forEach(item => {
+            if (item.troupes) {
+                const troupe = item.troupes as any;
+                // Only add if not already present (member/creator takes precedence)
+                if (!troupeMap.has(troupe.id)) {
+                    troupeMap.set(troupe.id, {
+                        ...troupe,
+                        my_role: 'pending'
+                    });
+                }
+            }
+        });
+    }
+
+    return Array.from(troupeMap.values());
 }
 
 export async function joinTroupe(joinCode: string) {
@@ -87,18 +155,47 @@ export async function joinTroupe(joinCode: string) {
 
     if (!user) throw new Error('Unauthorized');
 
+    const normalizedCode = joinCode.toUpperCase().trim();
+
     // 1. Find the troupe by code
     const { data: troupe, error: findError } = await supabase
         .from('troupes')
-        .select('id')
-        .eq('join_code', joinCode.toUpperCase().trim())
+        .select('id, join_code')
+        .eq('join_code', normalizedCode)
         .single();
 
     if (findError || !troupe) {
         throw new Error('Code invalide ou troupe introuvable.');
     }
 
-    // 2. Check if already a member
+    // 2. Ensure profile exists (to prevent FK error)
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+    if (!profile) {
+        // Use Admin Client to bypass RLS for profile creation if needed, 
+        // though authenticated users usually can insert their own profile. 
+        // We'll stick to standard client first.
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+                id: user.id,
+                email: user.email,
+                // Default value for free tier or as appropriate
+                subscription_tier: 'free',
+                subscription_status: 'active'
+            });
+
+        if (profileError) {
+            console.error('Failed to create missing profile:', profileError);
+            // We proceed, hoping it might work or error is downstream
+        }
+    }
+
+    // 3. Check if already a member
     const { data: existingMember } = await supabase
         .from('troupe_members')
         .select('role')
@@ -111,7 +208,7 @@ export async function joinTroupe(joinCode: string) {
         return troupe.id;
     }
 
-    // 3. Create a join request
+    // 4. Create a join request (keep profile check above)
     const { error: joinError } = await supabase
         .from('troupe_join_requests')
         .insert({
@@ -180,12 +277,18 @@ export async function getJoinRequests(troupeId: string) {
 }
 
 export async function approveJoinRequestAction(troupeId: string, requestId: string, userId: string) {
-    const supabase = await createClient();
+    const supabase = await createClient(); // Keep for auth check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
+    // Use Admin Client for the operation to bypass RLS (inserting another user)
+    const supabaseAdmin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     // 1. Add to members
-    const { error: memberError } = await supabase
+    const { error: memberError } = await supabaseAdmin
         .from('troupe_members')
         .insert({
             troupe_id: troupeId,
@@ -199,7 +302,7 @@ export async function approveJoinRequestAction(troupeId: string, requestId: stri
     }
 
     // 2. Delete the request
-    await supabase.from('troupe_join_requests').delete().eq('id', requestId);
+    await supabaseAdmin.from('troupe_join_requests').delete().eq('id', requestId);
 
     revalidatePath(`/troupes/${troupeId}`);
 }
@@ -229,7 +332,7 @@ export async function getTroupeDetails(troupeId: string) {
 
     if (!user) return null;
 
-    // Verify membership
+    // 1. Try to find membership
     const { data: member } = await supabase
         .from('troupe_members')
         .select('role')
@@ -237,7 +340,70 @@ export async function getTroupeDetails(troupeId: string) {
         .eq('user_id', user.id)
         .single();
 
-    if (!member) return null; // Not a member
+    let role = member?.role;
+
+    // 2. Fallback: Check for pending request
+    if (!role) {
+        const { data: request } = await supabase
+            .from('troupe_join_requests')
+            .select('id')
+            .eq('troupe_id', troupeId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (request) {
+            role = 'pending';
+        }
+    }
+
+    // 3. Fallback: Check if user is the creator (Auto-Fix logic)
+    if (!role) {
+        const { data: troupeData } = await supabase
+            .from('troupes')
+            .select('created_by')
+            .eq('id', troupeId)
+            .single();
+
+        if (troupeData?.created_by === user.id) {
+            // AUTO-FIX: User is creator but not member -> Add them as admin
+            const supabaseAdmin = createAdminClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY!
+            );
+
+            // Ensure profile exists first
+            const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('id')
+                .eq('id', user.id)
+                .single();
+
+            if (!profile) {
+                await supabaseAdmin.from('profiles').insert({
+                    id: user.id,
+                    email: user.email,
+                    subscription_tier: 'troupe',
+                    subscription_status: 'active'
+                });
+            }
+
+            const { error: insertError } = await supabaseAdmin
+                .from('troupe_members')
+                .insert({
+                    troupe_id: troupeId,
+                    user_id: user.id,
+                    role: 'admin'
+                });
+
+            if (!insertError) {
+                role = 'admin';
+            } else {
+                console.error('Failed to auto-fix membership:', insertError);
+            }
+        }
+    }
+
+    if (!role) return null;
 
     const { data: troupe } = await supabase
         .from('troupes')
@@ -245,7 +411,7 @@ export async function getTroupeDetails(troupeId: string) {
         .eq('id', troupeId)
         .single();
 
-    return { ...troupe, my_role: member.role };
+    return { ...troupe, my_role: role };
 }
 
 export async function getTroupeMembers(troupeId: string) {

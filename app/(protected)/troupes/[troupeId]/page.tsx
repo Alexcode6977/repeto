@@ -21,8 +21,44 @@ export default async function TroupeDashboard({
     const guests = await getTroupeGuests(troupeId);
     const joinRequests = await getJoinRequests(troupeId);
     const isAdmin = troupe?.my_role === 'admin';
+    const isPending = troupe?.my_role === 'pending';
 
-    // Copy Code Button Logic would need client component, keeping simple for SSR for now
+    if (!troupe) {
+        // Redirect if no access/not found
+        // In a real app maybe 404, but redirect is safer for now
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                <h1 className="text-2xl font-bold">Troupe introuvable ou accès refusé.</h1>
+                <Link href="/troupes">
+                    <Button>Retour aux troupes</Button>
+                </Link>
+            </div>
+        );
+    }
+
+    if (isPending) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6 text-center max-w-lg mx-auto">
+                <div className="w-24 h-24 rounded-full bg-yellow-500/10 flex items-center justify-center mb-4">
+                    <div className="animate-pulse">
+                        <Users className="w-10 h-10 text-yellow-500" />
+                    </div>
+                </div>
+                <h1 className="text-3xl font-extrabold tracking-tight">Adhésion en attente</h1>
+                <p className="text-muted-foreground text-lg">
+                    Votre demande pour rejoindre la troupe <span className="font-bold text-foreground">{troupe.name}</span> a bien été reçue.
+                </p>
+                <div className="bg-muted/50 p-6 rounded-2xl border border-border w-full">
+                    <p className="text-sm font-medium">
+                        Un administrateur doit valider votre demande pour que vous puissiez accéder à l'espace de travail.
+                    </p>
+                </div>
+                <Link href="/troupes">
+                    <Button variant="outline" className="rounded-full">Retour au tableau de bord</Button>
+                </Link>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-10">

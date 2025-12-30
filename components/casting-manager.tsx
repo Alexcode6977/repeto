@@ -10,9 +10,10 @@ interface CastingManagerProps {
     characters: any[];
     troupeMembers: any[];
     guests: any[];
+    isAdmin: boolean;
 }
 
-export function CastingManager({ characters, troupeMembers, guests }: CastingManagerProps) {
+export function CastingManager({ characters, troupeMembers, guests, isAdmin }: CastingManagerProps) {
     // Map charId -> assignment (u:userId or g:guestId)
     const [assignments, setAssignments] = useState<Record<string, string>>(() => {
         return Object.fromEntries(characters.map(c => {
@@ -24,6 +25,7 @@ export function CastingManager({ characters, troupeMembers, guests }: CastingMan
     const [loadingState, setLoadingState] = useState<Record<string, boolean>>({});
 
     const handleAssign = async (charId: string, assignment: string) => {
+        if (!isAdmin) return; // double check protection
         setLoadingState(prev => ({ ...prev, [charId]: true }));
         try {
             let actorId: string | null = null;
@@ -65,7 +67,7 @@ export function CastingManager({ characters, troupeMembers, guests }: CastingMan
                         <Select
                             value={assignments[char.id]}
                             onValueChange={(val) => handleAssign(char.id, val)}
-                            disabled={loadingState[char.id]}
+                            disabled={!isAdmin || loadingState[char.id]}
                         >
                             <SelectTrigger className="w-full">
                                 <SelectValue placeholder="Choisir un acteur" />

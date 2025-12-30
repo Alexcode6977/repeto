@@ -12,6 +12,12 @@ export default async function PlayDashboardPage({
     const play = await getPlayDetails(playId);
     if (!play) return <div>Pièce introuvable</div>;
 
+    // Get admin status
+    // Optimization: we could just check current user role from updated getTroupeDetails
+    const { getTroupeDetails } = await import("@/lib/actions/troupe");
+    const troupe = await getTroupeDetails(troupeId);
+    const isAdmin = troupe?.my_role === 'admin';
+
     // Get troupe members for casting dropdown
     const supabase = await createClient();
     const { data: members } = await supabase
@@ -28,6 +34,7 @@ export default async function PlayDashboardPage({
             troupeId={troupeId}
             troupeMembers={troupeMembers}
             guests={guests}
+            isAdmin={isAdmin}
         />
     );
 }

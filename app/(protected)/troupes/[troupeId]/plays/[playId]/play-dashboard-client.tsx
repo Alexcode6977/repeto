@@ -20,9 +20,10 @@ interface PlayDashboardClientProps {
     troupeId: string;
     troupeMembers: any[];
     guests: any[];
+    isAdmin: boolean;
 }
 
-export function PlayDashboardClient({ play, troupeId, troupeMembers, guests }: PlayDashboardClientProps) {
+export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin }: PlayDashboardClientProps) {
     const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "setup" | "reader" | "rehearsal">("dashboard");
     const [rehearsalChars, setRehearsalChars] = useState<string[] | null>(null);
     const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
@@ -219,6 +220,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests }: P
                                 characters={play.play_characters}
                                 troupeMembers={troupeMembers}
                                 guests={guests}
+                                isAdmin={isAdmin}
                             />
                         </CardContent>
                     </Card>

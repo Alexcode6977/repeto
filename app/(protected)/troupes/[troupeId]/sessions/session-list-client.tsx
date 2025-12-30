@@ -22,8 +22,16 @@ export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListCl
     const now = new Date();
 
     // Filter by view if specified
+    // Filter by view if specified
     const filteredSessions = sessions.filter(s => {
         const hasPlan = s.session_plans && s.session_plans.selected_scenes?.length > 0;
+
+        // Members only see sessions that are ready (have a plan)
+        if (!isAdmin && !hasPlan && !s.is_past) { // Keep past sessions even if plan data is weird? No, usually valid.
+            // Actually, simplest: Members never see "prep" sessions.
+            if (!hasPlan) return false;
+        }
+
         if (view === 'prep') return !hasPlan;
         if (view === 'live') return hasPlan;
         return true;
