@@ -9,14 +9,16 @@ import {
     BookOpen,
     Users,
     ChevronLeft,
-    ClipboardList
+    ClipboardList,
+    Settings
 } from "lucide-react";
 
 interface TroupeSidebarProps {
     troupeId: string;
+    role?: string;
 }
 
-export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
+export function TroupeSidebar({ troupeId, role }: TroupeSidebarProps) {
     const pathname = usePathname();
 
     const navItems = [
@@ -42,7 +44,8 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
             label: "Préparation Séance",
             href: `/troupes/${troupeId}/sessions`,
             icon: ClipboardList,
-            active: pathname.startsWith(`/troupes/${troupeId}/sessions`) && !pathname.includes('/live')
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`) && !pathname.includes('/live'),
+            restricted: true // Only for admins/managers
         },
         {
             label: "Séance Live",
@@ -52,6 +55,13 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
         }
     ];
 
+    // Filter items based on permissions
+    const visibleNavItems = navItems.filter(item => {
+        if (item.label === "Tableau de Bord" && role !== 'admin') return false;
+        if (item.label === "Préparation Séance" && role === 'member') return false;
+        return true;
+    });
+
     // Detect if we are in the sessions area
     const isInSessions = pathname.startsWith(`/troupes/${troupeId}/sessions`);
     const sessionMatch = pathname.match(new RegExp(`/troupes/[^/]+/sessions/([^/]+)`));
@@ -60,7 +70,7 @@ export function TroupeSidebar({ troupeId }: TroupeSidebarProps) {
     const isLive = pathname.endsWith('/live');
 
     // Update Séance Live href dynamically based on selected session
-    const navItemsWithLiveHref = navItems.map(item => {
+    const navItemsWithLiveHref = visibleNavItems.map(item => {
         if (item.label === "Séance Live" && eventId) {
             return { ...item, href: `/troupes/${troupeId}/sessions/${eventId}/live` };
         }

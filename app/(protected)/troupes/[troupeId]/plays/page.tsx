@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, BookOpen, User, ArrowLeft } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { DeletePlayButton } from "./delete-play-button";
+import { PlayPosterCard } from "./play-poster-card";
 
 export default async function TroupePlaysPage({
     params
@@ -22,96 +23,51 @@ export default async function TroupePlaysPage({
     return (
         <div className="space-y-12">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
+            {/* Header Section */}
+            <div className="flex flex-col gap-2 relative z-10">
                 <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
 
-                <div className="relative">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Link href={`/troupes/${troupeId}`} className="text-gray-500 hover:text-foreground transition-colors text-sm font-medium flex items-center gap-1 group">
-                            <span className="group-hover:-translate-x-1 transition-transform">←</span> Retour au dashboard
-                        </Link>
-                    </div>
-                    <h1 className="text-5xl font-extrabold tracking-tighter text-foreground mb-2 leading-none">
-                        Pièces & <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400">Scripts</span>
-                    </h1>
-                    <p className="text-muted-foreground font-medium flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-primary" />
-                        Gestion de la bibliothèque de la troupe {troupe.name}
-                    </p>
-                </div>
-
-                {isAdmin && (
-                    <div className="relative shrink-0">
-                        <Link href={`/troupes/${troupeId}/plays/new`}>
-                            <Button className="rounded-full px-8 bg-primary hover:bg-primary/90 text-foreground shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] transition-all uppercase text-xs font-bold tracking-widest h-12">
-                                <Plus className="mr-2 h-5 w-5" />
-                                Ajouter une pièce
-                            </Button>
-                        </Link>
-                    </div>
-                )}
+                <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-foreground leading-none">
+                    Bibliothèque
+                </h1>
+                <p className="text-lg text-muted-foreground font-medium max-w-2xl">
+                    Accédez aux scripts, distribuez les rôles et lancez les répétitions.
+                </p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                {plays.map((play: any) => (
-                    <div key={play.id} className="group relative">
+            {/* Plays Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+                {plays.map((play: any, index: number) => (
+                    <div key={play.id} className="relative group/wrapper">
                         {isAdmin && (
-                            <div className="absolute top-4 right-4 z-50 animate-in fade-in zoom-in duration-300">
+                            <div className="absolute -top-2 -right-2 z-50 opacity-0 group-hover/wrapper:opacity-100 transition-opacity">
                                 <DeletePlayButton playId={play.id} playTitle={play.title} />
                             </div>
                         )}
-                        <Link href={`/troupes/${troupeId}/plays/${play.id}`} className="block h-full">
-                            <Card className="h-full bg-card border-white/10 backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-white/10 group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] rounded-3xl border">
-                                <CardHeader className="p-8 pb-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-white/10 flex items-center justify-center mb-4 group-hover:bg-primary/30 transition-colors">
-                                        <BookOpen className="h-6 w-6 text-primary" />
-                                    </div>
-                                    <CardTitle className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors pr-10">
-                                        {play.title}
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="px-8 pb-8 pt-2">
-                                    <div className="flex items-center gap-6 text-sm font-medium">
-                                        <div className="flex items-center gap-2 text-gray-500">
-                                            <User className="h-4 w-4 text-primary/60" />
-                                            <span className="text-gray-300 font-bold">{play.play_characters?.[0]?.count || 0}</span>
-                                            <span className="text-[10px] uppercase tracking-wider opacity-60">Rôles</span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-gray-500">
-                                            <BookOpen className="h-4 w-4 text-primary/60" />
-                                            <span className="text-gray-300 font-bold">{play.play_scenes?.[0]?.count || 0}</span>
-                                            <span className="text-[10px] uppercase tracking-wider opacity-60">Scènes</span>
-                                        </div>
-                                    </div>
-                                    <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                                        <span className="text-xs text-gray-500 uppercase tracking-widest font-black">Voir les détails</span>
-                                        <div className="w-8 h-8 rounded-full bg-card flex items-center justify-center text-foreground group-hover:bg-primary transition-all">
-                                            <span className="text-sm">→</span>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
+                        <PlayPosterCard play={play} troupeId={troupeId} index={index} />
                     </div>
                 ))}
 
-                {plays.length === 0 && (
-                    <div className="col-span-full py-24 rounded-3xl border border-dashed border-white/10 bg-card backdrop-blur-sm flex flex-col items-center justify-center text-center">
-                        <BookOpen className="h-20 w-20 text-foreground/10 mb-6" />
-                        <h3 className="text-xl font-bold text-foreground mb-2">Aucune pièce ajoutée</h3>
-                        <p className="text-gray-500 mb-8 max-w-sm font-medium">
-                            Importez votre premier texte pour commencer la distribution et les répétitions.
-                        </p>
-                        {isAdmin && (
-                            <Link href={`/troupes/${troupeId}/plays/new`}>
-                                <Button size="lg" className="rounded-full px-8 bg-white text-black hover:bg-gray-200 transition-all font-bold">
-                                    Ajouter ma première pièce
-                                </Button>
-                            </Link>
-                        )}
-                    </div>
+                {/* Add New Play Card (Admin Only) */}
+                {isAdmin && (
+                    <Link href={`/troupes/${troupeId}/plays/new`} className="block group relative w-full aspect-[2/3]">
+                        <div className="absolute inset-0 rounded-2xl border-2 border-dashed border-white/10 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-4 transition-all duration-300 text-muted-foreground hover:text-primary">
+                            <div className="w-16 h-16 rounded-full bg-secondary/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <Plus className="w-8 h-8" />
+                            </div>
+                            <span className="font-bold uppercase tracking-widest text-xs">Ajouter une pièce</span>
+                        </div>
+                    </Link>
                 )}
             </div>
+
+            {/* Empty State (Only if no plays and not admin - admin sees the add card) */}
+            {plays.length === 0 && !isAdmin && (
+                <div className="col-span-full py-24 flex flex-col items-center justify-center text-center opacity-60">
+                    <BookOpen className="h-16 w-16 mb-4" />
+                    <p>Aucune pièce disponible</p>
+                </div>
+            )}
         </div>
     );
 }

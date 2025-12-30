@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Calendar, Play, BookOpen, Mic } from "lucide-react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
 interface PlayDashboardClientProps {
     play: any;
@@ -32,6 +33,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     });
     const [isMounted, setIsMounted] = useState(false);
     const [userId, setUserId] = useState<string>("");
+    const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal">("reader");
 
     useEffect(() => {
         setIsMounted(true);
@@ -115,6 +117,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 <ScriptViewer
                     script={play.script_content as ParsedScript}
                     onConfirm={handleConfirmSelection}
+                    forcedMode={intendedMode}
                 />
             </div>
         );
@@ -128,9 +131,12 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const estimatedDuration = Math.round(lineCount * 0.5); // ~30 sec per line = 0.5 min
 
     return (
-        <div className="space-y-10">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
+        <div className="space-y-10 pb-32">
+            {/* Header Section with Shared Element Transition */}
+            <motion.div
+                layoutId={`play-card-${play.id}`}
+                className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10"
+            >
                 <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
 
                 <div className="relative">
@@ -139,9 +145,12 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                             <span className="group-hover:-translate-x-1 transition-transform">←</span> Retour aux pièces
                         </Link>
                     </div>
-                    <h1 className="text-5xl font-extrabold tracking-tighter text-foreground mb-2 leading-none">
+                    <motion.h1
+                        layoutId={`play-title-${play.id}`}
+                        className="text-5xl font-extrabold tracking-tighter text-foreground mb-2 leading-none"
+                    >
                         {play.title}
-                    </h1>
+                    </motion.h1>
                     <div className="flex items-center gap-4 text-muted-foreground font-medium">
                         <p className="flex items-center gap-2 text-sm">
                             <Calendar className="w-4 h-4" />
@@ -154,7 +163,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         )}
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Two Column Layout */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -231,7 +240,10 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                     {/* Jouer Card */}
                     <Card
                         className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-green-500/30 hover:shadow-[0_0_30px_rgba(34,197,94,0.1)] transition-all group"
-                        onClick={() => setViewMode("viewer")}
+                        onClick={() => {
+                            setIntendedMode("reader");
+                            setViewMode("viewer");
+                        }}
                     >
                         <CardHeader className="p-6">
                             <div className="flex items-center justify-between">
@@ -240,7 +252,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                                         <BookOpen className="w-6 h-6 text-green-500" />
                                     </div>
                                     <div>
-                                        <CardTitle className="text-xl font-bold text-foreground group-hover:text-green-500 transition-colors">Jouer</CardTitle>
+                                        <CardTitle className="text-xl font-bold text-foreground group-hover:text-green-500 transition-colors">Lire</CardTitle>
                                         <CardDescription className="text-muted-foreground">Mode lecture du script</CardDescription>
                                     </div>
                                 </div>
@@ -254,7 +266,10 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                     {/* Répéter Card */}
                     <Card
                         className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-primary/30 hover:shadow-[0_0_30px_rgba(var(--primary-rgb),0.1)] transition-all group"
-                        onClick={() => setViewMode("viewer")}
+                        onClick={() => {
+                            setIntendedMode("rehearsal");
+                            setViewMode("viewer");
+                        }}
                     >
                         <CardHeader className="p-6">
                             <div className="flex items-center justify-between">

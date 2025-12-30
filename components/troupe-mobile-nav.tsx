@@ -12,9 +12,10 @@ import {
 
 interface TroupeMobileNavProps {
     troupeId: string;
+    role?: string;
 }
 
-export function TroupeMobileNav({ troupeId }: TroupeMobileNavProps) {
+export function TroupeMobileNav({ troupeId, role }: TroupeMobileNavProps) {
     const pathname = usePathname();
 
     const navItems = [
@@ -31,10 +32,14 @@ export function TroupeMobileNav({ troupeId }: TroupeMobileNavProps) {
             active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
         },
         {
-            label: "Séances",
-            href: `/troupes/${troupeId}/sessions`,
+            label: role === 'member' ? "Séance" : "Séances",
+            href: role === 'member'
+                ? `/troupes/${troupeId}/sessions/live`
+                : `/troupes/${troupeId}/sessions`,
             icon: ClipboardList,
-            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
+            active: role === 'member'
+                ? pathname.includes(`/troupes/${troupeId}/sessions/live`)
+                : pathname.startsWith(`/troupes/${troupeId}/sessions`)
         },
         {
             label: "Pièces",

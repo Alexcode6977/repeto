@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils";
 interface LiveProps {
     sessionData: any;
     troupeId: string;
+    isReadOnly?: boolean;
 }
 
-export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
+export function LiveSessionClient({ sessionData, troupeId, isReadOnly = false }: LiveProps) {
     const plays = sessionData.plays || [];
     const plan = sessionData.session_plans;
     const selectedScenes = plan.selected_scenes || [];
@@ -323,44 +324,50 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                                             <textarea
                                                 className={cn(
                                                     "w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none resize-none transition-all focus:border-primary/50",
-                                                    listening && "border-red-500 bg-red-500/5"
+                                                    listening && "border-red-500 bg-red-500/5",
+                                                    isReadOnly && "opacity-50 cursor-not-allowed"
                                                 )}
-                                                placeholder={`Notes pour ${char.name}...`}
+                                                placeholder={isReadOnly ? "Lecture seule..." : `Notes pour ${char.name}...`}
                                                 rows={2}
                                                 value={text}
+                                                readOnly={isReadOnly}
                                                 onChange={(e) => setCharacterFeedbacks(prev => ({ ...prev, [char.id]: e.target.value }))}
                                             />
 
-                                            <div className="absolute top-2 right-2 flex gap-1">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => toggleListening(char.id)}
-                                                    className={cn(
-                                                        "w-8 h-8 rounded-lg transition-all",
-                                                        listening ? "bg-red-500 text-white animate-pulse" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                                                    )}
-                                                >
-                                                    {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                                                </Button>
-                                            </div>
+                                            {!isReadOnly && (
+                                                <div className="absolute top-2 right-2 flex gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => toggleListening(char.id)}
+                                                        className={cn(
+                                                            "w-8 h-8 rounded-lg transition-all",
+                                                            listening ? "bg-red-500 text-white animate-pulse" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                                        )}
+                                                    >
+                                                        {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Submit */}
-                                        <div className="flex justify-end mt-2">
-                                            <Button
-                                                size="sm"
-                                                disabled={isSubmitting || !text.trim()}
-                                                onClick={() => handleSendFeedback(char)}
-                                                className="rounded-lg px-4 py-2 bg-primary hover:bg-primary/80 text-primary-foreground font-bold text-xs"
-                                            >
-                                                {isSubmitting ? (
-                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                ) : (
-                                                    <><Send className="w-3 h-3 mr-1" /> Envoyer</>
-                                                )}
-                                            </Button>
-                                        </div>
+                                        {!isReadOnly && (
+                                            <div className="flex justify-end mt-2">
+                                                <Button
+                                                    size="sm"
+                                                    disabled={isSubmitting || !text.trim()}
+                                                    onClick={() => handleSendFeedback(char)}
+                                                    className="rounded-lg px-4 py-2 bg-primary hover:bg-primary/80 text-primary-foreground font-bold text-xs"
+                                                >
+                                                    {isSubmitting ? (
+                                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                                    ) : (
+                                                        <><Send className="w-3 h-3 mr-1" /> Envoyer</>
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </Card>
                             );
@@ -368,6 +375,6 @@ export function LiveSessionClient({ sessionData, troupeId }: LiveProps) {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Play, Calendar, ChevronRight, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { PersonalPrepButton } from "./personal-prep-button";
 
 export default async function LiveSessionsPage({
     params
@@ -88,12 +90,21 @@ export default async function LiveSessionsPage({
                                         </div>
                                     </div>
 
-                                    <Button asChild size="lg" className="rounded-xl bg-green-500 hover:bg-green-600 text-foreground font-black text-xs uppercase tracking-widest px-6 h-12 shadow-lg shadow-green-500/20 transition-all active:scale-95 ml-4">
-                                        <Link href={`/troupes/${troupeId}/sessions/${session.id}/live`}>
-                                            <Play className="w-4 h-4 mr-2 fill-current" />
-                                            Lancer
-                                        </Link>
-                                    </Button>
+                                    <div className="flex items-center gap-2 ml-4">
+                                        <PersonalPrepButton sessionId={session.id} />
+
+                                        <Button asChild size="lg" className={cn(
+                                            "rounded-xl font-black text-xs uppercase tracking-widest px-6 h-12 shadow-lg transition-all active:scale-95",
+                                            troupe?.my_role === 'admin'
+                                                ? "bg-green-500 hover:bg-green-600 text-foreground shadow-green-500/20"
+                                                : "bg-secondary hover:bg-secondary/80 text-secondary-foreground shadow-secondary/20"
+                                        )}>
+                                            <Link href={`/troupes/${troupeId}/sessions/${session.id}/live`}>
+                                                <Play className="w-4 h-4 mr-2 fill-current" />
+                                                {troupe?.my_role === 'admin' ? "Lancer" : "Voir"}
+                                            </Link>
+                                        </Button>
+                                    </div>
                                 </div>
                             </Card>
                         );

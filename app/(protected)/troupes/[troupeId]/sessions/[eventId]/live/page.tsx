@@ -1,4 +1,5 @@
 import { getSessionDetails } from "@/lib/actions/session";
+import { getTroupeDetails } from "@/lib/actions/troupe";
 import { LiveSessionClient } from "./live-client";
 
 export default async function LiveSessionPage({
@@ -8,6 +9,10 @@ export default async function LiveSessionPage({
 }) {
     const { troupeId, eventId } = await params;
     const sessionData = await getSessionDetails(eventId);
+    const troupe = await getTroupeDetails(troupeId);
+
+    // Non-admins are in read-only mode
+    const isReadOnly = troupe?.my_role !== 'admin';
 
     if (!sessionData) return <div>Séance introuvable</div>;
     if (!sessionData.session_plans || sessionData.session_plans.selected_scenes.length === 0) {
@@ -28,6 +33,7 @@ export default async function LiveSessionPage({
             <LiveSessionClient
                 sessionData={sessionData}
                 troupeId={troupeId}
+                isReadOnly={isReadOnly}
             />
         </div>
     );

@@ -483,3 +483,185 @@ export async function getTroupeGuests(troupeId: string) {
 
     return data || [];
 }
+
+export async function removeTroupeMember(troupeId: string, userId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    // Verify admin status
+    const { data: requester } = await supabase
+        .from('troupe_members')
+        .select('role')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (requester?.role !== 'admin') {
+        throw new Error("Only admins can remove members");
+    }
+
+    const { error } = await supabase
+        .from('troupe_members')
+        .delete()
+        .eq('troupe_id', troupeId)
+        .eq('user_id', userId);
+
+    if (error) throw error;
+    revalidatePath(`/troupes/${troupeId}/settings`);
+}
+
+export async function updateMemberRole(troupeId: string, userId: string, newRole: 'admin' | 'member') {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
+    // Verify admin status
+    const { data: requester } = await supabase
+        .from('troupe_members')
+        .select('role')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (requester?.role !== 'admin') {
+        throw new Error("Only admins can change roles");
+    }
+
+    const { error } = await supabase
+        .from('troupe_members')
+        .update({ role: newRole })
+        .eq('troupe_id', troupeId)
+        .eq('user_id', userId);
+
+    if (error) throw error;
+    revalidatePath(`/troupes/${troupeId}/settings`);
+}
+
+export async function getTroupeSettingsData(troupeId: string) {
+    console.log("Fetching settings for troupe:", troupeId);
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.log("No user found");
+        return null;
+    }
+
+    // 1. Get Troupe Details & Check Access
+    const { data: troupeData, error: troupeError } = await supabase
+        .from('troupes')
+        .select(`
+            id, name, join_code, created_at, created_by, subscription_status,
+            members:troupe_members (
+                user_id, role,
+                profiles (id, email, first_name, stripe_customer_id)
+            )
+        `)
+        .eq('id', troupeId)
+        .single();
+
+    if (troupeError || !troupeData) {
+        console.error("Troupe fetch error:", JSON.stringify(troupeError, null, 2));
+        return null;
+    }
+
+    // Check if current user is admin
+    const myMembership = troupeData.members.find((m: any) => m.user_id === user.id);
+    console.log("Membership found:", myMembership);
+
+    if (myMembership?.role !== 'admin') {
+        console.log("User is not admin:", myMembership?.role);
+        return null;
+    }
+
+    // 2. Get Pending Join Requests
+    const { data: pendingRequests } = await supabase
+        .from('troupe_join_requests')
+        .select(`
+            id, user_id, status, created_at,
+            profiles (id, email, first_name)
+        `)
+        .eq('troupe_id', troupeId)
+        .eq('status', 'pending');
+
+    const requests = pendingRequests?.map((r: any) => {
+        const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+        return {
+            id: r.id,
+            user_id: r.user_id,
+            created_at: r.created_at,
+            email: profile?.email,
+            first_name: profile?.first_name,
+            last_name: null,
+            avatar_url: null
+        };
+    }) || [];
+
+    const isSubscribed = troupeData.subscription_status === 'active';
+
+    return {
+        troupe: {
+            id: troupeData.id,
+            name: troupeData.name,
+            join_code: troupeData.join_code,
+            created_at: troupeData.created_at,
+            created_by: troupeData.created_by,
+            subscription_status: troupeData.subscription_status
+        },
+        members: troupeData.members.map((m: any) => {
+            const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+            return {
+                user_id: m.user_id,
+                role: m.role,
+                ...profile
+            };
+        }),
+        requests: requests,
+        subscription: {
+            plan: isSubscribed ? 'Troupe' : 'Free',
+            memberLimit: isSubscribed ? 1000 : 10,
+            currentCount: troupeData.members.length,
+            hasStripeCustomerId: !!(Array.isArray(myMembership.profiles) ? myMembership.profiles[0] : myMembership.profiles)?.stripe_customer_id,
+            status: troupeData.subscription_status
+        }
+    };
+
+}
+
+export async function deleteTroupe(troupeId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Vous devez être connecté.");
+    }
+
+    // Verify admin
+    const { data: membership, error: memError } = await supabase
+        .from('troupe_members')
+        .select('role')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (memError || !membership || membership.role !== 'admin') {
+        throw new Error("Vous n'avez pas les droits pour supprimer cette troupe.");
+    }
+
+    // Delete troupe
+    const { error } = await supabase
+        .from('troupes')
+        .delete()
+        .eq('id', troupeId);
+
+    if (error) {
+        console.error("Error deleting troupe:", error);
+        throw new Error("Erreur lors de la suppression de la troupe.");
+    }
+
+    // Stripe cleanup is handled via webhooks usually, or we can assume subscription cancels at period end
+    // Ideally we should cancel stripe subscription here if active, but for now we delete the record.
+}

@@ -114,6 +114,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                 onClose={() => setSelectedEvent(null)}
                 members={members}
                 isAdmin={isAdmin}
+                currentUserId={userId}
             />
         </>
     );
