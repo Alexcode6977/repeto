@@ -3,8 +3,8 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
-import { useState, useTransition, useEffect, useMemo, useCallback } from "react";
-import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction, renameScriptAction } from "./actions";
+import { useState, useTransition, useEffect, useMemo, useCallback, useRef } from "react";
+import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction, renameScriptAction, getUserTierAction, importScriptWithAI } from "./actions";
 import { ParsedScript } from "@/lib/types";
 import { ScriptViewerSingle } from "@/components/script-viewer-single";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
@@ -73,6 +73,29 @@ export default function Home() {
   const [renamingScriptTitle, setRenamingScriptTitle] = useState("");
   const [libraryView, setLibraryView] = useState<"personal" | "shared">("personal");
   const [selectedScriptMeta, setSelectedScriptMeta] = useState<{ id: string; isPublic: boolean } | null>(null);
+  const [showImportGuide, setShowImportGuide] = useState(false); // NEW: Import guide modal state
+  const [userTier, setUserTier] = useState<"free" | "solo_pro" | "troupe">("free"); // Subscription tier
+  const [isAiImporting, setIsAiImporting] = useState(false); // AI import loading state
+  const [aiImportStep, setAiImportStep] = useState<0 | 1 | 2 | 3>(0); // 0=idle, 1=extracting, 2=cleaning, 3=parsing
+  const [aiImportProgress, setAiImportProgress] = useState(0); // Progress percentage for current step
+  const [aiImportSuccess, setAiImportSuccess] = useState(false); // Success state
+  const [aiImportCancelled, setAiImportCancelled] = useState(false); // Cancel flag
+  const [aiImportCountdown, setAiImportCountdown] = useState(300); // 5 minute countdown in seconds
+  const aiImportIntervalsRef = useRef<NodeJS.Timeout[]>([]); // Store intervals for cleanup
+
+  // Cancel AI import
+  const cancelAiImport = () => {
+    // Clear all running intervals
+    aiImportIntervalsRef.current.forEach(id => clearInterval(id));
+    aiImportIntervalsRef.current = [];
+
+    setAiImportCancelled(true);
+    setIsAiImporting(false);
+    setAiImportStep(0);
+    setAiImportProgress(0);
+    setAiImportCountdown(300); // Reset countdown
+    setShowImportGuide(false);
+  };
 
   const router = useRouter();
 
@@ -98,6 +121,10 @@ export default function Home() {
           } else if (user.email) {
             setUserName(user.email.split('@')[0]);
           }
+
+          // Fetch user tier for UI decisions
+          const tier = await getUserTierAction();
+          setUserTier(tier);
         }
       } catch (e) {
         console.error("Client Init Error:", e);
@@ -157,6 +184,123 @@ export default function Home() {
       }
       e.target.value = "";
     });
+  };
+
+  // AI-powered import for Solo Pro users
+  const handleAiFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+    // Keep modal open, just switch to progress mode
+    setIsAiImporting(true);
+    setAiImportSuccess(false);
+    setAiImportCancelled(false); // Reset cancel flag
+    setAiImportStep(1); // Step 1: Extraction
+    setAiImportProgress(0);
+    aiImportIntervalsRef.current = []; // Clear any old intervals
+
+    // Simulate extraction progress
+    const extractionInterval = setInterval(() => {
+      setAiImportProgress(prev => Math.min(prev + 15, 90));
+    }, 200);
+    aiImportIntervalsRef.current.push(extractionInterval);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Step 1 complete, move to Step 2
+      clearInterval(extractionInterval);
+      setAiImportProgress(100);
+      await new Promise(r => setTimeout(r, 300));
+
+      // Check if cancelled
+      if (aiImportCancelled) return;
+
+      setAiImportStep(2); // Step 2: AI Cleaning
+      setAiImportProgress(0);
+      setAiImportCountdown(300); // Start at 5 minutes
+
+      // Start countdown timer
+      const countdownInterval = setInterval(() => {
+        setAiImportCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownInterval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      aiImportIntervalsRef.current.push(countdownInterval);
+
+      // AI cleaning takes time, animate progress slowly
+      const cleaningStart = Date.now();
+      const cleaningInterval = setInterval(() => {
+        const elapsed = Date.now() - cleaningStart;
+        // Very slow progress curve (takes 5 min to reach 95%)
+        const progress = Math.min(95, (elapsed / 3000)); // 3s per 1%
+        setAiImportProgress(Math.floor(progress));
+      }, 1000);
+      aiImportIntervalsRef.current.push(cleaningInterval);
+
+      const result = await importScriptWithAI(formData);
+
+      clearInterval(cleaningInterval);
+
+      // Check if cancelled during API call
+      if (aiImportCancelled) return;
+
+      setAiImportProgress(100);
+      await new Promise(r => setTimeout(r, 300));
+
+      if ("error" in result) {
+        setError(result.error);
+        setIsAiImporting(false);
+        setAiImportStep(0);
+      } else {
+        // Step 3: Saving
+        setAiImportStep(3);
+        setAiImportProgress(0);
+
+        const finalScript = {
+          ...result,
+          title: result.title || file.name.replace(".pdf", "")
+        };
+
+        setAiImportProgress(50);
+        await saveScript(finalScript);
+
+        // Check if cancelled
+        if (aiImportCancelled) return;
+
+        setAiImportProgress(80);
+        await refreshScripts();
+        setAiImportProgress(100);
+
+        // Show success
+        setAiImportSuccess(true);
+
+        // Close modal after 1.5s
+        setTimeout(() => {
+          setShowImportGuide(false);
+          setIsAiImporting(false);
+          setAiImportStep(0);
+          setAiImportSuccess(false);
+        }, 1500);
+      }
+    } catch (err: any) {
+      if (!aiImportCancelled) {
+        setError(err.message || "Erreur lors de l'import IA.");
+        setIsAiImporting(false);
+        setAiImportStep(0);
+      }
+    } finally {
+      e.target.value = "";
+      // Clear intervals on completion
+      aiImportIntervalsRef.current.forEach(id => clearInterval(id));
+      aiImportIntervalsRef.current = [];
+    }
   };
 
   const startDeepParsing = async () => {
@@ -436,23 +580,15 @@ export default function Home() {
         <div className="hidden md:flex items-center gap-4">
           <Button
             className="rounded-full px-6 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 btn-glow active:scale-95 group relative overflow-hidden"
-            asChild
+            onClick={() => setShowImportGuide(true)}
             disabled={isPending}
           >
-            <label className="cursor-pointer flex items-center gap-2">
-              {isPending ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-              )}
-              <span className="relative z-10">Importer un Script</span>
-              <input
-                type="file"
-                accept=".pdf"
-                className="hidden"
-                onChange={handleFileChange}
-              />
-            </label>
+            {isPending ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+            )}
+            <span className="relative z-10 ml-2">Importer un Script</span>
           </Button>
         </div>
       </div>
@@ -803,6 +939,335 @@ export default function Home() {
             >
               Lancer l'analyse finale
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT GUIDE MODAL - Conditional based on tier */}
+      {showImportGuide && userTier === "free" && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4"
+          onClick={() => setShowImportGuide(false)}
+        >
+          <div
+            className="bg-card border border-border p-8 rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowImportGuide(false)}
+              className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Background Decorations */}
+            <div className="absolute -top-20 -left-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Header - Full Width */}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-extrabold text-foreground tracking-tight">
+                📝 Préparez votre script
+              </h2>
+              <p className="text-muted-foreground mt-2">
+                Pour que l'import fonctionne, votre PDF doit être formaté selon ces règles
+              </p>
+            </div>
+
+            {/* 2-Column Layout */}
+            <div className="grid md:grid-cols-2 gap-6">
+
+              {/* LEFT COLUMN - Steps */}
+              <div className="space-y-4">
+                {/* Step 1 */}
+                <div className="bg-muted/30 border border-border rounded-2xl p-5 hover:border-primary/30 transition-colors">
+                  <h4 className="font-bold text-foreground flex items-center gap-3 mb-3">
+                    <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shadow-lg shadow-primary/30">1</span>
+                    Le Grand Nettoyage
+                  </h4>
+                  <ul className="text-muted-foreground text-sm space-y-2 ml-11">
+                    <li className="flex items-start gap-2">
+                      <span className="text-red-400">✗</span>
+                      Numéros de pages, en-têtes, pieds de page
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-red-400">✗</span>
+                      Descriptions inutiles (décors, actions sans dialogue)
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Step 2 */}
+                <div className="bg-muted/30 border border-border rounded-2xl p-5 hover:border-primary/30 transition-colors">
+                  <h4 className="font-bold text-foreground flex items-center gap-3 mb-3">
+                    <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shadow-lg shadow-primary/30">2</span>
+                    Les En-têtes de Scène
+                  </h4>
+                  <div className="text-muted-foreground text-sm ml-11 space-y-1">
+                    <p><code className="bg-muted px-2 py-0.5 rounded text-foreground">Acte X, Scène Y</code></p>
+                    <p><code className="bg-muted px-2 py-0.5 rounded text-foreground">Personnages : NOM1, NOM2</code></p>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="bg-muted/30 border border-border rounded-2xl p-5 hover:border-primary/30 transition-colors">
+                  <h4 className="font-bold text-foreground flex items-center gap-3 mb-3">
+                    <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center shadow-lg shadow-primary/30">3</span>
+                    Format des Dialogues
+                  </h4>
+                  <div className="text-sm ml-11 space-y-2">
+                    <pre className="bg-muted/50 border border-border rounded-lg p-3 text-xs font-mono text-foreground">
+                      {`PERSO NOM_DU_PERSO
+
+REPLIQUE Le texte...`}
+                    </pre>
+                    <ul className="text-muted-foreground space-y-1 text-xs">
+                      <li>• Noms en <strong className="text-foreground">MAJUSCULES</strong></li>
+                      <li>• Ligne vide entre nom et réplique</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN - Example + Button */}
+              <div className="flex flex-col gap-4">
+                {/* Example Block */}
+                <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-5 flex-1">
+                  <h4 className="font-bold text-amber-400 text-xs uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    Exemple concret
+                  </h4>
+                  <pre className="text-sm font-mono text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                    {`Acte 1, Scène 1
+Personnages : FOLLAVOINE, ROSE
+
+PERSO FOLLAVOINE
+
+REPLIQUE Voyons, qu'est-ce 
+que vous voulez ?
+
+PERSO ROSE
+
+REPLIQUE C'est Madame qui 
+demande Monsieur.`}
+                  </pre>
+                </div>
+
+                {/* Action Button */}
+                <div className="space-y-3">
+                  <Button
+                    className="w-full py-7 rounded-2xl bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 text-primary-foreground font-bold text-lg shadow-xl shadow-primary/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    asChild
+                  >
+                    <label className="cursor-pointer flex items-center justify-center gap-3">
+                      <Upload className="w-6 h-6" />
+                      J'ai préparé mon PDF, Importer
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          setShowImportGuide(false);
+                          handleFileChange(e);
+                        }}
+                      />
+                    </label>
+                  </Button>
+                  <p className="text-center text-muted-foreground text-xs">
+                    Fichier PDF uniquement • Max 100 pages
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT MODAL - Solo Pro / Troupe (AI-powered) */}
+      {showImportGuide && userTier !== "free" && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4"
+          onClick={() => !isAiImporting && setShowImportGuide(false)}
+        >
+          <div
+            className="bg-card border border-border p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            {!isAiImporting && (
+              <button
+                onClick={() => setShowImportGuide(false)}
+                className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Background Decorations */}
+            <div className="absolute -top-20 -left-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
+            {isAiImporting ? (
+              // Progress State with Steps
+              <div className="py-4">
+                {aiImportSuccess ? (
+                  // Success State
+                  <div className="text-center py-8">
+                    <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
+                      <Check className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-foreground mb-2">Import réussi !</h3>
+                    <p className="text-muted-foreground">
+                      Votre script a été importé avec succès.
+                    </p>
+                  </div>
+                ) : (
+                  // Progress Steps
+                  <div className="space-y-6">
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-bold text-foreground">Import en cours...</h3>
+                    </div>
+
+                    {/* Step 1: Extraction */}
+                    <div className={`p-4 rounded-2xl border transition-all ${aiImportStep >= 1 ? 'bg-muted/30 border-primary/30' : 'bg-muted/10 border-border opacity-50'}`}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${aiImportStep > 1 ? 'bg-green-500 text-white' :
+                          aiImportStep === 1 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                          }`}>
+                          {aiImportStep > 1 ? <Check className="w-4 h-4" /> : '1'}
+                        </div>
+                        <span className="font-medium text-foreground">Extraction du PDF</span>
+                        {aiImportStep === 1 && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
+                        {aiImportStep > 1 && <Check className="w-4 h-4 text-green-500 ml-auto" />}
+                      </div>
+                      {aiImportStep === 1 && (
+                        <div className="ml-11">
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-primary to-purple-500 transition-all duration-300"
+                              style={{ width: `${aiImportProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 2: AI Cleaning */}
+                    <div className={`p-4 rounded-2xl border transition-all ${aiImportStep >= 2 ? 'bg-muted/30 border-primary/30' : 'bg-muted/10 border-border opacity-50'}`}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${aiImportStep > 2 ? 'bg-green-500 text-white' :
+                          aiImportStep === 2 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                          }`}>
+                          {aiImportStep > 2 ? <Check className="w-4 h-4" /> : '2'}
+                        </div>
+                        <span className="font-medium text-foreground">Nettoyage</span>
+                        {aiImportStep === 2 && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
+                        {aiImportStep > 2 && <Check className="w-4 h-4 text-green-500 ml-auto" />}
+                      </div>
+                      {aiImportStep === 2 && (
+                        <div className="ml-11 space-y-2">
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-1000"
+                              style={{ width: `${aiImportProgress}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>L'IA restructure votre script...</span>
+                            <span className="font-mono font-bold text-foreground">
+                              {Math.floor(aiImportCountdown / 60)}:{(aiImportCountdown % 60).toString().padStart(2, '0')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Step 3: Saving */}
+                    <div className={`p-4 rounded-2xl border transition-all ${aiImportStep >= 3 ? 'bg-muted/30 border-primary/30' : 'bg-muted/10 border-border opacity-50'}`}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${aiImportStep > 3 ? 'bg-green-500 text-white' :
+                          aiImportStep === 3 ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
+                          }`}>
+                          {aiImportStep > 3 ? <Check className="w-4 h-4" /> : '3'}
+                        </div>
+                        <span className="font-medium text-foreground">Sauvegarde</span>
+                        {aiImportStep === 3 && <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />}
+                      </div>
+                      {aiImportStep === 3 && (
+                        <div className="ml-11">
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300"
+                              style={{ width: `${aiImportProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Cancel Button */}
+                    <div className="pt-4 border-t border-border mt-4">
+                      <Button
+                        variant="ghost"
+                        onClick={cancelAiImport}
+                        className="w-full text-muted-foreground hover:text-foreground"
+                      >
+                        Annuler l'import
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Ready State
+              <div className="space-y-6">
+                <div className="text-center">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
+                    <span className="text-4xl">🤖</span>
+                  </div>
+                  <h3 className="text-2xl font-extrabold text-foreground">Import Automatique</h3>
+                  <p className="text-muted-foreground mt-2">
+                    Importez <strong className="text-foreground">n'importe quel PDF</strong> de pièce de théâtre.
+                  </p>
+                </div>
+
+                <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-400" />
+                    <span className="text-foreground text-sm">Nettoyage automatique par IA</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-400" />
+                    <span className="text-foreground text-sm">Détection des personnages et scènes</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Check className="w-5 h-5 text-green-400" />
+                    <span className="text-foreground text-sm">Fonctionne avec tous les formats</span>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full py-7 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-500/90 hover:to-emerald-600/90 text-white font-bold text-lg shadow-xl shadow-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  asChild
+                >
+                  <label className="cursor-pointer flex items-center justify-center gap-3">
+                    <Upload className="w-6 h-6" />
+                    Importer mon PDF
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      className="hidden"
+                      onChange={handleAiFileChange}
+                    />
+                  </label>
+                </Button>
+
+                <p className="text-center text-muted-foreground text-xs">
+                  PDF uniquement • Powered by GPT-4
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}

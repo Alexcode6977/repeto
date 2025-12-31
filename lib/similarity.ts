@@ -89,13 +89,25 @@ export function cleanTranscript(text: string, playTitle?: string): string {
 }
 
 /**
+ * Remove stage directions (parentheses and brackets) from text
+ */
+export function stripStageDirections(text: string): string {
+    return text
+        .replace(/\(.*?\)/g, "") // Remove (...)
+        .replace(/\[.*?\]/g, "") // Remove [...]
+        .replace(/\s+/g, " ")    // Normalize spaces
+        .trim();
+}
+
+/**
  * Memory-efficient Levenshtein distance (O(min(n,m)) space)
  */
 export function calculateSimilarity(str1: string, str2: string, playTitle?: string, similarityThreshold: number = 0.85): number {
     if (!str1 || !str2) return (str1 === str2) ? 1.0 : 0.0;
 
     const normalize = (s: string) =>
-        s.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        stripStageDirections(s) // NEW: Strip stage directions first
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
             .toLowerCase()
             .replace(/[',]/g, " ") // Treat apostrophes and commas as spaces (j'ai -> j ai)
             .replace(/[^a-z0-9\s]/g, "")

@@ -524,6 +524,35 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             continue;
         }
 
+        // === AI-CLEANED FORMAT DETECTION (PERSO/REPLIQUE) ===
+        // Detect "PERSO X" format - extract character name
+        const persoMatch = line.match(/^PERSO\s+(.+)$/i);
+        if (persoMatch) {
+            // Flush current buffer
+            if (currentCharacter && currentBuffer) {
+                scriptLines.push({
+                    id: String(idCounter++),
+                    character: currentCharacter,
+                    text: currentBuffer.trim(),
+                    type: "dialogue",
+                });
+                currentBuffer = "";
+            }
+            currentCharacter = persoMatch[1].trim().toUpperCase();
+            characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+            previousLine = line;
+            continue;
+        }
+
+        // Detect "REPLIQUE X" format - extract dialogue text (strip REPLIQUE keyword)
+        const repliqueMatch = line.match(/^REPLIQUE\s+(.+)$/i);
+        if (repliqueMatch && currentCharacter) {
+            currentBuffer += (currentBuffer ? " " : "") + repliqueMatch[1].trim();
+            previousLine = line;
+            continue;
+        }
+        // === END AI-CLEANED FORMAT DETECTION ===
+
         // Check for character
         let potentialName = "";
         let potentialDialogue = "";

@@ -4,8 +4,161 @@ import { parseScript } from "@/lib/parser";
 import { ParsedScript } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import OpenAI from "openai";
 
 // pdf-parse required inside action
+
+const AI_CLEANING_PROMPT = `Tu es un expert en restructuration de scripts théâtraux pour le moteur "Repeto". Ta mission est de convertir le texte brut en un script standardisé.
+
+### 1. FORMAT DE SORTIE (STRICT)
+Pour chaque intervention, utilise ce modèle exact avec les sauts de ligne :
+
+PERSO [NOM EN MAJUSCULES]
+(Ligne vide)
+REPLIQUE [Texte du dialogue]
+(Ligne vide)
+
+### 2. RÈGLES DE NETTOYAGE
+- Supprime les balises \`[source]\`, les numéros de pages et les en-têtes.
+- Supprime les lignes vides inutiles.
+
+### 3. FILTRE ANTI-BRUIT (Les Faux Personnages)
+Le texte contient des didascalies formatées comme des noms. Tu dois les détecter.
+- **RÈGLE :** Un \`PERSO\` doit être un Nom Propre (ex: LUCIEN).
+- **INTERDIT (Blacklist)** :
+  1. Tout mot finissant par **"-MENT"** (ex: "SEULEMENT", "BRUSQUEMENT").
+  2. Les adjectifs/actions : "FURIEUX", "AHURI", "INDIGNÉE", "ALLEZ", "HAUSSANT LES ÉPAULES", "APRÈS UN TEMPS", "ENSEMBLE", "VITE".
+- **ACTION :** Si tu trouves un mot interdit isolé, ne crée pas de \`PERSO\`. Intègre-le au début de la \`REPLIQUE\` concernée entre parenthèses.
+  *Exemple :* \`(Furieux) C'est faux !\`
+
+### 4. RÈGLE DE DÉCOUPAGE (SEGMENTATION) - TRES IMPORTANT
+Le texte source contient des erreurs OCR où deux personnages sont collés sur la même ligne.
+Tu dois scanner l'intérieur des phrases.
+- **SI** tu trouves un [NOM DE PERSONNAGE] en majuscules au milieu d'une phrase :
+- **ALORS** tu dois couper le dialogue et créer une nouvelle entrée \`PERSO\`.
+
+*Exemple du problème :*
+Entrée : \`ANNETTE Oui moussié YVONNE Ah non !\`
+
+*Sortie attendue (Tu dois séparer) :*
+PERSO ANNETTE
+REPLIQUE Oui moussié
+
+PERSO YVONNE
+REPLIQUE Ah non !
+
+### 5. CAS SPÉCIAUX
+- Si tu trouves "VOIX DE...", attribue le rôle au personnage cité.
+  *Exemple :* "VOIX D'ANNETTE" -> PERSO ANNETTE / REPLIQUE (Voix) ...
+
+Génère uniquement le script formaté.`;
+
+/**
+ * Clean and restructure a messy script using AI (GPT-4o-mini)
+ * For Solo Pro users - Returns formatted text (PERSO/REPLIQUE)
+ */
+export async function cleanScriptWithAI(rawText: string): Promise<string | { error: string }> {
+    try {
+        console.log("[AI Clean] Starting AI cleaning, text length:", rawText.length);
+
+        // Limit text length to avoid very long processing times
+        const MAX_INPUT_CHARS = 80000;
+        let textToProcess = rawText;
+
+        if (rawText.length > MAX_INPUT_CHARS) {
+            console.log("[AI Clean] Text too long, truncating from", rawText.length, "to", MAX_INPUT_CHARS);
+            textToProcess = rawText.substring(0, MAX_INPUT_CHARS);
+        }
+
+        const openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+            timeout: 300000, // 5 minute timeout
+        });
+
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+                { role: "system", content: AI_CLEANING_PROMPT },
+                { role: "user", content: textToProcess }
+            ],
+            temperature: 0.3, // Low temperature for consistent formatting
+            max_tokens: 16000, // Generous output limit
+        });
+
+        const cleanedText = response.choices[0]?.message?.content;
+
+        if (!cleanedText) {
+            return { error: "L'IA n'a pas pu nettoyer le script." };
+        }
+
+        console.log("[AI Clean] Cleaning complete, output length:", cleanedText.length);
+        return cleanedText;
+    } catch (error: any) {
+        console.error("[AI Clean] Error:", error);
+
+        // Handle timeout specifically
+        if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {
+            return { error: "Le nettoyage IA a pris trop de temps. Essayez avec un PDF plus court." };
+        }
+
+        return { error: error.message || "Erreur lors du nettoyage IA." };
+    }
+}
+
+/**
+ * Full AI-powered import: Extract PDF text, clean with AI, then parse with existing heuristic parser
+ */
+export async function importScriptWithAI(formData: FormData): Promise<ParsedScript | { error: string }> {
+    const file = formData.get("file") as File;
+    if (!file) return { error: "Pas de fichier" };
+
+    try {
+        console.log("[AI Import] Starting AI-powered import for:", file.name);
+
+        // Step 1: Extract raw text from PDF
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const pdf = require("pdf-parse/lib/pdf-parse.js");
+        const data = await pdf(buffer);
+
+        console.log("[AI Import] Extracted text, length:", data.text.length);
+
+        // Step 2: Clean with AI (returns formatted text with PERSO/REPLIQUE)
+        const cleanedResult = await cleanScriptWithAI(data.text);
+
+        if (typeof cleanedResult !== "string") {
+            return cleanedResult; // Return error
+        }
+
+        // Step 3: Parse with existing heuristic parser (YOUR parser!)
+        const script = parseScript(cleanedResult);
+
+        if (script.lines.length === 0) {
+            return { error: "L'IA a nettoyé le script mais aucun dialogue n'a été détecté. Vérifiez le format." };
+        }
+
+        // Add title from filename
+        script.title = file.name.replace(".pdf", "");
+
+        console.log("[AI Import] Success! Characters:", script.characters.length, "Lines:", script.lines.length);
+        return script;
+    } catch (error: any) {
+        console.error("[AI Import] Error:", error);
+        return { error: error.message || "Erreur lors de l'import IA." };
+    }
+}
+
+/**
+ * Get user's subscription tier for client-side UI decisions
+ */
+export async function getUserTierAction(): Promise<"free" | "solo_pro" | "troupe"> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return "free";
+
+    const { getEffectiveTier } = await import("@/lib/subscription");
+    return await getEffectiveTier(user.id);
+}
 
 export async function saveScript(script: ParsedScript) {
     const supabase = await createClient();

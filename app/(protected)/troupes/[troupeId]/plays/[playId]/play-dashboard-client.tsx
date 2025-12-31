@@ -73,6 +73,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 onExit={handleExitView}
                 initialSettings={sessionSettings}
                 playId={play.id}
+                troupeId={troupeId}
             />
         );
     }

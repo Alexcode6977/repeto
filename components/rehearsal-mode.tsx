@@ -294,6 +294,8 @@ export function RehearsalMode({
         // Apply sanitized settings (server enforces tier limits)
         if (validation.settings.mode !== rehearsalMode) {
             setRehearsalMode(validation.settings.mode);
+            // NOTIFY USER OF DOWNGRADE
+            alert(`Le mode "${rehearsalMode === 'cue' ? 'Réplique' : 'Filage'}" est réservé aux comptes Premium/Troupe.\n\nLe mode "Lecture Intégrale" a été activé.`);
         }
         if (validation.settings.visibility !== lineVisibility) {
             setLineVisibility(validation.settings.visibility);

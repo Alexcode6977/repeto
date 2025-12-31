@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { ParsedScript, ScriptLine } from "../types";
 import { useSpeech } from "./use-speech";
 import { useOpenAITTS } from "./use-openai-tts";
-import { calculateSimilarity } from "../similarity";
+import { calculateSimilarity, stripStageDirections } from "../similarity";
 
 export type RehearsalStatus =
     | "setup"
@@ -125,14 +125,14 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
     const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
     const [lastTranscript, setLastTranscript] = useState("");
 
-    // NEW: Retry counter to prevent infinite loops
-    const [retryCount, setRetryCount] = useState(0);
+    // NEW: Retry counter as REF to avoid triggering executeStep on every retry
+    const retryCountRef = useRef(0);
 
-    // Ref to track auto-play preventing stale closures
-    const stateRef = useRef({ currentLineIndex, status, userCharacters });
+    // Ref to track auto-play preventing stale closures AND mode
+    const stateRef = useRef({ currentLineIndex, status, userCharacters, mode });
     useEffect(() => {
-        stateRef.current = { currentLineIndex, status, userCharacters };
-    }, [currentLineIndex, status, userCharacters]);
+        stateRef.current = { currentLineIndex, status, userCharacters, mode };
+    }, [currentLineIndex, status, userCharacters, mode]);
 
     // Track mount status to prevent zombie execution loops
     const isMountedRef = useRef(true);
@@ -227,10 +227,12 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         transitionLockRef.current = true;
         stopAll();
         setStatus("setup"); // BREAK the engine loop immediately
-        setRetryCount(0); // Reset retries
+        retryCountRef.current = 0; // Reset retries
 
-        // NEW: Jump directly to first relevant line based on mode
+        // NEW: Jump directly to first relevant line based on mode (read from REF for latest)
         let entryIdx = initialLineIndex;
+        const currentMode = stateRef.current.mode;
+
         while (entryIdx < script.lines.length) {
             const line = script.lines[entryIdx];
 
@@ -242,10 +244,10 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
 
             // 2. Mode logic jump
             let isRelevant = true;
-            if (mode === "check") {
+            if (currentMode === "check") {
                 // Only user lines are relevant
                 isRelevant = isUserLine(line.character);
-            } else if (mode === "cue") {
+            } else if (currentMode === "cue") {
                 // User lines OR lines just before user lines are relevant
                 const nextRelevantIdx = (() => {
                     let nextIdx = entryIdx + 1;
@@ -295,9 +297,10 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             }
 
             let isRelevant = true;
-            if (mode === "check") {
+            const currentMode = stateRef.current.mode;
+            if (currentMode === "check") {
                 isRelevant = isUserLine(line.character);
-            } else if (mode === "cue") {
+            } else if (currentMode === "cue") {
                 const nextRelevantIdx = (() => {
                     let nIdx = idx + 1;
                     while (nIdx < script.lines.length && shouldSkipLine(script.lines[nIdx].character)) {
@@ -321,7 +324,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         manualSkipRef.current = true;
         stopAll();
         setStatus("setup");
-        setRetryCount(0); // Reset retries
+        retryCountRef.current = 0; // Reset retries
 
         const nextIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, 1);
         if (nextIdx < script.lines.length) {
@@ -350,7 +353,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         manualSkipRef.current = true;
         stopAll();
         setStatus("setup");
-        setRetryCount(0);
+        retryCountRef.current = 0;
 
         const prevIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, -1);
         if (prevIdx >= 0) {
@@ -386,9 +389,10 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         // Do NOT reset Retry Count on manual retry? user wants to try again.
         // But maybe we should reset it so they can try 3 more times? 
         // Let's reset it if they manually asked to retry.
-        setRetryCount(0);
+        retryCountRef.current = 0;
 
-        const line = script.lines[currentLineIndex];
+        // FIX: Use stateRef to get CURRENT line index, not stale closure
+        const line = script.lines[stateRef.current.currentLineIndex];
         setTimeout(() => {
             manualSkipRef.current = false;
             if (isUserLine(line.character)) {
@@ -406,7 +410,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         if (status === "listening_user" || status === "error") {
             stopAll();
             setFeedback("correct");
-            setRetryCount(0);
+            retryCountRef.current = 0;
             setTimeout(() => {
                 if (!isMountedRef.current) return;
                 setFeedback(null);
@@ -439,10 +443,16 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             if (status === "playing_other") {
                 // Check if we should skip this line in Cue/Check modes
                 let shouldPlay = true;
-                if (mode === "check") {
+                const currentMode = stateRef.current.mode;
+                if (currentMode === "check") {
                     shouldPlay = false;
-                } else if (mode === "cue") {
-                    const nextLine = script.lines[currentLineIndex + 1];
+                } else if (currentMode === "cue") {
+                    // FIX: Find next NON-SKIPPED line to check if it's a user line
+                    let lookAheadIdx = currentLineIndex + 1;
+                    while (lookAheadIdx < script.lines.length && shouldSkipLine(script.lines[lookAheadIdx].character)) {
+                        lookAheadIdx++;
+                    }
+                    const nextLine = script.lines[lookAheadIdx];
                     shouldPlay = (nextLine && isUserLine(nextLine.character)) || false;
                 }
 
@@ -464,12 +474,12 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             } else if (status === "listening_user") {
                 try {
                     // FIX: Estimated Duration increased to 70ms per char (theatrical speed)
-                    // Example: 100 char line = 7 seconds. 
-                    // Previous 20ms = 2 seconds (WAY too fast).
-                    const estimatedDuration = Math.max(line.text.length * 70, 2000);
+                    // but ONLY on spoken text (without stage directions)
+                    const spokenText = stripStageDirections(line.text);
+                    const estimatedDuration = Math.max(spokenText.length * 70, 2000);
 
-                    // FIX: Pass the expected text for EARLLY EXIT
-                    const transcript = await listen(estimatedDuration, line.text);
+                    // FIX: Pass the expected text for EARLY EXIT
+                    const transcript = await listen(estimatedDuration, spokenText);
                     if (!isMountedRef.current) return;
 
                     setLastTranscript(transcript);
@@ -490,34 +500,40 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                         // We ARE ALREADY in 'evaluating' status
 
                         // FIX: Anti-Loop Logic
-                        if (retryCount >= 2) {
+                        if (retryCountRef.current >= 2) {
                             // 3rd failure (0, 1, 2)
                             await speak("On passe à la suite.", voiceAssignments["ASSISTANT"]);
                             setFeedback(null);
+                            retryCountRef.current = 0; // Reset before moving
                             next();
                         } else {
-                            const remaining = 2 - retryCount;
+                            const remaining = 2 - retryCountRef.current;
                             const hintAudio = remaining === 0 ? "Dernier essai." : "Encore une fois.";
 
                             // Restore full correction: "Tu as dit X. Il fallait dire Y."
                             await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}. ${hintAudio}`, voiceAssignments["ASSISTANT"], "ASSISTANT");
 
                             setFeedback(null);
-                            setRetryCount(prev => prev + 1);
+                            retryCountRef.current = retryCountRef.current + 1;
 
                             // Defensive pause on mobile to allow audio hardware to switch roles
                             await new Promise(r => setTimeout(r, 600));
-                            setStatus("listening_user");
-                            playBip();
+                            if (isMountedRef.current && statusRef.current !== "paused") {
+                                setStatus("listening_user");
+                                playBip();
+                            }
                         }
                     }
                 } catch (e) {
                     if (e !== "Cancelled") {
                         // Anti-Loop for recognition errors too
-                        if (retryCount >= 2) {
+                        if (retryCountRef.current >= 2) {
+                            retryCountRef.current = 0;
                             next();
                         } else {
-                            setRetryCount(prev => prev + 1);
+                            retryCountRef.current = retryCountRef.current + 1;
+                            // FIX: Ensure manualSkipRef is reset on error path
+                            manualSkipRef.current = false;
                             setStatus("error");
                         }
                     }
@@ -526,7 +542,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         };
 
         executeStep();
-    }, [status, currentLineIndex, retryCount]); // Add retryCount to dep array so we use fresh value
+    }, [status, currentLineIndex]); // REMOVED retryCount - now using ref
 
     return {
         currentLine: script.lines[currentLineIndex],
