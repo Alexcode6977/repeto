@@ -40,7 +40,7 @@ export default async function TroupeLayout({
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-muted/10">
             {/* Header - Fixed & Full Width (Covers Parent Header) */}
             <TroupeHeader
                 troupeName={troupe.name}
@@ -57,8 +57,8 @@ export default async function TroupeLayout({
             <TroupeMobileNav troupeId={troupeId} role={troupe.my_role} />
 
             {/* Main Content */}
-            <main className="md:ml-64 min-h-screen pb-20 md:pb-0 pt-24 flex flex-col">
-                <div className="flex-1 p-4 md:p-8">
+            <main className="md:ml-64 min-h-screen pb-20 md:pb-0 pt-20 flex flex-col">
+                <div className="flex-1 px-4 md:px-8 pb-8 pt-4 md:pt-6">
                     {children}
                 </div>
             </main>

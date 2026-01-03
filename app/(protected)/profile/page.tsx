@@ -2,10 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle } from "lucide-react";
+import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle, Download } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { deleteAccount } from "./actions";
+import { deleteAccount, getInvoices, Invoice } from "./actions";
 import { getFeedbackHistory, getFeedbackStats, FeedbackEntry } from "../dashboard/feedback-actions";
 import { cn } from "@/lib/utils";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -23,6 +23,7 @@ export default function ProfilePage() {
     const [feedbackHistory, setFeedbackHistory] = useState<FeedbackEntry[]>([]);
     const [stats, setStats] = useState({ totalSessions: 0, averageRating: 0, totalDuration: 0 });
     const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
 
     // Subscription state
     const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
@@ -78,6 +79,15 @@ export default function ProfilePage() {
             setStats(statsData);
         };
         loadData();
+    }, []);
+
+    // Load Invoices separately to not block UI
+    useEffect(() => {
+        const loadInvoices = async () => {
+            const data = await getInvoices();
+            setInvoices(data);
+        };
+        loadInvoices();
     }, []);
 
     const handleLogout = async () => {
@@ -221,6 +231,49 @@ export default function ProfilePage() {
                     hasStripeCustomer={!!stripeCustomerId}
                 />
             </div>
+
+            {/* Invoices History */}
+            {invoices.length > 0 && (
+                <div className="space-y-4">
+                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                        <FileText className="w-5 h-5 text-primary" />
+                        Historique de facturation
+                    </h2>
+                    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+                        <div className="divide-y divide-border">
+                            {invoices.map((invoice) => (
+                                <div key={invoice.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+                                            <FileText className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-foreground text-sm">
+                                                {new Date(invoice.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                                                {invoice.number} • {(invoice.amount / 100).toLocaleString('fr-FR', { style: 'currency', currency: invoice.currency })}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {invoice.pdf && (
+                                        <a
+                                            href={invoice.pdf}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2.5 rounded-xl bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all group"
+                                            title="Télécharger la facture"
+                                        >
+                                            <Download className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                                        </a>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

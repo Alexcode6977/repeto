@@ -1,6 +1,7 @@
 import { signup } from "../actions";
 import { Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { PasswordInput } from "@/components/password-input";
 
 export default async function SignupPage({
     searchParams,
@@ -98,16 +99,11 @@ export default async function SignupPage({
                             <label className="text-sm font-semibold text-gray-400 uppercase tracking-wider pl-1" htmlFor="password">
                                 Mot de passe
                             </label>
-                            <input
+                            <PasswordInput
                                 id="password"
                                 name="password"
-                                type="password"
                                 required
                                 minLength={6}
-                                className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-lg text-white 
-                                    focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-black/60
-                                    hover:border-white/20 hover:bg-black/50
-                                    transition-all duration-200 placeholder:text-gray-500 font-medium"
                                 placeholder="••••••••"
                             />
                             <p className="text-xs text-gray-500 pl-1">

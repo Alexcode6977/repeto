@@ -1247,21 +1247,23 @@ demande Monsieur.`}
                   </div>
                 </div>
 
-                <Button
-                  className="w-full py-7 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-500/90 hover:to-emerald-600/90 text-white font-bold text-lg shadow-xl shadow-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                  asChild
-                >
-                  <label className="cursor-pointer flex items-center justify-center gap-3">
-                    <Upload className="w-6 h-6" />
-                    Importer mon PDF
-                    <input
-                      type="file"
-                      accept=".pdf"
-                      className="hidden"
-                      onChange={handleAiFileChange}
-                    />
-                  </label>
-                </Button>
+                <div className="flex justify-center">
+                  <Button
+                    className="py-7 px-12 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-500/90 hover:to-emerald-600/90 text-white font-bold text-lg shadow-xl shadow-green-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    asChild
+                  >
+                    <label className="cursor-pointer flex items-center justify-center gap-3">
+                      <Upload className="w-6 h-6" />
+                      Importer mon PDF
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        className="hidden"
+                        onChange={handleAiFileChange}
+                      />
+                    </label>
+                  </Button>
+                </div>
 
                 <p className="text-center text-muted-foreground text-xs">
                   PDF uniquement • Powered by GPT-4

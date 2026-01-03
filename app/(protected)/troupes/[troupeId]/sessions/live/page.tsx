@@ -27,14 +27,14 @@ export default async function LiveSessionsPage({
     return (
         <div className="space-y-10">
             {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
-                <div className="absolute -top-24 -left-24 w-64 h-64 bg-green-500/20 blur-[100px] rounded-full pointer-events-none" />
-                <div className="relative">
-                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-foreground mb-2">
+            <div className="relative">
+                <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/10 blur-[100px] rounded-full pointer-events-none" />
+                <div className="relative z-10">
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">
                         Séance Live
                     </h1>
                     <p className="text-muted-foreground font-medium flex items-center gap-2">
-                        <Play className="w-4 h-4" />
+                        <Play className="w-4 h-4 text-primary" />
                         Lancez une séance préparée
                     </p>
                 </div>
@@ -42,15 +42,19 @@ export default async function LiveSessionsPage({
 
             {/* Prepared Sessions */}
             {preparedSessions.length === 0 ? (
-                <div className="text-center py-20 bg-muted/50 rounded-3xl border border-dashed border-border">
-                    <Sparkles className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                    <p className="text-muted-foreground font-medium">Aucune séance préparée pour le moment.</p>
-                    <p className="text-sm text-muted-foreground/70 mt-2">
-                        Préparez une séance dans "Préparation Séance" pour la voir ici.
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                    <div className="w-20 h-20 bg-gradient-to-tr from-primary/10 to-purple-500/10 rounded-3xl flex items-center justify-center mb-6 ring-1 ring-border/50 shadow-xl backdrop-blur-sm">
+                        <Sparkles className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-bold text-foreground mb-3">
+                        Aucune séance préparée
+                    </h3>
+                    <p className="text-muted-foreground max-w-sm mb-8 leading-relaxed text-sm">
+                        Préparez votre prochaine répétition en amont dans l'onglet "Préparation Séance" pour la retrouver ici le jour J.
                     </p>
-                    <Button asChild className="mt-6 rounded-full" variant="outline">
+                    <Button asChild size="lg" className="rounded-full px-8 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300">
                         <Link href={`/troupes/${troupeId}/sessions`}>
-                            Aller à Préparation Séance
+                            Préparer une séance
                         </Link>
                     </Button>
                 </div>

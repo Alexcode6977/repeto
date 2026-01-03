@@ -11,13 +11,13 @@ interface TroupeHeaderProps {
 
 export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHeaderProps) {
     return (
-        <header className="fixed top-0 left-0 z-[60] w-full h-20 border-b border-border/40 bg-background/80 backdrop-blur-xl px-8 flex items-center justify-between transition-all duration-200">
+        <header className="fixed top-0 left-0 z-[60] w-full h-20 border-b border-border/20 bg-background/60 backdrop-blur-2xl px-8 flex items-center justify-between transition-all duration-200">
             {/* Left: Troupe Identity */}
             <div className="flex items-center gap-4 min-w-0">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-white shadow-lg shadow-primary/25">
-                    <span className="text-xl font-black">{(troupeName[0] || 'T').toUpperCase()}</span>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-purple-600 text-white shadow-lg shadow-primary/25">
+                    <span className="text-lg font-bold">{(troupeName[0] || 'T').toUpperCase()}</span>
                 </div>
-                <h2 className="text-3xl font-black tracking-tighter text-foreground truncate selection:bg-primary/20">
+                <h2 className="text-xl font-bold tracking-tight text-foreground truncate selection:bg-primary/20">
                     {troupeName}
                 </h2>
             </div>

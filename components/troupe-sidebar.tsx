@@ -78,7 +78,7 @@ export function TroupeSidebar({ troupeId, role }: TroupeSidebarProps) {
     });
 
     return (
-        <aside className="w-64 h-screen fixed left-0 top-0 border-r border-border bg-background/80 dark:bg-black/20 backdrop-blur-xl z-50 flex flex-col pt-24">
+        <aside className="w-64 h-screen fixed left-0 top-0 border-r border-border/50 bg-background/60 backdrop-blur-2xl z-50 flex flex-col pt-24">
             <div className="px-6 mb-8">
                 <Link
                     href="/troupes"
@@ -95,12 +95,15 @@ export function TroupeSidebar({ troupeId, role }: TroupeSidebarProps) {
                         <Link
                             href={item.href}
                             className={cn(
-                                "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group",
+                                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group relative overflow-hidden",
                                 item.active
-                                    ? "bg-primary/10 text-primary border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-transparent"
+                                    ? "bg-primary/5 text-primary font-medium"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
                             )}
                         >
+                            {item.active && (
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full" />
+                            )}
                             <item.icon className={cn(
                                 "w-5 h-5 transition-transform group-hover:scale-110",
                                 item.active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
@@ -111,10 +114,10 @@ export function TroupeSidebar({ troupeId, role }: TroupeSidebarProps) {
                 ))}
             </nav>
 
-            <div className="p-6 border-t border-border">
-                <div className="p-4 rounded-2xl bg-muted/50 border border-border">
-                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest mb-1">Espace de travail</p>
-                    <p className="text-foreground text-xs font-bold truncate">Repeto Studio</p>
+            <div className="p-6 border-t border-border/50">
+                <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-muted/50 to-muted/10 border border-border/50">
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mb-0.5">Espace de travail</p>
+                    <p className="text-foreground text-xs font-semibold truncate">Repeto Studio</p>
                 </div>
             </div>
         </aside>

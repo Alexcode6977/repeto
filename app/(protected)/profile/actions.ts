@@ -3,6 +3,55 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 
+import { getStripe } from "@/lib/stripe";
+
+export interface Invoice {
+    id: string;
+    date: number;
+    amount: number;
+    currency: string;
+    status: string | null;
+    pdf: string | null;
+    number: string | null;
+}
+
+export async function getInvoices(): Promise<Invoice[]> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("stripe_customer_id")
+        .eq("id", user.id)
+        .single();
+
+    if (!profile?.stripe_customer_id) return [];
+
+    try {
+        const stripe = getStripe();
+        const invoices = await stripe.invoices.list({
+            customer: profile.stripe_customer_id,
+            limit: 10,
+            status: 'paid'
+        });
+
+        return invoices.data.map(invoice => ({
+            id: invoice.id,
+            date: invoice.created * 1000,
+            amount: invoice.total,
+            currency: invoice.currency,
+            status: invoice.status,
+            pdf: invoice.invoice_pdf || null,
+            number: invoice.number
+        }));
+    } catch (e) {
+        console.error("Error fetching invoices:", e);
+        return [];
+    }
+}
+
 export async function deleteAccount(): Promise<{ success: boolean; error?: string }> {
     const supabase = await createClient();
 
