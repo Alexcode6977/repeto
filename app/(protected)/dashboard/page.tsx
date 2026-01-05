@@ -23,6 +23,10 @@ const ScriptReader = dynamic(() => import("@/components/script-reader").then(mod
   loading: () => <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
 });
 
+const ListenMode = dynamic(() => import("@/components/listen-mode").then(mod => ({ default: mod.ListenMode })), {
+  loading: () => <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
+});
+
 // Extend ParsedScript to include DB fields
 // type SavedScript = ParsedScript & { id: string; created_at: string };
 // NEW TYPE: Lightweight metadata for the list
@@ -43,7 +47,7 @@ export default function Home() {
   const [script, setScript] = useState<ParsedScript | null>(null); // Current active script for viewer
   const [scriptsList, setScriptsList] = useState<ScriptMetadata[]>([]); // List of all scripts (metadata only)
   const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"viewer" | "setup" | "reader" | "rehearsal">("viewer"); // NEW state
+  const [viewMode, setViewMode] = useState<"viewer" | "setup" | "reader" | "rehearsal" | "listen">("viewer"); // NEW state
   const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
     visibility: "visible",
     mode: "full"
@@ -436,10 +440,12 @@ export default function Home() {
   }
 
 
-  const handleConfirmSelection = (character: string, mode: 'reader' | 'rehearsal') => {
+  const handleConfirmSelection = (character: string, mode: 'reader' | 'rehearsal' | 'listen') => {
     setRehearsalChar(character);
     if (mode === 'rehearsal') {
       setViewMode("rehearsal");
+    } else if (mode === 'listen') {
+      setViewMode("listen");
     } else {
       setViewMode("setup");
     }
@@ -475,6 +481,18 @@ export default function Home() {
   }
 
   // --- VIEWS ---
+
+  if (rehearsalChar && script && viewMode === "listen") {
+    return (
+      <ListenMode
+        script={script}
+        userCharacters={[rehearsalChar]}
+        onExit={handleExitView}
+        scriptId={selectedScriptMeta?.id}
+        isPublicScript={selectedScriptMeta?.isPublic}
+      />
+    );
+  }
 
   if (rehearsalChar && script && viewMode === "rehearsal") {
     return (

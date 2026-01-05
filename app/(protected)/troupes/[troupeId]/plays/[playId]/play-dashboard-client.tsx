@@ -6,12 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { ScriptViewer } from "@/components/script-viewer";
 import { RehearsalMode } from "@/components/rehearsal-mode";
 import { ScriptReader } from "@/components/script-reader";
+import { ListenModeTroupe } from "@/components/listen-mode-troupe";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { CastingManager } from "@/components/casting-manager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Calendar, Play, BookOpen, Mic } from "lucide-react";
+import { FileText, Calendar, Play, BookOpen, Mic, Headphones } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
@@ -24,7 +25,7 @@ interface PlayDashboardClientProps {
 }
 
 export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin }: PlayDashboardClientProps) {
-    const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "setup" | "reader" | "rehearsal">("dashboard");
+    const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "setup" | "reader" | "rehearsal" | "listen">("dashboard");
     const [rehearsalChars, setRehearsalChars] = useState<string[] | null>(null);
     const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
         visibility: "visible",
@@ -64,6 +65,18 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
         setRehearsalChars(null);
         setViewMode("dashboard");
     };
+
+    if (rehearsalChars && viewMode === "listen") {
+        return (
+            <ListenModeTroupe
+                script={play.script_content as ParsedScript}
+                userCharacters={rehearsalChars}
+                onExit={handleExitView}
+                playId={play.id}
+                troupeId={troupeId}
+            />
+        );
+    }
 
     if (rehearsalChars && viewMode === "rehearsal") {
         return (
@@ -286,6 +299,38 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                                 </div>
                                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all">
                                     <span className="text-primary group-hover:text-primary-foreground transition-colors text-xl">→</span>
+                                </div>
+                            </div>
+                        </CardHeader>
+                    </Card>
+
+                    {/* Écouter Card */}
+                    <Card
+                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-teal-500/30 hover:shadow-[0_0_30px_rgba(20,184,166,0.1)] transition-all group flex-1 flex flex-col justify-center relative"
+                        onClick={() => {
+                            // Get user's assigned characters
+                            const userChars = play.play_characters
+                                ?.filter((c: any) => c.actor_id === userId)
+                                ?.map((c: any) => c.character_name) || [];
+                            if (userChars.length > 0) {
+                                setRehearsalChars(userChars);
+                                setViewMode("listen");
+                            }
+                        }}
+                    >
+                        <CardHeader className="p-8">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-6">
+                                    <div className="w-16 h-16 rounded-3xl bg-teal-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Headphones className="w-8 h-8 text-teal-500" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-2xl font-bold text-foreground group-hover:text-teal-500 transition-colors mb-1">Écouter</CardTitle>
+                                        <CardDescription className="text-muted-foreground text-base">Mode livre audio</CardDescription>
+                                    </div>
+                                </div>
+                                <div className="w-12 h-12 rounded-full bg-teal-500/10 flex items-center justify-center group-hover:bg-teal-500 transition-all">
+                                    <span className="text-teal-500 group-hover:text-primary-foreground transition-colors text-xl">→</span>
                                 </div>
                             </div>
                         </CardHeader>

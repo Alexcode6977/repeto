@@ -14,12 +14,26 @@ interface UseOpenAITTSReturn {
     error: string | null;
 }
 
+const MAX_CACHE_SIZE = 50; // Limit in-memory cache to prevent memory leaks
+
 export function useOpenAITTS(): UseOpenAITTSReturn {
     const [isLoading, setIsLoading] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const audioCache = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+    // LRU-style cache eviction
+    const addToCache = useCallback((key: string, audio: HTMLAudioElement) => {
+        // If cache is full, remove oldest entry (first in Map)
+        if (audioCache.current.size >= MAX_CACHE_SIZE) {
+            const firstKey = audioCache.current.keys().next().value;
+            if (firstKey) {
+                audioCache.current.delete(firstKey);
+            }
+        }
+        audioCache.current.set(key, audio);
+    }, []);
 
     const stop = useCallback(() => {
         if (audioRef.current) {
@@ -32,7 +46,6 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
     }, []);
 
     const preload = useCallback(async (text: string, voice: OpenAIVoice = "nova") => {
-        // Normalize text slightly to match speak key
         const key = `${voice}:${text}`;
         if (audioCache.current.has(key)) return;
 
@@ -42,12 +55,12 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
                 const audio = new Audio(result.audio);
                 audio.preload = "auto";
                 audio.load();
-                audioCache.current.set(key, audio);
+                addToCache(key, audio);
             }
         } catch (e) {
             console.warn("Preload failed for:", text.substring(0, 20), e);
         }
-    }, []);
+    }, [addToCache]);
 
     const speak = useCallback(async (text: string, voice: OpenAIVoice = "nova") => {
         // Stop any ongoing playback
@@ -77,7 +90,7 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
                 } else {
                     audio = new Audio(result.audio);
                 }
-                audioCache.current.set(key, audio);
+                addToCache(key, audio);
             }
 
             audioRef.current = audio;
@@ -128,7 +141,7 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
             setIsLoading(false);
             setIsSpeaking(false);
         }
-    }, [stop]);
+    }, [stop, addToCache]);
 
     return {
         speak,
