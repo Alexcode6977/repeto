@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
+import { BrowserVoiceConfig } from "./browser-voice-config";
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -791,161 +792,198 @@ export function RehearsalMode({
                             </div>
                         </div>
 
-                        {/* Card 4: Voice Settings */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-4">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                        {/* Card 4: Voice Settings - Governance Rules */}
+                        {(() => {
+                            const isTroupeContext = !!troupeId;
+                            const isLibraryScript = isPublicScript;
+                            const isUserScript = !isPublicScript && !troupeId;
 
-                            {/* Premium users: show both options */}
-                            {isPremiumUnlocked ? (
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        onClick={() => setTtsProvider("browser")}
-                                        className={cn(
-                                            "py-3 rounded-xl text-xs font-bold transition-all border",
-                                            ttsProvider === "browser"
-                                                ? "bg-muted/30 dark:bg-white/10 border-border dark:border-white/30 text-foreground"
-                                                : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                            // TROUPE MODE: No voice config shown (managed in CastingManager)
+                            if (isTroupeContext) {
+                                return (
+                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
+                                        <div className="py-3 rounded-xl text-xs font-medium bg-muted/30 border border-border text-muted-foreground text-center">
+                                            Voix gérées par l'admin de la troupe
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // SOLO + LIBRARY + PRO: Read-only AI voices (admin pre-assigned)
+                            if (isLibraryScript && isPremiumUnlocked) {
+                                return (
+                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
+                                        <div className="py-3 rounded-xl text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center flex items-center justify-center gap-2">
+                                            <Sparkles className="w-3 h-3" />
+                                            Voix IA officielles
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground text-center mt-2">
+                                            Attribuées par l'admin Repeto
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            // SOLO + LIBRARY + FREE: Browser voice config
+                            if (isLibraryScript && !isPremiumUnlocked) {
+                                return (
+                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-3">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                                        <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
+                                            Voix Standard
+                                        </div>
+                                        <BrowserVoiceConfig
+                                            characters={script.characters}
+                                            voices={voices}
+                                            assignments={voiceAssignments}
+                                            onAssign={setVoiceForRole}
+                                        />
+                                        <a
+                                            href="/profile"
+                                            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
+                                        >
+                                            <Sparkles className="w-3 h-3" />
+                                            Passez à Pro pour des voix IA
+                                        </a>
+                                    </div>
+                                );
+                            }
+
+                            // SOLO + USER SCRIPT + PRO: Full control (existing UI)
+                            if (isUserScript && isPremiumUnlocked) {
+                                return (
+                                    <>
+                                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-4">
+                                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button
+                                                    onClick={() => setTtsProvider("browser")}
+                                                    className={cn(
+                                                        "py-3 rounded-xl text-xs font-bold transition-all border",
+                                                        ttsProvider === "browser"
+                                                            ? "bg-muted/30 border-border text-foreground"
+                                                            : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                                    )}
+                                                >
+                                                    Standard
+                                                </button>
+                                                <button
+                                                    onClick={() => setTtsProvider("openai")}
+                                                    className={cn(
+                                                        "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
+                                                        ttsProvider === "openai"
+                                                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                                                            : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                                    )}
+                                                >
+                                                    <Sparkles className="w-3 h-3" />
+                                                    Neural AI
+                                                </button>
+                                            </div>
+                                            {isDemo && <div className="absolute inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }} />}
+                                        </div>
+
+                                        {/* Browser voice distribution */}
+                                        {ttsProvider === "browser" && (
+                                            <BrowserVoiceConfig
+                                                characters={script.characters}
+                                                voices={voices}
+                                                assignments={voiceAssignments}
+                                                onAssign={setVoiceForRole}
+                                            />
                                         )}
-                                    >
-                                        Standard
-                                    </button>
-                                    <button
-                                        onClick={() => setTtsProvider("openai")}
-                                        className={cn(
-                                            "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
-                                            ttsProvider === "openai"
-                                                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                                : "bg-transparent border-border text-muted-foreground hover:bg-card"
+
+                                        {/* OpenAI voice distribution */}
+                                        {ttsProvider === "openai" && (
+                                            <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Distribution Neural AI</span>
+                                                    {existingVoiceConfig && (
+                                                        <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                                            <Check className="w-3 h-3" />
+                                                            Voix figées
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {isLoadingVoiceConfig ? (
+                                                    <div className="flex items-center justify-center py-4">
+                                                        <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+                                                    </div>
+                                                ) : script.characters && script.characters.filter(c => !(userCharacters || []).includes(c)).length > 0 ? (
+                                                    <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
+                                                        {script.characters.filter(c => !(userCharacters || []).includes(c)).map((char) => (
+                                                            <div key={char} className={cn(
+                                                                "flex items-center gap-2 p-2 rounded-lg border",
+                                                                existingVoiceConfig
+                                                                    ? "bg-emerald-900/30 border-emerald-600/40"
+                                                                    : "bg-emerald-900/20 border-emerald-700/30"
+                                                            )}>
+                                                                <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-[9px] font-bold text-emerald-300 shrink-0">
+                                                                    {char.substring(0, 2).toUpperCase()}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-xs font-medium text-emerald-300 truncate">{char}</p>
+                                                                    {existingVoiceConfig ? (
+                                                                        <p className="text-[10px] text-emerald-500 font-medium">
+                                                                            {(openaiVoiceAssignments[char] || "nova").charAt(0).toUpperCase() + (openaiVoiceAssignments[char] || "nova").slice(1)}
+                                                                        </p>
+                                                                    ) : (
+                                                                        <select
+                                                                            className="w-full bg-transparent text-[10px] text-emerald-500 focus:outline-none cursor-pointer"
+                                                                            value={openaiVoiceAssignments[char] || "nova"}
+                                                                            onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
+                                                                        >
+                                                                            {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
+                                                                                <option key={v} value={v} className="bg-background text-foreground">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    )}
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => testOpenAIVoice(char, openaiVoiceAssignments[char] || "nova")}
+                                                                    disabled={testingVoice === char}
+                                                                    className="px-2 py-1.5 rounded-full hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-50 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1 transition-colors"
+                                                                >
+                                                                    {testingVoice === char ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
+                                                                    Test
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-xs text-emerald-500/70 italic">Aucun autre personnage détecté.</p>
+                                                )}
+                                            </div>
                                         )}
-                                    >
-                                        <Sparkles className="w-3 h-3" />
-                                        Neural AI
-                                    </button>
-                                </div>
-                            ) : (
-                                /* Non-premium users: Standard only + upgrade CTA */
-                                <div className="space-y-3">
-                                    <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 dark:bg-white/10 border border-border dark:border-white/30 text-foreground text-center">
+                                    </>
+                                );
+                            }
+
+                            // SOLO + USER SCRIPT + FREE: Browser voice config only
+                            return (
+                                <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                                    <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
                                         Voix Standard
                                     </div>
+                                    <BrowserVoiceConfig
+                                        characters={script.characters}
+                                        voices={voices}
+                                        assignments={voiceAssignments}
+                                        onAssign={setVoiceForRole}
+                                    />
                                     <a
                                         href="/profile"
                                         className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
                                     >
                                         <Sparkles className="w-3 h-3" />
-                                        Passez à Pro pour des voix IA réalistes
+                                        Passez à Pro pour des voix IA
                                     </a>
                                 </div>
-                            )}
-                            {isDemo && <div className="absolute inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }} />}
-                        </div>
-
-                        {/* Voice Distribution - Only shown when a provider is selected */}
-                        {ttsProvider === "browser" && (
-                            <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-widest block">Distribution des rôles</span>
-                                {script.characters && script.characters.filter(c => !(userCharacters || []).includes(c)).length > 0 ? (
-                                    <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                        {script.characters.filter(c => !(userCharacters || []).includes(c)).map((char) => (
-                                            <div key={char} className="flex items-center gap-2 bg-background/30 p-2 rounded-lg">
-                                                <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">
-                                                    {char.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-medium text-foreground truncate">{char}</p>
-                                                    <select
-                                                        className="w-full bg-transparent text-[10px] text-muted-foreground focus:outline-none cursor-pointer"
-                                                        value={voiceAssignments[char]?.voiceURI || ""}
-                                                        onChange={(e) => setVoiceForRole(char, e.target.value)}
-                                                    >
-                                                        {voices.map(v => (
-                                                            <option key={v.voiceURI} value={v.voiceURI} className="bg-background text-foreground">
-                                                                {v.name}
-                                                            </option>
-                                                        ))}
-                                                        {voices.length === 0 && <option className="bg-background text-foreground">Défaut (Navigateur)</option>}
-                                                    </select>
-                                                </div>
-                                                <button
-                                                    onClick={() => testBrowserVoice(char)}
-                                                    className="px-2 py-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-bold border border-border flex items-center gap-1 transition-colors"
-                                                >
-                                                    <Play className="w-3 h-3 fill-current" />
-                                                    Test
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-muted-foreground italic">Aucun autre personnage détecté.</p>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Voice Distribution - Neural AI (only if premium unlocked AND selected) */}
-                        {ttsProvider === "openai" && isPremiumUnlocked && (
-                            <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Distribution Neural AI</span>
-                                    {existingVoiceConfig && (
-                                        <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                            <Check className="w-3 h-3" />
-                                            Voix figées
-                                        </span>
-                                    )}
-                                </div>
-                                {isLoadingVoiceConfig ? (
-                                    <div className="flex items-center justify-center py-4">
-                                        <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-                                    </div>
-                                ) : script.characters && script.characters.filter(c => !(userCharacters || []).includes(c)).length > 0 ? (
-                                    <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                        {script.characters.filter(c => !(userCharacters || []).includes(c)).map((char) => (
-                                            <div key={char} className={cn(
-                                                "flex items-center gap-2 p-2 rounded-lg border",
-                                                existingVoiceConfig
-                                                    ? "bg-emerald-900/30 border-emerald-600/40"
-                                                    : "bg-emerald-900/20 border-emerald-700/30"
-                                            )}>
-                                                <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-[9px] font-bold text-emerald-300 shrink-0">
-                                                    {char.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-medium text-emerald-300 truncate">{char}</p>
-                                                    {existingVoiceConfig ? (
-                                                        /* Frozen voice - just display */
-                                                        <p className="text-[10px] text-emerald-500 font-medium">
-                                                            {(openaiVoiceAssignments[char] || "nova").charAt(0).toUpperCase() + (openaiVoiceAssignments[char] || "nova").slice(1)}
-                                                        </p>
-                                                    ) : (
-                                                        /* Editable select */
-                                                        <select
-                                                            className="w-full bg-transparent text-[10px] text-emerald-500 focus:outline-none cursor-pointer"
-                                                            value={openaiVoiceAssignments[char] || "nova"}
-                                                            onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
-                                                        >
-                                                            {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
-                                                                <option key={v} value={v} className="bg-background text-foreground">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-                                                </div>
-                                                <button
-                                                    onClick={() => testOpenAIVoice(char, openaiVoiceAssignments[char] || "nova")}
-                                                    disabled={testingVoice === char}
-                                                    className="px-2 py-1.5 rounded-full hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-50 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1 transition-colors"
-                                                >
-                                                    {testingVoice === char ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
-                                                    Test
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-xs text-emerald-500/70 italic">Aucun autre personnage détecté.</p>
-                                )}
-                            </div>
-                        )}
+                            );
+                        })()}
 
                         {/* Card 5: Tolerance Slider */}
                         <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50 relative">

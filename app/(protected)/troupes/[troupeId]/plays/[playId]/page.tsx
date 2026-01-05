@@ -2,6 +2,7 @@ import { getPlayDetails } from "@/lib/actions/play";
 import { getTroupeGuests } from "@/lib/actions/troupe";
 import { createClient } from "@/lib/supabase/server";
 import { PlayDashboardClient } from "./play-dashboard-client";
+import { getVoiceConfig } from "@/lib/actions/voice-cache";
 
 export default async function PlayDashboardPage({
     params
@@ -28,6 +29,9 @@ export default async function PlayDashboardPage({
     const troupeMembers = members || [];
     const guests = await getTroupeGuests(troupeId);
 
+    // Fetch voice configs
+    const initialVoiceConfigs = await getVoiceConfig('troupe_play', playId);
+
     return (
         <PlayDashboardClient
             play={play}
@@ -35,6 +39,7 @@ export default async function PlayDashboardPage({
             troupeMembers={troupeMembers}
             guests={guests}
             isAdmin={isAdmin}
+            initialVoiceConfigs={initialVoiceConfigs}
         />
     );
 }

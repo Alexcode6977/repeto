@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle, Clock, MessageSquare, Star, Filter, ChevronDown, ChevronUp, Save, Loader2, AlertCircle, Users, Crown, ToggleLeft, ToggleRight } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, MessageSquare, Star, Filter, ChevronDown, ChevronUp, Save, Loader2, AlertCircle, Users, Crown, ToggleLeft, ToggleRight, BookOpen, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getAllFeedback, updateFeedbackStatus, getFeedbackStats, isAdmin, getAllUsers, toggleUserPremium } from "./actions";
+import { getAllFeedback, updateFeedbackStatus, getFeedbackStats, isAdmin, getAllUsers, toggleUserPremium, getLibraryScripts, LibraryScriptEntry } from "./actions";
+import { updateVoiceAssignment, OpenAIVoice } from "@/lib/actions/voice-cache";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { VoicePreviewButton } from "@/components/voice-preview-button";
 
 type FeedbackStatus = "pending" | "resolved" | "in_progress";
 
@@ -33,6 +36,16 @@ interface UserProfile {
     email?: string;
 }
 
+// VOICES constant
+const VOICES: { id: OpenAIVoice; name: string; gender: string }[] = [
+    { id: 'alloy', name: 'Alloy', gender: 'Neutre' },
+    { id: 'echo', name: 'Echo', gender: 'Masculin' },
+    { id: 'fable', name: 'Fable', gender: 'Masculin (British)' },
+    { id: 'onyx', name: 'Onyx', gender: 'Masculin (Grave)' },
+    { id: 'nova', name: 'Nova', gender: 'Féminin' },
+    { id: 'shimmer', name: 'Shimmer', gender: 'Féminin (Mature)' },
+];
+
 export default function AdminPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -44,22 +57,26 @@ export default function AdminPage() {
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [editingNotes, setEditingNotes] = useState<{ id: string; notes: string } | null>(null);
     const [saving, setSaving] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"feedback" | "users">("feedback");
+    const [activeTab, setActiveTab] = useState<"feedback" | "users" | "library">("feedback");
     const [togglingPremium, setTogglingPremium] = useState<string | null>(null);
+    const [libraryScripts, setLibraryScripts] = useState<LibraryScriptEntry[]>([]);
+    const [updatingVoice, setUpdatingVoice] = useState<string | null>(null);
 
     useEffect(() => {
         const checkAdmin = async () => {
             const admin = await isAdmin();
             setAuthorized(admin);
             if (admin) {
-                const [feedbackData, statsData, usersData] = await Promise.all([
+                const [feedbackData, statsData, usersData, libraryData] = await Promise.all([
                     getAllFeedback(),
                     getFeedbackStats(),
                     getAllUsers(),
+                    getLibraryScripts(),
                 ]);
                 setFeedbacks(feedbackData);
                 setStats(statsData);
                 setUsers(usersData);
+                setLibraryScripts(libraryData);
             }
             setLoading(false);
         };
@@ -106,6 +123,32 @@ export default function AdminPage() {
             console.error(e);
         }
         setTogglingPremium(null);
+    };
+
+    const handleLibraryVoiceUpdate = async (scriptId: string, charName: string, voice: OpenAIVoice) => {
+        setUpdatingVoice(`${scriptId}-${charName}`);
+        try {
+            const result = await updateVoiceAssignment('library_script', scriptId, charName, voice);
+            if (result.success) {
+                // local update
+                setLibraryScripts(prev => prev.map(script => {
+                    if (script.id !== scriptId) return script;
+                    const newConfigs = [...script.voiceConfigs];
+                    const existingIdx = newConfigs.findIndex(c => c.character_name === charName);
+                    if (existingIdx >= 0) {
+                        newConfigs[existingIdx] = { ...newConfigs[existingIdx], voice };
+                    } else {
+                        newConfigs.push({ character_name: charName, voice });
+                    }
+                    return { ...script, voiceConfigs: newConfigs };
+                }));
+            } else {
+                alert("Erreur: " + result.error);
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        setUpdatingVoice(null);
     };
 
     const formatDate = (dateString: string) => {
@@ -191,6 +234,18 @@ export default function AdminPage() {
                 >
                     <Users className="w-4 h-4" />
                     Utilisateurs ({users.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab("library")}
+                    className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2",
+                        activeTab === "library"
+                            ? "bg-purple-500 text-white"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                >
+                    <BookOpen className="w-4 h-4" />
+                    Bibliothèque ({libraryScripts.length})
                 </button>
             </div>
 
@@ -472,6 +527,77 @@ export default function AdminPage() {
                                 </div>
                             ))
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Library Tab Content */}
+            {activeTab === "library" && (
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-bold text-foreground">Gestion des Voix (Bibliothèque)</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Assignation des voix officielles pour les pièces publiques.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        {libraryScripts.map((script) => (
+                            <div key={script.id} className="p-4 rounded-xl border border-border bg-card/50">
+                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                                    <BookOpen className="w-5 h-5 text-purple-500" />
+                                    {script.title}
+                                </h3>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {script.characters.map((charName) => {
+                                        const currentVoice = script.voiceConfigs.find((c: any) => c.character_name === charName)?.voice;
+                                        const isLoading = updatingVoice === `${script.id}-${charName}`;
+
+                                        return (
+                                            <div key={charName} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                                        {charName.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-sm font-medium">{charName}</span>
+                                                </div>
+
+                                                <div className="w-[180px] flex items-center gap-2">
+                                                    <Select
+                                                        value={currentVoice || ""}
+                                                        onValueChange={(val) => handleLibraryVoiceUpdate(script.id, charName, val as OpenAIVoice)}
+                                                        disabled={isLoading}
+                                                    >
+                                                        <SelectTrigger className="h-8 text-xs border-dashed border-primary/30">
+                                                            {isLoading ? (
+                                                                <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                                                            ) : (
+                                                                <>
+                                                                    <Mic className="w-3 h-3 mr-2 opacity-50" />
+                                                                    <SelectValue placeholder="Choisir..." />
+                                                                </>
+                                                            )}
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {VOICES.map((v) => (
+                                                                <SelectItem key={v.id} value={v.id}>
+                                                                    <span className="flex items-center gap-2">
+                                                                        <span>{v.name}</span>
+                                                                        <span className="text-[10px] text-muted-foreground opacity-50">({v.gender})</span>
+                                                                    </span>
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    {currentVoice && <VoicePreviewButton voice={currentVoice} />}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

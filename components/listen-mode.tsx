@@ -9,6 +9,7 @@ import { getVoiceConfig, determineSourceType, SourceType, VoiceConfig } from "@/
 import { Button } from "./ui/button";
 import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrowserVoiceConfig } from "./browser-voice-config";
 
 interface ListenModeProps {
     script: ParsedScript;
@@ -119,7 +120,6 @@ export function ListenMode({
         voices,
         voiceAssignments,
         setVoiceForRole,
-        initializeAudio,
         isLoadingAudio
     } = useListen({
         script,
@@ -201,14 +201,7 @@ export function ListenMode({
     }, [hasStarted, status, pause, resume, next, previous, replay]);
 
     const handleStart = async () => {
-        try {
-            if (initializeAudio) {
-                await initializeAudio();
-            }
-        } catch (e) {
-            console.error("Audio init failed", e);
-        }
-
+        // No mic needed for listen mode - just start playback
         setHasStarted(true);
         requestWakeLock();
         start();
@@ -286,13 +279,13 @@ export function ListenMode({
                 </div>
 
                 {/* RIGHT PANEL - Settings (Full width on mobile) */}
-                <div className="lg:w-[55%] flex flex-col items-center p-4 pt-8 pb-12 lg:p-8 lg:py-10 overflow-y-auto">
+                <div className="lg:w-[55%] flex flex-col items-center justify-center p-4 pt-8 pb-12 lg:p-8 lg:py-10 overflow-y-auto">
                     {/* Start Button */}
-                    <div className="max-w-md mx-auto w-full mb-6">
+                    <div className="w-full mb-6 flex flex-col items-center">
                         <Button
                             size="lg"
                             onClick={handleStart}
-                            className="w-full text-lg md:text-xl font-black py-6 md:py-7 rounded-2xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-teal-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(6,182,212,0.5)] animate-pulse-subtle group"
+                            className="text-lg md:text-xl font-black py-6 md:py-7 px-8 md:px-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-teal-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(6,182,212,0.5)] animate-pulse-subtle group"
                         >
                             <Headphones className="mr-3 h-7 w-7 group-hover:scale-110 transition-transform" />
                             🎧 Commencer l'écoute
@@ -349,51 +342,131 @@ export function ListenMode({
                             </div>
                         </div>
 
-                        {/* Voice Provider Selection */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                        {/* Voice Provider Selection - Governance Rules */}
+                        {(() => {
+                            const isTroupeContext = !!troupeId;
+                            const isLibraryScript = isPublicScript;
+                            const isUserScript = !isPublicScript && !troupeId;
 
-                            {isPremiumUnlocked ? (
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        onClick={() => setTtsProvider("browser")}
-                                        className={cn(
-                                            "py-3 rounded-xl text-xs font-bold transition-all border",
-                                            ttsProvider === "browser"
-                                                ? "bg-muted/30 dark:bg-white/10 border-border dark:border-white/30 text-foreground"
-                                                : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                            // TROUPE MODE: No voice config shown (managed in CastingManager)
+                            if (isTroupeContext) {
+                                return (
+                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
+                                        <div className="py-3 rounded-xl text-xs font-medium bg-muted/30 border border-border text-muted-foreground text-center">
+                                            Voix gérées par l'admin de la troupe
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // SOLO + LIBRARY + PRO: Read-only AI voices (admin pre-assigned)
+                            if (isLibraryScript && isPremiumUnlocked) {
+                                return (
+                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
+                                        <div className="py-3 rounded-xl text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center flex items-center justify-center gap-2">
+                                            <Sparkles className="w-3 h-3" />
+                                            Voix IA officielles
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground text-center mt-2">
+                                            Attribuées par l'admin Repeto
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            // SOLO + LIBRARY + FREE: Browser voice config
+                            if (isLibraryScript && !isPremiumUnlocked) {
+                                return (
+                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-3">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                                        <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
+                                            Voix Standard
+                                        </div>
+                                        <BrowserVoiceConfig
+                                            characters={script.characters}
+                                            voices={voices}
+                                            assignments={voiceAssignments}
+                                            onAssign={setVoiceForRole}
+                                        />
+                                        <a
+                                            href="/profile"
+                                            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
+                                        >
+                                            <Sparkles className="w-3 h-3" />
+                                            Passez à Pro pour des voix IA
+                                        </a>
+                                    </div>
+                                );
+                            }
+
+                            // SOLO + USER SCRIPT + PRO: AI voice selector (free choice)
+                            if (isUserScript && isPremiumUnlocked) {
+                                return (
+                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => setTtsProvider("browser")}
+                                                className={cn(
+                                                    "py-3 rounded-xl text-xs font-bold transition-all border",
+                                                    ttsProvider === "browser"
+                                                        ? "bg-muted/30 border-border text-foreground"
+                                                        : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                                )}
+                                            >
+                                                Standard
+                                            </button>
+                                            <button
+                                                onClick={() => setTtsProvider("openai")}
+                                                className={cn(
+                                                    "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
+                                                    ttsProvider === "openai"
+                                                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                                                        : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                                )}
+                                            >
+                                                <Sparkles className="w-3 h-3" />
+                                                Neural AI
+                                            </button>
+                                        </div>
+                                        {ttsProvider === "browser" && (
+                                            <BrowserVoiceConfig
+                                                characters={script.characters}
+                                                voices={voices}
+                                                assignments={voiceAssignments}
+                                                onAssign={setVoiceForRole}
+                                            />
                                         )}
-                                    >
-                                        Standard
-                                    </button>
-                                    <button
-                                        onClick={() => setTtsProvider("openai")}
-                                        className={cn(
-                                            "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
-                                            ttsProvider === "openai"
-                                                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                                : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                        )}
-                                    >
-                                        <Sparkles className="w-3 h-3" />
-                                        Neural AI
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 dark:bg-white/10 border border-border dark:border-white/30 text-foreground text-center">
+                                        {/* TODO: Add AIVoiceConfig for openai provider if needed */}
+                                    </div>
+                                );
+                            }
+
+                            // SOLO + USER SCRIPT + FREE: Browser voice config only
+                            return (
+                                <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
+                                    <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
                                         Voix Standard
                                     </div>
+                                    <BrowserVoiceConfig
+                                        characters={script.characters}
+                                        voices={voices}
+                                        assignments={voiceAssignments}
+                                        onAssign={setVoiceForRole}
+                                    />
                                     <a
                                         href="/profile"
                                         className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
                                     >
                                         <Sparkles className="w-3 h-3" />
-                                        Passez à Pro pour des voix IA réalistes
+                                        Passez à Pro pour des voix IA
                                     </a>
                                 </div>
-                            )}
-                        </div>
+                            );
+                        })()}
 
                         {/* Announce Character Toggle */}
                         <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">

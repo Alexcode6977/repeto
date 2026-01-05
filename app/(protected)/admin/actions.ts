@@ -177,3 +177,54 @@ export async function toggleUserPremium(userId: string, currentTier: string | nu
     return { success: true, newTier };
 }
 
+
+// Library Management
+export interface LibraryScriptEntry {
+    id: string;
+    title: string;
+    characters: string[];
+    voiceConfigs: any[];
+}
+
+export async function getLibraryScripts(): Promise<LibraryScriptEntry[]> {
+    const supabase = await createClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email !== ADMIN_EMAIL) {
+        return [];
+    }
+
+    // 1. Get all public scripts
+    const { data: scripts, error } = await supabase
+        .from('scripts')
+        .select('id, title, content')
+        .eq('is_public', true)
+        .order('title');
+
+    if (error || !scripts) {
+        console.error("Error fetching library scripts:", error);
+        return [];
+    }
+
+    // 2. Get all voice configs for library scripts
+    const { data: voiceConfigs } = await supabase
+        .from('play_voice_config')
+        .select('*')
+        .eq('source_type', 'library_script');
+
+    // 3. Merge
+    const entries: LibraryScriptEntry[] = scripts.map(script => {
+        const configs = voiceConfigs?.filter(vc => vc.source_id === script.id) || [];
+        // Extract characters from JSON content
+        const characters = (script.content as any)?.characters || [];
+
+        return {
+            id: script.id,
+            title: script.title,
+            characters: characters,
+            voiceConfigs: configs
+        };
+    });
+
+    return entries;
+}

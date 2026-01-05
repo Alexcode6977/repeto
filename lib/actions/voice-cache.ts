@@ -241,3 +241,118 @@ export async function getScriptsWithVoiceConfig(): Promise<string[]> {
     const uniqueIds = [...new Set(data?.map(d => d.source_id) || [])];
     return uniqueIds;
 }
+/**
+ * Generate default voice config if none exists
+ * GOVERNANCE RULES:
+ * - Library scripts: NEVER auto-assign here (Global Admin must set it up)
+ * - Troupe plays: NEVER auto-assign here (Troupe Admin must set it up via Casting)
+ * - Private scripts: Auto-assign is allowed (Owner is the user)
+ */
+export async function ensureVoiceConfig(
+    sourceType: SourceType,
+    sourceId: string,
+    characters: string[],
+    troupeId?: string
+): Promise<{ success: boolean; error?: string }> {
+    // Permission check: Only private scripts can be auto-assigned implicitly
+    if (sourceType === 'library_script') {
+        // We do NOT auto-assign library scripts. 
+        // They must be configured by Global Admin explicitly.
+        // User will fall back to browser voices until then.
+        return { success: false, error: "Configuration voix bibliothèque manquante" };
+    }
+
+    if (sourceType === 'troupe_play') {
+        // We do NOT auto-assign troupe plays implicitly on listen.
+        // Troupe Admin must configure them in Casting.
+        return { success: false, error: "En attente du casting vocal par l'admin" };
+    }
+    const supabase = await createClient();
+
+    // Check if config exists
+    const existing = await hasVoiceConfig(sourceType, sourceId);
+    if (existing) return { success: true };
+
+    const VOICES: OpenAIVoice[] = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+
+    // Create assignments for private script
+    const assignments: VoiceAssignment[] = characters.map((char, index) => ({
+        character: char,
+        voice: VOICES[index % VOICES.length]
+    }));
+
+    return createVoiceConfig(sourceType, sourceId, assignments, troupeId);
+}
+
+/**
+ * Manually update a voice assignment (Admin/Owner action)
+ */
+export async function updateVoiceAssignment(
+    sourceType: SourceType,
+    sourceId: string,
+    characterName: string,
+    voice: OpenAIVoice,
+    troupeId?: string
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    // --- GOVERNANCE CHECKS ---
+
+    // 1. Troupe Play: Must be Admin
+    if (sourceType === 'troupe_play' && troupeId) {
+        const { data: member } = await supabase
+            .from('troupe_members')
+            .select('role')
+            .eq('troupe_id', troupeId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (member?.role !== 'admin') {
+            return { success: false, error: "Seul l'admin de la troupe peut modifier les voix" };
+        }
+    }
+
+    // 2. Library Script: Must be Global Admin
+    if (sourceType === 'library_script') {
+        if (user.email !== 'alex69.sartre@gmail.com') {
+            return { success: false, error: "Seul l'admin global peut modifier les voix de la bibliothèque" };
+        }
+    }
+
+    // 3. Private Script: Must be Owner
+    if (sourceType === 'private_script') {
+        const { data: script } = await supabase
+            .from('scripts')
+            .select('user_id')
+            .eq('id', sourceId)
+            .single();
+
+        if (script?.user_id !== user.id) {
+            return { success: false, error: "Vous n'êtes pas le propriétaire de ce script" };
+        }
+    }
+
+    // Upsert the config
+    const { error } = await supabase
+        .from('play_voice_config')
+        .upsert({
+            source_type: sourceType,
+            source_id: sourceId,
+            character_name: characterName,
+            voice: voice,
+            troupe_id: troupeId || null,
+            created_by: user.id
+        }, {
+            onConflict: 'source_type,source_id,character_name'
+        });
+
+    if (error) {
+        console.error('[VoiceCache] Error updating voice:', error);
+        return { success: false, error: error.message };
+    }
+
+    return { success: true };
+}

@@ -16,15 +16,18 @@ import { FileText, Calendar, Play, BookOpen, Mic, Headphones } from "lucide-reac
 import Link from "next/link";
 import { motion } from "framer-motion";
 
+import { VoiceConfig } from "@/lib/actions/voice-cache";
+
 interface PlayDashboardClientProps {
     play: any;
     troupeId: string;
     troupeMembers: any[];
     guests: any[];
     isAdmin: boolean;
+    initialVoiceConfigs: VoiceConfig[] | null;
 }
 
-export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin }: PlayDashboardClientProps) {
+export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin, initialVoiceConfigs }: PlayDashboardClientProps) {
     const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "setup" | "reader" | "rehearsal" | "listen">("dashboard");
     const [rehearsalChars, setRehearsalChars] = useState<string[] | null>(null);
     const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
@@ -241,10 +244,13 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         </CardHeader>
                         <CardContent className="p-4 pt-0 max-h-[400px] overflow-y-auto">
                             <CastingManager
+                                playId={play.id}
+                                troupeId={troupeId}
                                 characters={play.play_characters}
                                 troupeMembers={troupeMembers}
                                 guests={guests}
                                 isAdmin={isAdmin}
+                                initialVoiceConfigs={initialVoiceConfigs}
                             />
                         </CardContent>
                     </Card>

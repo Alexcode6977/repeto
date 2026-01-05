@@ -111,7 +111,6 @@ export function ListenModeTroupe({
         voices,
         voiceAssignments,
         setVoiceForRole,
-        initializeAudio,
         isLoadingAudio
     } = useListen({
         script,
@@ -192,14 +191,7 @@ export function ListenModeTroupe({
     }, [hasStarted, status, pause, resume, next, previous, replay]);
 
     const handleStart = async () => {
-        try {
-            if (initializeAudio) {
-                await initializeAudio();
-            }
-        } catch (e) {
-            console.error("Audio init failed", e);
-        }
-
+        // No mic needed for listen mode - just start playback
         setHasStarted(true);
         requestWakeLock();
         start();
@@ -268,13 +260,13 @@ export function ListenModeTroupe({
                 </div>
 
                 {/* RIGHT PANEL - Settings (Full width on mobile) */}
-                <div className="lg:w-[55%] flex flex-col items-center p-4 pt-8 pb-12 lg:p-8 lg:py-10 overflow-y-auto">
+                <div className="lg:w-[55%] flex flex-col items-center justify-center p-4 pt-8 pb-12 lg:p-8 lg:py-10 overflow-y-auto">
                     {/* Start Button */}
-                    <div className="max-w-md mx-auto w-full mb-6">
+                    <div className="w-full mb-6 flex flex-col items-center">
                         <Button
                             size="lg"
                             onClick={handleStart}
-                            className="w-full text-lg md:text-xl font-black py-6 md:py-7 rounded-2xl bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(20,184,166,0.5)] animate-pulse-subtle group"
+                            className="text-lg md:text-xl font-black py-6 md:py-7 px-8 md:px-12 rounded-2xl bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(20,184,166,0.5)] animate-pulse-subtle group"
                         >
                             <Headphones className="mr-3 h-7 w-7 group-hover:scale-110 transition-transform" />
                             🎧 Commencer l'écoute
