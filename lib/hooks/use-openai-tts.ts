@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { synthesizeSpeech, OpenAIVoice } from "@/app/actions/tts";
 
 export type TTSProvider = "browser" | "openai";
@@ -143,12 +143,12 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
         }
     }, [stop, addToCache]);
 
-    return {
+    return useMemo(() => ({
         speak,
         preload,
         stop,
         isLoading,
         isSpeaking,
         error,
-    };
+    }), [speak, preload, stop, isLoading, isSpeaking, error]);
 }

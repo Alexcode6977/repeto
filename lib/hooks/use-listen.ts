@@ -65,7 +65,10 @@ export function useListen({
     troupeId
 }: UseListenProps): UseListenReturn {
     const browserSpeech = useSpeech();
+    const { speak: browserSpeak, stop: browserStop } = browserSpeech;
+
     const openaiSpeech = useOpenAITTS();
+    const { speak: openaiSpeak, stop: openaiStop } = openaiSpeech;
     const { voices, initializeAudio } = browserSpeech;
 
     const [recordings, setRecordings] = useState<any[]>([]);
@@ -109,8 +112,9 @@ export function useListen({
         isMountedRef.current = true;
         return () => {
             isMountedRef.current = false;
-            browserSpeech.stop();
-            openaiSpeech.stop();
+            isMountedRef.current = false;
+            browserStop();
+            openaiStop();
             if (currentAudioRef.current) {
                 currentAudioRef.current.pause();
                 currentAudioRef.current = null;
@@ -118,22 +122,41 @@ export function useListen({
         };
     }, []);
 
+    // Race condition protection
+    const speakSessionRef = useRef(0);
+
     // Unified speak function with play-based cache
     const speak = useCallback(async (text: string, characterName?: string, lineId?: string, lineIndex?: number): Promise<void> => {
+        // Increment session ID to invalidate previous pending calls
+        const sessionId = ++speakSessionRef.current;
+
+        // Stop any currently playing audio immediately
+        if (currentAudioRef.current) {
+            currentAudioRef.current.pause();
+            currentAudioRef.current = null;
+        }
+        browserStop();
+        openaiStop();
+
         const sourceId = playId || scriptId || "";
 
         // Priority 1: User Recording (troupe only)
         const recording = recordings.find(r => r.line_id === lineId);
         if (recording) {
             return new Promise((resolve) => {
+                if (sessionId !== speakSessionRef.current) return resolve();
+
                 const audio = new Audio(recording.audio_url);
                 currentAudioRef.current = audio;
 
                 audio.onended = () => {
-                    currentAudioRef.current = null;
-                    resolve();
+                    if (sessionId === speakSessionRef.current) {
+                        currentAudioRef.current = null;
+                        resolve();
+                    }
                 };
                 audio.onerror = async () => {
+                    if (sessionId !== speakSessionRef.current) return resolve();
                     // Fallback to TTS if recording fails
                     console.warn("[Listen] Recording playback failed, falling back to TTS");
                     currentAudioRef.current = null;
@@ -141,6 +164,7 @@ export function useListen({
                     resolve();
                 };
                 audio.play().catch(async () => {
+                    if (sessionId !== speakSessionRef.current) return resolve();
                     await fallbackToTTS(text, characterName, lineIndex, sourceId);
                     resolve();
                 });
@@ -160,7 +184,7 @@ export function useListen({
                     troupeId
                 );
 
-                if (!isMountedRef.current) return;
+                if (!isMountedRef.current || sessionId !== speakSessionRef.current) return;
 
                 if ("audio" in result) {
                     await playAudioUrl(result.audio);
@@ -168,22 +192,27 @@ export function useListen({
                     console.error("[Listen] TTS error:", result.error);
                     // Fallback to browser TTS
                     const voice = characterName ? voiceAssignments[characterName] : undefined;
-                    await browserSpeech.speak(text, voice);
+                    await browserSpeak(text, voice);
                 }
             } catch (e) {
+                if (sessionId !== speakSessionRef.current) return;
                 console.error("[Listen] TTS failed:", e);
                 const voice = characterName ? voiceAssignments[characterName] : undefined;
-                await browserSpeech.speak(text, voice);
+                await browserSpeak(text, voice);
             } finally {
-                setIsLoadingAudio(false);
+                if (sessionId === speakSessionRef.current) {
+                    setIsLoadingAudio(false);
+                }
             }
             return;
         }
 
         // Priority 3: Browser TTS
-        const voice = characterName ? voiceAssignments[characterName] : undefined;
-        await browserSpeech.speak(text, voice);
-    }, [recordings, ttsProvider, sourceType, playId, scriptId, troupeId, voiceAssignments, browserSpeech]);
+        if (sessionId === speakSessionRef.current) {
+            const voice = characterName ? voiceAssignments[characterName] : undefined;
+            await browserSpeak(text, voice);
+        }
+    }, [recordings, ttsProvider, sourceType, playId, scriptId, troupeId, voiceAssignments, browserSpeak, browserStop, openaiSpeak, openaiStop]);
 
     // Helper to play audio URL
     const playAudioUrl = useCallback((url: string): Promise<void> => {
@@ -217,23 +246,50 @@ export function useListen({
             }
         }
         const voice = characterName ? voiceAssignments[characterName] : undefined;
-        await browserSpeech.speak(text, voice);
-    }, [ttsProvider, sourceType, troupeId, voiceAssignments, browserSpeech, playAudioUrl]);
+        await browserSpeak(text, voice);
+    }, [ttsProvider, sourceType, troupeId, voiceAssignments, browserSpeak, playAudioUrl]);
 
     // Stop all audio
     const stopAll = useCallback(() => {
-        browserSpeech.stop();
-        openaiSpeech.stop();
-    }, [browserSpeech, openaiSpeech]);
+        browserStop();
+        openaiStop();
+    }, [browserStop, openaiStop]);
 
     // Helper: check if character is user's
     const isUserLine = useCallback((lineChar: string) => {
         if (!lineChar || !userCharacters || userCharacters.length === 0) return false;
         const normalizedLineChar = lineChar.toLowerCase().trim();
         const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+
         return userCharacters.some(userChar => {
             const normalizedUserChar = userChar.toLowerCase().trim();
-            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+
+            // 1. Exact match
+            if (normalizedLineChar === normalizedUserChar) return true;
+
+            // 2. Substring match (e.g. "De Guiche" in "Comte De Guiche")
+            if (normalizedLineChar.includes(normalizedUserChar)) return true;
+
+            // 3. Reverse substring match (e.g. "Cyrano" in "Cyrano de Bergerac" if user is full name?)
+            // Usually userChar is the short one. 
+
+            // 4. Word match (e.g. "Cyrano" in "Cyrano (off)")
+            // Check if ANY part of the user char matches ANY part of the line char (risky? "Le" in "Le Bret")
+            // No, strictly check if userChar (as a whole) is in lineParts? No, "De Guiche" is 2 words.
+
+            // Let's trust "includes" for most cases (Title + Name).
+            // And use intersection for "Premier Cadet" vs "Cadet".
+
+            const userParts = normalizedUserChar.split(/[\s,]+/).map(p => p.trim());
+            // Check if ALL significant parts of user name are in line parts
+            // Filter out small words? "le", "la", "de"...
+            const significantUserParts = userParts.filter(p => p.length > 2);
+            if (significantUserParts.length > 0) {
+                const allPartsFound = significantUserParts.every(p => lineParts.includes(p));
+                if (allPartsFound) return true;
+            }
+
+            return false;
         });
     }, [userCharacters]);
 
@@ -423,6 +479,8 @@ export function useListen({
 
     // Main playback engine
     useEffect(() => {
+        let isCancelled = false;
+
         if (status !== "playing") return;
 
         const playCurrentLine = async () => {
@@ -430,20 +488,31 @@ export function useListen({
 
             const line = script.lines[currentLineIndex];
             if (!line) {
-                setStatus("finished");
+                if (!isCancelled) setStatus("finished");
                 return;
             }
 
             try {
                 // Announce character if enabled
                 if (announceCharacter) {
-                    await speak(`${line.character} dit :`, undefined, undefined, undefined);
-                    if (!isMountedRef.current || stateRef.current.status !== "playing") return;
+                    // Use browser speech directly for announcement to avoid complex logic/race conditions of main speak function
+                    browserStop();
+                    openaiStop(); // Ensure silnece
+                    await browserSpeak(`${line.character} dit :`);
+
+                    if (isCancelled || !isMountedRef.current || stateRef.current.status !== "playing") return;
+
+                    // Small buffer after announcement
+                    await new Promise(r => setTimeout(r, 300));
                 }
 
                 // Play the line with lineIndex for cache
                 await speak(line.text, line.character, line.id, currentLineIndex);
-                if (!isMountedRef.current || stateRef.current.status !== "playing") return;
+                if (isCancelled || !isMountedRef.current || stateRef.current.status !== "playing") return;
+
+                // BUFFER DELAY: Wait 500ms after audio finishes before moving to next line
+                await new Promise(r => setTimeout(r, 500));
+                if (isCancelled || !isMountedRef.current || stateRef.current.status !== "playing") return;
 
                 // Auto-advance to next line
                 const nextIdx = findNextRelevantIndex(currentLineIndex, 1);
@@ -464,23 +533,27 @@ export function useListen({
                             ).catch(() => { }); // Ignore preload errors
                         }
                     }
-                    setCurrentLineIndex(nextIdx);
+                    if (!isCancelled) setCurrentLineIndex(nextIdx);
                 } else {
-                    setStatus("finished");
+                    if (!isCancelled) setStatus("finished");
                 }
             } catch (e) {
                 console.error("[Listen] Playback error:", e);
                 // Try to continue anyway
                 const nextIdx = findNextRelevantIndex(currentLineIndex, 1);
                 if (nextIdx < script.lines.length) {
-                    setCurrentLineIndex(nextIdx);
+                    if (!isCancelled) setCurrentLineIndex(nextIdx);
                 } else {
-                    setStatus("finished");
+                    if (!isCancelled) setStatus("finished");
                 }
             }
         };
 
         playCurrentLine();
+
+        return () => {
+            isCancelled = true;
+        };
     }, [status, currentLineIndex, script.lines, announceCharacter, speak, findNextRelevantIndex, ttsProvider, playId, scriptId, sourceType, troupeId]);
 
     return {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Emotion, segmentText, isVoiceCommand, applyPhoneticCorrections } from "../speech-utils";
 import { calculateSimilarity } from "../similarity";
 
@@ -627,7 +627,7 @@ export function useSpeech(): UseSpeechReturn {
         }
     }, []);
 
-    return {
+    return useMemo(() => ({
         isListening: state === "listening",
         transcript,
         listeningError: state === "error" ? "Speech recognition error" : null,
@@ -640,5 +640,5 @@ export function useSpeech(): UseSpeechReturn {
         state,
         initializeAudio,
         isSupported: typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
-    };
+    }), [state, transcript, listen, stop, speak, voices, initializeAudio]);
 }
