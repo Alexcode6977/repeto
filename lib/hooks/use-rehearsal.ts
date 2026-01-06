@@ -222,7 +222,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         return direction === 1 ? script.lines.length : -1; // Out of bounds
     };
 
-    const start = () => {
+    const start = (immediate = false) => {
         if (transitionLockRef.current) return;
         transitionLockRef.current = true;
         stopAll();
@@ -273,8 +273,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         setCurrentLineIndex(entryIdx);
         const line = script.lines[entryIdx];
 
-        // Brief delay to ensure cleanup
-        setTimeout(() => {
+        const executeStart = () => {
             if (isUserLine(line.character)) {
                 setStatus("listening_user");
                 playBip();
@@ -282,7 +281,14 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                 setStatus("playing_other");
             }
             transitionLockRef.current = false;
-        }, 300); // More generous window for mobile
+        };
+
+        if (immediate) {
+            executeStart();
+        } else {
+            //@ts-ignore
+            setTimeout(executeStart, 300); // More generous window for mobile
+        }
     };
 
     // Find next relevant index based on mode

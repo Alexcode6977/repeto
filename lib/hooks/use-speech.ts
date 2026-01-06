@@ -21,7 +21,7 @@ export interface UseSpeechReturn {
     resume: () => void;
     voices: SpeechSynthesisVoice[];
     state: SpeechState;
-    initializeAudio: (forceOutput?: boolean) => Promise<void>;
+    initializeAudio: (forceOutput?: boolean, skipWarmup?: boolean) => Promise<void>;
     isSupported: boolean;
 }
 
@@ -562,7 +562,7 @@ export function useSpeech(): UseSpeechReturn {
     }, []);
 
     // Safari requires SpeechRecognition to be started within a user gesture handler (click).
-    const initializeAudio = useCallback(async (forceOutput = false) => {
+    const initializeAudio = useCallback(async (forceOutput = false, skipWarmup = false) => {
         try {
             // EXPERIMENTAL: Force Audio Output (CarPlay / iPad fix)
             // iOS often switches to "Phone Receiver" when mic is active if no audio is playing.
@@ -599,7 +599,8 @@ export function useSpeech(): UseSpeechReturn {
             await navigator.mediaDevices.getUserMedia({ audio: true });
 
             // 2. Warmup Speech Recognition (silent start/stop)
-            if (recognitionRef.current) {
+            // SKIP if we are about to start listening immediately to avoid race conditions
+            if (!skipWarmup && recognitionRef.current) {
                 recognitionRef.current.onresult = null;
                 recognitionRef.current.onerror = null;
 

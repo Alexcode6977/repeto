@@ -313,7 +313,19 @@ export function RehearsalMode({
         // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)
         try {
             if (initializeAudio) {
-                await initializeAudio(forceAudioOutput);
+                // Check if the user speaks first (Check mode or Cue mode leading into user line)
+                // If so, we SKIP the warmup to avoid race condition with the immediate listen() call
+                let isUserStarting = false;
+                const startLine = script.lines[startLineIndex];
+                if (startLine) {
+                    const normalizedLineChar = startLine.character.toLowerCase().trim();
+                    isUserStarting = (userCharacters || []).some(userChar => {
+                        const normalizedUserChar = (userChar || "").toLowerCase().trim();
+                        return normalizedLineChar === normalizedUserChar;
+                    });
+                }
+
+                await initializeAudio(forceAudioOutput, isUserStarting);
             } else {
                 await navigator.mediaDevices.getUserMedia({ audio: true });
             }

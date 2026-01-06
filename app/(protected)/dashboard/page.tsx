@@ -655,7 +655,7 @@ export default function Home() {
         ) : scriptsList.length > 0 ? (
           (() => {
             const filteredScripts = scriptsList.filter(s =>
-              libraryView === "personal" ? s.is_owner : !s.is_owner
+              libraryView === "personal" ? s.is_owner : (!s.is_owner || s.is_public)
             );
 
             if (filteredScripts.length === 0) {
