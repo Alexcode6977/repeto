@@ -182,7 +182,7 @@ export default function LandingPage() {
                 </section>
 
                 {/* Features - Cartes modernes */}
-                <section id="fonctionnalites" className="py-32 relative">
+                <section id="fonctionnalites" className="py-12 relative">
                     <div className="max-w-7xl mx-auto px-6">
                         <h2 className="text-3xl md:text-5xl font-bold text-center mb-20 text-white">
                             Comment ça marche ?
@@ -211,8 +211,41 @@ export default function LandingPage() {
                     </div>
                 </section>
 
+                {/* Demo Video Section */}
+                <section id="demo" className="py-12 relative">
+                    <div className="max-w-5xl mx-auto px-6">
+                        <div className="text-center mb-12 space-y-4">
+                            <h2 className="text-3xl md:text-5xl font-bold text-white">
+                                Découvrir en action
+                            </h2>
+                            <p className="text-white/50 text-lg">
+                                Voyez comment Repeto transforme vos répétitions.
+                            </p>
+                        </div>
+
+                        {/* Video Container with Glassmorphism Wrapper */}
+                        <div className="relative group">
+                            {/* Glow Effect */}
+                            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-purple-600/50 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
+
+                            <div className="relative bg-[#111111]/80 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl aspect-video">
+                                <iframe
+                                    width="100%"
+                                    height="100%"
+                                    src="https://www.youtube.com/embed/Tv05QWwsr2c?autoplay=0&rel=0"
+                                    title="Repeto Demo Video"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowFullScreen
+                                    className="w-full h-full"
+                                ></iframe>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 {/* Pricing - Épuré */}
-                <section id="tarifs" className="py-32 bg-white/[0.02]">
+                <section id="tarifs" className="py-24 bg-white/[0.02]">
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="text-center mb-16 space-y-4">
                             <h2 className="text-3xl md:text-5xl font-bold text-white">Tarifs simples</h2>
