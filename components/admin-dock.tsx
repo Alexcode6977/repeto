@@ -46,7 +46,7 @@ export function AdminDock({ troupeId }: AdminDockProps) {
     ];
 
     return (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
+        <div className="hidden md:block fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
             <div className="flex items-center gap-2 p-2 px-3 rounded-full bg-background/80 backdrop-blur-xl border border-white/10 shadow-2xl transition-all hover:scale-[1.02]">
                 <TooltipProvider delayDuration={0}>
                     {dockItems.map((item) => (

@@ -140,7 +140,7 @@ export default async function TroupeDashboard({
 
             {/* Next Rehearsal Widget (High Priority) */}
             {isAdmin && (
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="hidden md:block animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <NextRehearsalWidget nextSession={nextSession} troupeId={troupeId} />
                 </div>
             )}

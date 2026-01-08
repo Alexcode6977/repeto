@@ -107,6 +107,10 @@
     @apply bg-background text-foreground antialiased;
     background: var(--body-gradient);
     min-height: 100vh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* Enhanced cursor visibility for pointer devices (iPad with mouse, etc.) */

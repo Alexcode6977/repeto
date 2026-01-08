@@ -9,12 +9,15 @@ import { ScriptReader } from "@/components/script-reader";
 import { ListenModeTroupe } from "@/components/listen-mode-troupe";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { CastingManager } from "@/components/casting-manager";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Calendar, Play, BookOpen, Mic, Headphones } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { FileText, Calendar, Play, BookOpen, Mic, Headphones, Info, Users, Settings } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { useHaptic } from "@/lib/hooks/use-haptic";
 
 import { VoiceConfig } from "@/lib/actions/voice-cache";
 
@@ -37,6 +40,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const [isMounted, setIsMounted] = useState(false);
     const [userId, setUserId] = useState<string>("");
     const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal">("reader");
+    const { trigger } = useHaptic();
 
     useEffect(() => {
         setIsMounted(true);
@@ -50,31 +54,13 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
 
     if (!isMounted) return null;
 
-    const handleConfirmSelection = (characterNames: string[], mode: 'reader' | 'rehearsal') => {
-        setRehearsalChars(characterNames);
-        if (mode === 'rehearsal') {
-            setViewMode("rehearsal");
-        } else {
-            setViewMode("setup");
-        }
-    };
-
-    const handleStartSession = (settings: ScriptSettings) => {
-        setSessionSettings(settings);
-        setViewMode("reader");
-    };
-
-    const handleExitView = () => {
-        setRehearsalChars(null);
-        setViewMode("dashboard");
-    };
-
+    // View Switching Logic
     if (rehearsalChars && viewMode === "listen") {
         return (
             <ListenModeTroupe
                 script={play.script_content as ParsedScript}
                 userCharacters={rehearsalChars}
-                onExit={handleExitView}
+                onExit={() => setViewMode("dashboard")}
                 playId={play.id}
                 troupeId={troupeId}
             />
@@ -86,7 +72,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
             <RehearsalMode
                 script={play.script_content as ParsedScript}
                 userCharacters={rehearsalChars}
-                onExit={handleExitView}
+                onExit={() => setViewMode("dashboard")}
                 initialSettings={sessionSettings}
                 playId={play.id}
                 troupeId={troupeId}
@@ -99,7 +85,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
             <ScriptReader
                 script={play.script_content as ParsedScript}
                 userCharacters={rehearsalChars}
-                onExit={handleExitView}
+                onExit={() => setViewMode("dashboard")}
                 settings={sessionSettings}
                 playId={play.id}
                 userId={userId}
@@ -111,8 +97,11 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
         return (
             <ScriptSetup
                 script={play.script_content as ParsedScript}
-                character={rehearsalChars[0]} // Still use the first one for setup title if needed, or update ScriptSetup later
-                onStart={handleStartSession}
+                character={rehearsalChars[0]}
+                onStart={(settings) => {
+                    setSessionSettings(settings);
+                    setViewMode("reader");
+                }}
                 onBack={() => setViewMode("viewer")}
             />
         );
@@ -120,260 +109,270 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
 
     if (viewMode === "viewer") {
         return (
-            <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
-                <div className="flex gap-4 self-start">
+            <div className="w-full flex flex-col items-center gap-6 animate-in fade-in h-[100dvh]">
+                <div className="flex gap-4 self-start p-4">
                     <Button
                         variant="ghost"
                         onClick={() => setViewMode("dashboard")}
                         className="text-muted-foreground hover:text-foreground"
                     >
-                        ← Retour au tableau de bord
+                        ← Retour
                     </Button>
                 </div>
                 <ScriptViewer
                     script={play.script_content as ParsedScript}
-                    onConfirm={handleConfirmSelection}
+                    onConfirm={(chars, mode) => {
+                        setRehearsalChars(chars);
+                        if (mode === 'rehearsal') {
+                            setViewMode("rehearsal");
+                        } else {
+                            setViewMode("setup");
+                        }
+                    }}
                     forcedMode={intendedMode}
                 />
             </div>
         );
     }
 
-    // Calculate stats
+    // --- DASHBOARD DATA ---
     const script = play.script_content as ParsedScript;
     const characterCount = play.play_characters?.length || 0;
     const sceneCount = play.play_scenes?.length || 0;
     const lineCount = script?.lines?.filter((l: any) => l.type === 'dialogue').length || 0;
-    const estimatedDuration = Math.round(lineCount * 0.5); // ~30 sec per line = 0.5 min
+    const estimatedDuration = Math.round(lineCount * 0.5);
 
-    const hasUserRole = play.play_characters?.some((c: any) => c.actor_id === userId);
+    // Filter characters
+    const myCharacters = play.play_characters?.filter((c: any) => c.actor_id === userId) || [];
+    const otherCharacters = play.play_characters?.filter((c: any) => c.actor_id !== userId) || [];
+    const allCharacters = [...myCharacters, ...otherCharacters];
+
+    // Helper to start standard modes
+    const startMode = (mode: "reader" | "rehearsal") => {
+        setIntendedMode(mode);
+        setViewMode("viewer");
+    };
 
     return (
-        <div className="space-y-10 pb-32">
-            {/* Header Section with Shared Element Transition */}
-            <motion.div
-                layoutId={`play-card-${play.id}`}
-                className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10"
-            >
-                <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
+        <div className="flex flex-col h-[calc(100dvh-5rem)] md:h-auto gap-4 p-4 md:p-0 overflow-y-auto md:overflow-visible">
 
-                <div className="relative">
-                    <div className="flex items-center gap-3 mb-2">
-                        <Link href={`/troupes/${troupeId}/plays`} className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium flex items-center gap-1 group">
-                            <span className="group-hover:-translate-x-1 transition-transform">←</span> Retour aux pièces
-                        </Link>
-                    </div>
-                    <motion.h1
-                        layoutId={`play-title-${play.id}`}
-                        className="text-5xl font-extrabold tracking-tighter text-foreground mb-2 leading-none"
-                    >
+            {/* 1. Header & Stats Overlay */}
+            <div className="flex items-center justify-between shrink-0 mb-2">
+                <div>
+                    <Link href={`/troupes/${troupeId}/plays`} className="text-xs text-muted-foreground mb-1 block">
+                        ← Retour
+                    </Link>
+                    <h1 className="text-2xl font-bold tracking-tight leading-tight line-clamp-2">
                         {play.title}
-                    </motion.h1>
-                    <div className="flex items-center gap-4 text-muted-foreground font-medium">
-                        <p className="flex items-center gap-2 text-sm">
-                            <Calendar className="w-4 h-4" />
-                            Importé le {isMounted ? new Date(play.created_at).toLocaleDateString() : ""}
-                        </p>
-                        {play.pdf_url && (
-                            <Badge variant="outline" className="bg-primary/5 border-primary/20 text-primary uppercase text-[10px] tracking-widest font-black px-2 py-0.5 rounded-full">
-                                PDF Synchronisé
-                            </Badge>
-                        )}
-                    </div>
+                    </h1>
                 </div>
-            </motion.div>
 
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-
-                {/* Left Column - Stats & Distribution */}
-                <div className="flex flex-col gap-6 h-full">
-                    {/* Stats Card */}
-                    <Card className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden">
-                        <CardHeader className="p-6 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                                    <FileText className="w-6 h-6 text-primary" />
+                <div className="flex gap-2">
+                    {/* Stats Dialog */}
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-secondary/20 border-0">
+                                <Info className="w-5 h-5 text-muted-foreground" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="w-[90%] max-w-sm rounded-3xl bg-card border-white/10">
+                            <DialogHeader>
+                                <DialogTitle>Statistiques de la pièce</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid grid-cols-2 gap-4 py-4">
+                                <div className="p-4 rounded-2xl bg-muted/50 text-center">
+                                    <p className="text-3xl font-bold mb-1">{characterCount}</p>
+                                    <p className="text-xs uppercase text-muted-foreground font-bold">Personnages</p>
                                 </div>
-                                <div>
-                                    <CardTitle className="text-xl font-bold text-foreground">Statistiques</CardTitle>
-                                    <CardDescription className="text-muted-foreground">Aperçu de la pièce</CardDescription>
+                                <div className="p-4 rounded-2xl bg-muted/50 text-center">
+                                    <p className="text-3xl font-bold mb-1">{sceneCount}</p>
+                                    <p className="text-xs uppercase text-muted-foreground font-bold">Scènes</p>
                                 </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-6 pt-2">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-3 rounded-xl bg-muted/50 border border-border">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Personnages</p>
-                                    <p className="text-2xl font-bold text-foreground">{characterCount}</p>
+                                <div className="p-4 rounded-2xl bg-muted/50 text-center">
+                                    <p className="text-3xl font-bold mb-1">{lineCount}</p>
+                                    <p className="text-xs uppercase text-muted-foreground font-bold">Répliques</p>
                                 </div>
-                                <div className="p-3 rounded-xl bg-muted/50 border border-border">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Scènes</p>
-                                    <p className="text-2xl font-bold text-foreground">{sceneCount}</p>
-                                </div>
-                                <div className="p-3 rounded-xl bg-muted/50 border border-border">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Répliques</p>
-                                    <p className="text-2xl font-bold text-foreground">{lineCount}</p>
-                                </div>
-                                <div className="p-3 rounded-xl bg-muted/50 border border-border">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Durée estimée</p>
-                                    <p className="text-2xl font-bold text-foreground">~{estimatedDuration}m</p>
+                                <div className="p-4 rounded-2xl bg-muted/50 text-center">
+                                    <p className="text-3xl font-bold mb-1">{estimatedDuration}m</p>
+                                    <p className="text-xs uppercase text-muted-foreground font-bold">Durée est.</p>
                                 </div>
                             </div>
                             {play.summary && (
-                                <div className="mt-4 p-3 rounded-xl bg-muted/30 border border-border">
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">Résumé</p>
-                                    <p className="text-sm text-foreground/80">{play.summary}</p>
-                                </div>
+                                <p className="text-sm text-muted-foreground text-center px-2">{play.summary}</p>
                             )}
-                        </CardContent>
-                    </Card>
+                        </DialogContent>
+                    </Dialog>
 
-                    {/* Distribution Card - Allow expansion if needed */}
-                    <Card className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden flex-1">
-                        <CardHeader className="p-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                                    <BookOpen className="w-5 h-5 text-purple-500" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-bold text-foreground">Distribution</CardTitle>
-                                    <CardDescription className="text-muted-foreground text-xs">Gérer les rôles</CardDescription>
-                                </div>
+                    {/* Casting/Settings Dialog */}
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-secondary/20 border-0">
+                                <Settings className="w-5 h-5 text-muted-foreground" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="w-[95%] max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl bg-black/95 border-white/10">
+                            <DialogHeader>
+                                <DialogTitle>Distribution</DialogTitle>
+                            </DialogHeader>
+                            <div className="py-2">
+                                <CastingManager
+                                    playId={play.id}
+                                    troupeId={troupeId}
+                                    characters={play.play_characters}
+                                    troupeMembers={troupeMembers}
+                                    guests={guests}
+                                    isAdmin={isAdmin}
+                                    initialVoiceConfigs={initialVoiceConfigs}
+                                />
                             </div>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-0 max-h-[400px] overflow-y-auto">
-                            <CastingManager
-                                playId={play.id}
-                                troupeId={troupeId}
-                                characters={play.play_characters}
-                                troupeMembers={troupeMembers}
-                                guests={guests}
-                                isAdmin={isAdmin}
-                                initialVoiceConfigs={initialVoiceConfigs}
-                            />
-                        </CardContent>
-                    </Card>
+                        </DialogContent>
+                    </Dialog>
+                </div>
+            </div>
+
+            {/* 2. Character Carousel */}
+            <div className="shrink-0 space-y-3">
+                <div className="flex items-center justify-between px-1">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Personnages</h3>
+                    <span className="text-xs text-muted-foreground">{allCharacters.length} rôles</span>
                 </div>
 
-                {/* Right Column - Actions */}
-                <div className="flex flex-col gap-6 h-full">
-                    {/* Jouer Card */}
-                    <Card
-                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-green-500/30 hover:shadow-[0_0_30px_rgba(34,197,94,0.1)] transition-all group flex-1 flex flex-col justify-center relative"
-                        onClick={() => {
-                            setIntendedMode("reader");
-                            setViewMode("viewer");
-                        }}
-                    >
-                        <CardHeader className="p-8">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-16 h-16 rounded-3xl bg-green-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <BookOpen className="w-8 h-8 text-green-500" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-2xl font-bold text-foreground group-hover:text-green-500 transition-colors mb-1">Lire</CardTitle>
-                                        <CardDescription className="text-muted-foreground text-base">Mode lecture du script</CardDescription>
-                                    </div>
+                {/* Scrollable Container */}
+                <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x scrollbar-hide">
+                    {allCharacters.map((char: any) => {
+                        const isMe = char.actor_id === userId;
+                        const assignedTo = troupeMembers.find(m => m.user_id === char.actor_id)?.profiles?.first_name
+                            || guests.find(g => g.id === char.guest_id)?.name
+                            || "Libre";
+
+                        return (
+                            <div
+                                key={char.id}
+                                className={cn(
+                                    "flex flex-col items-center gap-2 min-w-[85px] snap-center group cursor-pointer",
+                                    rehearsalChars?.includes(char.character_name) ? "opacity-100" : "opacity-80 hover:opacity-100"
+                                )}
+                                onClick={() => {
+                                    // Quick select logic could go here if we wanted direct selection
+                                    // For now just visual or simple toggle
+                                    if (rehearsalChars?.includes(char.character_name)) {
+                                        setRehearsalChars(null);
+                                    } else {
+                                        setRehearsalChars([char.character_name]);
+                                    }
+                                    trigger('selection');
+                                }}
+                            >
+                                <div className={cn(
+                                    "w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold border-2 transition-all",
+                                    isMe
+                                        ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(124,58,237,0.5)] scale-105"
+                                        : rehearsalChars?.includes(char.character_name)
+                                            ? "bg-white text-black border-white"
+                                            : "bg-muted text-muted-foreground border-transparent"
+                                )}>
+                                    {char.name.substring(0, 2).toUpperCase()}
                                 </div>
-                                <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center group-hover:bg-green-500 transition-all">
-                                    <span className="text-green-500 group-hover:text-primary-foreground transition-colors text-xl">→</span>
+                                <div className="text-center">
+                                    <p className={cn("text-xs font-bold truncate max-w-[85px]", isMe && "text-primary")}>
+                                        {char.name}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground truncate max-w-[85px]">
+                                        {isMe ? "Moi" : assignedTo}
+                                    </p>
                                 </div>
                             </div>
-                        </CardHeader>
-                    </Card>
+                        );
+                    })}
+                </div>
+            </div>
 
-                    {/* Répéter Card */}
-                    <Card
-                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-primary/30 hover:shadow-[0_0_30px_rgba(var(--primary-rgb),0.1)] transition-all group flex-1 flex flex-col justify-center relative"
-                        onClick={() => {
-                            setIntendedMode("rehearsal");
-                            setViewMode("viewer");
-                        }}
-                    >
-                        <CardHeader className="p-8">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Play className="w-8 h-8 text-primary fill-current" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors mb-1">Répéter</CardTitle>
-                                        <CardDescription className="text-muted-foreground text-base">Mode répétition interactive</CardDescription>
-                                    </div>
-                                </div>
-                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all">
-                                    <span className="text-primary group-hover:text-primary-foreground transition-colors text-xl">→</span>
-                                </div>
-                            </div>
-                        </CardHeader>
-                    </Card>
+            {/* 3. Action Grid (2x2) */}
+            <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
 
-                    {/* Écouter Card */}
-                    <Card
-                        className="bg-card border-border backdrop-blur-md rounded-3xl border overflow-hidden cursor-pointer hover:border-teal-500/30 hover:shadow-[0_0_30px_rgba(20,184,166,0.1)] transition-all group flex-1 flex flex-col justify-center relative"
-                        onClick={() => {
-                            // Get user's assigned characters
-                            const userChars = play.play_characters
-                                ?.filter((c: any) => c.actor_id === userId)
-                                ?.map((c: any) => c.character_name) || [];
-                            if (userChars.length > 0) {
-                                setRehearsalChars(userChars);
-                                setViewMode("listen");
-                            }
-                        }}
-                    >
-                        <CardHeader className="p-8">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-6">
-                                    <div className="w-16 h-16 rounded-3xl bg-teal-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Headphones className="w-8 h-8 text-teal-500" />
-                                    </div>
-                                    <div>
-                                        <CardTitle className="text-2xl font-bold text-foreground group-hover:text-teal-500 transition-colors mb-1">Écouter</CardTitle>
-                                        <CardDescription className="text-muted-foreground text-base">Mode livre audio</CardDescription>
-                                    </div>
-                                </div>
-                                <div className="w-12 h-12 rounded-full bg-teal-500/10 flex items-center justify-center group-hover:bg-teal-500 transition-all">
-                                    <span className="text-teal-500 group-hover:text-primary-foreground transition-colors text-xl">→</span>
-                                </div>
-                            </div>
-                        </CardHeader>
-                    </Card>
+                {/* Lire */}
+                <Card
+                    className="border-0 bg-green-500/10 hover:bg-green-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
+                    onClick={() => {
+                        startMode("reader");
+                        trigger('medium');
+                    }}
+                >
+                    <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
+                        <BookOpen className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-green-400 text-lg">Lire</h3>
+                        <p className="text-[10px] text-green-400/60 uppercase font-bold tracking-wider">Script complet</p>
+                    </div>
+                </Card>
 
-                    {/* Enregistrer Voix Card - Link-based */}
-                    {hasUserRole ? (
-                        <Link
-                            href={`/troupes/${troupeId}/plays/${play.id}/record`}
-                            className="bg-card border border-border backdrop-blur-md rounded-3xl overflow-hidden cursor-pointer hover:border-red-500/30 hover:shadow-[0_0_30px_rgba(239,68,68,0.1)] transition-all group flex-1 flex flex-col justify-center relative no-underline hover:scale-[1.01]"
+                {/* Répéter */}
+                <Card
+                    className="border-0 bg-primary/10 hover:bg-primary/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
+                    onClick={() => {
+                        startMode("rehearsal");
+                        trigger('medium');
+                    }}
+                >
+                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                        <Play className="w-6 h-6 ml-1 fill-current" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-primary text-lg">Répéter</h3>
+                        <p className="text-[10px] text-primary/60 uppercase font-bold tracking-wider">Mode Interactif</p>
+                    </div>
+                </Card>
+
+                {/* Écouter */}
+                <Card
+                    className="border-0 bg-teal-500/10 hover:bg-teal-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
+                    onClick={() => {
+                        const userChars = myCharacters.map((c: any) => c.character_name);
+                        if (userChars.length > 0) {
+                            setRehearsalChars(userChars);
+                            setViewMode("listen");
+                            trigger('medium');
+                        } else {
+                            // Fallback if no char assigned: just listen as first char or none
+                            // Or show alert
+                            alert("Choisissez un personnage pour écouter.");
+                        }
+                    }}
+                >
+                    <div className="w-12 h-12 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
+                        <Headphones className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-teal-400 text-lg">Écouter</h3>
+                        <p className="text-[10px] text-teal-400/60 uppercase font-bold tracking-wider">Audio seul</p>
+                    </div>
+                </Card>
+
+                {/* Enregistrer */}
+                {myCharacters.length > 0 ? (
+                    <Link href={`/troupes/${troupeId}/plays/${play.id}/record`} className="contents">
+                        <Card
+                            className="border-0 bg-red-500/10 hover:bg-red-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
+                            onClick={() => trigger('medium')}
                         >
-                            <CardHeader className="p-8">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-6">
-                                        <div className="w-16 h-16 rounded-3xl bg-red-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                            <Mic className="w-8 h-8 text-red-500" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-2xl font-bold text-foreground group-hover:text-red-500 transition-colors mb-1">Enregistrer</CardTitle>
-                                            <CardDescription className="text-muted-foreground text-base">Enregistrez vos répliques</CardDescription>
-                                        </div>
-                                    </div>
-                                    <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center group-hover:bg-red-500 transition-all">
-                                        <span className="text-red-500 group-hover:text-primary-foreground transition-colors text-xl">→</span>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                        </Link>
-                    ) : (
-                        <div className="flex-1 rounded-3xl border border-dashed border-white/10 flex items-center justify-center p-8 text-center text-muted-foreground bg-muted/10">
-                            <p className="text-sm">Attribuez-vous un rôle pour accéder à l'enregistrement.</p>
-                        </div>
-                    )}
-                </div>
+                            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-400">
+                                <Mic className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-red-400 text-lg">Enregistrer</h3>
+                                <p className="text-[10px] text-red-400/60 uppercase font-bold tracking-wider">Ma voix</p>
+                            </div>
+                        </Card>
+                    </Link>
+                ) : (
+                    <Card className="border-0 bg-muted/5 flex flex-col items-center justify-center gap-2 p-4 text-center rounded-3xl opacity-50">
+                        <Mic className="w-6 h-6 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">Enregistrement réservé aux acteurs</p>
+                    </Card>
+                )}
             </div>
         </div>
     );
-}
 
 

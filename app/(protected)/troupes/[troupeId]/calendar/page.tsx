@@ -83,8 +83,8 @@ export default async function CalendarPage({
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Calendrier</h1>
-                    <p className="text-muted-foreground">Répétitions et événements de la troupe.</p>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Calendrier</h1>
+                    <p className="hidden md:block text-muted-foreground">Répétitions et événements de la troupe.</p>
                 </div>
                 {isAdmin && (
                     <AddEventModal troupeId={troupeId} plays={plays} />

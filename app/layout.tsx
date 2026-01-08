@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { CustomCursor } from "@/components/custom-cursor";
@@ -9,12 +9,16 @@ const outfit = Outfit({
   display: 'swap',
 });
 
-export const viewport = {
-  themeColor: "#000000",
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export const metadata: Metadata = {
@@ -23,8 +27,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Repeto",
+    startupImage: [],
+  },
+  icons: {
+    apple: "/icon-192.png",
   },
 };
 

@@ -12,14 +12,26 @@ interface TroupeHeaderProps {
 export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHeaderProps) {
     return (
         <header className="fixed top-0 left-0 z-[60] w-full h-20 border-b border-border/20 bg-background/60 backdrop-blur-2xl px-8 flex items-center justify-between transition-all duration-200">
-            {/* Left: Troupe Identity */}
+            {/* Left: Identity (Adaptive) */}
             <div className="flex items-center gap-4 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-purple-600 text-white shadow-lg shadow-primary/25">
-                    <span className="text-lg font-bold">{(troupeName[0] || 'T').toUpperCase()}</span>
+
+                {/* Mobile Identity: Repeto App Style */}
+                <Link href="/" className="flex items-center gap-3 md:hidden">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center shadow-lg shadow-primary/30">
+                        <span className="text-sm">✨</span>
+                    </div>
+                    <span className="text-lg font-bold tracking-tight text-foreground">Repeto</span>
+                </Link>
+
+                {/* Desktop Identity: Troupe Style */}
+                <div className="hidden md:flex items-center gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-purple-600 text-white shadow-lg shadow-primary/25">
+                        <span className="text-lg font-bold">{(troupeName[0] || 'T').toUpperCase()}</span>
+                    </div>
+                    <h2 className="text-xl font-bold tracking-tight text-foreground truncate selection:bg-primary/20">
+                        {troupeName}
+                    </h2>
                 </div>
-                <h2 className="text-xl font-bold tracking-tight text-foreground truncate selection:bg-primary/20">
-                    {troupeName}
-                </h2>
             </div>
 
             {/* Right: Navigation (Mirrors Global Header) */}

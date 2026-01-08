@@ -6,6 +6,7 @@ import { Plus, BookOpen, User, ArrowLeft } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { DeletePlayButton } from "./delete-play-button";
 import { PlayPosterCard } from "./play-poster-card";
+import { PlaysCarousel } from "./plays-carousel";
 
 export default async function TroupePlaysPage({
     params
@@ -35,8 +36,15 @@ export default async function TroupePlaysPage({
                 </p>
             </div>
 
-            {/* Plays Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+            {/* Plays Grid / Carousel */}
+
+            {/* Mobile View: Horizontal Carousel */}
+            <div className="md:hidden">
+                <PlaysCarousel plays={plays} troupeId={troupeId} isAdmin={isAdmin} />
+            </div>
+
+            {/* Desktop View: Grid */}
+            <div className="hidden md:grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
                 {plays.map((play: any, index: number) => (
                     <div key={play.id} className="relative group/wrapper">
                         {isAdmin && (
