@@ -29,6 +29,7 @@ export default function ProfilePage() {
     const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
     const [subscriptionStatus, setSubscriptionStatus] = useState<string>('inactive');
     const [subscriptionEndDate, setSubscriptionEndDate] = useState<string | null>(null);
+    const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState<boolean>(false);
     const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
     const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
@@ -57,7 +58,7 @@ export default function ProfilePage() {
                 // Load profile with first_name and subscription fields
                 const { data: profile } = await supabase
                     .from("profiles")
-                    .select("first_name, subscription_tier, subscription_status, subscription_end_date, stripe_customer_id")
+                    .select("first_name, subscription_tier, subscription_status, subscription_end_date, stripe_customer_id, cancel_at_period_end")
                     .eq("id", user.id)
                     .single();
 
@@ -67,6 +68,7 @@ export default function ProfilePage() {
                     setSubscriptionStatus(profile.subscription_status || 'inactive');
                     setSubscriptionEndDate(profile.subscription_end_date || null);
                     setStripeCustomerId(profile.stripe_customer_id || null);
+                    setCancelAtPeriodEnd(profile.cancel_at_period_end || false);
                 }
             }
 
@@ -228,6 +230,7 @@ export default function ProfilePage() {
                     tier={subscriptionTier}
                     status={subscriptionStatus}
                     endDate={subscriptionEndDate}
+                    cancelAtPeriodEnd={cancelAtPeriodEnd}
                     hasStripeCustomer={!!stripeCustomerId}
                 />
             </div>

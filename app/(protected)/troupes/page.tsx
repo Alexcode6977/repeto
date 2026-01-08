@@ -4,8 +4,21 @@ import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TroupeComingSoon } from "@/components/troupe-coming-soon";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function TroupesPage() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Feature Flag: Only allow admin to see the real page
+    // Using explicit email check as per requirement
+    const isAdmin = user?.email === "alex69.sartre@gmail.com";
+
+    if (!isAdmin) {
+        return <TroupeComingSoon />;
+    }
+
     const troupes = await getUserTroupes();
 
     return (

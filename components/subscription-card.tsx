@@ -11,6 +11,7 @@ interface SubscriptionCardProps {
     tier: SubscriptionTier;
     status: string;
     endDate?: string | null;
+    cancelAtPeriodEnd?: boolean;
     isInTroupe?: boolean;
     troupeName?: string;
     hasStripeCustomer?: boolean;
@@ -20,6 +21,7 @@ export function SubscriptionCard({
     tier,
     status,
     endDate,
+    cancelAtPeriodEnd = false,
     isInTroupe,
     troupeName,
     hasStripeCustomer = false,
@@ -31,6 +33,7 @@ export function SubscriptionCard({
 
     const isActive = status === 'active' || status === 'trialing';
     const isPastDue = status === 'past_due';
+    const isCanceledButActive = isActive && cancelAtPeriodEnd;
 
     const handleManageSubscription = async () => {
         if (!hasStripeCustomer) {
@@ -104,9 +107,16 @@ export function SubscriptionCard({
                     </div>
                 </div>
 
-                {isActive && tier !== 'free' && (
+                {/* Status Badges */}
+                {isActive && tier !== 'free' && !cancelAtPeriodEnd && (
                     <span className="px-2 md:px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-500">
                         Actif
+                    </span>
+                )}
+                {isCanceledButActive && (
+                    <span className="px-2 md:px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-500 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Annulé
                     </span>
                 )}
                 {isPastDue && (
@@ -131,8 +141,8 @@ export function SubscriptionCard({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                     <Calendar className="w-4 h-4" />
                     <span>
-                        {status === 'canceled'
-                            ? `Accès jusqu'au ${new Date(endDate).toLocaleDateString('fr-FR')}`
+                        {status === 'canceled' || cancelAtPeriodEnd
+                            ? `Vous aurez accès jusqu'au ${new Date(endDate).toLocaleDateString('fr-FR')}`
                             : `Prochain renouvellement le ${new Date(endDate).toLocaleDateString('fr-FR')}`
                         }
                     </span>

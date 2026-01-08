@@ -137,7 +137,7 @@ export function TroupeSubscriptionManager({
                             className="w-full"
                             variant="outline"
                             onClick={() => handleAction('portal')}
-                            disabled={loading || !subscription.hasStripeCustomer}
+                            disabled={loading || !subscription.hasStripeCustomerId}
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CreditCard className="w-4 h-4 mr-2" />}
                             Gérer la facturation

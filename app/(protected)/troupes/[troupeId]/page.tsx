@@ -38,7 +38,7 @@ export default async function TroupeDashboard({
     let settingsData = null;
     let members = [];
     let guests = [];
-    let joinRequests = [];
+    let joinRequests: any[] = [];
     let nextSession = null;
 
     // Data Fetching based on Role
@@ -148,8 +148,14 @@ export default async function TroupeDashboard({
             {/* Subscription Section */}
             {isAdmin ? (
                 <TroupeSubscriptionManager
-                    subscription={settingsData?.subscription}
+                    subscription={settingsData?.subscription || {
+                        currentCount: 0,
+                        memberLimit: 0,
+                        plan: 'Free',
+                        hasStripeCustomerId: false
+                    }}
                     troupeId={troupeId}
+                    troupeName={troupe.name}
                 />
             ) : (
                 <Card className="bg-gradient-to-br from-background to-muted/50 border-dashed">

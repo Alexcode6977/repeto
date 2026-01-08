@@ -144,6 +144,8 @@ export function RehearsalMode({
                 }
                 if (!capabilities.features.aiVoices && ttsProvider === "openai") {
                     setTtsProvider("browser");
+                } else if (capabilities.features.aiVoices && !ttsProvider) {
+                    setTtsProvider("openai");
                 }
             } catch (error) {
                 console.error("Failed to fetch user capabilities", error);
@@ -183,6 +185,18 @@ export function RehearsalMode({
                         assignments[c.character_name] = c.voice as OpenAIVoice;
                     });
                     setOpenaiVoiceAssignments(assignments);
+                } else {
+                    // Fallback: Generate local assignments if no config exists (Shared Library / Unconfigured Troupe Plays)
+                    // This ensures users still get AI voices even if the Global Admin hasn't run the setup script
+                    const VOICES: OpenAIVoice[] = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+                    const localAssignments: Record<string, OpenAIVoice> = {};
+
+                    // We need to ensure consistency for the same user session
+                    script.characters.forEach((char, index) => {
+                        localAssignments[char] = VOICES[index % VOICES.length];
+                    });
+
+                    setOpenaiVoiceAssignments(localAssignments);
                 }
             } catch (error) {
                 console.error("Failed to fetch voice config", error);

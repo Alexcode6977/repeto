@@ -64,6 +64,7 @@ export async function syncSubscriptionFromStripe(userId: string): Promise<{
                     .update({
                         subscription_tier: tier,
                         subscription_status: status,
+                        cancel_at_period_end: subscription.cancel_at_period_end ?? false,
                         subscription_end_date: subscription.current_period_end
                             ? new Date(subscription.current_period_end * 1000).toISOString()
                             : null,
@@ -79,6 +80,7 @@ export async function syncSubscriptionFromStripe(userId: string): Promise<{
                         .update({
                             subscription_tier: "free",
                             subscription_status: "canceled",
+                            cancel_at_period_end: false,
                             stripe_subscription_id: null,
                         })
                         .eq("id", userId);
@@ -107,6 +109,7 @@ export async function syncSubscriptionFromStripe(userId: string): Promise<{
                     subscription_tier: tier,
                     subscription_status: "active",
                     stripe_subscription_id: subscription.id,
+                    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
                     subscription_end_date: new Date(subscription.current_period_end * 1000).toISOString(),
                 })
                 .eq("id", userId);
@@ -136,12 +139,13 @@ export async function getSubscriptionStatus(userId: string): Promise<{
     tier: string;
     status: string;
     endDate?: string | null;
+    cancelAtPeriodEnd?: boolean;
 }> {
     const supabase = await createClient();
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("subscription_tier, subscription_status, subscription_end_date, stripe_customer_id")
+        .select("subscription_tier, subscription_status, subscription_end_date, stripe_customer_id, cancel_at_period_end")
         .eq("id", userId)
         .single();
 
@@ -155,6 +159,7 @@ export async function getSubscriptionStatus(userId: string): Promise<{
         tier: profile.subscription_tier || "free",
         status: profile.subscription_status || "inactive",
         endDate: profile.subscription_end_date,
+        cancelAtPeriodEnd: profile.cancel_at_period_end,
     };
 }
 
@@ -193,6 +198,7 @@ export async function handleCheckoutSuccess(sessionId: string): Promise<{
                 subscription_status: "active",
                 stripe_customer_id: session.customer as string,
                 stripe_subscription_id: subscriptionId,
+                cancel_at_period_end: subscription.cancel_at_period_end ?? false,
                 subscription_end_date: new Date(subscription.current_period_end * 1000).toISOString(),
             })
             .eq("id", userId);
