@@ -22,6 +22,7 @@ export interface UseSpeechReturn {
     voices: SpeechSynthesisVoice[];
     state: SpeechState;
     initializeAudio: (forceOutput?: boolean, skipWarmup?: boolean) => Promise<void>;
+    playTone: () => void;
     isSupported: boolean;
 }
 
@@ -628,6 +629,32 @@ export function useSpeech(): UseSpeechReturn {
         }
     }, []);
 
+    // Expose reliable tone player using the warmed up context
+    const playTone = useCallback(() => {
+        try {
+            // Try to use the persisted context from warmup first (Best for iOS)
+            const warmedCtx = (window as any).__keepAliveAudio?.ctx;
+            const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+            const ctx = warmedCtx || (AudioContextClass ? new AudioContextClass() : null);
+
+            if (ctx) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+                gain.gain.setValueAtTime(0, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.2);
+            }
+        } catch (e) {
+            console.warn("[Speech] Failed to play tone", e);
+        }
+    }, []);
+
     return useMemo(() => ({
         isListening: state === "listening",
         transcript,
@@ -640,6 +667,7 @@ export function useSpeech(): UseSpeechReturn {
         voices,
         state,
         initializeAudio,
+        playTone, // NEW: Expose this
         isSupported: typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
-    }), [state, transcript, listen, stop, speak, voices, initializeAudio]);
+    }), [state, transcript, listen, stop, speak, voices, initializeAudio, playTone]);
 }

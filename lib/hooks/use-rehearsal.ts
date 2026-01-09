@@ -99,24 +99,29 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
 
     // Helper for synthetic recording "bip" (important for iPad feedback)
     const playBip = () => {
-        try {
-            const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-            if (AudioContextClass) {
-                const ctx = new AudioContextClass();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
-                gain.gain.setValueAtTime(0, ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
-                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.2);
+        if (browserSpeech.playTone) {
+            browserSpeech.playTone();
+        } else {
+            // Fallback
+            try {
+                const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
+                if (AudioContextClass) {
+                    const ctx = new AudioContextClass();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, ctx.currentTime); // A5 note
+                    gain.gain.setValueAtTime(0, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+                    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.2);
+                }
+            } catch (e) {
+                console.warn("[Speech] Failed to play bip", e);
             }
-        } catch (e) {
-            console.warn("[Speech] Failed to play bip", e);
         }
     };
 
@@ -276,6 +281,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         const executeStart = () => {
             if (isUserLine(line.character)) {
                 setStatus("listening_user");
+                // Force play tone if we start directly on user (Cue Mode / Check Mode edge case)
                 playBip();
             } else {
                 setStatus("playing_other");
@@ -517,6 +523,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                             const hintAudio = remaining === 0 ? "Dernier essai." : "Encore une fois.";
 
                             // Restore full correction: "Tu as dit X. Il fallait dire Y."
+                            // DELAY: Wait for mic to fully release before speaking (fix for iPhone cutoff)
+                            await new Promise(r => setTimeout(r, 200));
                             await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}. ${hintAudio}`, voiceAssignments["ASSISTANT"], "ASSISTANT");
 
                             setFeedback(null);
