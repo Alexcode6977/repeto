@@ -2,6 +2,7 @@ import { login } from "../actions";
 import { Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 
 export default async function LoginPage({
     searchParams,
@@ -46,6 +47,19 @@ export default async function LoginPage({
                         {message || error}
                     </div>
                 )}
+
+                <div className="space-y-4">
+                    <GoogleSignInButton label="Se connecter avec Google" />
+
+                    <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t border-white/10" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-[#0a0a0f] px-2 text-muted-foreground">ou</span>
+                        </div>
+                    </div>
+                </div>
 
                 <form className="space-y-4 w-full">
                     <div className="space-y-1.5">

@@ -10,7 +10,21 @@ export async function GET(request: Request) {
     if (code) {
         const supabase = await createClient();
         const { error } = await supabase.auth.exchangeCodeForSession(code);
+
         if (!error) {
+            // Check if user has a profile with first_name, if not try to get it from metadata
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
+                const fullName = user.user_metadata.full_name || user.user_metadata.name;
+                const firstName = fullName.split(' ')[0]; // Simple extraction
+
+                await supabase
+                    .from('profiles')
+                    .update({ first_name: firstName })
+                    .eq('id', user.id)
+                    .is('first_name', null); // Only update if empty
+            }
+
             return NextResponse.redirect(`${origin}${next}`);
         }
     }
