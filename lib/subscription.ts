@@ -11,13 +11,12 @@ export interface SubscriptionLimits {
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
-    // V3: All features enabled for everyone
     free: {
-        maxPersonalScripts: Infinity,
-        hasAiVoices: true,
-        hasAdvancedPlanning: true,
-        canRecord: true,
-        canAccessTroupeFeatures: true,
+        maxPersonalScripts: 1,
+        hasAiVoices: false,
+        hasAdvancedPlanning: false,
+        canRecord: false,
+        canAccessTroupeFeatures: false,
     },
     solo_pro: {
         maxPersonalScripts: Infinity,
