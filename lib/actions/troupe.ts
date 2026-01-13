@@ -719,3 +719,42 @@ export async function deleteTroupe(troupeId: string) {
     // Stripe cleanup is handled via webhooks usually, or we can assume subscription cancels at period end
     // Ideally we should cancel stripe subscription here if active, but for now we delete the record.
 }
+
+export async function updateTroupeName(troupeId: string, newName: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        throw new Error("Vous devez être connecté.");
+    }
+
+    // Verify admin
+    const { data: membership, error: memError } = await supabase
+        .from('troupe_members')
+        .select('role')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (memError || !membership || membership.role !== 'admin') {
+        throw new Error("Vous n'avez pas les droits pour modifier cette troupe.");
+    }
+
+    const trimmedName = newName.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+        throw new Error("Le nom doit contenir au moins 2 caractères.");
+    }
+
+    const { error } = await supabase
+        .from('troupes')
+        .update({ name: trimmedName })
+        .eq('id', troupeId);
+
+    if (error) {
+        console.error("Error updating troupe name:", error);
+        throw new Error("Erreur lors de la modification du nom.");
+    }
+
+    revalidatePath(`/troupes/${troupeId}`);
+    return { success: true, name: trimmedName };
+}
