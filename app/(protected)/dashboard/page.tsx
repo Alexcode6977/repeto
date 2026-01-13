@@ -961,8 +961,171 @@ export default function Home() {
         </div>
       )}
 
-      {/* IMPORT GUIDE MODAL - Conditional based on tier */}
-      {showImportGuide && userTier === "free" && (
+      {/* IMPORT MODAL - Admin Only (Choice: Basic vs AI) */}
+      {showImportGuide && userEmail === ADMIN_EMAIL && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4"
+          onClick={() => !isAiImporting && setShowImportGuide(false)}
+        >
+          <div
+            className="bg-card border border-border p-8 rounded-3xl w-full max-w-2xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            {!isAiImporting && (
+              <button
+                onClick={() => setShowImportGuide(false)}
+                className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {/* Background Decorations */}
+            <div className="absolute -top-20 -left-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            {isAiImporting ? (
+              // Progress State (reuse existing AI import progress UI)
+              <div className="py-4">
+                {aiImportSuccess ? (
+                  <div className="text-center py-8">
+                    <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
+                      <Check className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-foreground mb-2">Import réussi !</h3>
+                    <p className="text-muted-foreground">Votre script a été importé avec succès.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-bold text-foreground">Import IA en cours...</h3>
+                    </div>
+                    {/* Step 2: AI Cleaning */}
+                    <div className="p-4 rounded-2xl border bg-muted/30 border-primary/30">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-primary text-white">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        </div>
+                        <span className="font-medium text-foreground">Nettoyage IA</span>
+                      </div>
+                      <div className="ml-11 space-y-2">
+                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-1000"
+                            style={{ width: `${aiImportProgress}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>L'IA restructure votre script...</span>
+                          <span className="font-mono font-bold text-foreground">
+                            {Math.floor(aiImportCountdown / 60)}:{(aiImportCountdown % 60).toString().padStart(2, '0')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="pt-4 border-t border-border mt-4">
+                      <Button variant="ghost" onClick={cancelAiImport} className="w-full text-muted-foreground hover:text-foreground">
+                        Annuler l'import
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Admin Choice: Basic vs AI
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h3 className="text-2xl font-extrabold text-foreground">Mode Admin 🔧</h3>
+                  <p className="text-muted-foreground mt-2">Choisissez votre méthode d'import</p>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Option 1: Basic Import */}
+                  <div className="bg-muted/30 border border-border rounded-2xl p-5 hover:border-primary/50 transition-all">
+                    <div className="text-center mb-4">
+                      <div className="w-14 h-14 mx-auto mb-3 bg-primary/20 rounded-full flex items-center justify-center">
+                        <span className="text-2xl">⚡</span>
+                      </div>
+                      <h4 className="font-bold text-foreground text-lg">Import Basic</h4>
+                      <p className="text-muted-foreground text-xs mt-1">Parsing heuristique</p>
+                    </div>
+                    <ul className="text-xs text-muted-foreground space-y-2 mb-4">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3 h-3 text-green-400" /> Rapide, instantané
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3 h-3 text-green-400" /> Pas de coût OpenAI
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <AlertCircle className="w-3 h-3 text-amber-400" /> Nécessite format PERSO/REPLIQUE
+                      </li>
+                    </ul>
+                    <Button
+                      className="w-full py-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                      asChild
+                    >
+                      <label className="cursor-pointer flex items-center justify-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        Importer Basic
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            setShowImportGuide(false);
+                            handleFileChange(e);
+                          }}
+                        />
+                      </label>
+                    </Button>
+                  </div>
+
+                  {/* Option 2: AI Import */}
+                  <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-2xl p-5 hover:border-green-500/50 transition-all">
+                    <div className="text-center mb-4">
+                      <div className="w-14 h-14 mx-auto mb-3 bg-green-500/20 rounded-full flex items-center justify-center">
+                        <span className="text-2xl">🤖</span>
+                      </div>
+                      <h4 className="font-bold text-foreground text-lg">Import IA</h4>
+                      <p className="text-muted-foreground text-xs mt-1">Nettoyage GPT-4</p>
+                    </div>
+                    <ul className="text-xs text-muted-foreground space-y-2 mb-4">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3 h-3 text-green-400" /> Tous formats acceptés
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-3 h-3 text-green-400" /> Détection auto des rôles
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <AlertCircle className="w-3 h-3 text-amber-400" /> Peut prendre ~2min
+                      </li>
+                    </ul>
+                    <Button
+                      className="w-full py-5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-500/90 hover:to-emerald-600/90 text-white font-bold"
+                      asChild
+                    >
+                      <label className="cursor-pointer flex items-center justify-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        Importer avec IA
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          onChange={handleAiFileChange}
+                        />
+                      </label>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* IMPORT GUIDE MODAL - Conditional based on tier (Free users, non-admin) */}
+      {showImportGuide && userTier === "free" && userEmail !== ADMIN_EMAIL && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4"
           onClick={() => setShowImportGuide(false)}
@@ -1102,8 +1265,8 @@ demande Monsieur.`}
         </div>
       )}
 
-      {/* IMPORT MODAL - Solo Pro / Troupe (AI-powered) */}
-      {showImportGuide && userTier !== "free" && (
+      {/* IMPORT MODAL - Solo Pro / Troupe (AI-powered, non-admin) */}
+      {showImportGuide && userTier !== "free" && userEmail !== ADMIN_EMAIL && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4"
           onClick={() => !isAiImporting && setShowImportGuide(false)}
