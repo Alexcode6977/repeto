@@ -414,6 +414,60 @@ export async function getTroupeDetails(troupeId: string) {
     return { ...troupe, my_role: role };
 }
 
+/**
+ * Lightweight version of getTroupeDetails for layouts
+ * Combines troupe info, user role, and profile in fewer queries
+ */
+export async function getTroupeBasicInfo(troupeId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    // Single query: get troupe with current user's membership
+    const { data: troupe, error } = await supabase
+        .from('troupes')
+        .select(`
+            id, name, join_code, created_by,
+            troupe_members!inner (
+                role,
+                user_id
+            )
+        `)
+        .eq('id', troupeId)
+        .eq('troupe_members.user_id', user.id)
+        .single();
+
+    if (error || !troupe) {
+        // Fallback: check if pending request
+        const { data: request } = await supabase
+            .from('troupe_join_requests')
+            .select('id')
+            .eq('troupe_id', troupeId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (request) {
+            const { data: troupeOnly } = await supabase
+                .from('troupes')
+                .select('id, name')
+                .eq('id', troupeId)
+                .single();
+            return troupeOnly ? { ...troupeOnly, my_role: 'pending' } : null;
+        }
+        return null;
+    }
+
+    const membership = (troupe.troupe_members as any[])?.[0];
+    return {
+        id: troupe.id,
+        name: troupe.name,
+        join_code: troupe.join_code,
+        created_by: troupe.created_by,
+        my_role: membership?.role || null
+    };
+}
+
 export async function getTroupeMembers(troupeId: string) {
     const supabase = await createClient();
 

@@ -1,4 +1,4 @@
-import { getTroupeDetails } from "@/lib/actions/troupe";
+import { getTroupeBasicInfo } from "@/lib/actions/troupe";
 import { redirect } from "next/navigation";
 import { TroupeSidebar } from "@/components/troupe-sidebar";
 import { TroupeMobileNav } from "@/components/troupe-mobile-nav";
@@ -15,20 +15,24 @@ export default async function TroupeLayout({
     params: Promise<{ troupeId: string }>;
 }) {
     const { troupeId } = await params;
-    const troupe = await getTroupeDetails(troupeId);
+
+    // Parallel fetch: troupe info + user profile
+    const supabase = await createClient();
+    const [troupe, { data: { user } }] = await Promise.all([
+        getTroupeBasicInfo(troupeId),
+        supabase.auth.getUser()
+    ]);
 
     if (!troupe) {
         redirect('/troupes');
     }
 
-    // Fetch user for header
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
     let displayName = "Utilisateur";
     let isAdminUser = false;
 
     if (user) {
+        // Get profile in parallel with the initial fetch would be ideal,
+        // but since we need user.id, we do it here
         const { data: profile } = await supabase
             .from("profiles")
             .select("first_name")
