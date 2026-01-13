@@ -31,7 +31,7 @@ export function PlayPosterCard({ play, troupeId, index = 0 }: PlayPosterCardProp
     // Deterministic gradient based on title length + index
     const gradientIndex = (play.title.length + index) % GRADIENTS.length;
     const gradient = GRADIENTS[gradientIndex];
-    const { light } = useHaptic();
+    const { trigger } = useHaptic();
 
     const characterCount = play.play_characters?.[0]?.count || 0;
     const sceneCount = play.play_scenes?.[0]?.count || 0;
@@ -41,7 +41,7 @@ export function PlayPosterCard({ play, troupeId, index = 0 }: PlayPosterCardProp
             layoutId={`play-card-${play.id}`}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onMouseEnter={() => light()}
+            onMouseEnter={() => trigger('light')}
             className="w-full h-full relative z-0"
         >
             <Link
