@@ -85,7 +85,7 @@ export function TroupeMobileNav({ troupeId, role }: TroupeMobileNavProps) {
                 <Link
                     key={item.href}
                     href={item.href}
-                    onClick={() => trigger('soft')}
+                    onClick={() => trigger('light')}
                     className={cn(
                         "flex flex-col items-center justify-center gap-1 flex-1 h-full min-h-[50px] transition-all duration-300 group play-click-target",
                         item.active
