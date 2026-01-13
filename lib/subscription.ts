@@ -11,12 +11,13 @@ export interface SubscriptionLimits {
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
+    // V3: All features enabled for everyone
     free: {
-        maxPersonalScripts: 1,
-        hasAiVoices: false,
-        hasAdvancedPlanning: false,
-        canRecord: false,
-        canAccessTroupeFeatures: false,
+        maxPersonalScripts: Infinity,
+        hasAiVoices: true,
+        hasAdvancedPlanning: true,
+        canRecord: true,
+        canAccessTroupeFeatures: true,
     },
     solo_pro: {
         maxPersonalScripts: Infinity,
@@ -33,6 +34,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
         canAccessTroupeFeatures: true,
     },
 };
+
 
 /**
  * Get the subscription tier for a user, considering their personal subscription

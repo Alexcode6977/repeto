@@ -85,7 +85,7 @@ export default async function TroupeDashboard({
     }
 
     return (
-        <div className="space-y-8 pb-16 animate-in fade-in duration-500 max-w-4xl">
+        <div className="space-y-8 pb-16 animate-in fade-in duration-500">
             {/* Header Section */}
             <div className="space-y-4">
                 {/* Troupe Name (Editable) */}
