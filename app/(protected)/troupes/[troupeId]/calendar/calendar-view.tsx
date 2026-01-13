@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { AttendanceToggle } from "./attendance-toggle";
 import { EventDetailsModal } from "./event-details-modal";
+import { DayViewModal } from "./day-view-modal";
+import { ChevronLeft, ChevronRight, Calendar, Users } from "lucide-react";
 
 interface CalendarViewProps {
     currentMonth: number;
@@ -15,107 +19,262 @@ interface CalendarViewProps {
     isAdmin: boolean;
 }
 
-function TimeDisplay({ dateString }: { dateString: string }) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
-
-    if (!mounted) return <span className="invisible">00:00</span>;
-
-    return <span>{new Date(dateString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>;
-}
+// Event type colors
+const EVENT_COLORS: Record<string, string> = {
+    rehearsal: "bg-purple-500",
+    performance: "bg-blue-500",
+    meeting: "bg-green-500",
+    other: "bg-yellow-500"
+};
 
 export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, members, isAdmin }: CalendarViewProps) {
+    const router = useRouter();
+    const pathname = usePathname();
     const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+    const [selectedDay, setSelectedDay] = useState<{ date: Date; events: any[] } | null>(null);
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // Grid Logic
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
-    const startDayOfWeek = firstDay.getDay(); // 0 = Sunday
+    const startDayOfWeek = firstDay.getDay();
     const daysInMonth = lastDay.getDate();
     const offset = startDayOfWeek === 0 ? 6 : startDayOfWeek - 1;
 
-    const calendarDays = [];
+    const calendarDays: (number | null)[] = [];
     for (let i = 0; i < offset; i++) calendarDays.push(null);
     for (let i = 1; i <= daysInMonth; i++) calendarDays.push(i);
 
     const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
-    // Navigation Links
+
+    // Navigation
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
     const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
 
+    const now = new Date();
+    const isCurrentMonth = now.getMonth() === currentMonth && now.getFullYear() === currentYear;
+
+    // Swipe handlers for mobile
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setTouchStart(e.touches[0].clientX);
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+        if (touchStart === null) return;
+
+        const touchEnd = e.changedTouches[0].clientX;
+        const diff = touchStart - touchEnd;
+
+        if (Math.abs(diff) > 80) { // Threshold for swipe
+            if (diff > 0) {
+                // Swipe left -> next month
+                router.push(`${pathname}?month=${nextMonth}&year=${nextYear}`);
+            } else {
+                // Swipe right -> prev month
+                router.push(`${pathname}?month=${prevMonth}&year=${prevYear}`);
+            }
+        }
+        setTouchStart(null);
+    };
+
+    // Handle day click on mobile
+    const handleDayClick = (day: number, events: any[]) => {
+        const date = new Date(currentYear, currentMonth, day);
+        setSelectedDay({ date, events });
+    };
+
+    // Go to today
+    const goToToday = () => {
+        const today = new Date();
+        router.push(`${pathname}?month=${today.getMonth()}&year=${today.getFullYear()}`);
+    };
 
     return (
         <>
-            <Card className="border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-sm">
+            <Card
+                ref={containerRef}
+                className="border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-sm overflow-hidden"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+            >
                 <CardHeader className="px-0 md:px-6 flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className="text-xl font-bold capitalize flex items-center gap-2">
                         <span className="md:hidden">🗓️</span>
                         {monthNames[currentMonth]} {currentYear}
                     </CardTitle>
-                    <div className="flex bg-muted rounded-full overflow-hidden scale-90 md:scale-100">
-                        <Link href={`?month=${prevMonth}&year=${prevYear}`} className="px-4 py-1.5 hover:bg-background transition-colors font-bold">
-                            ←
-                        </Link>
-                        <Link href={`?month=${nextMonth}&year=${nextYear}`} className="px-4 py-1.5 hover:bg-background transition-colors font-bold">
-                            →
-                        </Link>
+
+                    <div className="flex items-center gap-2">
+                        {/* Today Button */}
+                        {!isCurrentMonth && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={goToToday}
+                                className="rounded-full text-xs font-bold hidden md:flex"
+                            >
+                                <Calendar className="w-3 h-3 mr-1" />
+                                Aujourd'hui
+                            </Button>
+                        )}
+
+                        {/* Navigation */}
+                        <div className="flex bg-muted rounded-full overflow-hidden">
+                            <Link
+                                href={`?month=${prevMonth}&year=${prevYear}`}
+                                className="p-2 hover:bg-background transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </Link>
+                            <Link
+                                href={`?month=${nextMonth}&year=${nextYear}`}
+                                className="p-2 hover:bg-background transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </Link>
+                        </div>
                     </div>
                 </CardHeader>
+
                 <CardContent className="px-0 md:px-6">
+                    {/* Mobile Today Button */}
+                    {!isCurrentMonth && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={goToToday}
+                            className="rounded-full text-xs font-bold mb-4 md:hidden w-full"
+                        >
+                            <Calendar className="w-3 h-3 mr-1" />
+                            Revenir à aujourd'hui
+                        </Button>
+                    )}
+
+                    {/* Day names */}
                     <div className="grid grid-cols-7 gap-1 md:gap-2 text-center text-xs md:text-sm font-medium text-muted-foreground mb-2">
                         <div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div>
                     </div>
+
+                    {/* Calendar grid */}
                     <div className="grid grid-cols-7 gap-1 md:gap-2">
                         {calendarDays.map((day, idx) => {
                             if (day === null) return <div key={`empty-${idx}`} className="min-h-[50px] md:h-32 bg-transparent" />;
 
                             const dayEvents = eventsByDate[day] || [];
-                            const isToday = new Date().getDate() === day && new Date().getMonth() === new Date().getMonth() && new Date().getFullYear() === new Date().getFullYear();
+                            const isToday = now.getDate() === day && now.getMonth() === currentMonth && now.getFullYear() === currentYear;
                             const hasEvents = dayEvents.length > 0;
 
+                            // Calculate presence for first event (quick preview)
+                            const firstEvent = dayEvents[0];
+                            const confirmedCount = firstEvent?.event_attendance?.filter((a: any) => a.status === 'present').length || 0;
+                            const totalInvited = firstEvent?.event_attendance?.length || 0;
+
                             return (
-                                <div key={day} className={`min-h-[50px] md:h-32 border rounded-xl md:rounded-md p-1 md:p-2 overflow-hidden ${isToday ? 'border-primary bg-primary/5' : 'bg-card/50 md:bg-card'} ${hasEvents ? 'border-primary/20' : 'border-transparent md:border-border'}`}>
+                                <div
+                                    key={day}
+                                    className={`
+                                        min-h-[50px] md:h-32 border rounded-xl md:rounded-md p-1 md:p-2 overflow-hidden relative
+                                        ${isToday
+                                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                                            : 'bg-card/50 md:bg-card'
+                                        } 
+                                        ${hasEvents
+                                            ? 'border-primary/30'
+                                            : 'border-transparent md:border-border'
+                                        }
+                                        md:cursor-default cursor-pointer active:scale-[0.98] md:active:scale-100 transition-all
+                                    `}
+                                    onClick={() => {
+                                        // Mobile only - open day view
+                                        if (window.innerWidth < 768) {
+                                            handleDayClick(day, dayEvents);
+                                        }
+                                    }}
+                                >
+                                    {/* Today pulse indicator */}
+                                    {isToday && (
+                                        <div className="absolute top-1 right-1 w-2 h-2">
+                                            <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-75 animate-ping" />
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                                        </div>
+                                    )}
+
+                                    {/* Day number */}
                                     <div className="font-bold mb-1 md:mb-2 flex flex-col md:flex-row justify-between items-center text-xs">
-                                        <span className={isToday ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center shrink-0" : "text-muted-foreground"}>
+                                        <span className={`
+                                            ${isToday
+                                                ? "bg-primary text-primary-foreground rounded-full w-6 h-6 flex items-center justify-center shrink-0 font-black"
+                                                : "text-muted-foreground"
+                                            }
+                                        `}>
                                             {day}
                                         </span>
-                                        {/* Desktop Counter */}
-                                        {dayEvents.length > 0 && <span className="hidden md:inline text-[10px] text-muted-foreground">{dayEvents.length} évent.</span>}
 
-                                        {/* Mobile Dot */}
-                                        {dayEvents.length > 0 && <span className="md:hidden w-1.5 h-1.5 rounded-full bg-primary mt-1" />}
+                                        {/* Desktop: Event count */}
+                                        {dayEvents.length > 0 && (
+                                            <span className="hidden md:inline text-[10px] text-muted-foreground">
+                                                {dayEvents.length} évent.
+                                            </span>
+                                        )}
+
+                                        {/* Mobile: Event dots with colors */}
+                                        {dayEvents.length > 0 && (
+                                            <div className="md:hidden flex gap-0.5 mt-1">
+                                                {dayEvents.slice(0, 3).map((e, i) => (
+                                                    <span
+                                                        key={i}
+                                                        className={`w-1.5 h-1.5 rounded-full ${EVENT_COLORS[e.event_type] || EVENT_COLORS.other}`}
+                                                    />
+                                                ))}
+                                                {dayEvents.length > 3 && (
+                                                    <span className="text-[8px] text-muted-foreground ml-0.5">+{dayEvents.length - 3}</span>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Desktop Events List */}
                                     <div className="space-y-1 hidden md:block">
-                                        {dayEvents.map(e => {
-                                            const myAttendance = e.event_attendance?.find((a: any) => a.user_id === userId)?.status || 'unknown';
+                                        {dayEvents.slice(0, 2).map(e => {
+                                            const confirmedCount = e.event_attendance?.filter((a: any) => a.status === 'present').length || 0;
+                                            const totalInvited = e.event_attendance?.length || 0;
+
                                             return (
                                                 <div
                                                     key={e.id}
                                                     onClick={() => setSelectedEvent(e)}
-                                                    className="text-xs p-1.5 rounded bg-muted hover:bg-muted/80 border-l-2 border-primary group relative cursor-pointer transition-all hover:scale-[1.02]"
+                                                    className={`
+                                                        text-xs p-1.5 rounded bg-muted hover:bg-muted/80 
+                                                        border-l-2 ${EVENT_COLORS[e.event_type] ? `border-l-${e.event_type === 'rehearsal' ? 'purple' : e.event_type === 'performance' ? 'blue' : e.event_type === 'meeting' ? 'green' : 'yellow'}-500` : 'border-l-primary'} 
+                                                        cursor-pointer transition-all hover:scale-[1.02]
+                                                    `}
+                                                    style={{
+                                                        borderLeftColor: e.event_type === 'rehearsal' ? '#a855f7' :
+                                                            e.event_type === 'performance' ? '#3b82f6' :
+                                                                e.event_type === 'meeting' ? '#22c55e' : '#eab308'
+                                                    }}
                                                 >
                                                     <div className="font-semibold truncate">{e.title}</div>
+                                                    {totalInvited > 0 && (
+                                                        <div className="flex items-center gap-1 text-muted-foreground mt-0.5">
+                                                            <Users className="w-3 h-3" />
+                                                            <span>{confirmedCount}/{totalInvited}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}
+                                        {dayEvents.length > 2 && (
+                                            <div
+                                                className="text-[10px] text-muted-foreground text-center cursor-pointer hover:text-foreground"
+                                                onClick={() => setSelectedEvent(dayEvents[0])}
+                                            >
+                                                +{dayEvents.length - 2} autres
+                                            </div>
+                                        )}
                                     </div>
-
-                                    {/* Mobile Click Handler overlay (entire cell) */}
-                                    <div
-                                        className="md:hidden absolute inset-0 z-10"
-                                        onClick={() => {
-                                            // Handle mobile click: if only one event, open detailed modal. If multiple or none, maybe zoom in or list below?
-                                            // For now, let's just open the first event if exists, or do nothing.
-                                            // Ideally we should open a "Day View" modal.
-                                            if (dayEvents.length === 1) setSelectedEvent(dayEvents[0]);
-                                            if (dayEvents.length > 1) setSelectedEvent(dayEvents[0]); // Just open first for now, user can see others in upcoming list? 
-                                            // TODO: Better mobile day view handling.
-                                        }}
-                                    />
                                 </div>
                             );
                         })}
@@ -123,6 +282,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                 </CardContent>
             </Card>
 
+            {/* Event Details Modal */}
             <EventDetailsModal
                 event={selectedEvent}
                 isOpen={!!selectedEvent}
@@ -130,6 +290,19 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                 members={members}
                 isAdmin={isAdmin}
                 currentUserId={userId}
+            />
+
+            {/* Mobile Day View Modal */}
+            <DayViewModal
+                isOpen={!!selectedDay}
+                onClose={() => setSelectedDay(null)}
+                date={selectedDay?.date || null}
+                events={selectedDay?.events || []}
+                userId={userId}
+                onEventClick={(event) => {
+                    setSelectedDay(null);
+                    setSelectedEvent(event);
+                }}
             />
         </>
     );
