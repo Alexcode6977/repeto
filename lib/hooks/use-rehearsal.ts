@@ -293,7 +293,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             executeStart();
         } else {
             //@ts-ignore
-            setTimeout(executeStart, 300); // More generous window for mobile
+            setTimeout(executeStart, 200); // Reduced from 300ms for faster start
         }
     };
 
@@ -351,7 +351,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                     setStatus("playing_other");
                 }
                 transitionLockRef.current = false;
-            }, 300);
+            }, 200); // Reduced from 300ms for faster transitions
         } else {
             manualSkipRef.current = false;
             transitionLockRef.current = false;
@@ -380,7 +380,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                     setStatus("playing_other");
                 }
                 transitionLockRef.current = false;
-            }, 300);
+            }, 200); // Reduced from 300ms for faster transitions
         } else {
             manualSkipRef.current = false;
             transitionLockRef.current = false;
@@ -414,7 +414,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                 setStatus("playing_other");
             }
             transitionLockRef.current = false;
-        }, 300);
+        }, 200); // Reduced from 300ms for faster retry
     };
 
     const validateManually = () => {
@@ -506,7 +506,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                         previous();
                     } else if (similarity >= similarityThreshold || (line.text.length < 30 && (line.text.toLowerCase().includes(transcript.toLowerCase()) && transcript.length >= 2))) {
                         setFeedback("correct");
-                        setTimeout(() => { setFeedback(null); next(); }, 150);
+                        setTimeout(() => { setFeedback(null); next(); }, 100); // Reduced from 150ms
                     } else {
                         setFeedback("incorrect");
                         // We ARE ALREADY in 'evaluating' status
@@ -540,6 +540,14 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                     }
                 } catch (e) {
                     if (e !== "Cancelled") {
+                        // Specific handling for microphone errors
+                        if (e === "MIC_PERMISSION_DENIED" || e === "MIC_CAPTURE_FAILED") {
+                            console.error("[Rehearsal] Microphone error:", e);
+                            setStatus("error");
+                            // Don't auto-retry mic permission issues
+                            return;
+                        }
+
                         // Anti-Loop for recognition errors too
                         if (retryCountRef.current >= 2) {
                             retryCountRef.current = 0;

@@ -41,6 +41,7 @@ export function useSpeech(): UseSpeechReturn {
             synthRef.current = window.speechSynthesis;
 
             const loadVoices = () => {
+                const startTime = performance.now();
                 const availableVoices = window.speechSynthesis.getVoices();
 
                 // Filter to French voices only (all variants: FR, CA, BE, CH)
@@ -89,9 +90,12 @@ export function useSpeech(): UseSpeechReturn {
                 // If no French voices, fall back to all voices
                 const finalVoices = uniqueVoices.length > 0 ? uniqueVoices : Array.from(availableVoices);
 
+                const elapsed = Math.round(performance.now() - startTime);
                 if (finalVoices.length > 0) {
-                    console.log(`[Speech] Loaded ${finalVoices.length} French voices:`, finalVoices.map(v => v.name).join(", "));
+                    console.log(`[Speech] Loaded ${finalVoices.length} French voices in ${elapsed}ms:`, finalVoices.map(v => v.name).join(", "));
                     setVoices(finalVoices);
+                } else {
+                    console.warn(`[Speech] No voices available yet (took ${elapsed}ms)`);
                 }
             };
 
@@ -478,7 +482,43 @@ export function useSpeech(): UseSpeechReturn {
                     return;
                 }
 
-                console.error("Speech recognition error", event.error);
+                // Microphone permission denied
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    console.error("[Speech] Microphone permission denied - user must grant access");
+                    setState("error");
+                    if (activeRecognitionRef.current) {
+                        const r = activeRecognitionRef.current;
+                        activeRecognitionRef.current = null;
+                        r.reject("MIC_PERMISSION_DENIED");
+                    }
+                    return;
+                }
+
+                // Audio capture failed (hardware/OS issue)
+                if (event.error === 'audio-capture') {
+                    console.error("[Speech] Audio capture failed - microphone may be in use by another app");
+                    setState("error");
+                    if (activeRecognitionRef.current) {
+                        const r = activeRecognitionRef.current;
+                        activeRecognitionRef.current = null;
+                        r.reject("MIC_CAPTURE_FAILED");
+                    }
+                    return;
+                }
+
+                // Network error (for cloud-based recognition)
+                if (event.error === 'network') {
+                    console.error("[Speech] Network error during recognition");
+                    setState("error");
+                    if (activeRecognitionRef.current) {
+                        const r = activeRecognitionRef.current;
+                        activeRecognitionRef.current = null;
+                        r.reject("NETWORK_ERROR");
+                    }
+                    return;
+                }
+
+                console.error("[Speech] Recognition error:", event.error);
                 setState("error");
                 if (activeRecognitionRef.current) {
                     const r = activeRecognitionRef.current;
