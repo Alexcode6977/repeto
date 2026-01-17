@@ -374,11 +374,49 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
 
     const characterUsage = new Map<string, { headers: number, totalWords: number }>();
 
+    // First pass: detect if file uses PERSO/REPLIQUE format
+    const usesPersoFormat = lines.some(line => /^PERSO\s+/i.test(line.trim()));
+
+    if (usesPersoFormat) {
+        console.log("[Parser] Detected PERSO/REPLIQUE format - using strict extraction");
+    }
+
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i].trim();
         if (!line || /^\d+$/.test(line)) continue;
         if (line.length > 60) continue;
 
+        // === AI-CLEANED FORMAT DETECTION (PERSO/REPLIQUE) ===
+        // Detect "PERSO X" format - extract character name
+        const persoMatch = line.match(/^PERSO\s+(.+)$/i);
+        if (persoMatch) {
+            const charName = persoMatch[1].trim().toUpperCase();
+            const stats = characterUsage.get(charName) || { headers: 0, totalWords: 0 };
+            stats.headers++;
+            // Peek at next line for dialogue word count
+            if (i + 1 < lines.length) {
+                const nextLine = lines[i + 1].trim();
+                const repMatch = nextLine.match(/^REPLIQUE\s+(.+)$/i);
+                if (repMatch) {
+                    stats.totalWords += repMatch[1].split(/\s+/).filter(w => w.length > 0).length;
+                }
+            }
+            characterUsage.set(charName, stats);
+            continue;
+        }
+
+        // Skip REPLIQUE lines entirely (they are dialogue, not characters)
+        if (/^REPLIQUE\s+/i.test(line)) {
+            continue;
+        }
+        // === END AI-CLEANED FORMAT DETECTION ===
+
+        // If file uses PERSO format, skip ALL heuristic detection
+        if (usesPersoFormat) {
+            continue;
+        }
+
+        // === LEGACY HEURISTIC DETECTION (only for non-PERSO files) ===
         let charName = "";
         let isHeader = false;
         let dialogueText = "";
@@ -420,24 +458,9 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
         }
     }
 
-    // Filter and sort:
-    // 1. Must have appeared as a Header at least once
-    // 2. Must have a minimum "speech density" (total words spoken)
-    // 3. High frequency or short standalone name
+    // Filter and sort
     const characters = Array.from(characterUsage.entries())
-        .filter(([name, stats]) => {
-            // Rule 2 & 5: Positional validation & Density
-            if (stats.headers === 0) return false;
-
-            // Rule 5: Density check (Hadès test)
-            // A character must have spoken at least some words OR appeared many times as a line starter
-            if (stats.totalWords < 2 && stats.headers < 3) return false;
-
-            if (stats.headers >= 5) return true;
-            if (stats.headers >= 2 && name.length >= 3 && name.length <= 15 && !name.includes(" ")) return true;
-
-            return false;
-        })
+        .filter(([name, stats]) => stats.headers >= 1)
         .sort((a, b) => b[1].headers - a[1].headers)
         .map(([name]) => name);
 
@@ -746,34 +769,43 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
 
     console.log("[Parser] First pass complete. Lines:", scriptLines.length);
 
+    // Detect if using clean PERSO/REPLIQUE format
+    const usesPersoFormat = rawText.split('\n').some(line => /^PERSO\s+/i.test(line.trim()));
+    console.log("[Parser] usesPersoFormat:", usesPersoFormat);
+
     // === POST-PROCESSING: MERGE SIMILAR NAMES ===
+    // DISABLED for PERSO/REPLIQUE format - the PDF is already clean, trust it!
+    if (!usesPersoFormat) {
+        const sortedChars = Object.keys(characterCounts).sort((a, b) => characterCounts[b] - characterCounts[a]);
+        const redirectMap: Record<string, string> = {};
 
-    const sortedChars = Object.keys(characterCounts).sort((a, b) => characterCounts[b] - characterCounts[a]);
-    const redirectMap: Record<string, string> = {};
+        for (let i = 0; i < sortedChars.length; i++) {
+            const primary = sortedChars[i];
+            if (redirectMap[primary]) continue;
 
-    for (let i = 0; i < sortedChars.length; i++) {
-        const primary = sortedChars[i];
-        if (redirectMap[primary]) continue;
+            for (let j = i + 1; j < sortedChars.length; j++) {
+                const candidate = sortedChars[j];
+                if (redirectMap[candidate]) continue;
+                if (primary.includes(" et ") || candidate.includes(" et ")) continue;
 
-        for (let j = i + 1; j < sortedChars.length; j++) {
-            const candidate = sortedChars[j];
-            if (redirectMap[candidate]) continue;
-            if (primary.includes(" et ") || candidate.includes(" et ")) continue;
-
-            const sim = similarity(primary, candidate);
-            if (sim >= CONFIG.MERGE_SIMILARITY_THRESHOLD) {
-                console.log(`[Parser] Merging "${candidate}" -> "${primary}" (similarity: ${sim.toFixed(2)})`);
-                redirectMap[candidate] = primary;
+                const sim = similarity(primary, candidate);
+                if (sim >= CONFIG.MERGE_SIMILARITY_THRESHOLD) {
+                    console.log(`[Parser] Merging "${candidate}" -> "${primary}" (similarity: ${sim.toFixed(2)})`);
+                    redirectMap[candidate] = primary;
+                }
             }
         }
+
+        // Apply redirects
+        scriptLines.forEach(line => {
+            if (redirectMap[line.character]) {
+                line.character = redirectMap[line.character];
+            }
+        });
+    } else {
+        console.log("[Parser] PERSO/REPLIQUE format detected - skipping character merge");
     }
 
-    // Apply redirects
-    scriptLines.forEach(line => {
-        if (redirectMap[line.character]) {
-            line.character = redirectMap[line.character];
-        }
-    });
 
     // === FINAL FILTERING ===
 
@@ -788,13 +820,20 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     const realCharacters = Object.keys(finalCounts)
         .filter(c => {
             if (c === "SCENE") return false;
-            if (c.includes(" et ") || c.includes(",")) return false;
 
-            // If the character was explicitly validated in the wizard, keep it!
-            if (charWhitelist && charWhitelist.has(c.toUpperCase())) return true;
+            // PRIORITY: If the character was explicitly validated in the wizard, ALWAYS keep it!
+            if (charWhitelist && charWhitelist.has(c.toUpperCase())) {
+                return true;
+            }
+
+            // For non-whitelisted characters, apply stricter filters
+            if (c.includes(" et ") || c.includes(",")) {
+                console.log(`[Parser] Filtering out "${c}" (collective character, not in whitelist)`);
+                return false;
+            }
 
             if (finalCounts[c] < CONFIG.MIN_LINES_THRESHOLD) {
-                console.log(`[Parser] Filtering out "${c}" (only ${finalCounts[c]} line(s))`);
+                console.log(`[Parser] Filtering out "${c}" (only ${finalCounts[c]} line(s), not in whitelist)`);
                 return false;
             }
             return true;

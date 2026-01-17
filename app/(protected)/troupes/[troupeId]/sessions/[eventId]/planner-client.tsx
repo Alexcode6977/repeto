@@ -98,12 +98,24 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
         return stats;
     }, [selectedSceneIds, plays]);
 
+    // Build set of all actor IDs who have a character in any play
+    const allActorIdsWithRoles = useMemo(() => {
+        const actorIds = new Set<string>();
+        plays.forEach((play: any) => {
+            (play.play_characters || []).forEach((char: any) => {
+                const actorId = char.actor_id || char.guest_id;
+                if (actorId) actorIds.add(actorId);
+            });
+        });
+        return actorIds;
+    }, [plays]);
+
     // Coaching Advice Logic
     const coachMessages = useMemo(() => {
         if (selectedSceneIds.length === 0) return [];
         const messages: string[] = [];
         const counts = Object.values(performanceProjections);
-        const avg = counts.reduce((a, b) => a + b, 0) / counts.length;
+        const avg = counts.length > 0 ? counts.reduce((a, b) => a + b, 0) / counts.length : 0;
 
         Object.entries(performanceProjections).forEach(([actorId, count]) => {
             const member = members.find((m: any) => (m.user_id || m.id) === actorId);
@@ -117,9 +129,10 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
             }
         });
 
-        // Add advice for present members NOT in any selected scene
+        // Add advice for present members who HAVE A ROLE but are NOT in any selected scene
         presentIds.forEach((presentId: string) => {
-            if (!performanceProjections[presentId]) {
+            // Only show message if this person has a character assigned in at least one play
+            if (!performanceProjections[presentId] && allActorIdsWithRoles.has(presentId)) {
                 const member = members.find((m: any) => (m.user_id || m.id) === presentId);
                 const guest = guests.find((g: any) => g.id === presentId);
                 const name = member ? member.profiles?.first_name || member.profiles?.email : guest?.name || "Inconnu";
@@ -132,7 +145,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
         }
 
         return messages;
-    }, [performanceProjections, members, guests, selectedSceneIds, presentIds]);
+    }, [performanceProjections, members, guests, selectedSceneIds, presentIds, allActorIdsWithRoles]);
 
     // 2. Scene Matching Logic (for the selected play)
     const scenesWithMetadata = useMemo(() => {

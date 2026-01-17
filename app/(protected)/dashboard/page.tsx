@@ -440,8 +440,11 @@ export default function Home() {
   }
 
 
-  const handleConfirmSelection = (character: string, mode: 'reader' | 'rehearsal' | 'listen') => {
+  const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>([]);
+
+  const handleConfirmSelection = (character: string, mode: 'reader' | 'rehearsal' | 'listen', ignored?: string[]) => {
     setRehearsalChar(character);
+    setIgnoredCharacters(ignored || []);
     if (mode === 'rehearsal') {
       setViewMode("rehearsal");
     } else if (mode === 'listen') {
@@ -490,6 +493,7 @@ export default function Home() {
         onExit={handleExitView}
         scriptId={selectedScriptMeta?.id}
         isPublicScript={selectedScriptMeta?.isPublic}
+        skipCharacters={ignoredCharacters}
       />
     );
   }
@@ -503,6 +507,7 @@ export default function Home() {
         initialSettings={sessionSettings}
         scriptId={selectedScriptMeta?.id}
         isPublicScript={selectedScriptMeta?.isPublic}
+        initialIgnoredCharacters={ignoredCharacters}
       />
     );
   }
@@ -515,6 +520,7 @@ export default function Home() {
         onExit={handleExitView}
         settings={sessionSettings}
         userId={userId}
+        skipCharacters={ignoredCharacters}
       />
     );
   }

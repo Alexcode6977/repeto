@@ -91,6 +91,7 @@ interface RehearsalModeProps {
     scriptId?: string;
     isPublicScript?: boolean;
     troupeId?: string;
+    initialIgnoredCharacters?: string[];
 }
 
 export function RehearsalMode({
@@ -102,7 +103,8 @@ export function RehearsalMode({
     playId,
     scriptId,
     isPublicScript = false,
-    troupeId
+    troupeId,
+    initialIgnoredCharacters = []
 }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
@@ -111,12 +113,28 @@ export function RehearsalMode({
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | null>(null);
     const [forceAudioOutput, setForceAudioOutput] = useState(false); // CarPlay experimental fix
 
-    // Didascalies (stage directions) toggle - detect if present in script
-    const hasDidascalies = useMemo(() =>
-        script.characters.some(c =>
-            c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
-        ), [script.characters]);
-    const [skipDidascalies, setSkipDidascalies] = useState(true); // Skip by default if present
+    // Generic Character Filtering
+    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor"];
+    const isTechnical = (char: string) => technicalKeywords.some(k => char.toLowerCase().includes(k));
+
+    // Initialize ignored characters - merge prop with default didascalies
+    const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>(() => {
+        const defaultIgnored = script.characters.filter(c =>
+            c.toLowerCase().includes("didascalie")
+        );
+        // Merge with initialIgnoredCharacters, avoiding duplicates
+        return [...new Set([...defaultIgnored, ...initialIgnoredCharacters])];
+    });
+
+    const toggleCharacterIgnore = (char: string) => {
+        setIgnoredCharacters(prev => {
+            if (prev.includes(char)) {
+                return prev.filter(c => c !== char); // Un-ignore (Activate)
+            } else {
+                return [...prev, char]; // Ignore (Deactivate)
+            }
+        });
+    };
 
     // Premium / Feature State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
@@ -251,7 +269,7 @@ export function RehearsalMode({
         mode: rehearsalMode,
         ttsProvider: ttsProvider || "browser",
         openaiVoiceAssignments,
-        skipCharacters: hasDidascalies && skipDidascalies ? script.characters.filter(c => c.toLowerCase().includes("didascalie")) : [],
+        skipCharacters: ignoredCharacters,
         playId
     });
 
@@ -818,6 +836,7 @@ export function RehearsalMode({
                             </div>
                         </div>
 
+
                         {/* Card 4: Voice Settings - Governance Rules */}
                         {(() => {
                             const isTroupeContext = !!troupeId;
@@ -1068,7 +1087,7 @@ export function RehearsalMode({
                         Retour au menu
                     </button>
                 </div>
-            </div>
+            </div >
 
         );
     }

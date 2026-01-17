@@ -378,62 +378,123 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
 // Helper function for regex-based parsing
 async function parseWithRegex(buffer: Buffer, validatedCharacters?: string[]): Promise<ParsedScript | { error: string }> {
     const pdf = require("pdf-parse/lib/pdf-parse.js");
-    const { parseScript } = await import("@/lib/parser"); // Dynamic import to be consistent
+    const { parseScript } = await import("@/lib/parser");
 
+    // OPTION 1: Try standard pdf-parse text first (better for some fonts)
+    const standardResult = await pdf(buffer);
+    const standardText = standardResult.text;
+
+    // Check if standard extraction looks good (has PERSO lines and no obvious corruption)
+    const hasPersoLines = /^PERSO\s+/im.test(standardText);
+    const hasCorruption = /[a-z][A-Z][a-z]/.test(standardText); // Pattern like "aSl" indicates font issues
+
+    console.log("[Action] Standard extraction check - PERSO:", hasPersoLines, "Corruption:", hasCorruption);
+
+    let cleanRawText: string;
     let allItems: { str: string; x: number; y: number; w: number }[] = [];
 
-    const render_page = (pageData: any) => {
-        const render_options = {
-            normalizeWhitespace: false,
-            disableCombineTextItems: false
-        };
-        return pageData.getTextContent(render_options).then((textContent: any) => {
-            for (const item of textContent.items) {
-                const str = item.str;
-                const x = item.transform[4];
-                const y = item.transform[5];
-                const w = item.width;
+    // For PERSO format with clean text, use standard extraction
+    if (hasPersoLines && !hasCorruption) {
+        console.log("[Action] Using standard pdf-parse text extraction");
+        cleanRawText = standardText;
+    } else {
+        console.log("[Action] Using custom text reconstruction (layout-aware)");
 
-                if (str.trim().length === 0 && w < 2) continue;
+        const render_page = (pageData: any) => {
+            const render_options = {
+                normalizeWhitespace: false,
+                disableCombineTextItems: false
+            };
+            return pageData.getTextContent(render_options).then((textContent: any) => {
+                for (const item of textContent.items) {
+                    const str = item.str;
+                    const x = item.transform[4];
+                    const y = item.transform[5];
+                    const w = item.width;
 
-                allItems.push({ str, x, y, w });
-            }
-            return "";
-        });
-    };
-
-    await pdf(buffer, { pagerender: render_page });
-
-    // RECONSTRUCTION: Build text respecting visual layout
-    let cleanRawText = "";
-    let lastY = -1;
-    let lastX = -1;
-    let lastWidth = 0;
-
-    for (const item of allItems) {
-        const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > 6;
-
-        if (isNewLine) {
-            cleanRawText += "\n";
-            lastX = -1;
-        } else {
-            if (lastX !== -1) {
-                const gap = item.x - (lastX + lastWidth);
-                if (gap > 2) {
-                    cleanRawText += " ";
+                    if (str.trim().length === 0 && w < 2) continue;
+                    allItems.push({ str, x, y, w });
                 }
+                return "";
+            });
+        };
+
+        await pdf(buffer, { pagerender: render_page });
+
+        // RECONSTRUCTION: Build text respecting visual layout
+        let cleanRawText = "";
+        let lastY = -1;
+        let lastX = -1;
+        let lastWidth = 0;
+
+        for (const item of allItems) {
+            const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > 6;
+
+            if (isNewLine) {
+                cleanRawText += "\n";
+                lastX = -1;
+            } else {
+                if (lastX !== -1) {
+                    const gap = item.x - (lastX + lastWidth);
+                    if (gap > 2) {
+                        cleanRawText += " ";
+                    }
+                }
+            }
+
+            cleanRawText += item.str;
+
+            lastY = item.y;
+            lastX = item.x;
+            lastWidth = item.w;
+        }
+
+        console.log("[Action] Text Reconstructed. Length:", cleanRawText.length);
+
+        // DIAGNOSTIC: Detect text corruption (afflige -> aSlige issue)
+        if (cleanRawText.toLowerCase().includes('slige') || cleanRawText.includes('aS')) {
+            console.log("[Action] WARNING: Detected potential text corruption (aSlige pattern)");
+            // Log a sample of the raw items around the corruption
+            const corruptedItems = allItems.filter(item =>
+                item.str.toLowerCase().includes('slige') || item.str.includes('aS')
+            );
+            if (corruptedItems.length > 0) {
+                console.log("[Action] Corrupted items:", corruptedItems.slice(0, 5));
             }
         }
 
-        cleanRawText += item.str;
+        // LIGATURE NORMALIZATION: Fix common PDF OCR issues
+        // Some PDFs use typographic ligatures that pdf-parse doesn't decode properly
+        const ligatureMap: Record<string, string> = {
+            '\uFB00': 'ff',  // ﬀ
+            '\uFB01': 'fi',  // ﬁ
+            '\uFB02': 'fl',  // ﬂ
+            '\uFB03': 'ffi', // ﬃ
+            '\uFB04': 'ffl', // ﬄ
+            '\uFB05': 'st',  // ﬅ (long st)
+            '\uFB06': 'st',  // ﬆ
+            '\u0132': 'IJ',  // Ĳ
+            '\u0133': 'ij',  // ĳ
+            '\u0152': 'OE',  // Œ
+            '\u0153': 'oe',  // œ
+            '\u00C6': 'AE',  // Æ
+            '\u00E6': 'ae',  // æ
+        };
 
-        lastY = item.y;
-        lastX = item.x;
-        lastWidth = item.w;
+        for (const [ligature, replacement] of Object.entries(ligatureMap)) {
+            cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
+        }
+
+        const script = parseScript(cleanRawText, validatedCharacters);
+
+        if (script.lines.length === 0) {
+            return { error: "Could not detect any dialogue lines. Ensure the script uses standard formatting (CHARACTER NAMES in CAPS)." };
+        }
+
+        return script;
     }
 
-    console.log("[Action] Text Reconstructed. Length:", cleanRawText.length);
-
+    // Standard extraction path (PERSO format with clean text)
     const script = parseScript(cleanRawText, validatedCharacters);
 
     if (script.lines.length === 0) {
@@ -442,6 +503,7 @@ async function parseWithRegex(buffer: Buffer, validatedCharacters?: string[]): P
 
     return script;
 }
+
 export async function detectCharactersAction(formData: FormData): Promise<{ title?: string, characters: string[] } | { error: string }> {
     const file = formData.get("file") as File;
     if (!file) return { error: "Pas de fichier" };
@@ -449,16 +511,75 @@ export async function detectCharactersAction(formData: FormData): Promise<{ titl
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
 
-        // Use Heuristic detection instead of Vision
         const { detectCharactersHeuristic } = await import("@/lib/parser");
-
-        // We reuse the reconstruction logic from parseWithRegex but for a few pages
-        // For simplicity, we just use the whole PDF text for detection if it's not too big
-        // or a good chunk of it.
         const pdf = require("pdf-parse/lib/pdf-parse.js");
-        const data = await pdf(buffer);
 
-        return detectCharactersHeuristic(data.text);
+        // Use the SAME text reconstruction as finalizeParsingAction
+        // This ensures characters detected here will also be found in parsing
+        let allItems: { str: string; x: number; y: number; w: number }[] = [];
+
+        const render_page = (pageData: any) => {
+            const render_options = {
+                normalizeWhitespace: false,
+                disableCombineTextItems: false
+            };
+            return pageData.getTextContent(render_options).then((textContent: any) => {
+                for (const item of textContent.items) {
+                    const str = item.str;
+                    const x = item.transform[4];
+                    const y = item.transform[5];
+                    const w = item.width;
+
+                    if (str.trim().length === 0 && w < 2) continue;
+                    allItems.push({ str, x, y, w });
+                }
+                return "";
+            });
+        };
+
+        await pdf(buffer, { pagerender: render_page });
+
+        // Reconstruct text (same logic as parseWithRegex)
+        let cleanRawText = "";
+        let lastY = -1;
+        let lastX = -1;
+        let lastWidth = 0;
+
+        for (const item of allItems) {
+            const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > 6;
+
+            if (isNewLine) {
+                cleanRawText += "\n";
+                lastX = -1;
+            } else {
+                if (lastX !== -1) {
+                    const gap = item.x - (lastX + lastWidth);
+                    if (gap > 2) {
+                        cleanRawText += " ";
+                    }
+                }
+            }
+
+            cleanRawText += item.str;
+
+            lastY = item.y;
+            lastX = item.x;
+            lastWidth = item.w;
+        }
+
+        console.log("[Action] Detection using reconstructed text. Length:", cleanRawText.length);
+
+        // Apply same ligature normalization as parseWithRegex
+        const ligatureMap: Record<string, string> = {
+            '\uFB00': 'ff', '\uFB01': 'fi', '\uFB02': 'fl', '\uFB03': 'ffi', '\uFB04': 'ffl',
+            '\uFB05': 'st', '\uFB06': 'st', '\u0132': 'IJ', '\u0133': 'ij',
+            '\u0152': 'OE', '\u0153': 'oe', '\u00C6': 'AE', '\u00E6': 'ae',
+        };
+        for (const [ligature, replacement] of Object.entries(ligatureMap)) {
+            cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
+        }
+
+        return detectCharactersHeuristic(cleanRawText);
     } catch (error: any) {
         console.error("[Action] Detect error:", error);
         return { error: error.message };

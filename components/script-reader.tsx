@@ -15,9 +15,10 @@ interface ScriptReaderProps {
     settings: ScriptSettings;
     playId?: string;
     userId?: string;
+    skipCharacters?: string[];
 }
 
-export function ScriptReader({ script, userCharacters, onExit, settings }: ScriptReaderProps) {
+export function ScriptReader({ script, userCharacters, onExit, settings, skipCharacters = [] }: ScriptReaderProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const lineRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -86,12 +87,22 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
         return "...............";
     };
 
-    // Filter lines based on mode
+    // Helper to check if a line should be skipped
+    const shouldSkipLine = (lineChar: string) => {
+        const normalizedLineChar = lineChar.toLowerCase().trim();
+        return skipCharacters.some(skipChar =>
+            normalizedLineChar === skipChar.toLowerCase().trim()
+        );
+    };
+
+    // Filter lines based on mode AND skipCharacters
     const filteredLines = useMemo(() => {
-        const linesWithOriginalIndex = script.lines.map((line, index) => ({
-            ...line,
-            originalIndex: index
-        }));
+        const linesWithOriginalIndex = script.lines
+            .map((line, index) => ({
+                ...line,
+                originalIndex: index
+            }))
+            .filter(line => !shouldSkipLine(line.character)); // Skip ignored characters
 
         if (settings.mode === "full") return linesWithOriginalIndex;
 
@@ -101,11 +112,11 @@ export function ScriptReader({ script, userCharacters, onExit, settings }: Scrip
 
             if (settings.mode === "cue") {
                 const nextLine = script.lines[line.originalIndex + 1];
-                return nextLine && isUserLine(nextLine.character);
+                return nextLine && isUserLine(nextLine.character) && !shouldSkipLine(nextLine.character);
             }
             return false;
         });
-    }, [script.lines, settings.mode, userCharacters]);
+    }, [script.lines, settings.mode, userCharacters, skipCharacters]);
 
     return (
         <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground font-sans overflow-hidden">

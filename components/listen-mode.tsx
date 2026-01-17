@@ -19,6 +19,7 @@ interface ListenModeProps {
     scriptId?: string;
     isPublicScript?: boolean;
     troupeId?: string;
+    skipCharacters?: string[];
 }
 
 export function ListenMode({
@@ -28,7 +29,8 @@ export function ListenMode({
     playId,
     scriptId,
     isPublicScript = false,
-    troupeId
+    troupeId,
+    skipCharacters = []
 }: ListenModeProps) {
     // Configuration state
     const [listenMode, setListenMode] = useState<ListenMode>("full");
@@ -45,12 +47,20 @@ export function ListenMode({
     const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
     const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, OpenAIVoice>>({});
 
-    // Didascalies detection
+    // Didascalies detection -> Merge with skipCharacters from prop
     const hasDidascalies = useMemo(() =>
         script.characters.some(c =>
             c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
         ), [script.characters]);
     const [skipDidascalies, setSkipDidascalies] = useState(true);
+
+    // Computed skip characters (merge prop + didascalies toggle)
+    const effectiveSkipCharacters = useMemo(() => {
+        const didascalieChars = hasDidascalies && skipDidascalies
+            ? script.characters.filter(c => c.toLowerCase().includes("didascalie"))
+            : [];
+        return [...new Set([...skipCharacters, ...didascalieChars])];
+    }, [skipCharacters, hasDidascalies, skipDidascalies, script.characters]);
 
     // Fetch User Capabilities on Mount
     useEffect(() => {
@@ -129,9 +139,7 @@ export function ListenMode({
         announceCharacter,
         initialLineIndex: startLineIndex,
         openaiVoiceAssignments,
-        skipCharacters: hasDidascalies && skipDidascalies
-            ? script.characters.filter(c => c.toLowerCase().includes("didascalie"))
-            : [],
+        skipCharacters: effectiveSkipCharacters,
         playId,
         scriptId,
         isPublicScript
