@@ -485,6 +485,22 @@ async function parseWithRegex(buffer: Buffer, validatedCharacters?: string[]): P
             cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
         }
 
+        // FONT CORRUPTION FIX: Some PDFs decode "ff" ligature as "S"
+        // Pattern: vowel + S + lowercase letter → vowel + ff + letter
+        // Examples: aSlige → afflige, aSaires → affaires, eSet → effet
+        const fontCorruptionFixes: [RegExp, string][] = [
+            [/aS([aeioulr])/g, 'aff$1'],  // affaire, afflige, affronter
+            [/eS([aeiou])/g, 'eff$1'],    // effet, efface
+            [/oS([aeiou])/g, 'off$1'],    // offre, offense
+            [/iS([aeiou])/g, 'iff$1'],    // difficile
+            [/uS([aeiou])/g, 'uff$1'],    // souffrir
+        ];
+
+        for (const [pattern, replacement] of fontCorruptionFixes) {
+            cleanRawText = cleanRawText.replace(pattern, replacement);
+        }
+        console.log("[Action] Applied ligature and font corruption fixes");
+
         const script = parseScript(cleanRawText, validatedCharacters);
 
         if (script.lines.length === 0) {
