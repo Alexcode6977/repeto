@@ -485,7 +485,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     }
 
     // Data structures
-    const scriptLines: ScriptLine[] = [];
+    let scriptLines: ScriptLine[] = [];
     const scenes: ScriptScene[] = [];
     const characterCounts: Record<string, number> = {};
 
@@ -806,6 +806,30 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
         console.log("[Parser] PERSO/REPLIQUE format detected - skipping character merge");
     }
 
+    // === FILTER CHARACTER LIST LINES ===
+    // At scene openings, there's often a list of present characters that looks like dialogue
+    // Pattern: "MARIE" speaking "JULES, MICHELINE, AGLAÉ" = character list, not dialogue
+    const characterSet = new Set(Object.keys(characterCounts).map(c => c.toUpperCase()));
+
+    scriptLines = scriptLines.filter(line => {
+        if (line.type !== "dialogue") return true;
+
+        // Split the dialogue into words/names
+        const words = line.text.split(/[,\s]+/).map(w => w.trim().toUpperCase()).filter(w => w.length > 1);
+
+        if (words.length < 2) return true; // Single word dialogues are fine
+
+        // Count how many words are known character names
+        const matchCount = words.filter(w => characterSet.has(w)).length;
+        const ratio = matchCount / words.length;
+
+        // If >80% of words are character names, it's a character list
+        if (ratio >= 0.8) {
+            console.log(`[Parser] Skipping character list line: "${line.text.substring(0, 60)}..."`);
+            return false;
+        }
+        return true;
+    });
 
     // === FINAL FILTERING ===
 
