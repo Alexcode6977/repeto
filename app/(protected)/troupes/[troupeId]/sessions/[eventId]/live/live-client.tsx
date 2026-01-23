@@ -4,17 +4,36 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, ChevronRight, ChevronLeft, Send, User, Mic, MicOff, History, ArrowUpRight, Loader2, Target, BookOpen } from "lucide-react";
+import { MessageSquare, ChevronRight, ChevronLeft, Send, User, Mic, MicOff, History, ArrowUpRight, Loader2, Target, BookOpen, Video, Copy, X } from "lucide-react";
 import { submitSessionFeedback, getLastFeedbacksForCharacters } from "@/lib/actions/session";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
+
+// LiveKit Imports
+import {
+    LiveKitRoom,
+    VideoConference,
+    GridLayout,
+    ParticipantTile,
+    RoomAudioRenderer,
+    ControlBar,
+    useTracks,
+    useConnectionState
+} from "@livekit/components-react";
+import "@livekit/components-styles";
+import { Track, ConnectionState } from "livekit-client";
 
 interface LiveProps {
     sessionData: any;
     troupeId: string;
     isReadOnly?: boolean;
+    currentUser?: {
+        id: string;
+        name: string;
+    }
 }
 
-export function LiveSessionClient({ sessionData, troupeId, isReadOnly = false }: LiveProps) {
+export function LiveSessionClient({ sessionData, troupeId, isReadOnly = false, currentUser }: LiveProps) {
     const plays = sessionData.plays || [];
     const plan = sessionData.session_plans;
     const selectedScenes = plan.selected_scenes || [];
@@ -27,6 +46,30 @@ export function LiveSessionClient({ sessionData, troupeId, isReadOnly = false }:
     const [isListening, setIsListening] = useState<string | null>(null);
     const recognitionRef = useRef<any>(null);
     const timelineRef = useRef<HTMLDivElement>(null);
+
+    // Video Call State
+    const searchParams = useSearchParams();
+    const [videoEnabled, setVideoEnabled] = useState(searchParams.get("video") === "true");
+    const [videoToken, setVideoToken] = useState<string>("");
+
+    // Get LiveKit Token
+    useEffect(() => {
+        if (!videoEnabled || !currentUser?.id) return;
+
+        (async () => {
+            try {
+                const resp = await fetch(
+                    `/api/livekit/token?room=${sessionData.id}&username=${encodeURIComponent(currentUser.name)}`
+                );
+                const data = await resp.json();
+                setVideoToken(data.token);
+            } catch (e) {
+                console.error(e);
+            }
+        })();
+    }, [videoEnabled, sessionData.id, currentUser?.name, currentUser?.id]);
+
+
 
     // Derived data
     let sceneAndPlay = null;
@@ -135,8 +178,67 @@ export function LiveSessionClient({ sessionData, troupeId, isReadOnly = false }:
         setCurrentSceneIndex(Math.max(0, Math.min(selectedSceneIds.length - 1, index)));
     };
 
+    const inviteUrl = typeof window !== 'undefined' ?
+        `${window.location.protocol}//${window.location.host}/troupes/${troupeId}/sessions/${sessionData.id}/live` : "";
+
     return (
         <div className="flex flex-col h-full gap-6">
+            {/* Header: Video Controls & Invite */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant={videoEnabled ? "destructive" : "default"}
+                        size="sm"
+                        className="rounded-full shadow-lg"
+                        onClick={() => setVideoEnabled(!videoEnabled)}
+                    >
+                        {videoEnabled ? <X className="w-4 h-4 mr-2" /> : <Video className="w-4 h-4 mr-2" />}
+                        {videoEnabled ? "Quitter Visio" : "Rejoindre Visio"}
+                    </Button>
+                </div>
+
+                {videoEnabled && (
+                    <div className="flex items-center gap-2 bg-muted/50 p-1.5 rounded-full pr-4 border border-border">
+                        <div className="bg-primary/20 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                            INVITATION
+                        </div>
+                        <code className="text-[10px] font-mono opacity-70 truncate max-w-[150px]">
+                            {sessionData.id.substring(0, 8)}...
+                        </code>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="w-6 h-6 rounded-full hover:bg-white/10"
+                            onClick={() => {
+                                navigator.clipboard.writeText(inviteUrl);
+                                alert("Lien copié !");
+                            }}
+                        >
+                            <Copy className="w-3 h-3" />
+                        </Button>
+                    </div>
+                )}
+            </div>
+
+            {/* VIDEO ROOM */}
+            {videoEnabled && videoToken && (
+                <div className="h-[250px] shrink-0 rounded-2xl overflow-hidden shadow-2xl border-2 border-violet-500/30 bg-black relative">
+                    <LiveKitRoom
+                        video={true}
+                        audio={true}
+                        token={videoToken}
+                        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
+                        // Use a simple data attribute to help with styling if needed
+                        data-lk-theme="default"
+                        style={{ height: '100%' }}
+                    >
+                        <VideoConference />
+                        <RoomAudioRenderer />
+                        {/* Custom control bar or default */}
+                    </LiveKitRoom>
+                </div>
+            )}
+
             {/* Timeline Bar */}
             <div className="relative">
                 <div

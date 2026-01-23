@@ -27,13 +27,14 @@ interface UseRehearsalProps {
     openaiVoiceAssignments?: Record<string, OpenAIVoice>;
     skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
     playId?: string;
+    partnerCharacters?: string[];
 }
 
 import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { isNextCommand, isPrevCommand } from "../speech-utils";
 import { getPlayRecordings } from "../actions/recordings";
 
-export function useRehearsal({ script, userCharacters, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId }: UseRehearsalProps) {
+export function useRehearsal({ script, userCharacters, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId, partnerCharacters = [] }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const openaiSpeech = useOpenAITTS();
     const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
@@ -470,6 +471,15 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
 
                 if (!shouldPlay) {
                     next();
+                    return;
+                }
+
+                // NEW: Partner Logic - If it's a partner character, we DO NOT speak.
+                // We just rely on the UI to show the line and wait for manual "Next".
+                // We could also auto-advance after estimated duration, but manual is safer for Visio.
+                if (partnerCharacters.some(pc => pc === line.character)) {
+                    // Just return. The status remains 'playing_other'. 
+                    // The user must manually click 'Next' (or we implement a timeout later).
                     return;
                 }
 

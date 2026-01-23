@@ -12,14 +12,17 @@ import { CastingManager } from "@/components/casting-manager";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { FileText, Calendar, Play, BookOpen, Mic, Headphones, Info, Users, Settings } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { FileText, Calendar, Play, BookOpen, Mic, Headphones, Info, Users, Settings, Video } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useHaptic } from "@/lib/hooks/use-haptic";
 
 import { VoiceConfig } from "@/lib/actions/voice-cache";
+import { LiveKitRoom, VideoConference, RoomAudioRenderer } from "@livekit/components-react";
+import "@livekit/components-styles";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface PlayDashboardClientProps {
     play: any;
@@ -31,6 +34,7 @@ interface PlayDashboardClientProps {
 }
 
 export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin, initialVoiceConfigs }: PlayDashboardClientProps) {
+    const router = useRouter();
     const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "setup" | "reader" | "rehearsal" | "listen">("dashboard");
     const [rehearsalChars, setRehearsalChars] = useState<string[] | null>(null);
     const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
@@ -41,6 +45,33 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const [userId, setUserId] = useState<string>("");
     const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal">("reader");
     const { trigger } = useHaptic();
+
+    // Video State
+    const [videoEnabled, setVideoEnabled] = useState(false);
+    const [videoToken, setVideoToken] = useState<string | null>(null);
+    const [videoRoom, setVideoRoom] = useState<string>(`troupe_${troupeId}_play_${play.id}`);
+    const [isDraggable, setIsDraggable] = useState(true);
+
+    // Video Controls
+    const startVideo = async () => {
+        if (!userId) return;
+        try {
+            // Use user name for identity
+            const name = troupeMembers.find(m => m.user_id === userId)?.profiles?.first_name || "Utilisateur"; // Fallback
+
+            const resp = await fetch(
+                `/api/livekit/token?room=${videoRoom}&username=${encodeURIComponent(name)}`
+            );
+            const data = await resp.json();
+            if (data.token) {
+                setVideoToken(data.token);
+                setVideoEnabled(true);
+            }
+        } catch (e) {
+            console.error("Failed to start video", e);
+            alert("Erreur lors de l'initialisation de la vidéo");
+        }
+    };
 
     useEffect(() => {
         setIsMounted(true);
@@ -371,7 +402,73 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         <p className="text-xs text-muted-foreground">Enregistrement réservé aux acteurs</p>
                     </Card>
                 )}
+
+                {/* Répéter à distance (VISIO) */}
+                <Card
+                    className="col-span-2 border-0 bg-violet-600 hover:bg-violet-700 active:scale-95 transition-all cursor-pointer flex flex-row items-center justify-center gap-4 p-4 text-center rounded-3xl shadow-lg shadow-violet-500/20"
+                    onClick={() => {
+                        trigger('heavy');
+                        router.push(`/troupes/${troupeId}/plays/${play.id}/visio`);
+                    }}
+                >
+                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
+                        <Video className="w-5 h-5 fill-current" />
+                    </div>
+                    <div className="text-left">
+                        <h3 className="font-bold text-white text-lg leading-none mb-1">Répéter à distance</h3>
+                        <p className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Lancer une Visio</p>
+                    </div>
+                </Card>
             </div>
+
+            {/* VIDEO OVERLAY - PERSISTENT */}
+            {videoEnabled && videoToken && (
+                <div className={cn(
+                    "fixed z-[100] transition-all duration-300 shadow-2xl rounded-2xl overflow-hidden border-2 border-violet-500/50 bg-black",
+                    // Simplified styling: Fixed bottom-right corner for now, could be draggable later
+                    "bottom-4 right-4 w-[320px] h-[240px] md:w-[400px] md:h-[300px]"
+                )}>
+                    <div className="absolute top-2 right-2 z-20 flex gap-2">
+                        {/* Collapse/Expand could go here */}
+                        <Button
+                            size="icon"
+                            variant="secondary"
+                            className="h-6 w-6 rounded-full bg-black/50 hover:bg-black/80 text-white"
+                            onClick={() => setVideoEnabled(false)}
+                        >
+                            <span className="sr-only">Fermer</span>
+                            ×
+                        </Button>
+                    </div>
+
+                    <LiveKitRoom
+                        video={true}
+                        audio={true}
+                        token={videoToken}
+                        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
+                        data-lk-theme="default"
+                        style={{ height: '100%', width: '100%' }}
+                        onDisconnected={() => setVideoEnabled(false)}
+                    >
+                        <VideoConference />
+                        <RoomAudioRenderer />
+                    </LiveKitRoom>
+
+                    {/* Invite Link Helper */}
+                    <div className="absolute bottom-2 left-2 z-20 bg-black/60 px-2 py-1 rounded-md text-[10px] text-white backdrop-blur-md flex gap-2 items-center cursor-pointer hover:bg-black/80"
+                        onClick={() => {
+                            const url = `${window.location.origin}/invite/${videoRoom}`;
+                            // We probably need a better invite link that redirects to this page and opens video
+                            // For now, let's just copy the current URL + param
+                            navigator.clipboard.writeText(window.location.href);
+                            alert("Lien de la page copié ! Partagez-le à votre partenaire.");
+                        }}
+                    >
+                        <Users className="w-3 h-3" />
+                        <span>Inviter</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 

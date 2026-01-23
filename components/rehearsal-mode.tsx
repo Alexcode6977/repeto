@@ -92,6 +92,8 @@ interface RehearsalModeProps {
     isPublicScript?: boolean;
     troupeId?: string;
     initialIgnoredCharacters?: string[];
+    partnerCharacters?: string[];
+    isVisio?: boolean;
 }
 
 export function RehearsalMode({
@@ -104,7 +106,9 @@ export function RehearsalMode({
     scriptId,
     isPublicScript = false,
     troupeId,
-    initialIgnoredCharacters = []
+    initialIgnoredCharacters = [],
+    partnerCharacters = [],
+    isVisio = false
 }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
@@ -270,7 +274,8 @@ export function RehearsalMode({
         ttsProvider: ttsProvider || "browser",
         openaiVoiceAssignments,
         skipCharacters: ignoredCharacters,
-        playId
+        playId,
+        partnerCharacters
     });
 
     const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
@@ -601,142 +606,155 @@ export function RehearsalMode({
         const sampleOtherLine = script.lines.find(l => !(userCharacters || []).includes(l.character));
 
         return (
-            <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full max-w-7xl mx-auto animate-in fade-in duration-500 bg-background">
+            <div className={cn(
+                "flex flex-col lg:flex-row w-full max-w-7xl mx-auto animate-in fade-in duration-500 bg-background",
+                isVisio ? "h-full" : "min-h-[100dvh]"
+            )}>
 
                 {/* LEFT PANEL - Live Preview */}
-                <div className="lg:w-[45%] flex flex-col items-center justify-start pt-12 lg:pt-16 p-6 lg:p-8 lg:border-r border-border order-2 lg:order-1">
-                    {/* Logo & Character */}
-                    <div className="text-center space-y-4 mb-8">
-                        <div className="relative inline-block">
-                            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse-glow" />
-                            <img src="/repeto.png" alt="Repeto" className="relative w-20 h-20 mx-auto object-contain drop-shadow-2xl" />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-foreground tracking-tight">En scène</h2>
-                            <p className="text-muted-foreground text-sm">Vous jouez <span className="text-yellow-400 font-bold">{(userCharacters || []).join(", ")}</span></p>
-                        </div>
-                    </div>
-
-                    {/* Preview Card - Glassmorphism */}
-                    <div className="w-full max-w-md space-y-6">
-                        <div className="text-center">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Aperçu</span>
+                {!isVisio && (
+                    <div className="lg:w-[45%] flex flex-col items-center justify-start pt-12 lg:pt-16 p-6 lg:p-8 lg:border-r border-border order-2 lg:order-1">
+                        {/* Logo & Character */}
+                        <div className="text-center space-y-4 mb-8">
+                            <div className="relative inline-block">
+                                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse-glow" />
+                                <img src="/repeto.png" alt="Repeto" className="relative w-20 h-20 mx-auto object-contain drop-shadow-2xl" />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-foreground tracking-tight">En scène</h2>
+                                <p className="text-muted-foreground text-sm">Vous jouez <span className="text-yellow-400 font-bold">{(userCharacters || []).join(", ")}</span></p>
+                            </div>
                         </div>
 
-                        {/* Preview Container */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl space-y-4 transition-all duration-500">
-                            {/* Other character line example */}
-                            {sampleOtherLine && (
-                                <div className="p-3 rounded-xl bg-card border border-border transition-all duration-300">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
-                                        {sampleOtherLine.character}
-                                    </p>
-                                    <p className="text-muted-foreground text-sm font-serif">
-                                        {sampleOtherLine.text.substring(0, 80)}...
-                                    </p>
-                                </div>
-                            )}
+                        {/* Preview Card - Glassmorphism */}
+                        <div className="w-full max-w-md space-y-6">
+                            <div className="text-center">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Aperçu</span>
+                            </div>
 
-                            {/* User line example - Animated based on visibility */}
-                            {sampleUserLine && (
-                                <div
-                                    key={lineVisibility}
-                                    className={cn(
-                                        "p-4 rounded-xl transition-all duration-500 animate-in fade-in slide-in-from-bottom-2",
-                                        lineVisibility === "visible"
-                                            ? "bg-yellow-500/15 border-2 border-yellow-500/50"
-                                            : lineVisibility === "hint"
-                                                ? "bg-orange-500/10 border-2 border-orange-500/30"
-                                                : "bg-muted/50 border-2 border-border"
-                                    )}
-                                >
-                                    <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                        <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                                        {(userCharacters || []).length > 1 ? 'Vos Roles' : `${userCharacters[0]} (Vous)`}
-                                    </p>
-                                    <p className={cn(
-                                        "text-lg font-serif transition-all duration-500",
-                                        lineVisibility === "visible"
-                                            ? "text-yellow-100"
-                                            : lineVisibility === "hint"
-                                                ? "text-orange-200"
-                                                : "text-muted-foreground"
-                                    )}>
-                                        {getVisibleText(sampleUserLine.text.substring(0, 100), true)}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
+                            {/* Preview Container */}
+                            <div className="bg-card backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl space-y-4 transition-all duration-500">
+                                {/* Other character line example */}
+                                {sampleOtherLine && (
+                                    <div className="p-3 rounded-xl bg-card border border-border transition-all duration-300">
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
+                                            {sampleOtherLine.character}
+                                        </p>
+                                        <p className="text-muted-foreground text-sm font-serif">
+                                            {sampleOtherLine.text.substring(0, 80)}...
+                                        </p>
+                                    </div>
+                                )}
 
-                        {/* Mode indicators */}
-                        <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
-                            <span className={cn("transition-colors", lineVisibility === "visible" && "text-yellow-400 font-bold")}>
-                                👁️ Visible
-                            </span>
-                            <span className={cn("transition-colors", lineVisibility === "hint" && "text-orange-400 font-bold")}>
-                                💡 Indice
-                            </span>
-                            <span className={cn("transition-colors", lineVisibility === "hidden" && "text-muted-foreground font-bold")}>
-                                🙈 Caché
-                            </span>
+                                {/* User line example - Animated based on visibility */}
+                                {sampleUserLine && (
+                                    <div
+                                        key={lineVisibility}
+                                        className={cn(
+                                            "p-4 rounded-xl transition-all duration-500 animate-in fade-in slide-in-from-bottom-2",
+                                            lineVisibility === "visible"
+                                                ? "bg-yellow-500/15 border-2 border-yellow-500/50"
+                                                : lineVisibility === "hint"
+                                                    ? "bg-orange-500/10 border-2 border-orange-500/30"
+                                                    : "bg-muted/50 border-2 border-border"
+                                        )}
+                                    >
+                                        <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                                            {(userCharacters || []).length > 1 ? 'Vos Roles' : `${userCharacters[0]} (Vous)`}
+                                        </p>
+                                        <p className={cn(
+                                            "text-lg font-serif transition-all duration-500",
+                                            lineVisibility === "visible"
+                                                ? "text-yellow-100"
+                                                : lineVisibility === "hint"
+                                                    ? "text-orange-200"
+                                                    : "text-muted-foreground"
+                                        )}>
+                                            {getVisibleText(sampleUserLine.text.substring(0, 100), true)}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Mode indicators */}
+                            <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
+                                <span className={cn("transition-colors", lineVisibility === "visible" && "text-yellow-400 font-bold")}>
+                                    👁️ Visible
+                                </span>
+                                <span className={cn("transition-colors", lineVisibility === "hint" && "text-orange-400 font-bold")}>
+                                    💡 Indice
+                                </span>
+                                <span className={cn("transition-colors", lineVisibility === "hidden" && "text-muted-foreground font-bold")}>
+                                    🙈 Caché
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
+        )
+    }
 
-                {/* RIGHT PANEL - Settings */}
-                <div className="lg:w-[55%] flex flex-col items-center p-6 lg:p-8 lg:py-10 overflow-y-auto order-1 lg:order-2">
-                    {/* Stepper - Enhanced with labels */}
-                    <div className="flex items-center justify-center gap-1 mb-8">
-                        {[
-                            { num: 1, label: "Scène", icon: "🎬", active: true },
-                            { num: 2, label: "Texte", icon: "📝", active: true },
-                            { num: 3, label: "Voix", icon: "🎙️", active: true },
-                            { num: 4, label: "Jouer", icon: "🎭", active: false }
-                        ].map((step, i) => (
-                            <div key={step.num} className="flex items-center">
-                                <div className="flex flex-col items-center gap-1">
-                                    <div className={cn(
-                                        "w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all",
-                                        step.active
-                                            ? "bg-primary/20 text-foreground border-2 border-primary/50 shadow-lg shadow-primary/20"
-                                            : "bg-card/50 text-muted-foreground border border-border"
-                                    )}>
-                                        {step.icon}
-                                    </div>
-                                    <span className={cn(
-                                        "text-[9px] font-bold uppercase tracking-wider",
-                                        step.active ? "text-primary" : "text-muted-foreground/50"
-                                    )}>
-                                        {step.label}
-                                    </span>
-                                </div>
-                                {i < 3 && (
-                                    <div className={cn(
-                                        "w-6 h-[2px] mx-1 mt-[-16px]",
-                                        step.active ? "bg-primary/30" : "bg-border"
-                                    )} />
-                                )}
+    {/* RIGHT PANEL - Settings */ }
+    <div className={cn(
+        "flex flex-col items-center p-6 lg:p-8 lg:py-10 overflow-y-auto order-1 lg:order-2",
+        isVisio ? "w-full justify-center" : "lg:w-[55%]"
+    )}>
+        {/* Stepper - Enhanced with labels */}
+        {!isVisio && (
+            <div className="flex items-center justify-center gap-1 mb-8">
+                {[
+                    { num: 1, label: "Scène", icon: "🎬", active: true },
+                    { num: 2, label: "Texte", icon: "📝", active: true },
+                    { num: 3, label: "Voix", icon: "🎙️", active: true },
+                    { num: 4, label: "Jouer", icon: "🎭", active: false }
+                ].map((step, i) => (
+                    <div key={step.num} className="flex items-center">
+                        <div className="flex flex-col items-center gap-1">
+                            <div className={cn(
+                                "w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all",
+                                step.active
+                                    ? "bg-primary/20 text-foreground border-2 border-primary/50 shadow-lg shadow-primary/20"
+                                    : "bg-card/50 text-muted-foreground border border-border"
+                            )}>
+                                {step.icon}
                             </div>
-                        ))}
+                            <span className={cn(
+                                "text-[9px] font-bold uppercase tracking-wider",
+                                step.active ? "text-primary" : "text-muted-foreground/50"
+                            )}>
+                                {step.label}
+                            </span>
+                        </div>
+                        {i < 3 && (
+                            <div className={cn(
+                                "w-6 h-[2px] mx-1 mt-[-16px]",
+                                step.active ? "bg-primary/30" : "bg-border"
+                            )} />
+                        )}
                     </div>
+                ))}
+            </div>
+        )}
 
-                    {/* Start Button - Enhanced CTA */}
-                    <div className="max-w-md mx-auto w-full mb-6">
-                        <Button
-                            size="lg"
-                            onClick={() => {
-                                if (!ttsProvider) setTtsProvider("browser");
-                                handleStart();
-                            }}
-                            className="w-full text-xl font-black py-7 rounded-2xl bg-gradient-to-r from-primary via-primary to-purple-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(124,58,237,0.5)] animate-pulse-subtle group"
-                        >
-                            <Play className="mr-3 h-7 w-7 fill-current group-hover:scale-110 transition-transform" />
-                            🎬 Entrer en scène
-                        </Button>
-                        <p className="text-center text-[10px] text-muted-foreground mt-2">Votre micro sera activé</p>
-                    </div>
+        {/* Start Button - Enhanced CTA */}
+        <div className="max-w-md mx-auto w-full mb-6">
+            <Button
+                size="lg"
+                onClick={() => {
+                    if (!ttsProvider) setTtsProvider("browser");
+                    handleStart();
+                }}
+                className="w-full text-xl font-black py-7 rounded-2xl bg-gradient-to-r from-primary via-primary to-purple-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(124,58,237,0.5)] animate-pulse-subtle group"
+            >
+                <Play className="mr-3 h-7 w-7 fill-current group-hover:scale-110 transition-transform" />
+                🎬 Entrer en scène
+            </Button>
+            <p className="text-center text-[10px] text-muted-foreground mt-2">Votre micro sera activé</p>
+        </div>
 
-                    {/* Settings Cards */}
+        {/* Settings Cards */}
+        {!isVisio && (
                     <div className="space-y-6 max-w-md mx-auto w-full">
 
                         {/* DEMO MODE ALERT */}
@@ -1090,323 +1108,323 @@ export function RehearsalMode({
             </div >
 
         );
-    }
+}
 
-    return (
-        <>
-            <Portal>
-                <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
-            </Portal>
+return (
+    <>
+        <Portal>
+            <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
+        </Portal>
 
-            {/* Outer Responsive Wrapper with Dynamic Background */}
+        {/* Outer Responsive Wrapper with Dynamic Background */}
+        <div className={cn(
+            "fixed inset-0 flex items-center justify-center z-50 transition-all duration-700",
+            isUserTurn
+                ? "bg-background/90"
+                : "bg-background/98"
+        )}>
+            {/* Dynamic Background Glow based on turn */}
             <div className={cn(
-                "fixed inset-0 flex items-center justify-center z-50 transition-all duration-700",
+                "absolute inset-0 transition-all duration-700 pointer-events-none",
                 isUserTurn
-                    ? "bg-background/90"
-                    : "bg-background/98"
+                    ? "bg-gradient-radial from-yellow-500/10 via-transparent to-transparent opacity-100"
+                    : "bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50"
+            )} />
+
+            {/* Success Flash Animation */}
+            {showSuccessAnimation && (
+                <div className="absolute inset-0 bg-green-500/20 animate-[pulse_0.5s_ease-out] pointer-events-none z-50" />
+            )}
+
+            {/* Error Shake Container */}
+            <div className={cn(
+                "w-full h-[100dvh] md:h-[85vh] md:max-w-3xl md:rounded-3xl md:border md:border-border md:shadow-2xl md:bg-background/40 md:backdrop-blur-sm flex flex-col overflow-hidden bg-transparent text-foreground relative transition-all duration-300",
+                showErrorAnimation && "animate-[shake_0.4s_ease-in-out]"
             )}>
-                {/* Dynamic Background Glow based on turn */}
+
+                {/* Background Ambient Glow - changes with turn */}
                 <div className={cn(
-                    "absolute inset-0 transition-all duration-700 pointer-events-none",
+                    "absolute top-0 left-0 right-0 h-48 pointer-events-none transition-all duration-500",
                     isUserTurn
-                        ? "bg-gradient-radial from-yellow-500/10 via-transparent to-transparent opacity-100"
-                        : "bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50"
+                        ? "bg-gradient-to-b from-yellow-500/15 to-transparent"
+                        : "bg-gradient-to-b from-primary/10 to-transparent"
                 )} />
 
-                {/* Success Flash Animation */}
-                {showSuccessAnimation && (
-                    <div className="absolute inset-0 bg-green-500/20 animate-[pulse_0.5s_ease-out] pointer-events-none z-50" />
-                )}
-
-                {/* Error Shake Container */}
-                <div className={cn(
-                    "w-full h-[100dvh] md:h-[85vh] md:max-w-3xl md:rounded-3xl md:border md:border-border md:shadow-2xl md:bg-background/40 md:backdrop-blur-sm flex flex-col overflow-hidden bg-transparent text-foreground relative transition-all duration-300",
-                    showErrorAnimation && "animate-[shake_0.4s_ease-in-out]"
-                )}>
-
-                    {/* Background Ambient Glow - changes with turn */}
-                    <div className={cn(
-                        "absolute top-0 left-0 right-0 h-48 pointer-events-none transition-all duration-500",
-                        isUserTurn
-                            ? "bg-gradient-to-b from-yellow-500/15 to-transparent"
-                            : "bg-gradient-to-b from-primary/10 to-transparent"
-                    )} />
-
-                    {/* Enhanced Mini-Header with Progress */}
-                    <div className="flex-none flex justify-between items-center p-4 md:p-6 z-10">
-                        <div className="flex items-center gap-3">
-                            {/* Progress Badge */}
-                            <div className={cn(
-                                "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border flex items-center gap-2",
-                                isPaused
-                                    ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
-                                    : isUserTurn
-                                        ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-                                        : "bg-card text-muted-foreground border-border"
-                            )}>
-                                <span className="tabular-nums">{currentLineIndex + 1}/{totalLines}</span>
-                                <span className="text-muted-foreground">•</span>
-                                <span>{progressPercent}%</span>
-                                {isWakeLockActive && (
-                                    <>
-                                        <span className="text-muted-foreground">•</span>
-                                        <span className="flex items-center gap-1 group/wake">
-                                            <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                                            <span className="md:inline hidden">Lock</span>
-                                        </span>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Scene Name */}
-                            {currentScene && (
-                                <div className="hidden md:block text-[10px] text-muted-foreground max-w-[200px] truncate">
-                                    {currentScene.title}
-                                </div>
+                {/* Enhanced Mini-Header with Progress */}
+                <div className="flex-none flex justify-between items-center p-4 md:p-6 z-10">
+                    <div className="flex items-center gap-3">
+                        {/* Progress Badge */}
+                        <div className={cn(
+                            "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border flex items-center gap-2",
+                            isPaused
+                                ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20"
+                                : isUserTurn
+                                    ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+                                    : "bg-card text-muted-foreground border-border"
+                        )}>
+                            <span className="tabular-nums">{currentLineIndex + 1}/{totalLines}</span>
+                            <span className="text-muted-foreground">•</span>
+                            <span>{progressPercent}%</span>
+                            {isWakeLockActive && (
+                                <>
+                                    <span className="text-muted-foreground">•</span>
+                                    <span className="flex items-center gap-1 group/wake">
+                                        <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                                        <span className="md:inline hidden">Lock</span>
+                                    </span>
+                                </>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-2 md:gap-4">
-                            <button onClick={togglePause} className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-card transition-colors">
-                                {isPaused ? <Play className="w-5 h-5 md:w-6 md:h-6 fill-current" /> : <Pause className="w-5 h-5 md:w-6 md:h-6" />}
-                            </button>
-                            <button onClick={handleExit} className="text-muted-foreground hover:text-red-400 p-2 rounded-full hover:bg-red-500/10 transition-colors">
-                                <X className="w-5 h-5 md:w-6 md:h-6" />
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Main Script View - Scrolling List */}
-                    <div
-                        ref={containerRef}
-                        className={cn(
-                            "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin transition-opacity duration-300",
-                            isFirstScrollRef.current ? "opacity-0" : "opacity-100"
-                        )}
-                        id="script-container"
-                    >
-                        {script.lines.map((line, index) => {
-                            const isActive = index === currentLineIndex;
-                            const isUser = (() => {
-                                const normalizedLineChar = line.character.toLowerCase().trim();
-                                const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-                                return (userCharacters || []).some(userChar => {
-                                    const normalizedUserChar = (userChar || "").toLowerCase().trim();
-                                    return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-                                });
-                            })();
-
-                            return (
-                                <div
-                                    key={line.id}
-                                    ref={(el) => {
-                                        if (el) lineRefs.current.set(index, el);
-                                    }}
-                                    className={cn(
-                                        "transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4 md:p-6",
-                                        isActive
-                                            ? "bg-muted/30 dark:bg-white/10 scale-100 md:scale-105 shadow-2xl border border-border opacity-100"
-                                            : "opacity-40 scale-95 blur-[0.5px]"
-                                    )}
-                                >
-                                    <p className={cn(
-                                        "text-xs font-bold uppercase tracking-widest mb-3",
-                                        isActive ? "text-foreground" : "text-muted-foreground"
-                                    )}>
-                                        {line.character}
-                                    </p>
-
-                                    <p className={cn(
-                                        "leading-relaxed font-serif transition-all",
-                                        isActive
-                                            ? "text-xl md:text-3xl text-foreground"
-                                            : "text-base md:text-lg text-muted-foreground grayscale",
-                                        isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : ""
-                                    )}>
-                                        {/* Status Indicators for Active Line */}
-                                        {isActive && status === "listening_user" && (
-                                            <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse mr-3 align-middle" />
-                                        )}
-                                        {isActive && isPlayingRecording && (
-                                            <Badge className="bg-primary/20 text-primary border-primary/30 uppercase text-[8px] font-black px-2 py-0.5 mr-3 align-middle animate-in fade-in zoom-in-95">
-                                                <Mic className="w-2.5 h-2.5 mr-1" />
-                                                Voix Troupe
-                                            </Badge>
-                                        )}
-                                        {getVisibleText(line.text, isUser)}
-                                    </p>
-
-                                    {/* Error Feedback */}
-                                    {isActive && status === "error" && (
-                                        <div className="flex items-center gap-2 mt-4 text-red-400 text-sm font-medium animate-in fade-in slide-in-from-top-2">
-                                            <AlertTriangle className="w-4 h-4" />
-                                            <span>Je n'ai pas compris. Répétez ?</span>
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                        {/* Bottom Spacer for scrolling */}
-                        <div className="h-48" />
-                    </div>
-
-                    {/* Next Line Preview - Faded miniature */}
-                    {nextLine && (
-                        <div className="flex-none px-6 pb-2 z-10">
-                            <div className="max-w-xl mx-auto bg-card rounded-xl p-3 border border-border">
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
-                                    Suivant : {(() => {
-                                        const normalizedLineChar = nextLine.character.toLowerCase().trim();
-                                        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-                                        const isUser = (userCharacters || []).some(userChar => {
-                                            const normalizedUserChar = (userChar || "").toLowerCase().trim();
-                                            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-                                        });
-                                        return isUser ? "VOUS" : nextLine.character;
-                                    })()}
-                                </p>
-                                <p className={cn(
-                                    "text-sm text-muted-foreground line-clamp-2 font-serif",
-                                    (() => {
-                                        const normalizedLineChar = nextLine.character.toLowerCase().trim();
-                                        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-                                        return (userCharacters || []).some(userChar => {
-                                            const normalizedUserChar = (userChar || "").toLowerCase().trim();
-                                            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-                                        });
-                                    })() && "text-yellow-700"
-                                )}>
-                                    {nextLine.text.substring(0, 100)}{nextLine.text.length > 100 ? "..." : ""}
-                                </p>
+                        {/* Scene Name */}
+                        {currentScene && (
+                            <div className="hidden md:block text-[10px] text-muted-foreground max-w-[200px] truncate">
+                                {currentScene.title}
                             </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
 
-                    {/* Controls - Bottom Layout with Progress Ring */}
-                    <div className="flex-none pb-8 md:pb-12 pt-4 px-6 md:px-8 flex items-center justify-between relative z-30">
-
-                        {/* Back Button */}
-                        <button
-                            onClick={previous}
-                            className="p-3 md:p-4 rounded-full bg-card border border-border text-foreground hover:bg-muted active:scale-90 transition-all flex flex-col items-center gap-1 group"
-                        >
-                            <SkipBack className="w-5 h-5 md:w-6 md:h-6 group-active:-translate-x-1 transition-transform" />
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:block">Retour</span>
+                    <div className="flex items-center gap-2 md:gap-4">
+                        <button onClick={togglePause} className="text-muted-foreground hover:text-foreground p-2 rounded-full hover:bg-card transition-colors">
+                            {isPaused ? <Play className="w-5 h-5 md:w-6 md:h-6 fill-current" /> : <Pause className="w-5 h-5 md:w-6 md:h-6" />}
                         </button>
-
-                        {/* CENTRAL ORB with CIRCULAR PROGRESS RING */}
-                        <div className="relative group">
-                            {/* LIVE TRANSCRIPT BUBBLE (Above Orb) */}
-                            <AnimatePresence>
-                                {status === "listening_user" && transcript && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.5 }}
-                                        className="absolute -top-16 left-1/2 -translate-x-1/2 w-full max-w-[250px] flex flex-wrap justify-center gap-1 z-50 px-2"
-                                    >
-                                        {transcript.split(" ").slice(-6).map((word, idx) => (
-                                            <motion.span
-                                                key={`${word}-${idx}`}
-                                                initial={{ opacity: 0, x: -5 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                className="bg-yellow-500/20 text-yellow-500 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full border border-yellow-500/30 backdrop-blur-md shadow-lg"
-                                            >
-                                                {word}
-                                            </motion.span>
-                                        ))}
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
-
-                            {/* Progress Ring SVG */}
-                            <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] rotate-[-90deg] text-border" viewBox="0 0 100 100">
-                                {/* Background Ring */}
-                                <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="46"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                />
-                                {/* Progress Ring */}
-                                <circle
-                                    cx="50"
-                                    cy="50"
-                                    r="46"
-                                    fill="none"
-                                    stroke={isUserTurn ? "#facc15" : "#a855f7"}
-                                    strokeWidth="4"
-                                    strokeLinecap="round"
-                                    strokeDasharray={`${progressPercent * 2.89} 289`}
-                                    className="transition-all duration-500"
-                                />
-                            </svg>
-
-                            {/* Living Glow */}
-                            <div className={cn(
-                                "absolute inset-0 blur-2xl rounded-full transition-all duration-500",
-                                status === "listening_user"
-                                    ? "bg-yellow-500 opacity-60 scale-150"
-                                    : showSuccessAnimation
-                                        ? "bg-green-500 opacity-80 scale-150"
-                                        : "bg-primary opacity-0 scale-100"
-                            )} />
-
-                            <button
-                                onClick={validateManually}
-                                className={cn(
-                                    "relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl border-4",
-                                    showSuccessAnimation
-                                        ? "bg-green-500 border-green-400 scale-110 shadow-[0_0_50px_rgba(34,197,94,0.6)]"
-                                        : showErrorAnimation
-                                            ? "bg-red-500 border-red-400 scale-95"
-                                            : isUserTurn
-                                                ? "bg-white border-white scale-110 shadow-[0_0_50px_rgba(255,255,255,0.4)]"
-                                                : "bg-muted border-border text-muted-foreground"
-                                )}
-                            >
-                                {status === "listening_user" ? (
-                                    <Mic className="w-8 h-8 md:w-10 md:h-10 text-black animate-pulse" />
-                                ) : status === "playing_other" ? (
-                                    <div className="flex gap-1 h-6 md:h-8 items-center">
-                                        <div className="w-1 md:w-1.5 h-6 md:h-8 bg-primary rounded-full animate-[bounce_1s_infinite_0ms]" />
-                                        <div className="w-1 md:w-1.5 h-4 md:h-6 bg-primary rounded-full animate-[bounce_1s_infinite_200ms]" />
-                                        <div className="w-1 md:w-1.5 h-6 md:h-8 bg-primary rounded-full animate-[bounce_1s_infinite_400ms]" />
-                                    </div>
-                                ) : (
-                                    <Play className={cn("w-8 h-8 md:w-10 md:h-10 ml-1", showSuccessAnimation || showErrorAnimation ? "text-foreground" : "")} />
-                                )}
-                            </button>
-
-                            {/* Label under button */}
-                            <span className="absolute -bottom-8 md:-bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-widest text-foreground/50 whitespace-nowrap">
-                                {isUserTurn ? "Je vous écoute..." : "Lecture..."}
-                            </span>
-                        </div>
-
-                        {/* Skip Button */}
-                        <button
-                            onClick={next}
-                            className="p-3 md:p-4 rounded-full bg-card border border-border text-foreground hover:bg-muted active:scale-90 transition-all flex flex-col items-center gap-1 group"
-                        >
-                            <SkipForward className="w-5 h-5 md:w-6 md:h-6 group-active:translate-x-1 transition-transform" />
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:block">Passer</span>
+                        <button onClick={handleExit} className="text-muted-foreground hover:text-red-400 p-2 rounded-full hover:bg-red-500/10 transition-colors">
+                            <X className="w-5 h-5 md:w-6 md:h-6" />
                         </button>
                     </div>
                 </div>
-            </div >
+
+                {/* Main Script View - Scrolling List */}
+                <div
+                    ref={containerRef}
+                    className={cn(
+                        "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin transition-opacity duration-300",
+                        isFirstScrollRef.current ? "opacity-0" : "opacity-100"
+                    )}
+                    id="script-container"
+                >
+                    {script.lines.map((line, index) => {
+                        const isActive = index === currentLineIndex;
+                        const isUser = (() => {
+                            const normalizedLineChar = line.character.toLowerCase().trim();
+                            const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+                            return (userCharacters || []).some(userChar => {
+                                const normalizedUserChar = (userChar || "").toLowerCase().trim();
+                                return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+                            });
+                        })();
+
+                        return (
+                            <div
+                                key={line.id}
+                                ref={(el) => {
+                                    if (el) lineRefs.current.set(index, el);
+                                }}
+                                className={cn(
+                                    "transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4 md:p-6",
+                                    isActive
+                                        ? "bg-muted/30 dark:bg-white/10 scale-100 md:scale-105 shadow-2xl border border-border opacity-100"
+                                        : "opacity-40 scale-95 blur-[0.5px]"
+                                )}
+                            >
+                                <p className={cn(
+                                    "text-xs font-bold uppercase tracking-widest mb-3",
+                                    isActive ? "text-foreground" : "text-muted-foreground"
+                                )}>
+                                    {line.character}
+                                </p>
+
+                                <p className={cn(
+                                    "leading-relaxed font-serif transition-all",
+                                    isActive
+                                        ? "text-xl md:text-3xl text-foreground"
+                                        : "text-base md:text-lg text-muted-foreground grayscale",
+                                    isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : ""
+                                )}>
+                                    {/* Status Indicators for Active Line */}
+                                    {isActive && status === "listening_user" && (
+                                        <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse mr-3 align-middle" />
+                                    )}
+                                    {isActive && isPlayingRecording && (
+                                        <Badge className="bg-primary/20 text-primary border-primary/30 uppercase text-[8px] font-black px-2 py-0.5 mr-3 align-middle animate-in fade-in zoom-in-95">
+                                            <Mic className="w-2.5 h-2.5 mr-1" />
+                                            Voix Troupe
+                                        </Badge>
+                                    )}
+                                    {getVisibleText(line.text, isUser)}
+                                </p>
+
+                                {/* Error Feedback */}
+                                {isActive && status === "error" && (
+                                    <div className="flex items-center gap-2 mt-4 text-red-400 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                                        <AlertTriangle className="w-4 h-4" />
+                                        <span>Je n'ai pas compris. Répétez ?</span>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                    {/* Bottom Spacer for scrolling */}
+                    <div className="h-48" />
+                </div>
+
+                {/* Next Line Preview - Faded miniature */}
+                {nextLine && (
+                    <div className="flex-none px-6 pb-2 z-10">
+                        <div className="max-w-xl mx-auto bg-card rounded-xl p-3 border border-border">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
+                                Suivant : {(() => {
+                                    const normalizedLineChar = nextLine.character.toLowerCase().trim();
+                                    const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+                                    const isUser = (userCharacters || []).some(userChar => {
+                                        const normalizedUserChar = (userChar || "").toLowerCase().trim();
+                                        return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+                                    });
+                                    return isUser ? "VOUS" : nextLine.character;
+                                })()}
+                            </p>
+                            <p className={cn(
+                                "text-sm text-muted-foreground line-clamp-2 font-serif",
+                                (() => {
+                                    const normalizedLineChar = nextLine.character.toLowerCase().trim();
+                                    const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+                                    return (userCharacters || []).some(userChar => {
+                                        const normalizedUserChar = (userChar || "").toLowerCase().trim();
+                                        return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+                                    });
+                                })() && "text-yellow-700"
+                            )}>
+                                {nextLine.text.substring(0, 100)}{nextLine.text.length > 100 ? "..." : ""}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Controls - Bottom Layout with Progress Ring */}
+                <div className="flex-none pb-8 md:pb-12 pt-4 px-6 md:px-8 flex items-center justify-between relative z-30">
+
+                    {/* Back Button */}
+                    <button
+                        onClick={previous}
+                        className="p-3 md:p-4 rounded-full bg-card border border-border text-foreground hover:bg-muted active:scale-90 transition-all flex flex-col items-center gap-1 group"
+                    >
+                        <SkipBack className="w-5 h-5 md:w-6 md:h-6 group-active:-translate-x-1 transition-transform" />
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:block">Retour</span>
+                    </button>
+
+                    {/* CENTRAL ORB with CIRCULAR PROGRESS RING */}
+                    <div className="relative group">
+                        {/* LIVE TRANSCRIPT BUBBLE (Above Orb) */}
+                        <AnimatePresence>
+                            {status === "listening_user" && transcript && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.5 }}
+                                    className="absolute -top-16 left-1/2 -translate-x-1/2 w-full max-w-[250px] flex flex-wrap justify-center gap-1 z-50 px-2"
+                                >
+                                    {transcript.split(" ").slice(-6).map((word, idx) => (
+                                        <motion.span
+                                            key={`${word}-${idx}`}
+                                            initial={{ opacity: 0, x: -5 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            className="bg-yellow-500/20 text-yellow-500 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full border border-yellow-500/30 backdrop-blur-md shadow-lg"
+                                        >
+                                            {word}
+                                        </motion.span>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Progress Ring SVG */}
+                        <svg className="absolute -inset-3 w-[calc(100%+24px)] h-[calc(100%+24px)] rotate-[-90deg] text-border" viewBox="0 0 100 100">
+                            {/* Background Ring */}
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="46"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="4"
+                            />
+                            {/* Progress Ring */}
+                            <circle
+                                cx="50"
+                                cy="50"
+                                r="46"
+                                fill="none"
+                                stroke={isUserTurn ? "#facc15" : "#a855f7"}
+                                strokeWidth="4"
+                                strokeLinecap="round"
+                                strokeDasharray={`${progressPercent * 2.89} 289`}
+                                className="transition-all duration-500"
+                            />
+                        </svg>
+
+                        {/* Living Glow */}
+                        <div className={cn(
+                            "absolute inset-0 blur-2xl rounded-full transition-all duration-500",
+                            status === "listening_user"
+                                ? "bg-yellow-500 opacity-60 scale-150"
+                                : showSuccessAnimation
+                                    ? "bg-green-500 opacity-80 scale-150"
+                                    : "bg-primary opacity-0 scale-100"
+                        )} />
+
+                        <button
+                            onClick={validateManually}
+                            className={cn(
+                                "relative w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center transition-all duration-300 shadow-2xl border-4",
+                                showSuccessAnimation
+                                    ? "bg-green-500 border-green-400 scale-110 shadow-[0_0_50px_rgba(34,197,94,0.6)]"
+                                    : showErrorAnimation
+                                        ? "bg-red-500 border-red-400 scale-95"
+                                        : isUserTurn
+                                            ? "bg-white border-white scale-110 shadow-[0_0_50px_rgba(255,255,255,0.4)]"
+                                            : "bg-muted border-border text-muted-foreground"
+                            )}
+                        >
+                            {status === "listening_user" ? (
+                                <Mic className="w-8 h-8 md:w-10 md:h-10 text-black animate-pulse" />
+                            ) : status === "playing_other" ? (
+                                <div className="flex gap-1 h-6 md:h-8 items-center">
+                                    <div className="w-1 md:w-1.5 h-6 md:h-8 bg-primary rounded-full animate-[bounce_1s_infinite_0ms]" />
+                                    <div className="w-1 md:w-1.5 h-4 md:h-6 bg-primary rounded-full animate-[bounce_1s_infinite_200ms]" />
+                                    <div className="w-1 md:w-1.5 h-6 md:h-8 bg-primary rounded-full animate-[bounce_1s_infinite_400ms]" />
+                                </div>
+                            ) : (
+                                <Play className={cn("w-8 h-8 md:w-10 md:h-10 ml-1", showSuccessAnimation || showErrorAnimation ? "text-foreground" : "")} />
+                            )}
+                        </button>
+
+                        {/* Label under button */}
+                        <span className="absolute -bottom-8 md:-bottom-10 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-widest text-foreground/50 whitespace-nowrap">
+                            {isUserTurn ? "Je vous écoute..." : "Lecture..."}
+                        </span>
+                    </div>
+
+                    {/* Skip Button */}
+                    <button
+                        onClick={next}
+                        className="p-3 md:p-4 rounded-full bg-card border border-border text-foreground hover:bg-muted active:scale-90 transition-all flex flex-col items-center gap-1 group"
+                    >
+                        <SkipForward className="w-5 h-5 md:w-6 md:h-6 group-active:translate-x-1 transition-transform" />
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest hidden md:block">Passer</span>
+                    </button>
+                </div>
+            </div>
+        </div >
 
 
 
-            {/* Feedback Modal */}
-            < FeedbackModal
-                isOpen={showFeedbackModal}
-                onClose={handleFeedbackClose}
-                onSubmit={handleFeedbackSubmit}
-                sessionData={getSessionStats()}
-            />
-        </>
-    );
+        {/* Feedback Modal */}
+        < FeedbackModal
+            isOpen={showFeedbackModal}
+            onClose={handleFeedbackClose}
+            onSubmit={handleFeedbackSubmit}
+            sessionData={getSessionStats()}
+        />
+    </>
+);
 }

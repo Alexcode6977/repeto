@@ -1,6 +1,7 @@
 import { getSessionDetails } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
 import { LiveSessionClient } from "./live-client";
+import { createClient } from "@/lib/supabase/server";
 
 export default async function LiveSessionPage({
     params
@@ -19,6 +20,20 @@ export default async function LiveSessionPage({
         return <div>Veuillez planifier la séance avant de la lancer.</div>;
     }
 
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Fetch profile for name
+    let username = "Utilisateur";
+    if (user) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, email')
+            .eq('id', user.id)
+            .single();
+        username = profile?.first_name || profile?.email || "Utilisateur";
+    }
+
     return (
         <div className="h-[calc(100vh-120px)] flex flex-col space-y-6">
             <div>
@@ -34,6 +49,10 @@ export default async function LiveSessionPage({
                 sessionData={sessionData}
                 troupeId={troupeId}
                 isReadOnly={isReadOnly}
+                currentUser={{
+                    id: user?.id || "guest",
+                    name: username
+                }}
             />
         </div>
     );
