@@ -1,31 +1,53 @@
 "use client";
 
-import { signInWithGoogle } from "@/app/(auth)/actions";
-import { useFormStatus } from "react-dom";
+import { createBrowserClient } from "@supabase/ssr";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 export function GoogleSignInButton({ label = "Continuer avec Google" }: { label?: string }) {
-    return (
-        <form action={signInWithGoogle}>
-            <SubmitButton label={label} />
-        </form>
-    );
-}
+    const [isLoading, setIsLoading] = useState(false);
 
-function SubmitButton({ label }: { label: string }) {
-    const { pending } = useFormStatus();
+    const handleLogin = async () => {
+        setIsLoading(true);
+        try {
+            const supabase = createBrowserClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                    queryParams: {
+                        access_type: "offline",
+                        prompt: "consent",
+                    }
+                },
+            });
+
+            if (error) {
+                console.error("Google login error:", error);
+                setIsLoading(false);
+            }
+        } catch (error) {
+            console.error("Google login exception:", error);
+            setIsLoading(false);
+        }
+    };
 
     return (
         <button
-            type="submit"
-            disabled={pending}
+            onClick={handleLogin}
+            disabled={isLoading}
             className="w-full bg-white text-gray-900 font-medium text-base py-3.5 rounded-xl 
                 transition-all duration-200 
                 hover:bg-gray-50 focus:bg-gray-50
                 flex items-center justify-center gap-3
-                border border-gray-200"
+                border border-gray-200 disabled:opacity-70 disabled:cursor-not-allowed"
         >
-            {pending ? (
-                <div className="w-5 h-5 border-2 border-gray-900/30 border-t-gray-900 rounded-full animate-spin" />
+            {isLoading ? (
+                <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />
             ) : (
                 <svg className="w-5 h-5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />

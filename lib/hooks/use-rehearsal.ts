@@ -229,6 +229,13 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
     };
 
     const start = (immediate = false) => {
+        console.log("[Rehearsal] start() called", {
+            scriptLines: script.lines.length,
+            userCharacters,
+            mode,
+            initialLineIndex,
+            immediate
+        });
         if (transitionLockRef.current) return;
         transitionLockRef.current = true;
         stopAll();

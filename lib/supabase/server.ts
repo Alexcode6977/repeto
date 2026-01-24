@@ -23,7 +23,13 @@ export async function createClient() {
                 setAll(cookiesToSet) {
                     try {
                         cookiesToSet.forEach(({ name, value, options }) => {
-                            cookieStore.set(name, value, options);
+                            cookieStore.set(name, value, {
+                                ...options,
+                                // Allow cookies to be set in dev on HTTP
+                                secure: process.env.NODE_ENV === 'production',
+                                sameSite: 'lax',
+                                path: '/',
+                            });
                         });
                     } catch (error) {
                         // The `set` method was called from a Server Component.

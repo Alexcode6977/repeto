@@ -16,6 +16,7 @@ interface PlayPosterCardProps {
     };
     troupeId: string;
     index?: number;
+    isCompact?: boolean;
 }
 
 const GRADIENTS = [
@@ -27,7 +28,7 @@ const GRADIENTS = [
     "from-rose-500 via-red-500 to-orange-500",
 ];
 
-export function PlayPosterCard({ play, troupeId, index = 0 }: PlayPosterCardProps) {
+export function PlayPosterCard({ play, troupeId, index = 0, isCompact = false }: PlayPosterCardProps) {
     // Deterministic gradient based on title length + index
     const gradientIndex = (play.title.length + index) % GRADIENTS.length;
     const gradient = GRADIENTS[gradientIndex];
@@ -46,7 +47,7 @@ export function PlayPosterCard({ play, troupeId, index = 0 }: PlayPosterCardProp
         >
             <Link
                 href={`/troupes/${troupeId}/plays/${play.id}`}
-                className="group block relative w-full aspect-[2/3]"
+                className={cn("group block relative w-full", isCompact ? "aspect-square" : "aspect-[2/3]")}
             >
                 {/* Main Card Container */}
                 <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-card">
@@ -64,35 +65,48 @@ export function PlayPosterCard({ play, troupeId, index = 0 }: PlayPosterCardProp
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
                     {/* Content */}
-                    <div className="absolute inset-0 p-6 flex flex-col justify-end">
+                    <div className={cn(
+                        "absolute inset-0 flex flex-col justify-end",
+                        isCompact ? "p-3" : "p-6"
+                    )}>
 
-                        {/* Top Right Decoration */}
-                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
-                            <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-                                <span className="text-white text-lg">→</span>
+                        {/* Top Right Decoration - Hidden on compact */}
+                        {!isCompact && (
+                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                                <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                                    <span className="text-white text-lg">→</span>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        {/* Meta Badges */}
-                        <div className="flex gap-2 mb-3 opacity-80 text-xs font-semibold tracking-wider text-white/90">
-                            <Badge variant="outline" className="bg-black/20 border-white/20 backdrop-blur-sm text-white hover:bg-black/40">
-                                {sceneCount} SCÈNES
-                            </Badge>
-                        </div>
+                        {/* Meta Badges - Hidden on compact */}
+                        {!isCompact && (
+                            <div className="flex gap-2 mb-3 opacity-80 text-xs font-semibold tracking-wider text-white/90">
+                                <Badge variant="outline" className="bg-black/20 border-white/20 backdrop-blur-sm text-white hover:bg-black/40">
+                                    {sceneCount} SCÈNES
+                                </Badge>
+                            </div>
+                        )}
 
-                        {/* Title (Big & Bold) */}
+                        {/* Title */}
                         <motion.h3
                             layoutId={`play-title-${play.id}`}
-                            className="text-2xl font-black text-white leading-tight mb-2 tracking-tight group-hover:text-primary-foreground transition-colors line-clamp-3"
+                            className={cn(
+                                "font-black text-white leading-tight tracking-tight group-hover:text-primary-foreground transition-colors",
+                                isCompact ? "text-sm line-clamp-2" : "text-2xl mb-2 line-clamp-3"
+                            )}
                         >
                             {play.title}
                         </motion.h3>
 
-                        {/* Stats Row */}
-                        <div className="flex items-center gap-4 text-white/60 text-sm font-medium pt-2 border-t border-white/10 mt-2">
-                            <div className="flex items-center gap-1.5">
-                                <Users className="w-4 h-4" />
-                                <span>{characterCount} Rôles</span>
+                        {/* Stats Row - Simplified on compact */}
+                        <div className={cn(
+                            "flex items-center text-white/60 font-medium",
+                            isCompact ? "text-[10px] mt-1" : "text-sm gap-4 pt-2 border-t border-white/10 mt-2"
+                        )}>
+                            <div className="flex items-center gap-1">
+                                <Users className={isCompact ? "w-3 h-3" : "w-4 h-4"} />
+                                <span>{characterCount} {isCompact ? "" : "Rôles"}</span>
                             </div>
                         </div>
                     </div>

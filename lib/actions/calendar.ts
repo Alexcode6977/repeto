@@ -81,13 +81,17 @@ export async function createEvent(
 
 export async function updateAttendance(
     eventId: string,
-    status: 'present' | 'absent' | 'unknown',
+    status: 'present' | 'absent',
     targetUserId?: string,
     targetGuestId?: string
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
+
+    if (status !== 'present' && status !== 'absent') {
+        throw new Error('Invalid status. Must be present or absent.');
+    }
 
     const updateData: any = {
         event_id: eventId,

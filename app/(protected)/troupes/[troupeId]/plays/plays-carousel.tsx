@@ -22,25 +22,25 @@ export function PlaysCarousel({ plays, troupeId, isAdmin }: PlaysCarouselProps) 
     };
 
     return (
-        <div className="md:hidden flex overflow-x-auto snap-x snap-mandatory gap-4 pb-8 -mx-4 px-4 scrollbar-hide" onScroll={handleScroll}>
+        <div className="grid grid-cols-2 gap-3">
             {plays.map((play, index) => (
-                <div key={play.id} className="snap-center shrink-0 w-[70vw] sm:w-[50vw]">
-                    <PlayPosterCard play={play} troupeId={troupeId} index={index} />
+                <div key={play.id} className="aspect-square">
+                    <PlayPosterCard play={play} troupeId={troupeId} index={index} isCompact />
                 </div>
             ))}
 
             {isAdmin && (
-                <div className="snap-center shrink-0 w-[70vw] sm:w-[50vw]">
+                <div className="aspect-square">
                     <Link
                         href={`/troupes/${troupeId}/plays/new`}
                         onClick={() => trigger('medium')}
-                        className="block group relative w-full aspect-[2/3]"
+                        className="block w-full h-full"
                     >
-                        <div className="absolute inset-0 rounded-2xl border-2 border-dashed border-white/10 hover:border-primary/50 bg-white/5 hover:bg-primary/5 flex flex-col items-center justify-center gap-4 transition-all duration-300 text-muted-foreground hover:text-primary">
-                            <div className="w-16 h-16 rounded-full bg-secondary/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <Plus className="w-8 h-8" />
+                        <div className="w-full h-full rounded-2xl border-2 border-dashed border-white/10 hover:border-primary/50 bg-white/5 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 transition-all duration-300 text-muted-foreground hover:text-primary">
+                            <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center">
+                                <Plus className="w-6 h-6" />
                             </div>
-                            <span className="font-bold uppercase tracking-widest text-xs">Ajouter une pièce</span>
+                            <span className="font-bold uppercase tracking-widest text-[10px]">Ajouter</span>
                         </div>
                     </Link>
                 </div>

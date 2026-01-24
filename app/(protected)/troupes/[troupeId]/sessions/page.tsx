@@ -45,7 +45,7 @@ export default async function SessionsPage({
             <SessionsMobileChoices troupeId={troupeId} />
 
             {/* Session List (The "Planifier" content) */}
-            <div id="planning-section">
+            <div id="planning-section" className="hidden md:block">
                 <SessionListClient
                     sessions={sessions}
                     troupeId={troupeId}

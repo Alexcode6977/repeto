@@ -37,6 +37,16 @@ export default async function VisioPage({ params }: PageProps) {
         return <div>Pièce introuvable</div>;
     }
 
+    // DEBUG: Log play data on server
+    console.log("[Visio Server] Play fetched:", {
+        id: play.id,
+        title: play.title,
+        hasTextContent: !!play.text_content,
+        textContentLength: play.text_content?.length || 0,
+        textContentPreview: play.text_content?.substring(0, 300),
+        charactersCount: play.play_characters?.length || 0
+    });
+
     // 3. Get Members (for partner selection if needed in UI, though we might iterate on this)
     const members = await getTroupeMembers(troupeId);
 

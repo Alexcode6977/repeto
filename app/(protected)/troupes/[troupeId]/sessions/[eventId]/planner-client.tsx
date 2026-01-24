@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Users, Plus, Trash2, Info, MessageSquare, User, ChevronDown, ChevronUp, Play, GripVertical, X, FileText } from "lucide-react";
+import { Check, Users, Plus, Trash2, Info, MessageSquare, User, ChevronDown, ChevronUp, Play, GripVertical, X, FileText, CheckCircle } from "lucide-react";
 import { saveSessionPlan } from "@/lib/actions/session";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -22,8 +22,9 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
     const router = useRouter();
     const plays = sessionData.plays || [];
     const attendance = sessionData.event_attendance || [];
-    const initialPlan = sessionData.session_plans || { selected_scenes: [], general_notes: "" };
+    const initialPlan = sessionData.session_plans || { selected_scenes: [], general_notes: "", status: 'draft' };
 
+    const [status, setStatus] = useState<'draft' | 'published'>(initialPlan.status || 'draft');
     const [selectedPlayId, setSelectedPlayId] = useState<string>(plays[0]?.id || "");
     const selectedPlay = useMemo(() => plays.find((p: any) => p.id === selectedPlayId), [plays, selectedPlayId]);
 
@@ -211,16 +212,20 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
         return scenes;
     }, [scenesWithMetadata, filterMagic, focusActorId]);
 
-    const handleSave = async (shouldLaunch = false) => {
+    const handleSave = async (shouldLaunch = false, newStatus: 'draft' | 'published' = 'draft') => {
         setIsSaving(true);
         try {
-            await saveSessionPlan(sessionData.id, scenesWithObjectives, generalNotes);
+            await saveSessionPlan(sessionData.id, scenesWithObjectives, generalNotes, newStatus);
+            setStatus(newStatus);
+
             if (shouldLaunch) {
                 router.push(`/troupes/${troupeId}/sessions/${sessionData.id}/live`);
             } else {
-                alert("Préparation enregistrée !");
+                const message = newStatus === 'published' ? "Séance publiée avec succès !" : "Brouillon enregistré !";
+                alert(message); // Could be replaced by toast
             }
         } catch (error) {
+            console.error(error);
             alert("Erreur lors de la sauvegarde.");
         } finally {
             setIsSaving(false);
@@ -283,6 +288,16 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                         <h2 className="text-2xl font-black text-foreground flex items-center gap-3">
                             <Users className="w-6 h-6 text-primary" />
                             Préparation des scènes
+                            {status === 'published' && (
+                                <Badge variant="secondary" className="text-[10px] bg-green-500/10 text-green-500 border border-green-500/20">
+                                    PUBLIÉE
+                                </Badge>
+                            )}
+                            {status === 'draft' && (
+                                <Badge variant="outline" className="text-[10px] text-muted-foreground border-dashed">
+                                    BROUILLON
+                                </Badge>
+                            )}
                         </h2>
                         <div className="flex flex-wrap gap-2 mt-3">
                             {plays.map((p: any) => (
@@ -433,7 +448,6 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
             {/* Right: Planning Playlist */}
             <div className="lg:col-span-6 space-y-6">
 
-                {/* 1. Projections de Prestation */}
                 {/* 1. Projections de Prestation & Conseils du Coach */}
                 {selectedSceneIds.length > 0 && (
                     <div className="space-y-4">
@@ -513,8 +527,22 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
                 <Card className="bg-card border-border backdrop-blur-xl sticky top-24 border-2">
                     <CardHeader className="p-6 border-b border-border">
-                        <h2 className="text-xl font-extrabold text-foreground tracking-tight leading-loose">Planifiez votre<br />séance</h2>
-                        <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1">Résumé & Objectifs</p>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h2 className="text-xl font-extrabold text-foreground tracking-tight leading-loose">Planifiez votre<br />séance</h2>
+                                <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest leading-none mb-1">Résumé & Objectifs</p>
+                            </div>
+                            {/* Status Badge in Header */}
+                            {status === 'published' ? (
+                                <div className="flex items-center gap-1 bg-green-500/10 text-green-500 px-2 py-1 rounded-full text-[9px] font-bold border border-green-500/20">
+                                    <CheckCircle className="w-3 h-3" /> PUBLIÉE
+                                </div>
+                            ) : (
+                                <div className="bg-muted text-muted-foreground px-2 py-1 rounded-full text-[9px] font-bold border border-border">
+                                    BROUILLON
+                                </div>
+                            )}
+                        </div>
                     </CardHeader>
                     <CardContent className="p-6 space-y-6">
                         {/* General Notes Section */}
@@ -700,22 +728,46 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
                         {selectedScenesData.length > 0 && (
                             <div className="sticky bottom-0 -mx-6 -mb-6 p-6 bg-gradient-to-t from-background/95 via-background/90 to-transparent backdrop-blur-sm pt-10 mt-6 rounded-b-3xl border-t border-border space-y-3">
+                                {/* Launch Button */}
                                 <Button
-                                    onClick={() => handleSave(true)}
+                                    onClick={() => handleSave(true, status)}
                                     disabled={isSaving}
                                     className="w-full rounded-2xl py-7 bg-primary hover:bg-primary/80 text-primary-foreground font-black uppercase text-[10px] tracking-[0.2em] shadow-xl shadow-primary/20 transition-all active:scale-95"
                                 >
                                     <Play className="w-4 h-4 mr-2" />
                                     {isSaving ? "Chargement..." : "Ouvrir la Séance"}
                                 </Button>
-                                <Button
-                                    variant="ghost"
-                                    onClick={() => handleSave(false)}
-                                    disabled={isSaving}
-                                    className="w-full rounded-xl py-4 text-gray-500 hover:text-foreground font-bold uppercase text-[9px] tracking-widest transition-all"
-                                >
-                                    Enregistrer la préparation
-                                </Button>
+
+                                {/* Action Buttons Row */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Button
+                                        variant="ghost"
+                                        onClick={() => handleSave(false, 'draft')}
+                                        disabled={isSaving}
+                                        className="w-full rounded-xl py-4 text-gray-500 hover:text-foreground font-bold uppercase text-[9px] tracking-widest transition-all bg-muted/50 hover:bg-muted"
+                                    >
+                                        Sauvegarder Brouillon
+                                    </Button>
+
+                                    <Button
+                                        onClick={() => handleSave(false, 'published')}
+                                        disabled={isSaving || status === 'published'}
+                                        variant={status === 'published' ? 'secondary' : 'default'}
+                                        className={cn(
+                                            "w-full rounded-xl py-4 font-bold uppercase text-[9px] tracking-widest transition-all",
+                                            status === 'published' ? "bg-green-500/20 text-green-500 hover:bg-green-500/30" : "bg-foreground text-background hover:bg-foreground/90"
+                                        )}
+                                    >
+                                        {status === 'published' ? (
+                                            <>
+                                                <CheckCircle className="w-3 h-3 mr-2" />
+                                                Publiée
+                                            </>
+                                        ) : (
+                                            "Valider & Publier"
+                                        )}
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </CardContent>

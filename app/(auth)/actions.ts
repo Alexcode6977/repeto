@@ -8,11 +8,26 @@ import { createClient } from "@/lib/supabase/server";
 export async function signInWithGoogle() {
     const supabase = await createClient();
     const headersList = await headers();
-    const origin = headersList.get("origin") || headersList.get("x-forwarded-host")
-        ? `https://${headersList.get("x-forwarded-host")}`
-        : headersList.get("host")
-            ? `https://${headersList.get("host")}`
-            : "http://localhost:3000";
+
+    // Get origin properly - check origin header first, then construct from host
+    const originHeader = headersList.get("origin");
+    const xForwardedHost = headersList.get("x-forwarded-host");
+    const host = headersList.get("host");
+
+    let origin: string;
+    if (originHeader) {
+        origin = originHeader;
+    } else if (xForwardedHost) {
+        origin = `https://${xForwardedHost}`;
+    } else if (host) {
+        // For localhost, use http
+        origin = host.includes("localhost") ? `http://${host}` : `https://${host}`;
+    } else {
+        origin = "http://localhost:3000";
+    }
+
+    console.log("[Google OAuth] Redirect origin:", origin);
+    console.log("[Google OAuth] Headers:", { originHeader, xForwardedHost, host });
 
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -26,6 +41,7 @@ export async function signInWithGoogle() {
     });
 
     if (error) {
+        console.error("[Google OAuth] signInWithOAuth error:", error);
         redirect("/login?error=" + encodeURIComponent(error.message));
     }
 

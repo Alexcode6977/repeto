@@ -1,6 +1,6 @@
 import { getTroupeDetails, getTroupeMembers, getTroupeGuests, getJoinRequests, getTroupeSettingsData } from "@/lib/actions/troupe";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CreditCard, Users, AlertTriangle, Sparkles } from "lucide-react";
+import { CreditCard, Users, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -112,12 +112,12 @@ export default async function TroupeDashboard({
 
             {/* Members Section */}
             <Card className="bg-card border-border backdrop-blur-md rounded-2xl border overflow-hidden">
-                <CardHeader className="p-6 pb-4 border-b border-white/5">
-                    <div className="flex justify-between items-center">
+                <CardHeader className="p-4 md:p-6 pb-4 border-b border-white/5">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
                         <div>
-                            <CardTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+                            <CardTitle className="text-lg md:text-xl font-bold text-foreground flex items-center gap-2">
                                 <Users className="h-5 w-5 text-primary" />
-                                Membres de la troupe
+                                Membres
                             </CardTitle>
                             <CardDescription className="text-muted-foreground text-sm mt-1">
                                 {members.length + guests.length} collaborateur{(members.length + guests.length) > 1 ? 's' : ''} actif{(members.length + guests.length) > 1 ? 's' : ''}
@@ -224,21 +224,8 @@ export default async function TroupeDashboard({
                 </Link>
             )}
 
-            {/* Danger Zone */}
-            {isAdmin && (
-                <div className="border border-red-500/20 rounded-2xl p-4 bg-red-500/5">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 text-red-500" />
-                            <div>
-                                <p className="font-semibold text-foreground text-sm">Zone de danger</p>
-                                <p className="text-xs text-muted-foreground">Cette action est irréversible</p>
-                            </div>
-                        </div>
-                        <DeleteTroupeButton troupeId={troupeId} />
-                    </div>
-                </div>
-            )}
+            {/* Danger Zone - DeleteTroupeButton contains its own Card */}
+            {isAdmin && <DeleteTroupeButton troupeId={troupeId} />}
         </div>
     );
 }

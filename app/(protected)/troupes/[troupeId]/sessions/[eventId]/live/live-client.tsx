@@ -1,482 +1,339 @@
 'use client';
 
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MessageSquare, ChevronRight, ChevronLeft, Send, User, Mic, MicOff, History, ArrowUpRight, Loader2, Target, BookOpen, Video, Copy, X } from "lucide-react";
-import { submitSessionFeedback, getLastFeedbacksForCharacters } from "@/lib/actions/session";
+import { Mic, Send, ChevronRight, ChevronLeft, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSearchParams } from "next/navigation";
+import { submitSessionFeedback } from "@/lib/actions/session";
 
-// LiveKit Imports
-import {
-    LiveKitRoom,
-    VideoConference,
-    GridLayout,
-    ParticipantTile,
-    RoomAudioRenderer,
-    ControlBar,
-    useTracks,
-    useConnectionState
-} from "@livekit/components-react";
-import "@livekit/components-styles";
-import { Track, ConnectionState } from "livekit-client";
-
-interface LiveProps {
+interface LiveSessionClientProps {
     sessionData: any;
     troupeId: string;
+    currentUser: { id: string; name: string };
     isReadOnly?: boolean;
-    currentUser?: {
-        id: string;
-        name: string;
-    }
 }
 
-export function LiveSessionClient({ sessionData, troupeId, isReadOnly = false, currentUser }: LiveProps) {
-    const plays = sessionData.plays || [];
-    const plan = sessionData.session_plans;
-    const selectedScenes = plan.selected_scenes || [];
-    const selectedSceneIds = selectedScenes.map((s: any) => typeof s === 'string' ? s : s.id);
+export function LiveSessionClient({ sessionData, troupeId, currentUser, isReadOnly = false }: LiveSessionClientProps) {
+    // 1. Data Preparation
+    const scenes = useMemo(() => {
+        if (!sessionData.session_plans?.selected_scenes) return [];
+        return sessionData.session_plans.selected_scenes.map((s: any) => {
+            // Normalize ID (can be string or object depending on plan structure history)
+            const sId = typeof s === 'string' ? s : s.id;
 
-    const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
-    const [characterFeedbacks, setCharacterFeedbacks] = useState<Record<string, string>>({});
-    const [lastFeedbacks, setLastFeedbacks] = useState<Record<string, any>>({});
-    const [isSubmittingMap, setIsSubmittingMap] = useState<Record<string, boolean>>({});
-    const [isListening, setIsListening] = useState<string | null>(null);
-    const recognitionRef = useRef<any>(null);
-    const timelineRef = useRef<HTMLDivElement>(null);
-
-    // Video Call State
-    const searchParams = useSearchParams();
-    const [videoEnabled, setVideoEnabled] = useState(searchParams.get("video") === "true");
-    const [videoToken, setVideoToken] = useState<string>("");
-
-    // Get LiveKit Token
-    useEffect(() => {
-        if (!videoEnabled || !currentUser?.id) return;
-
-        (async () => {
-            try {
-                const resp = await fetch(
-                    `/api/livekit/token?room=${sessionData.id}&username=${encodeURIComponent(currentUser.name)}`
-                );
-                const data = await resp.json();
-                setVideoToken(data.token);
-            } catch (e) {
-                console.error(e);
+            // Find full scene details from plays
+            for (const play of sessionData.plays || []) {
+                const found = play.play_scenes.find((ps: any) => ps.id === sId);
+                if (found) return { ...found, playTitle: play.title, playId: play.id, playCharacters: play.play_characters };
             }
-        })();
-    }, [videoEnabled, sessionData.id, currentUser?.name, currentUser?.id]);
+            return null;
+        }).filter(Boolean);
+    }, [sessionData]);
 
+    const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
+    const [selectedActorId, setSelectedActorId] = useState<string | null>(null); // Id for feedback target
+    const [feedbackText, setFeedbackText] = useState("");
+    const [isSending, setIsSending] = useState(false);
 
+    // Safety check
+    if (scenes.length === 0) return <div className="p-8 text-center text-muted-foreground">Aucune scène au programme.</div>;
 
-    // Derived data
-    let sceneAndPlay = null;
-    const currentSceneId = selectedSceneIds[currentSceneIndex];
-    for (const p of plays) {
-        const found = (p.play_scenes || []).find((s: any) => s.id === currentSceneId);
-        if (found) {
-            sceneAndPlay = { scene: found, play: p };
-            break;
-        }
-    }
+    const currentScene = scenes[currentSceneIdx];
 
-    const currentScene = sceneAndPlay?.scene;
-    const currentPlay = sceneAndPlay?.play;
-    const charactersInSceneIds = currentScene?.scene_characters?.map((sc: any) => sc.character_id) || [];
-    const charactersInScene = currentPlay?.play_characters.filter((pc: any) => charactersInSceneIds.includes(pc.id)) || [];
+    // Get Actors in Current Scene
+    const actorsInScene = useMemo(() => {
+        if (!currentScene) return [];
+        const actors = new Map<string, { id: string; name: string; characterName: string; avatar?: string }>();
 
-    // Get scene objective
-    const sceneObjective = plan.selected_scenes.find((s: any) => s.id === currentScene?.id)?.objective;
+        // Iterate characters in scene
+        currentScene.scene_characters?.forEach((sc: any) => {
+            const charDef = currentScene.playCharacters?.find((pc: any) => pc.id === sc.character_id);
+            if (charDef) {
+                const actorId = charDef.actor_id || charDef.guest_id;
 
-    // Fetch history when scene changes
-    useEffect(() => {
-        if (charactersInSceneIds.length > 0) {
-            getLastFeedbacksForCharacters(charactersInSceneIds).then(setLastFeedbacks);
-        }
-    }, [currentSceneIndex]);
-
-    // Scroll timeline to active scene
-    useEffect(() => {
-        if (timelineRef.current) {
-            const activeButton = timelineRef.current.querySelector('[data-active="true"]');
-            if (activeButton) {
-                activeButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-            }
-        }
-    }, [currentSceneIndex]);
-
-    // Speech Recognition Setup
-    useEffect(() => {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            const recognition = new SpeechRecognition();
-            recognition.lang = 'fr-FR';
-            recognition.continuous = true;
-            recognition.interimResults = true;
-
-            recognition.onresult = (event: any) => {
-                const transcript = Array.from(event.results)
-                    .map((result: any) => result[0])
-                    .map((result: any) => result.transcript)
-                    .join('');
-
-                if (isListening) {
-                    setCharacterFeedbacks(prev => ({
-                        ...prev,
-                        [isListening]: transcript
-                    }));
+                // Determine Actor Name/ID
+                // If actorId is present, we try to use it. If not, we fall back to a "unassigned" key.
+                if (actorId) {
+                    const existing = actors.get(actorId);
+                    if (existing) {
+                        existing.characterName += ` & ${charDef.name}`;
+                    } else {
+                        // Note: We don't have full profile data here to get the real name (Alex, Bob...)
+                        // Ideally we would fetch it or pass it.
+                        // For now, we use the Character Name as the main identifier visually.
+                        actors.set(actorId, {
+                            id: actorId,
+                            name: "Acteur", // Placeholder name since we lack profile data in this view context
+                            characterName: charDef.name
+                        });
+                    }
+                } else {
+                    // Empty Role
+                    actors.set(`unassigned-${charDef.id}`, {
+                        id: `unassigned-${charDef.id}`,
+                        name: "?",
+                        characterName: charDef.name + " (Non distribué)"
+                    });
                 }
-            };
+            }
+        });
+        return Array.from(actors.values());
+    }, [currentScene]);
 
-            recognition.onend = () => {
-                setIsListening(null);
-            };
-
-            recognitionRef.current = recognition;
-        }
-    }, [isListening]);
-
-    const toggleListening = (charId: string) => {
-        if (isListening === charId) {
-            recognitionRef.current?.stop();
-            setIsListening(null);
-        } else {
-            if (isListening) recognitionRef.current?.stop();
-            setIsListening(charId);
-            setCharacterFeedbacks(prev => ({ ...prev, [charId]: prev[charId] || "" }));
-            recognitionRef.current?.start();
-        }
-    };
-
-    const handleSendFeedback = async (char: any) => {
-        const text = characterFeedbacks[char.id];
-        if (!text?.trim()) return;
-
-        setIsSubmittingMap(prev => ({ ...prev, [char.id]: true }));
+    const handleSendFeedback = async () => {
+        if (!feedbackText.trim() || !selectedActorId) return;
+        setIsSending(true);
         try {
-            await submitSessionFeedback(
-                sessionData.id,
-                char.id,
-                text,
-                char.actor_id,
-                char.guest_id
-            );
+            if (selectedActorId === 'scene-global') {
+                // TODO: Handle global note (requires a different action or a convention)
+                // For now, alerting user or skipping.
+                alert("Note globale pas encore implémentée sur le backend.");
+                return;
+            }
 
-            const latest = await getLastFeedbacksForCharacters([char.id]);
-            setLastFeedbacks(prev => ({ ...prev, ...latest }));
-            setCharacterFeedbacks(prev => ({ ...prev, [char.id]: "" }));
-        } catch (error) {
+            if (selectedActorId.startsWith("unassigned")) return;
+
+            // We need characterId for the API `submitSessionFeedback(eventId, characterId, text, actorId)`
+            // But we selected an ACTOR, who might have multiple characters.
+            // The API expects `characterId`.
+            // We need to find the characterId associated with this actor in this scene.
+            // If multiple, maybe attach to the first one?
+            const charDef = currentScene.playCharacters?.find((pc: any) => (pc.actor_id === selectedActorId || pc.guest_id === selectedActorId) && currentScene.scene_characters.some((sc: any) => sc.character_id === pc.id));
+
+            if (charDef) {
+                await submitSessionFeedback(sessionData.id, charDef.id, feedbackText, selectedActorId);
+            }
+
+            setFeedbackText("");
+            setSelectedActorId(null); // Close drawer
+        } catch (e) {
+            console.error(e);
             alert("Erreur d'envoi");
         } finally {
-            setIsSubmittingMap(prev => ({ ...prev, [char.id]: false }));
+            setIsSending(false);
         }
     };
 
-    const goToScene = (index: number) => {
-        setCurrentSceneIndex(Math.max(0, Math.min(selectedSceneIds.length - 1, index)));
+    const handleSceneChange = (dir: 'next' | 'prev') => {
+        if (dir === 'next' && currentSceneIdx < scenes.length - 1) setCurrentSceneIdx(c => c + 1);
+        if (dir === 'prev' && currentSceneIdx > 0) setCurrentSceneIdx(c => c - 1);
     };
 
-    const inviteUrl = typeof window !== 'undefined' ?
-        `${window.location.protocol}//${window.location.host}/troupes/${troupeId}/sessions/${sessionData.id}/live` : "";
-
     return (
-        <div className="flex flex-col h-full gap-6">
-            {/* Header: Video Controls & Invite */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant={videoEnabled ? "destructive" : "default"}
-                        size="sm"
-                        className="rounded-full shadow-lg"
-                        onClick={() => setVideoEnabled(!videoEnabled)}
-                    >
-                        {videoEnabled ? <X className="w-4 h-4 mr-2" /> : <Video className="w-4 h-4 mr-2" />}
-                        {videoEnabled ? "Quitter Visio" : "Rejoindre Visio"}
-                    </Button>
-                </div>
+        <div className="flex flex-col h-[calc(100vh-theme(spacing.20))] bg-background overflow-hidden relative">
 
-                {videoEnabled && (
-                    <div className="flex items-center gap-2 bg-muted/50 p-1.5 rounded-full pr-4 border border-border">
-                        <div className="bg-primary/20 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                            INVITATION
-                        </div>
-                        <code className="text-[10px] font-mono opacity-70 truncate max-w-[150px]">
-                            {sessionData.id.substring(0, 8)}...
-                        </code>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="w-6 h-6 rounded-full hover:bg-white/10"
-                            onClick={() => {
-                                navigator.clipboard.writeText(inviteUrl);
-                                alert("Lien copié !");
-                            }}
+            {/* A. TIMELINE (Haut) */}
+            <div className="h-14 shrink-0 border-b border-border/50 bg-background/50 backdrop-blur-md overflow-x-auto overflow-y-hidden no-scrollbar flex items-center px-4 gap-2 z-20">
+                {scenes.map((scene: any, idx: number) => {
+                    const isActive = idx === currentSceneIdx;
+                    return (
+                        <button
+                            key={scene.id}
+                            onClick={() => setCurrentSceneIdx(idx)}
+                            className={cn(
+                                "shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap",
+                                isActive
+                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 border border-primary scale-105"
+                                    : "bg-muted/50 text-muted-foreground border border-transparent hover:bg-muted"
+                            )}
                         >
-                            <Copy className="w-3 h-3" />
-                        </Button>
-                    </div>
-                )}
+                            <span className="opacity-50 mr-2">{idx + 1}.</span>
+                            {scene.title}
+                        </button>
+                    )
+                })}
             </div>
 
-            {/* VIDEO ROOM */}
-            {videoEnabled && videoToken && (
-                <div className="h-[250px] shrink-0 rounded-2xl overflow-hidden shadow-2xl border-2 border-violet-500/30 bg-black relative">
-                    <LiveKitRoom
-                        video={true}
-                        audio={true}
-                        token={videoToken}
-                        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
-                        // Use a simple data attribute to help with styling if needed
-                        data-lk-theme="default"
-                        style={{ height: '100%' }}
-                    >
-                        <VideoConference />
-                        <RoomAudioRenderer />
-                        {/* Custom control bar or default */}
-                    </LiveKitRoom>
-                </div>
-            )}
-
-            {/* Timeline Bar */}
-            <div className="relative">
-                <div
-                    ref={timelineRef}
-                    className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide"
-                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                >
-                    {selectedSceneIds.map((sid: string, idx: number) => {
-                        let itemScene = null;
-                        let itemPlay = null;
-                        for (const p of plays) {
-                            const found = (p.play_scenes || []).find((s: any) => s.id === sid);
-                            if (found) {
-                                itemScene = found;
-                                itemPlay = p;
-                                break;
-                            }
-                        }
-                        const isActive = idx === currentSceneIndex;
-                        const isDone = idx < currentSceneIndex;
-
-                        return (
-                            <button
-                                key={`${sid}-${idx}`}
-                                data-active={isActive}
-                                onClick={() => goToScene(idx)}
-                                className={cn(
-                                    "flex-shrink-0 px-4 py-3 rounded-xl transition-all border-2",
-                                    isActive
-                                        ? "bg-primary text-primary-foreground border-primary scale-105 shadow-xl shadow-primary/30"
-                                        : isDone
-                                            ? "bg-muted/30 text-muted-foreground border-border opacity-50 hover:opacity-100"
-                                            : "bg-muted/50 text-foreground border-border hover:border-primary/50"
-                                )}
-                            >
-                                <div className="text-[10px] font-black uppercase tracking-wider opacity-70">
-                                    {itemPlay?.title?.substring(0, 15)}
-                                </div>
-                                <div className="text-sm font-bold whitespace-nowrap">
-                                    {idx + 1}. {itemScene?.title}
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {/* Navigation Arrows */}
-                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between pointer-events-none px-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-10 h-10 rounded-full bg-background/80 backdrop-blur border border-border pointer-events-auto shadow-lg"
-                        onClick={() => goToScene(currentSceneIndex - 1)}
-                        disabled={currentSceneIndex === 0}
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="w-10 h-10 rounded-full bg-background/80 backdrop-blur border border-border pointer-events-auto shadow-lg"
-                        onClick={() => goToScene(currentSceneIndex + 1)}
-                        disabled={currentSceneIndex === selectedSceneIds.length - 1}
-                    >
-                        <ChevronRight className="w-5 h-5" />
-                    </Button>
-                </div>
-            </div>
-
-            {/* Main Content - 2 Columns Side by Side */}
-            <div className="grid grid-cols-2 gap-6 flex-1 min-h-0 h-[calc(100vh-280px)]">
-
-                {/* Left: Scene Info & Script */}
-                <Card className="bg-card border-border border-2 flex flex-col overflow-hidden">
-                    <div className="p-6 border-b border-border bg-primary/5">
-                        <div className="flex items-center justify-between mb-2">
-                            <Badge variant="outline" className="bg-primary/20 border-primary/30 text-primary text-[9px] font-black uppercase">
-                                Scène {currentSceneIndex + 1}/{selectedSceneIds.length}
-                            </Badge>
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">
-                                {currentPlay?.title}
-                            </span>
-                        </div>
-                        <h2 className="text-3xl font-black text-foreground tracking-tight">
-                            {currentScene?.title}
-                        </h2>
-
-                        {sceneObjective && (
-                            <div className="mt-4 p-3 rounded-xl bg-primary/10 border border-primary/20 flex items-start gap-3">
-                                <Target className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="text-[9px] font-black text-primary uppercase tracking-wider mb-1">Objectif</p>
-                                    <p className="text-sm font-medium text-foreground">{sceneObjective}</p>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <CardContent className="p-6 flex-1 overflow-y-auto">
-                        {currentScene?.summary ? (
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-muted-foreground">
-                                    <BookOpen className="w-4 h-4" />
-                                    <span className="text-[10px] font-black uppercase tracking-wider">Résumé de la scène</span>
-                                </div>
-                                <p className="text-sm text-foreground/80 leading-relaxed italic">
-                                    "{currentScene.summary}"
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-muted-foreground">
-                                <div className="text-center">
-                                    <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                                    <p className="text-sm font-medium">Pas de texte disponible</p>
-                                    <p className="text-xs opacity-60">Le résumé de la scène sera affiché ici</p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Characters in scene */}
-                        <div className="mt-6 pt-6 border-t border-border">
-                            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-3">
-                                {charactersInScene.length} personnages sur scène
+            {/* B. LE PLATEAU (Centre) */}
+            <div className="flex-1 overflow-hidden relative flex flex-col">
+                {/* Scene Info Overlay */}
+                <div className="absolute top-0 inset-x-0 z-10 bg-gradient-to-b from-background via-background/90 to-transparent p-6 pb-12 pointer-events-none">
+                    <AnimatePresence mode="wait">
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            key={`title-${currentScene.id}`}
+                            className="text-center"
+                        >
+                            <h2 className="text-2xl font-black tracking-tight text-foreground uppercase leading-none mb-1 drop-shadow-sm">
+                                {currentScene.title}
+                            </h2>
+                            <p className="text-secondary-foreground/70 font-medium text-xs tracking-widest uppercase">
+                                {currentScene.playTitle}
                             </p>
-                            <div className="flex flex-wrap gap-2">
-                                {charactersInScene.map((char: any) => (
-                                    <Badge key={char.id} variant="outline" className="px-3 py-1 text-xs font-bold">
-                                        {char.name}
-                                    </Badge>
-                                ))}
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
 
-                {/* Right: Feedback per Character */}
-                <div className="flex flex-col gap-4 overflow-y-auto">
-                    <div className="flex items-center justify-between px-1">
-                        <p className="text-[10px] uppercase font-black text-muted-foreground tracking-widest flex items-center gap-2">
-                            <MessageSquare className="w-3 h-3" />
-                            Feedback par personnage
-                        </p>
-                    </div>
-
-                    <div className="space-y-4">
-                        {charactersInScene.map((char: any) => {
-                            const scenePlan = plan.selected_scenes.find((s: any) => s.id === currentScene?.id);
-                            const charGoal = scenePlan?.characterObjectives?.find((co: any) => co.id === char.id)?.objective;
-                            const text = characterFeedbacks[char.id] || "";
-                            const isSubmitting = isSubmittingMap[char.id];
-                            const history = lastFeedbacks[char.id];
-                            const listening = isListening === char.id;
-
-                            return (
-                                <Card key={char.id} className="bg-card border-border border-2 overflow-hidden">
-                                    <div className="p-4">
-                                        {/* Header */}
-                                        <div className="flex items-center gap-3 mb-3">
-                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/20 to-transparent border border-primary/20 flex items-center justify-center">
-                                                <User className="w-5 h-5 text-primary" />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-lg font-black text-foreground truncate">{char.name}</h3>
-                                                {charGoal && (
-                                                    <p className="text-[10px] text-primary font-bold flex items-center gap-1">
-                                                        <ArrowUpRight className="w-3 h-3" />
-                                                        {charGoal}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            {history && (
-                                                <div className="text-right opacity-50 hover:opacity-100 transition-opacity">
-                                                    <p className="text-[8px] font-bold text-muted-foreground uppercase flex items-center gap-1 justify-end">
-                                                        <History className="w-3 h-3" /> Dernier
-                                                    </p>
-                                                    <p className="text-[10px] text-muted-foreground line-clamp-1 max-w-[120px]">
-                                                        {history.text}
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Input */}
-                                        <div className="relative">
-                                            <textarea
-                                                className={cn(
-                                                    "w-full bg-muted/30 border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none resize-none transition-all focus:border-primary/50",
-                                                    listening && "border-red-500 bg-red-500/5",
-                                                    isReadOnly && "opacity-50 cursor-not-allowed"
-                                                )}
-                                                placeholder={isReadOnly ? "Lecture seule..." : `Notes pour ${char.name}...`}
-                                                rows={2}
-                                                value={text}
-                                                readOnly={isReadOnly}
-                                                onChange={(e) => setCharacterFeedbacks(prev => ({ ...prev, [char.id]: e.target.value }))}
-                                            />
-
-                                            {!isReadOnly && (
-                                                <div className="absolute top-2 right-2 flex gap-1">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => toggleListening(char.id)}
-                                                        className={cn(
-                                                            "w-8 h-8 rounded-lg transition-all",
-                                                            listening ? "bg-red-500 text-white animate-pulse" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                                                        )}
-                                                    >
-                                                        {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Submit */}
-                                        {!isReadOnly && (
-                                            <div className="flex justify-end mt-2">
-                                                <Button
-                                                    size="sm"
-                                                    disabled={isSubmitting || !text.trim()}
-                                                    onClick={() => handleSendFeedback(char)}
-                                                    className="rounded-lg px-4 py-2 bg-primary hover:bg-primary/80 text-primary-foreground font-bold text-xs"
-                                                >
-                                                    {isSubmitting ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        <><Send className="w-3 h-3 mr-1" /> Envoyer</>
-                                                    )}
-                                                </Button>
-                                            </div>
-                                        )}
+                {/* Actor Grid */}
+                <div className="flex-1 overflow-y-auto p-4 pt-24 pb-32 no-scrollbar">
+                    <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                        <AnimatePresence mode="popLayout">
+                            {actorsInScene.map((actor, i) => (
+                                <motion.button
+                                    key={actor.id}
+                                    layout
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
+                                    transition={{ delay: i * 0.05 }}
+                                    onClick={() => !isReadOnly && setSelectedActorId(actor.id)}
+                                    className="group relative flex flex-col items-center justify-center aspect-[4/5] bg-muted/40 rounded-[1.5rem] border border-white/5 hover:bg-primary/10 active:scale-95 transition-all overflow-hidden shadow-sm"
+                                >
+                                    {/* Avatar Visual */}
+                                    <div className="w-16 h-16 rounded-full border-4 border-background shadow-lg mb-3 group-hover:scale-110 transition-transform bg-muted flex items-center justify-center">
+                                        <Avatar className="w-full h-full">
+                                            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-black text-lg">
+                                                {actor.characterName.slice(0, 2).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
                                     </div>
-                                </Card>
-                            );
-                        })}
+
+                                    {/* Role Name */}
+                                    <div className="text-center px-2 w-full">
+                                        <span className="block text-sm font-bold text-foreground leading-tight mb-1 truncate px-1">
+                                            {actor.characterName}
+                                        </span>
+                                    </div>
+
+                                    {/* Tap indicator */}
+                                    {!isReadOnly && (
+                                        <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    )}
+                                </motion.button>
+                            ))}
+
+                            {actorsInScene.length === 0 && (
+                                <div className="col-span-2 py-10 text-center text-muted-foreground text-sm italic">
+                                    Aucun acteur dans cette scène.
+                                </div>
+                            )}
+
+                        </AnimatePresence>
+
+                        {/* Global Scene Note Button */}
+                        <motion.button
+                            layout
+                            onClick={() => !isReadOnly && setSelectedActorId("scene-global")}
+                            className="col-span-2 relative flex items-center justify-between px-6 py-4 bg-gradient-to-r from-secondary/10 to-secondary/5 rounded-[1.5rem] border border-secondary/20 hover:border-secondary/40 active:scale-95 transition-all mt-2"
+                        >
+                            <div className="text-left">
+                                <span className="block text-sm font-black text-secondary-foreground">Note Globale</span>
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Feedback troupe</span>
+                            </div>
+                            <div className="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center text-secondary-foreground">
+                                <Sparkles className="w-5 h-5" />
+                            </div>
+                        </motion.button>
                     </div>
                 </div>
             </div>
-        </div >
+
+            {/* C. BOTTOM CONTROLS */}
+            <div className="h-20 shrink-0 bg-background/80 backdrop-blur-xl border-t border-border flex items-center justify-between px-6 pb-4">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleSceneChange('prev')}
+                    disabled={currentSceneIdx === 0}
+                    className="h-12 w-12 rounded-full hover:bg-muted"
+                >
+                    <ChevronLeft className="w-6 h-6" />
+                </Button>
+
+                <div className="flex flex-col items-center">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-1">Scène</span>
+                    <span className="text-xl font-bold font-mono">
+                        {currentSceneIdx + 1}<span className="text-muted-foreground/40 text-sm">/{scenes.length}</span>
+                    </span>
+                </div>
+
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleSceneChange('next')}
+                    disabled={currentSceneIdx === scenes.length - 1}
+                    className="h-12 w-12 rounded-full hover:bg-muted"
+                >
+                    <ChevronRight className="w-6 h-6" />
+                </Button>
+            </div>
+
+            {/* CUSTOM DRAWER OVERLAY */}
+            <AnimatePresence>
+                {selectedActorId && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedActorId(null)}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+                        />
+
+                        {/* Drawer */}
+                        <motion.div
+                            initial={{ y: "100%" }}
+                            animate={{ y: 0 }}
+                            exit={{ y: "100%" }}
+                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                            className="fixed inset-x-0 bottom-0 z-50 bg-[#15151a] border-t border-white/10 rounded-t-[2rem] p-6 pb-8 shadow-2xl"
+                        >
+                            <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-6 opacity-20" />
+
+                            <div className="flex justify-between items-center mb-6">
+                                <h3 className="text-xl font-black text-white">
+                                    {selectedActorId === 'scene-global' ? 'Note Globale' : 'Feedback'}
+                                </h3>
+                                <Button size="icon" variant="ghost" className="rounded-full h-8 w-8 bg-white/5 hover:bg-white/10" onClick={() => setSelectedActorId(null)}>
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Quick Tags */}
+                                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar -mx-6 px-6">
+                                    {["⚡️ Énergie", "🐢 Rythme", "🔊 Volume", "🎭 Émotion", "📝 Texte"].map(tag => (
+                                        <button
+                                            key={tag}
+                                            onClick={() => setFeedbackText(prev => (prev ? prev + " " : "") + tag)}
+                                            className="shrink-0 px-4 py-2 bg-white/5 border border-white/5 rounded-xl text-xs font-bold uppercase tracking-wide text-gray-300 hover:bg-primary hover:text-white hover:border-primary transition-colors"
+                                        >
+                                            {tag}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="relative">
+                                    <textarea
+                                        value={feedbackText}
+                                        onChange={(e) => setFeedbackText(e.target.value)}
+                                        placeholder="Votre note..."
+                                        className="w-full min-h-[140px] bg-black/20 border border-white/10 rounded-2xl text-base p-4 resize-none focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-white placeholder:text-gray-600"
+                                        autoFocus
+                                    />
+                                    <div className="absolute bottom-4 right-4 pointer-events-none opacity-50">
+                                        <Mic className="w-5 h-5 text-primary" />
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={handleSendFeedback}
+                                    disabled={isSending || !feedbackText.trim()}
+                                    className="w-full rounded-2xl h-14 text-sm font-black uppercase tracking-[0.2em] bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+                                >
+                                    {isSending ? "Envoi..." : "Envoyer"}
+                                    <Send className="w-4 h-4 ml-2" />
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </div>
     );
 }

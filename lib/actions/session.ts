@@ -111,21 +111,63 @@ export async function getSessionDetails(eventId: string) {
  * Save or update a session plan.
  * selectedScenes: Array of { scene_id: string, objective: string }
  */
-export async function saveSessionPlan(eventId: string, selectedScenes: any[], notes: string = "") {
+export async function saveSessionPlan(
+    eventId: string,
+    selectedScenes: any[],
+    notes: string = "",
+    status: 'draft' | 'published' = 'draft'
+) {
     const supabase = await createClient();
+
+    const updateData: any = {
+        event_id: eventId,
+        selected_scenes: selectedScenes,
+        general_notes: notes,
+        status: status,
+        updated_at: new Date().toISOString()
+    };
+
+    if (status === 'published') {
+        updateData.published_at = new Date().toISOString();
+    }
 
     const { error } = await supabase
         .from('session_plans')
-        .upsert({
-            event_id: eventId,
-            selected_scenes: selectedScenes,
-            general_notes: notes,
-            updated_at: new Date().toISOString()
-        });
+        .upsert(updateData);
 
     if (error) {
         console.error('Error saving session plan:', error);
         throw new Error('Failed to save session plan');
+    }
+
+    revalidatePath(`/troupes`);
+}
+
+export async function publishSession(eventId: string) {
+    const supabase = await createClient();
+
+    // Check if plan exists
+    const { data: plan } = await supabase
+        .from('session_plans')
+        .select('*')
+        .eq('event_id', eventId)
+        .single();
+
+    if (!plan) {
+        throw new Error("No plan to publish. Save a draft first.");
+    }
+
+    const { error } = await supabase
+        .from('session_plans')
+        .update({
+            status: 'published',
+            published_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        })
+        .eq('event_id', eventId);
+
+    if (error) {
+        throw new Error('Failed to publish session');
     }
 
     revalidatePath(`/troupes`);

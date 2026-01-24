@@ -54,8 +54,9 @@ export function DeleteTroupeButton({ troupeId, troupeName }: DeleteTroupeButtonP
                 <Dialog open={open} onOpenChange={setOpen}>
                     <DialogTrigger asChild>
                         <Button variant="destructive" className="w-full sm:w-auto">
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Supprimer la troupe définitivement
+                            <Trash2 className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Supprimer la troupe définitivement</span>
+                            <span className="sm:hidden">Supprimer</span>
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
