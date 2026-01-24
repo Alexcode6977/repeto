@@ -1,0 +1,192 @@
+"use client";
+
+import { useState } from "react";
+import { ScriptMetadata } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2 } from "lucide-react";
+
+const ADMIN_EMAIL = "alex69.sartre@gmail.com";
+
+interface ScriptCardProps {
+    script: ScriptMetadata;
+    userEmail: string | null;
+    index: number;
+    onLoad: (script: ScriptMetadata) => void;
+    onRename: (id: string, newTitle: string) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
+    onTogglePublic: (script: ScriptMetadata) => Promise<void>;
+}
+
+export function ScriptCard({
+    script,
+    userEmail,
+    index,
+    onLoad,
+    onRename,
+    onDelete,
+    onTogglePublic,
+}: ScriptCardProps) {
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [tempTitle, setTempTitle] = useState(script.title);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [isToggling, setIsToggling] = useState(false);
+
+    const handleRenameSubmit = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        e?.stopPropagation();
+        if (tempTitle.trim() && tempTitle !== script.title) {
+            await onRename(script.id, tempTitle);
+        } else {
+            setTempTitle(script.title); // reset if empty or unchanged
+        }
+        setIsRenaming(false);
+    };
+
+    const handleDelete = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm("Voulez-vous vraiment supprimer ce script ?")) return;
+        setIsDeleting(true);
+        try {
+            await onDelete(script.id);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleToggle = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsToggling(true);
+        try {
+            await onTogglePublic(script);
+        } finally {
+            setIsToggling(false);
+        }
+    };
+
+    return (
+        <div
+            onClick={() => !isRenaming && onLoad(script)}
+            style={{ animationDelay: `${index * 100}ms` }}
+            className={`
+        group relative aspect-[3/4] md:aspect-[4/5] bg-card border border-border rounded-[2rem] overflow-hidden cursor-pointer card-3d hover-glow 
+        active:scale-[0.98] md:hover:border-primary/50 md:hover:shadow-2xl md:hover:shadow-primary/10 transition-all duration-300 animate-bounce-in
+        ${script.is_public ? "border-amber-500/20" : ""}
+      `}
+        >
+            {/* Card Background gradient */}
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background z-10" />
+
+            {/* Public Badge - Floating */}
+            {script.is_public && (
+                <div className="absolute top-4 right-4 z-20 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
+                    <Globe className="w-3 h-3" />
+                    Shared
+                </div>
+            )}
+
+            {/* Icon / Preview - Large & Centered */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700">
+                <FileText
+                    className={`w-32 h-32 md:w-40 md:h-40 ${script.is_public ? "text-amber-500" : "text-foreground"
+                        }`}
+                />
+            </div>
+
+            {/* Content - Bottom Aligned */}
+            <div className="absolute bottom-0 left-0 right-0 p-5 z-20 flex flex-col justify-end h-full">
+                <div className="mb-4">
+                    {isRenaming ? (
+                        <form
+                            onSubmit={handleRenameSubmit}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mb-2"
+                        >
+                            <input
+                                autoFocus
+                                type="text"
+                                value={tempTitle}
+                                onChange={(e) => setTempTitle(e.target.value)}
+                                onBlur={() => handleRenameSubmit()}
+                                className="w-full bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            />
+                        </form>
+                    ) : (
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                            <h3 className="text-2xl md:text-xl font-bold text-foreground leading-tight drop-shadow-md truncate flex-1">
+                                {script.title || "Script Sans Titre"}
+                            </h3>
+                            {script.is_owner && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsRenaming(true);
+                                    }}
+                                    className="text-foreground/40 hover:text-foreground transition-colors"
+                                >
+                                    <Edit3 className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground/80 uppercase tracking-wider">
+                        <span>{script.characterCount} rôles</span>
+                        <span className="w-1 h-1 bg-gray-500 rounded-full" />
+                        <span>{script.lineCount} répliques</span>
+                    </div>
+                </div>
+
+                {/* Mobile Play Button overlay */}
+                <div className="md:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-xl pointer-events-none">
+                    <Play className="w-6 h-6 text-foreground fill-white ml-1" />
+                </div>
+
+                {/* Desktop Hover Actions */}
+                <div className="hidden md:flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                    <Button
+                        className="flex-1 bg-white text-black hover:bg-primary hover:text-foreground border-0 font-bold rounded-xl"
+                        size="sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onLoad(script);
+                        }}
+                    >
+                        <Play className="w-4 h-4 mr-2 fill-current" />
+                        Répéter
+                    </Button>
+
+                    {(script.is_owner || userEmail === ADMIN_EMAIL) && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-foreground rounded-xl"
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </Button>
+                    )}
+                    {userEmail === ADMIN_EMAIL && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`rounded-xl ${script.is_public
+                                    ? "bg-amber-500/20 text-amber-400"
+                                    : "bg-white/10 text-muted-foreground"
+                                }`}
+                            onClick={handleToggle}
+                            disabled={isToggling}
+                        >
+                            {isToggling ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : script.is_public ? (
+                                <Globe className="w-4 h-4" />
+                            ) : (
+                                <Lock className="w-4 h-4" />
+                            )}
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}

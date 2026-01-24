@@ -40,7 +40,12 @@ export async function uploadLineRecording(
     }
 
     // 2. Upload to Storage
-    const fileName = `${user.id}/${playId}/${lineId}.webm`;
+    const contentType = audioBlob.type || 'audio/webm';
+    const extension = contentType.includes('mp4') ? 'mp4' :
+        contentType.includes('aac') ? 'aac' :
+            contentType.includes('ogg') ? 'ogg' : 'webm';
+
+    const fileName = `${user.id}/${playId}/${lineId}.${extension}`;
 
     // Convert Blob to ArrayBuffer for Supabase Storage
     const arrayBuffer = await audioBlob.arrayBuffer();
@@ -49,7 +54,7 @@ export async function uploadLineRecording(
     const { data: uploadData, error: uploadError } = await supabase.storage
         .from('play-recordings')
         .upload(fileName, buffer, {
-            contentType: 'audio/webm',
+            contentType: contentType,
             upsert: true
         });
 

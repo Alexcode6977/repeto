@@ -5,13 +5,28 @@ export function useAudioRecorder() {
     const [recordingLineId, setRecordingLineId] = useState<string | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const mimeTypeRef = useRef<string>("");
 
     const startRecording = useCallback(async (lineId: string) => {
         try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("L'accès au micro nécessite une connexion HTTPS sécurisée (ou localhost).");
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm'
-            });
+
+            // Detect supported mime type
+            const types = [
+                "audio/webm;codecs=opus",
+                "audio/webm",
+                "audio/mp4",
+                "audio/aac",
+                "audio/ogg"
+            ];
+            const selectedType = types.find(type => MediaRecorder.isTypeSupported(type)) || "";
+            mimeTypeRef.current = selectedType;
+
+            const options = selectedType ? { mimeType: selectedType } : undefined;
+            const mediaRecorder = new MediaRecorder(stream, options);
 
             mediaRecorderRef.current = mediaRecorder;
             chunksRef.current = [];
@@ -39,7 +54,7 @@ export function useAudioRecorder() {
             }
 
             mediaRecorderRef.current.onstop = () => {
-                const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+                const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current || 'audio/webm' });
                 // Stop all tracks to release the microphone
                 mediaRecorderRef.current?.stream.getTracks().forEach(track => track.stop());
                 setIsRecording(false);

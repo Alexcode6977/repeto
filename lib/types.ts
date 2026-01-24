@@ -18,3 +18,13 @@ export interface ParsedScript {
     characters: string[];
     scenes: ScriptScene[];
 }
+
+export interface ScriptMetadata {
+    id: string;
+    title: string;
+    created_at: string;
+    characterCount: number;
+    lineCount: number;
+    is_public: boolean;
+    is_owner: boolean;
+}
