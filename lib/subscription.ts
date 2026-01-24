@@ -171,7 +171,7 @@ export async function canUseAdvancedRehearsalMode(
     return {
         allowed: isPremium,
         tier,
-        reason: isPremium ? undefined : "Les modes Réplique et Filage nécessitent un abonnement Solo Pro ou Troupe."
+        reason: isPremium ? undefined : "Les modes Réplique et Solo nécessitent un abonnement Solo Pro ou Troupe."
     };
 }
 

@@ -356,7 +356,7 @@ export function RehearsalMode({
         if (validation.settings.mode !== rehearsalMode) {
             setRehearsalMode(validation.settings.mode);
             // NOTIFY USER OF DOWNGRADE
-            alert(`Le mode "${rehearsalMode === 'cue' ? 'Réplique' : 'Filage'}" est réservé aux comptes Premium/Troupe.\n\nLe mode "Lecture Intégrale" a été activé.`);
+            alert(`Le mode "${rehearsalMode === 'cue' ? 'Réplique' : 'Solo'}" est réservé aux comptes Premium/Troupe.\n\nLe mode "Lecture Intégrale" a été activé.`);
         }
         if (validation.settings.visibility !== lineVisibility) {
             setLineVisibility(validation.settings.visibility);

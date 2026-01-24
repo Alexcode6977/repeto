@@ -263,7 +263,7 @@ export function ListenMode({
                             <div className="text-center space-y-2">
                                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Mode sélectionné</span>
                                 <p className="text-lg font-bold text-foreground">
-                                    {listenMode === "full" ? "📖 Intégrale" : listenMode === "cue" ? "💬 Réplique" : "⚡ Filage"}
+                                    {listenMode === "full" ? "📖 Intégrale" : listenMode === "cue" ? "💬 Réplique" : "⚡ Solo"}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                     {listenMode === "full"
@@ -330,7 +330,7 @@ export function ListenMode({
                                 {[
                                     { id: "full", label: "Intégrale", icon: "📖", desc: "Tout le texte" },
                                     { id: "cue", label: "Réplique", icon: "💬", desc: "Avant vos lignes" },
-                                    { id: "check", label: "Filage", icon: "⚡", desc: "Vos lignes seules" },
+                                    { id: "check", label: "Solo", icon: "⚡", desc: "Vos lignes seules" },
                                 ].map(m => (
                                     <button
                                         key={m.id}

@@ -77,7 +77,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                             {[
                                 { id: "full", label: "Intégrale", sub: "Tout le cast" },
                                 { id: "cue", label: "Réplique", sub: "Juste avant" },
-                                { id: "check", label: "Filage", sub: "Répliques seules" },
+                                { id: "check", label: "Solo", sub: "Répliques seules" },
                             ].map((m) => (
                                 <button
                                     key={m.id}

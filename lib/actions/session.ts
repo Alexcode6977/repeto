@@ -91,6 +91,7 @@ export async function getSessionDetails(eventId: string) {
         .select(`
             id,
             title,
+            script_content,
             play_characters(*),
             play_scenes(
                 *,
