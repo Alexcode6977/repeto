@@ -4,11 +4,20 @@ import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserMinus, Shield, ShieldCheck, MoreVertical, Loader2 } from "lucide-react";
+import { UserMinus, Shield, ShieldCheck, MoreVertical, Loader2, Trash2 } from "lucide-react";
 import { removeTroupeMember, updateMemberRole } from "@/lib/actions/troupe";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { updateCasting } from "@/lib/actions/play";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface SettingsMemberRowProps {
     member: any;
@@ -35,7 +44,7 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
     };
 
     const handleRemove = async () => {
-        if (!confirm("Êtes-vous sûr de vouloir retirer ce membre ?")) return;
+        // No confirm() anymore, handled by Dialog
         setIsLoading(true);
         try {
             await removeTroupeMember(troupeId, member.user_id);
@@ -48,8 +57,9 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
     };
 
     return (
-        <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-all">
+        <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-all group">
             <div className="flex items-center gap-4">
+                {/* ... (Existing Avatar/Info code) ... */}
                 <Avatar className="h-10 w-10 border border-primary/20">
                     <AvatarImage src={member.avatar_url} />
                     <AvatarFallback className="bg-primary/10 text-primary font-bold">
@@ -70,6 +80,36 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
             </div>
 
             <div className="flex items-center gap-2">
+                {/* NEW: Direct Delete Button with Confirmation */}
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                            disabled={isLoading}
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Retirer ce membre ?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Êtes-vous sûr de vouloir retirer définitivement <strong>{member.first_name}</strong> de la troupe ?
+                                <br />
+                                Il perdra l'accès à tous les scripts et séances.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Annuler</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleRemove} className="bg-red-500 hover:bg-red-600">
+                                Confirmer la suppression
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" disabled={isLoading}>
@@ -77,6 +117,7 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                        {/* ... (Existing menu items) ... */}
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleRoleChange(member.role === 'admin' ? 'member' : 'admin')}>
@@ -89,10 +130,6 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                                     <ShieldCheck className="w-4 h-4 mr-2" /> Promouvoir Admin
                                 </>
                             )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-500 focus:text-red-500" onClick={handleRemove}>
-                            <UserMinus className="w-4 h-4 mr-2" /> Retirer de la troupe
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

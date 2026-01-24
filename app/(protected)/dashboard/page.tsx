@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3 } from "lucide-react";
+import { Upload, Loader2, AlertCircle, Trash2, FileText, Plus, Play, MoreVertical, LogOut, X, Edit3, Search } from "lucide-react";
 import { useState, useTransition, useEffect, useMemo, useCallback, useRef } from "react";
 import { parsePdfAction, saveScript, getScripts, deleteScript, getScriptById, togglePublicStatus, detectCharactersAction, finalizeParsingAction, renameScriptAction, getUserTierAction, importScriptWithAI } from "./actions";
 import { ParsedScript } from "@/lib/types";
@@ -44,6 +44,8 @@ const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 
 export default function Home() {
   const [isPending, startTransition] = useTransition();
+  const [searchQuery, setSearchQuery] = useState(""); // NEW
+  const [showMobileSearch, setShowMobileSearch] = useState(false); // NEW
   const [script, setScript] = useState<ParsedScript | null>(null); // Current active script for viewer
   const [scriptsList, setScriptsList] = useState<ScriptMetadata[]>([]); // List of all scripts (metadata only)
   const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
@@ -581,40 +583,101 @@ export default function Home() {
         </label>
       </div>
 
-      {/* Header Section - Minimalist */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0 mb-8 md:mb-12 pt-4 md:pt-0">
-        <div className="w-full flex items-center justify-between md:block">
+      {/* Header Section - Modernized with Search */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 mb-8 md:mb-12 pt-4 md:pt-0">
+
+        {/* Mobile Header: Title OR Search Bar */}
+        <div className="w-full flex items-center justify-between md:hidden h-14 relative">
+          {showMobileSearch ? (
+            <div className="flex-1 flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-300 w-full absolute inset-0 bg-background z-20 px-1">
+              <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Rechercher une pièce..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-secondary/50 border border-border/50 rounded-2xl pl-12 pr-4 h-12 text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background transition-all"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => { setShowMobileSearch(false); setSearchQuery(""); }}
+                className="shrink-0 rounded-full h-12 w-12 hover:bg-muted"
+              >
+                <X className="w-6 h-6" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="text-left">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
+                  Bonjour, <span className="text-primary">{userName || "Artiste"}</span>
+                </h1>
+                <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">Prêt à répéter ?</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-foreground hover:bg-muted rounded-full w-10 h-10"
+                  onClick={() => setShowMobileSearch(true)}
+                >
+                  <Search className="w-6 h-6" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={handleLogout}
+                  size="icon"
+                  className="text-muted-foreground hover:text-red-400 rounded-full w-10 h-10"
+                >
+                  <LogOut className="w-5 h-5" />
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Desktop Header: Title Left, Search + Import Right */}
+        <div className="hidden md:flex w-full items-center justify-between">
           <div className="text-left">
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground mb-1">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">
               Bonjour, <span className="text-primary">{userName || "Artiste"}</span>
             </h1>
-            <p className="text-xs md:text-base text-muted-foreground font-medium tracking-wide uppercase">Prêt à répéter ?</p>
+            <p className="text-base text-muted-foreground font-medium tracking-wide uppercase">Prêt à répéter ?</p>
           </div>
 
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            className="text-muted-foreground hover:text-red-400 md:hidden"
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-4">
+            {/* Desktop Search */}
+            <div className="relative w-80 group transition-all duration-300 focus-within:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-hover:text-primary group-focus-within:text-primary transition-colors" />
+              <input
+                type="text"
+                placeholder="Rechercher un script..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 h-12 text-sm backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background/50 focus:border-primary/30 transition-all shadow-sm hover:shadow-lg hover:border-white/20"
+              />
+            </div>
+
+            <Button
+              className="rounded-full px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 btn-glow active:scale-95 group relative overflow-hidden h-12"
+              onClick={() => setShowImportGuide(true)}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+              )}
+              <span className="relative z-10 ml-2 text-base">Importer</span>
+            </Button>
+          </div>
         </div>
 
-        {/* Desktop Import Button */}
-        <div className="hidden md:flex items-center gap-4">
-          <Button
-            className="rounded-full px-6 py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-lg shadow-primary/20 transition-all hover:scale-105 btn-glow active:scale-95 group relative overflow-hidden"
-            onClick={() => setShowImportGuide(true)}
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-            )}
-            <span className="relative z-10 ml-2">Importer un Script</span>
-          </Button>
-        </div>
       </div>
 
       {/* Library View Tabs - NEW */}
