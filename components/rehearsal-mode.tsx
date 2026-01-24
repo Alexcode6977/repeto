@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 import { BrowserVoiceConfig } from "./browser-voice-config";
+import { saveSessionStats } from "@/app/actions/stats"; // [NEW] Stats Action
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -405,7 +406,9 @@ export function RehearsalMode({
     const sessionStartRef = useRef<number>(Date.now());
     const [showFeedbackModal, setShowFeedbackModal] = useState(false);
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
     const [pendingExit, setPendingExit] = useState(false);
+    const hasSavedStats = useRef(false); // [NEW] Prevent duplicate saves
 
     // Animation states for success/error feedback
     const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
@@ -530,10 +533,40 @@ export function RehearsalMode({
         };
     };
 
+
+    // [NEW] Helper to save stats
+    const persistSessionStats = async () => {
+        if (hasSavedStats.current || isDemo) return;
+        // Only save if meaningful duration (> 10s) or lines (> 0)
+        const stats = getSessionStats();
+        if (stats.durationSeconds < 5 && stats.linesRehearsed < 1) return;
+
+        hasSavedStats.current = true;
+        console.log("[Stats] Saving session...", stats);
+
+        try {
+            await saveSessionStats({
+                scriptId: (script as any).id, // ParsedScript sometimes attached id in actions
+                scriptTitle: script.title || "Untitled",
+                characterName: (userCharacters || []).join(", "),
+                startTime: new Date(sessionStartRef.current),
+                endTime: new Date(),
+                durationSeconds: stats.durationSeconds,
+                linesTotal: script.lines.length,
+                linesRehearsed: stats.linesRehearsed,
+                completionPercentage: stats.completionPercentage,
+                mode: rehearsalMode
+            });
+        } catch (e) {
+            console.error("[Stats] Failed to save", e);
+        }
+    };
+
     // Updated Exit Handler - Shows feedback modal first
     const handleExit = () => {
         stop(); // Force stop audio/recognition
         if (hasStarted && currentLineIndex > 0) {
+            persistSessionStats(); // [NEW] Save on user exit
             if (isDemo) {
                 // In demo mode, show Upgrade Modal instead of feedback
                 setShowUpgradeModal(true);
@@ -576,6 +609,7 @@ export function RehearsalMode({
         if (status === "finished" && hasStarted && !showFeedbackModal && !showUpgradeModal) {
             // Script completed! Show feedback modal or upgrade modal
             stop();
+            persistSessionStats(); // [NEW] Save on finish
             if (isDemo) {
                 setShowUpgradeModal(true);
             } else {

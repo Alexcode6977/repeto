@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Shield } from "lucide-react";
+import { User, Shield, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface GlobalHeaderProps {
     displayName: string;
     isAdmin: boolean;
+    tier: "free" | "solo_pro" | "troupe";
 }
 
-export function GlobalHeader({ displayName, isAdmin }: GlobalHeaderProps) {
+export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) {
     const pathname = usePathname();
 
     // Hide global header on specific troupe routes to avoid double header
@@ -41,6 +42,18 @@ export function GlobalHeader({ displayName, isAdmin }: GlobalHeaderProps) {
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">Troupes</span>
                     </div>
                 </Link>
+
+                {/* Stats Link - Only for Premium/Troupe */}
+                {(tier === "solo_pro" || tier === "troupe") && (
+                    <Link href="/stats">
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 transition-colors cursor-pointer mr-2">
+                            <BarChart2 className="w-4 h-4 text-blue-400" />
+                            <span className="text-sm font-medium text-blue-400 hidden md:inline-block">
+                                Stats
+                            </span>
+                        </div>
+                    </Link>
+                )}
 
                 {/* Admin Button - Only visible for admin */}
                 {isAdmin && (
