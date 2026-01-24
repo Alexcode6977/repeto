@@ -11,10 +11,9 @@ import { Plus, Loader2 } from "lucide-react";
 
 interface AddEventModalProps {
     troupeId: string;
-    plays: any[];
 }
 
-export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
+export function AddEventModal({ troupeId }: { troupeId: string }) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -22,8 +21,6 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
     const [date, setDate] = useState("");
     const [startTime, setStartTime] = useState("18:00");
     const [endTime, setEndTime] = useState("20:00");
-    const [type, setType] = useState("rehearsal");
-    const [playId, setPlayId] = useState("none");
     const [recurrence, setRecurrence] = useState<"none" | "weekly">("none");
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -39,8 +36,8 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
                 title,
                 start,
                 end,
-                type,
-                playId === "none" ? undefined : playId,
+                "rehearsal",
+                undefined,
                 recurrence
             );
 
@@ -68,7 +65,7 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
                 <DialogHeader>
                     <DialogTitle>Nouvel événement</DialogTitle>
                     <DialogDescription>
-                        Planifiez une répétition ou une représentation.
+                        Planifiez une répétition.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -94,20 +91,6 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
                     </div>
 
                     <div className="grid gap-2">
-                        <Label>Type</Label>
-                        <Select value={type} onValueChange={setType}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="rehearsal">Répétition</SelectItem>
-                                <SelectItem value="performance">Représentation</SelectItem>
-                                <SelectItem value="other">Autre</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="grid gap-2">
                         <Label>Récurrence</Label>
                         <Select value={recurrence} onValueChange={(val: "none" | "weekly") => setRecurrence(val)}>
                             <SelectTrigger>
@@ -119,21 +102,6 @@ export function AddEventModal({ troupeId, plays }: AddEventModalProps) {
                             </SelectContent>
                         </Select>
                         <p className="text-[10px] text-muted-foreground">Créera automatiquement les événements pour les 3 prochains mois.</p>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label>Pièce concernée (Optionnel)</Label>
-                        <Select value={playId} onValueChange={setPlayId}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Aucune" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">Aucune</SelectItem>
-                                {plays.map((play) => (
-                                    <SelectItem key={play.id} value={play.id}>{play.title}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
                     </div>
 
                     <DialogFooter>

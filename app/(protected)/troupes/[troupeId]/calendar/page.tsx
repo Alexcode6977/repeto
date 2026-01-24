@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { createClient } from "@/lib/supabase/server";
 import { AddEventModal } from "./add-event-modal";
 import { CalendarView } from "./calendar-view";
-import { getTroupePlays } from "@/lib/actions/play";
 import { CalendarUpcomingList } from "./calendar-upcoming-list";
 
 export default async function CalendarPage({
@@ -26,12 +25,11 @@ export default async function CalendarPage({
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
 
     // Parallel fetch for better performance
-    const [events, troupe, members, guests, plays] = await Promise.all([
+    const [events, troupe, members, guests] = await Promise.all([
         getTroupeEvents(troupeId, firstDay, lastDay),
         getTroupeDetails(troupeId),
         getTroupeMembers(troupeId),
-        getTroupeGuests(troupeId),
-        getTroupePlays(troupeId)
+        getTroupeGuests(troupeId)
     ]);
 
     const supabase = await createClient();
@@ -70,7 +68,7 @@ export default async function CalendarPage({
                     </p>
                 </div>
                 {isAdmin && (
-                    <AddEventModal troupeId={troupeId} plays={plays} />
+                    <AddEventModal troupeId={troupeId} />
                 )}
             </div>
 

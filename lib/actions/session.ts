@@ -156,9 +156,18 @@ export async function saveSessionPlan(
 ) {
     const supabase = await createClient();
 
+    const uniqueScenesMap = new Map();
+    selectedScenes.forEach((scene: any) => {
+        const id = typeof scene === 'string' ? scene : scene.id;
+        if (!uniqueScenesMap.has(id)) {
+            uniqueScenesMap.set(id, scene);
+        }
+    });
+    const uniqueScenes = Array.from(uniqueScenesMap.values());
+
     const updateData: any = {
         event_id: eventId,
-        selected_scenes: selectedScenes,
+        selected_scenes: uniqueScenes,
         general_notes: notes,
         status: status,
         updated_at: new Date().toISOString()
@@ -307,133 +316,26 @@ export async function getLastFeedbacksForCharacters(characterIds: string[]) {
  * specific to the current user's characters.
  */
 export async function getUserPreparationDetails(sessionId: string) {
+    console.log("--> getUserPreparationDetails (RPC) START", sessionId);
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return [];
-
-    // 1. Fetch Session Plan and details
-    const { data: session, error } = await supabase
-        .from('events')
-        .select(`
-            id,
-            start_time,
-            play_id,
-            session_plans(selected_scenes)
-                `)
-        .eq('id', sessionId)
-        .single();
-
-    if (error || !session || !session.session_plans) return [];
-
-    // Fix: Supabase might return an array for relations depending on inference
-    const sessionPlan = Array.isArray(session.session_plans) ? session.session_plans[0] : session.session_plans;
-
-    if (!sessionPlan) return [];
-
-    const selectedScenes = sessionPlan.selected_scenes || [];
-    const selectedSceneIds = selectedScenes.map((s: any) => typeof s === 'string' ? s : s.id);
-
-    if (selectedSceneIds.length === 0) return [];
-
-    // 2. Fetch Plays involved to find characters
-    // We need to know which plays these scenes belong to, and checks if user has a character in them.
-    // Optimization: fetch all plays where the user is an actor.
-    const { data: userCharacters, error: charError } = await supabase
-        .from('play_characters')
-        .select(`
-            id,
-            name,
-            play_id,
-            plays(title),
-            play_scenes(id, title, summary)
-                `)
-        .eq('actor_id', user.id);
-
-    if (charError || !userCharacters) return [];
-
-    // 3. Filter scenes directly: 
-    // We want scenes that are: 
-    // a) in the selected_scenes list
-    // b) involve one of the user's characters
-    // But wait, `play_scenes` above gives us ALL scenes for the play, not necessarily ones where the character appears if the DB isn't structured that way.
-    // The `play_scenes` join in `play_characters` isn't standard unless there's a many-to-many. 
-    // Usually it's scene -> scene_characters -> character.
-
-    // Let's do it differently.
-    // Fetch detailed scenes for the selected IDs.
-    const { data: detailedScenes, error: scenesError } = await supabase
-        .from('play_scenes')
-        .select(`
-            id,
-            title,
-            summary,
-            play_id,
-            scene_characters(character_id)
-                `)
-        .in('id', selectedSceneIds);
-
-    if (scenesError || !detailedScenes) return [];
-
-    // 4. Fetch last feedback for user's characters
-    const myCharacterIds = userCharacters.map(c => c.id);
-    const lastFeedbacks = await getLastFeedbacksForCharacters(myCharacterIds);
-
-    // 5. Build the result
-    // Group by Play -> Character
-    const result: any[] = [];
-
-    // Grouping
-    // We'll iterate plays I'm involved in.
-    const playsMap = new Map();
-
-    // Helper to find which of my characters is in a scene
-    const getMyCharInScene = (scene: any) => {
-        const sceneCharIds = scene.scene_characters.map((sc: any) => sc.character_id);
-        return userCharacters.find(uc => sceneCharIds.includes(uc.id));
-    };
-
-    // Filter scenes relevant to me
-    const myScenes = detailedScenes.filter(scene => getMyCharInScene(scene));
-
-    for (const scene of myScenes) {
-        const myChar = getMyCharInScene(scene);
-        if (!myChar) continue;
-
-        const playId = scene.play_id;
-        // Fix: plays might be array or object
-        const playData = Array.isArray(myChar.plays) ? myChar.plays[0] : myChar.plays;
-        const playTitle = playData?.title || "Pièce inconnue";
-
-        if (!playsMap.has(playId)) {
-            playsMap.set(playId, {
-                playTitle: playTitle,
-                characterName: myChar.name,
-                characterId: myChar.id,
-                lastFeedback: lastFeedbacks[myChar.id]?.text || null,
-                lastFeedbackDate: lastFeedbacks[myChar.id]?.created_at || null,
-                scenes: []
-            });
-        }
-
-        const playGroup = playsMap.get(playId);
-        // Add scene if not already there (order might be lost if we don't respect selectedScenes order, 
-        // let's try to maintain order based on selectedSceneIds)
-        playGroup.scenes.push({
-            id: scene.id,
-            title: scene.title,
-            summary: scene.summary
+    const { data, error } = await supabase
+        .rpc('get_user_session_scenes', {
+            p_session_id: sessionId
         });
+
+    if (error) {
+        console.error("Error fetching preparation details (RPC):", error);
+        return [];
     }
 
-    // Convert map to array and maybe sort scenes by their appearance in selectedSceneIds
-    const finalResult = Array.from(playsMap.values()).map(group => {
-        // Sort scenes by the original execution order
-        group.scenes.sort((a: any, b: any) => {
-            return selectedSceneIds.indexOf(a.id) - selectedSceneIds.indexOf(b.id);
-        });
-        return group;
-    });
+    if (!data || data.length === 0) {
+        console.log("RPC returned empty data");
+        return [];
+    }
 
-    return finalResult;
+    // Sort scenes within each group (optional, if order matters)
+    // The RPC returns groups, we can just return data directly as it matches the structure.
+    console.log("RPC Data received:", data.length, "groups");
+    return data;
 }
