@@ -139,7 +139,7 @@ export default async function TroupeDashboard({
                             ))}
                             {guests.length > 0 && <Separator className="my-4" />}
                             {guests.map((guest: any) => (
-                                <div key={guest.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-dashed border-border/50">
+                                <div key={guest.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-dashed border-border/50 group">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-9 w-9 border border-border">
                                             <AvatarFallback className="bg-white/10 text-muted-foreground font-bold text-sm">

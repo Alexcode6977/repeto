@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { deleteGuestAction } from "@/lib/actions/troupe";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface DeleteGuestButtonProps {
     troupeId: string;
@@ -22,13 +24,11 @@ interface DeleteGuestButtonProps {
 
 export function DeleteGuestButton({ troupeId, guestId, guestName }: DeleteGuestButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const [open, setOpen] = useState(false);
 
     const handleDelete = async () => {
         setIsLoading(true);
         try {
             await deleteGuestAction(troupeId, guestId);
-            setOpen(false);
         } catch (error) {
             console.error(error);
             alert("Erreur lors de la suppression de l'invité.");
@@ -38,35 +38,31 @@ export function DeleteGuestButton({ troupeId, guestId, guestName }: DeleteGuestB
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all"
+                    className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all text-muted-foreground"
+                    disabled={isLoading}
                 >
                     <Trash2 className="h-4 w-4" />
                 </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-[#121212] border-border text-foreground rounded-3xl">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-bold">Retirer cet invité ?</DialogTitle>
-                    <DialogDescription className="text-muted-foreground">
-                        Voulez-vous vraiment retirer <span className="text-foreground font-bold">{guestName}</span> de la troupe ?
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="flex gap-2 sm:gap-0">
-                    <Button variant="ghost" onClick={() => setOpen(false)} className="rounded-xl">Annuler</Button>
-                    <Button
-                        variant="destructive"
-                        onClick={handleDelete}
-                        disabled={isLoading}
-                        className="rounded-xl bg-red-500 hover:bg-red-600"
-                    >
-                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Supprimer"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Retirer cet invité ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Voulez-vous vraiment retirer <span className="font-bold text-foreground">{guestName}</span> de la troupe ?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Annuler</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+                        Supprimer l'invité
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     );
 }

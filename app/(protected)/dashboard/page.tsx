@@ -723,9 +723,13 @@ export default function Home() {
           ))
         ) : scriptsList.length > 0 ? (
           (() => {
-            const filteredScripts = scriptsList.filter(s =>
-              libraryView === "personal" ? s.is_owner : (!s.is_owner || s.is_public)
-            );
+            const normSearch = searchQuery.trim().toLowerCase();
+            const filteredScripts = scriptsList.filter(s => {
+              // If searching, ignore tabs (Global Search). Else, respect tabs.
+              const matchesTab = normSearch ? true : (libraryView === "personal" ? s.is_owner : (!s.is_owner || s.is_public));
+              const matchesSearch = !normSearch || s.title.toLowerCase().includes(normSearch);
+              return matchesTab && matchesSearch;
+            });
 
             if (filteredScripts.length === 0) {
               return (
