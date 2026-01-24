@@ -635,11 +635,10 @@ export async function getTroupeSettingsData(troupeId: string) {
     const { data: pendingRequests } = await supabase
         .from('troupe_join_requests')
         .select(`
-            id, user_id, status, created_at,
+            id, user_id, created_at,
             profiles (id, email, first_name)
         `)
-        .eq('troupe_id', troupeId)
-        .eq('status', 'pending');
+        .eq('troupe_id', troupeId);
 
     const requests = pendingRequests?.map((r: any) => {
         const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
@@ -650,7 +649,8 @@ export async function getTroupeSettingsData(troupeId: string) {
             email: profile?.email,
             first_name: profile?.first_name,
             last_name: null,
-            avatar_url: null
+            avatar_url: null,
+            status: 'pending' // Virtual field for frontend
         };
     }) || [];
 

@@ -9,6 +9,7 @@ import { revalidatePath } from 'next/cache';
 export async function getTroupeSessions(troupeId: string) {
     const supabase = await createClient();
 
+    // 1. Fetch Sessions
     const { data, error } = await supabase
         .from('events')
         .select(`
@@ -18,7 +19,7 @@ export async function getTroupeSessions(troupeId: string) {
             end_time,
             play_id,
             plays(title),
-            session_plans(selected_scenes, updated_at)
+            session_plans(selected_scenes, updated_at, status)
         `)
         .eq('troupe_id', troupeId)
         .order('start_time', { ascending: false });
@@ -28,7 +29,42 @@ export async function getTroupeSessions(troupeId: string) {
         return [];
     }
 
-    return data;
+    // 2. Determine User Role
+    let isMember = false;
+    let isAdmin = false;
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+        const { data: membership } = await supabase
+            .from('troupe_members')
+            .select('role')
+            .eq('troupe_id', troupeId)
+            .eq('user_id', user.id)
+            .single();
+
+        if (membership) {
+            isMember = true;
+            isAdmin = membership.role === 'admin';
+        }
+    }
+
+    // 3. Filter based on visibility
+    // Admin sees EVERYTHING
+    if (isAdmin) {
+        return data;
+    }
+
+    // Members see:
+    // a) Sessions with NO plan (Events, e.g. generic rehearsal)
+    // b) Sessions with a plan that is 'published'
+    return data.filter((event: any) => {
+        // Fix: session_plans might be array or object (single)
+        const plan = Array.isArray(event.session_plans) ? event.session_plans[0] : event.session_plans;
+
+        if (!plan) return true; // No plan = Visible (Generic event)
+        return plan.status === 'published';
+    });
 }
 
 /**
@@ -55,12 +91,12 @@ export async function getSessionDetails(eventId: string) {
         .select(`
             id,
             title,
-            play_characters (*),
-            play_scenes (
+            play_characters(*),
+            play_scenes(
                 *,
-                scene_characters (character_id)
+                scene_characters(character_id)
             )
-        `)
+                `)
         .eq('troupe_id', event.troupe_id);
 
     if (playsError) {
@@ -72,13 +108,13 @@ export async function getSessionDetails(eventId: string) {
     const { data: complementaryData, error: compError } = await supabase
         .from('events')
         .select(`
-            event_attendance (
+            event_attendance(
                 *,
-                profiles (first_name, email),
-                troupe_guests (id, name)
-            ),
-            session_plans (*)
-        `)
+                    profiles(first_name, email),
+                    troupe_guests(id, name)
+                ),
+            session_plans(*)
+                `)
         .eq('id', eventId)
         .single();
 
@@ -140,7 +176,7 @@ export async function saveSessionPlan(
         throw new Error('Failed to save session plan');
     }
 
-    revalidatePath(`/troupes`);
+    revalidatePath(`/ troupes`);
 }
 
 export async function publishSession(eventId: string) {
@@ -170,7 +206,7 @@ export async function publishSession(eventId: string) {
         throw new Error('Failed to publish session');
     }
 
-    revalidatePath(`/troupes`);
+    revalidatePath(`/ troupes`);
 }
 
 /**
@@ -201,7 +237,7 @@ export async function submitSessionFeedback(
     }
 
     // No revalidate needed for live feedback usually, but let's be safe
-    revalidatePath(`/troupes`);
+    revalidatePath(`/ troupes`);
 }
 
 /**
@@ -216,13 +252,13 @@ export async function getMyFeedbacks(troupeId: string) {
         .from('rehearsal_feedbacks')
         .select(`
             *,
-            events (
-                title, 
+            events(
+                title,
                 start_time,
-                session_plans (selected_scenes)
+                session_plans(selected_scenes)
             ),
-            play_characters (name)
-        `)
+            play_characters(name)
+                `)
         .eq('actor_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -244,8 +280,8 @@ export async function getLastFeedbacksForCharacters(characterIds: string[]) {
         .from('rehearsal_feedbacks')
         .select(`
             *,
-            events (title, start_time)
-        `)
+            events(title, start_time)
+                `)
         .in('character_id', characterIds)
         .order('created_at', { ascending: false });
 
@@ -282,8 +318,8 @@ export async function getUserPreparationDetails(sessionId: string) {
             id,
             start_time,
             play_id,
-            session_plans (selected_scenes)
-        `)
+            session_plans(selected_scenes)
+                `)
         .eq('id', sessionId)
         .single();
 
@@ -305,12 +341,12 @@ export async function getUserPreparationDetails(sessionId: string) {
     const { data: userCharacters, error: charError } = await supabase
         .from('play_characters')
         .select(`
-            id, 
-            name, 
+            id,
+            name,
             play_id,
-            plays (title),
-            play_scenes (id, title, summary)
-        `)
+            plays(title),
+            play_scenes(id, title, summary)
+                `)
         .eq('actor_id', user.id);
 
     if (charError || !userCharacters) return [];
@@ -332,8 +368,8 @@ export async function getUserPreparationDetails(sessionId: string) {
             title,
             summary,
             play_id,
-            scene_characters (character_id)
-        `)
+            scene_characters(character_id)
+                `)
         .in('id', selectedSceneIds);
 
     if (scenesError || !detailedScenes) return [];
