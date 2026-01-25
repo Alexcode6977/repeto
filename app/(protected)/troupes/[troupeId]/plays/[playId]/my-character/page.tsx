@@ -84,7 +84,7 @@ export default async function MyCharacterPage({
     })) || [];
 
     // Combine database feedbacks and script notes
-    const allFeedbacks = [...(feedbacks || []), ...scriptNotes].sort((a, b) =>
+    const allFeedbacks: any[] = [...(feedbacks || []), ...scriptNotes].sort((a: any, b: any) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
