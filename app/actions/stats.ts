@@ -14,6 +14,10 @@ export interface SessionStatsData {
     linesRehearsed: number;
     completionPercentage: number;
     mode: string;
+    // Detailed metrics
+    linesValidatedFirstTry?: number;
+    linesWrong?: number;
+    linesSkipped?: number;
 }
 
 export async function saveSessionStats(data: SessionStatsData) {
@@ -34,7 +38,11 @@ export async function saveSessionStats(data: SessionStatsData) {
             lines_total: data.linesTotal,
             lines_rehearsed: data.linesRehearsed,
             completion_percentage: data.completionPercentage,
-            mode: data.mode
+            mode: data.mode,
+            // Detailed metrics
+            lines_validated_first_try: data.linesValidatedFirstTry || 0,
+            lines_wrong: data.linesWrong || 0,
+            lines_skipped: data.linesSkipped || 0
         });
 
         if (error) {
@@ -166,3 +174,118 @@ export async function getUserStats(period: '7days' | '30days' | 'all' = 'all') {
         recentPlays
     };
 }
+
+// ============================================
+// PHASE 2: Line Error Tracking
+// ============================================
+
+export interface LineErrorData {
+    sessionId?: string;
+    scriptId?: string;
+    lineIndex: number;
+    lineText: string;
+    characterName: string;
+    errorType: 'skip' | 'timeout' | 'mismatch';
+}
+
+/**
+ * Save line errors to the database
+ */
+export async function saveLineErrors(errors: LineErrorData[]) {
+    if (!errors || errors.length === 0) return { success: true };
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Non authentifié" };
+
+    try {
+        const insertData = errors.map(e => ({
+            user_id: user.id,
+            session_id: e.sessionId || null,
+            script_id: e.scriptId || null,
+            line_index: e.lineIndex,
+            line_text: e.lineText,
+            character_name: e.characterName,
+            error_type: e.errorType
+        }));
+
+        const { error } = await supabase
+            .from("rehearsal_line_errors")
+            .insert(insertData);
+
+        if (error) {
+            console.error("Error saving line errors:", error);
+            return { error: "Erreur lors de la sauvegarde des erreurs" };
+        }
+
+        return { success: true };
+    } catch (e) {
+        console.error("Exception saving line errors:", e);
+        return { error: "Exception interne" };
+    }
+}
+
+/**
+ * Get line error statistics for a character in a play
+ * Returns the most frequently missed lines
+ */
+export async function getCharacterLineErrors(scriptId: string, characterName?: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    try {
+        let query = supabase
+            .from("rehearsal_line_errors")
+            .select("line_index, line_text, character_name, error_type")
+            .eq("user_id", user.id)
+            .eq("script_id", scriptId);
+
+        if (characterName) {
+            query = query.eq("character_name", characterName);
+        }
+
+        const { data: errors, error } = await query;
+
+        if (error || !errors) {
+            console.error("Error fetching line errors:", error);
+            return [];
+        }
+
+        // Aggregate by line_index
+        const lineMap = new Map<number, {
+            lineIndex: number;
+            lineText: string;
+            characterName: string;
+            errorCount: number;
+            errorTypes: Record<string, number>;
+        }>();
+
+        errors.forEach(e => {
+            if (!lineMap.has(e.line_index)) {
+                lineMap.set(e.line_index, {
+                    lineIndex: e.line_index,
+                    lineText: e.line_text || "",
+                    characterName: e.character_name || "",
+                    errorCount: 0,
+                    errorTypes: {}
+                });
+            }
+            const entry = lineMap.get(e.line_index)!;
+            entry.errorCount++;
+            entry.errorTypes[e.error_type] = (entry.errorTypes[e.error_type] || 0) + 1;
+        });
+
+        // Sort by error count (most errors first) and return top 10
+        return Array.from(lineMap.values())
+            .sort((a, b) => b.errorCount - a.errorCount)
+            .slice(0, 10);
+
+    } catch (e) {
+        console.error("Exception fetching line errors:", e);
+        return [];
+    }
+}
+

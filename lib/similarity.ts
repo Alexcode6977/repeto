@@ -17,18 +17,55 @@ const PLAY_FIXES: Record<string, [RegExp, string][]> = {
         [/chou ill?ou/g, "chouilloux"],
     ],
     "FEU LA MÈRE DE MADAME": [
+        // Titres et Noms
+        [/\bm[âa]t[âa]me\b/gi, "madame"],
         [/\bmatame\b/gi, "madame"],
+        [/\bmoussié\b/gi, "monsieur"],
+        [/\btié\b/gi, "dieu"],
+        [/\bmon tié\b/gi, "mon dieu"],
+        [/\bb[ôo]lichinelle\b/gi, "polichinelle"],
+        [/\bpésaces\b/gi, "paysages"],
+        [/\bserfice\b/gi, "service"],
+        [/\bchipe\b/gi, "jupe"],
+        [/\bchipon\b/gi, "jupon"],
+        [/\bcrue\b/gi, "grue"],
+
+        // Pronoms et Verbes
+        [/\bche\b/gi, "je"],
+        [/\bché\b/gi, "j'ai"],
+        [/\bch(')?\b/gi, "j$1"], // ch' -> j'
+        [/\btemante\b/gi, "demande"],
+        [/\btemanté\b/gi, "demandé"],
+        [/\btit\b/gi, "dit"],
+        [/\bpésoin\b/gi, "besoin"],
+        [/\bfoilà\b/gi, "voilà"],
+
+        // Adjectifs, Adverbes et Prépositions
         [/\bpien\b/gi, "bien"],
+        [/\bpen\b/gi, "ben"],
+        [/\bbas\b/gi, "pas"],
+        [/\bti\b/gi, "du"],
+        [/\bte\b/gi, "de"], // Attention aux faux positifs, mais c'est spécifique à la pièce
+        [/\bt'\b/gi, "d'"],
+        [/\bdé\b/gi, "des"],
+        [/\bg[ôo]té\b/gi, "côté"],
+        [/\bteux\b/gi, "deux"],
+        [/\btoucement\b/gi, "doucement"],
+        [/\bpient[ôo]t\b/gi, "bientôt"],
+        [/\bine\b/gi, "une"],
+        [/\bg[ôo]rrect\b/gi, "correct"],
+        [/\bécal\b/gi, "égal"],
+        [/\btouteuse\b/gi, "douteuse"],
+        [/\bfrai\b/gi, "vrai"],
+        [/\bgondende\b/gi, "contente"],
+
+        // Autres corrections existantes et variations
         [/\bfoulez\b/gi, "voulez"],
         [/\bfous\b/gi, "vous"],
-        [/\bte\b/gi, "de"],
         [/\bpon\b/gi, "bon"],
         [/\bafec\b/gi, "avec"],
-        [/\bché\b/gi, "j'ai"],
         [/\bpour quoi\b/gi, "pourquoi"],
         [/\bché pas\b/gi, "j'ai pas"],
-        [/\btit\b/gi, "dit"],
-        [/\btites\b/gi, "dites"],
     ]
 };
 
@@ -211,6 +248,21 @@ function frenchPhonetic(text: string): string {
         .replace(/[^a-z]/g, " "); // Keep spaces for word concepts
 
     if (s.trim().length === 0) return "";
+
+    // 0. DIALECT CONSONANT NORMALIZATION (Universal rules for Alsatian, Picard, etc.)
+    // These map voiced/unvoiced consonant pairs to a single form
+    // This allows "pien" to match "bien", "tit" to match "dit", etc.
+    s = s
+        // b ↔ p (pien/bien, bas/pas, pon/bon)
+        .replace(/\bp/g, "b")
+        // d ↔ t at word start or in common patterns (tit/dit, te/de, ti/du)
+        .replace(/\bt(?=[eiaou])/g, "d")
+        // g ↔ c/k (gôté/côté, gondende/contente)
+        .replace(/\bg(?=[aou])/g, "c")
+        // j ↔ ch (che/je, chipe/jupe, chipon/jupon)
+        .replace(/\bch/g, "j")
+        // v ↔ f (frai/vrai, foilà/voilà, fous/vous)
+        .replace(/\bf(?=[aeiou])/g, "v");
 
     // 1. Phonetization (Word-aware)
     s = s.replace(/\bph/g, "f")

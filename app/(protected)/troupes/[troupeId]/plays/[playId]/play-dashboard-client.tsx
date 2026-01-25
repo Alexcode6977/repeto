@@ -261,16 +261,39 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 </div>
             </div>
 
-            {/* 2. Character Carousel */}
+            {/* 2. Mon Personnage (for non-admins with assigned character) */}
+            {!isAdmin && myCharacters.length > 0 && (
+                <Link href={`/troupes/${troupeId}/plays/${play.id}/my-character`} className="block shrink-0">
+                    <Card className="p-4 bg-primary/10 hover:bg-primary/20 border-primary/20 rounded-3xl cursor-pointer transition-all active:scale-98">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-primary/30">
+                                {myCharacters[0].name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-[10px] text-primary/60 uppercase font-bold tracking-wider">Mon Personnage</p>
+                                <h3 className="text-lg font-bold text-primary">{myCharacters[0].name}</h3>
+                                <p className="text-xs text-muted-foreground">Feedbacks, stats, enregistrement...</p>
+                            </div>
+                            <div className="text-primary/40">→</div>
+                        </div>
+                    </Card>
+                </Link>
+            )}
+
+            {/* 3. Autres Personnages Carousel */}
             <div className="shrink-0 space-y-3">
                 <div className="flex items-center justify-between px-1">
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Personnages</h3>
-                    <span className="text-xs text-muted-foreground">{allCharacters.length} rôles</span>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                        {isAdmin ? "Personnages" : "Autres personnages"}
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                        {isAdmin ? allCharacters.length : otherCharacters.length} rôles
+                    </span>
                 </div>
 
                 {/* Scrollable Container */}
                 <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x scrollbar-hide">
-                    {allCharacters.map((char: any) => {
+                    {(isAdmin ? allCharacters : otherCharacters).map((char: any) => {
                         const isMe = char.actor_id === userId;
                         const assignedTo = troupeMembers.find(m => m.user_id === char.actor_id)?.profiles?.first_name
                             || guests.find(g => g.id === char.guest_id)?.name
@@ -284,8 +307,6 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                                     rehearsalChars?.includes(char.character_name) ? "opacity-100" : "opacity-80 hover:opacity-100"
                                 )}
                                 onClick={() => {
-                                    // Quick select logic could go here if we wanted direct selection
-                                    // For now just visual or simple toggle
                                     if (rehearsalChars?.includes(char.character_name)) {
                                         setRehearsalChars(null);
                                     } else {
@@ -318,7 +339,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 </div>
             </div>
 
-            {/* 3. Action Grid (2x2) */}
+            {/* 4. Action Grid (2x2 for members, 2x2+enregistrer for admins) */}
             <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
 
                 {/* Lire */}
@@ -365,8 +386,6 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                             setViewMode("listen");
                             trigger('medium');
                         } else {
-                            // Fallback if no char assigned: just listen as first char or none
-                            // Or show alert
                             alert("Choisissez un personnage pour écouter.");
                         }
                     }}
@@ -380,8 +399,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                     </div>
                 </Card>
 
-                {/* Enregistrer */}
-                {myCharacters.length > 0 ? (
+                {/* Enregistrer - ONLY for Admin */}
+                {isAdmin && (
                     <Link href={`/troupes/${troupeId}/plays/${play.id}/record`} className="contents">
                         <Card
                             className="border-0 bg-red-500/10 hover:bg-red-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
@@ -396,27 +415,22 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                             </div>
                         </Card>
                     </Link>
-                ) : (
-                    <Card className="border-0 bg-muted/5 flex flex-col items-center justify-center gap-2 p-4 text-center rounded-3xl opacity-50">
-                        <Mic className="w-6 h-6 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">Enregistrement réservé aux acteurs</p>
-                    </Card>
                 )}
 
                 {/* Répéter à distance (VISIO) */}
                 <Card
-                    className="col-span-2 border-0 bg-violet-600 hover:bg-violet-700 active:scale-95 transition-all cursor-pointer flex flex-row items-center justify-center gap-4 p-4 text-center rounded-3xl shadow-lg shadow-violet-500/20"
+                    className="border-0 bg-violet-500/10 hover:bg-violet-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
                     onClick={() => {
-                        trigger('heavy');
+                        trigger('medium');
                         router.push(`/troupes/${troupeId}/plays/${play.id}/visio`);
                     }}
                 >
-                    <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white">
-                        <Video className="w-5 h-5 fill-current" />
+                    <div className="w-12 h-12 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400">
+                        <Video className="w-6 h-6" />
                     </div>
-                    <div className="text-left">
-                        <h3 className="font-bold text-white text-lg leading-none mb-1">Répéter à distance</h3>
-                        <p className="text-[10px] text-white/80 uppercase font-bold tracking-wider">Lancer une Visio</p>
+                    <div>
+                        <h3 className="font-bold text-violet-400 text-lg">À distance</h3>
+                        <p className="text-[10px] text-violet-400/60 uppercase font-bold tracking-wider">Visio</p>
                     </div>
                 </Card>
             </div>

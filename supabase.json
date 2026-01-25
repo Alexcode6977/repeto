@@ -369,6 +369,15 @@
         "is_primary_key": ""
     },
     {
+        "table_name": "play_scenes",
+        "column_name": "summary",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
         "table_name": "play_voice_config",
         "column_name": "id",
         "data_type": "uuid",
@@ -855,6 +864,240 @@
         "is_primary_key": ""
     },
     {
+        "table_name": "rehearsal_feedbacks",
+        "column_name": "type",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "'feedback'::text",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "session_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "script_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "line_index",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "line_text",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "character_name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "error_type",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_line_errors",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": "gen_random_uuid()",
+        "is_primary_key": "PRIMARY KEY"
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "user_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "script_id",
+        "data_type": "uuid",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "script_title",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "character_name",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "start_time",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "end_time",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "NO",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "duration_seconds",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "lines_total",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "lines_rehearsed",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "completion_percentage",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "mode",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "lines_validated_first_try",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "lines_wrong",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "rehearsal_sessions",
+        "column_name": "lines_skipped",
+        "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "0",
+        "is_primary_key": ""
+    },
+    {
         "table_name": "scene_characters",
         "column_name": "scene_id",
         "data_type": "uuid",
@@ -978,6 +1221,24 @@
         "character_maximum_length": null,
         "is_nullable": "YES",
         "column_default": "now()",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "session_plans",
+        "column_name": "status",
+        "data_type": "text",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": "'draft'::text",
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "session_plans",
+        "column_name": "published_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
         "is_primary_key": ""
     },
     {

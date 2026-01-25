@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 import { BrowserVoiceConfig } from "./browser-voice-config";
-import { saveSessionStats } from "@/app/actions/stats"; // [NEW] Stats Action
+import { saveSessionStats, saveLineErrors, LineErrorData } from "@/app/actions/stats"; // Stats Actions
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -408,13 +408,33 @@ export function RehearsalMode({
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
     const [pendingExit, setPendingExit] = useState(false);
-    const hasSavedStats = useRef(false); // [NEW] Prevent duplicate saves
+    const hasSavedStats = useRef(false); // Prevent duplicate saves
+    const lineErrorsRef = useRef<LineErrorData[]>([]); // Track line errors during session
+
+    // Detailed metrics tracking
+    const sessionMetricsRef = useRef({
+        linesValidatedFirstTry: 0,
+        linesWrong: 0,
+        linesSkipped: 0,
+        linesValidatedTotal: 0
+    });
+
+    const [sessionStatsForRecap, setSessionStatsForRecap] = useState<{
+        durationSeconds: number;
+        linesRehearsed: number;
+        completionPercentage: number;
+        linesValidatedFirstTry: number;
+        linesWrong: number;
+        linesSkipped: number;
+        firstTryRate: number;
+    } | null>(null);
 
     // Animation states for success/error feedback
     const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
     const [showErrorAnimation, setShowErrorAnimation] = useState(false);
     const prevLineIndex = useRef(currentLineIndex);
     const prevStatus = useRef(status);
+    const hasErrorOnCurrentLineRef = useRef(false); // Track if current line had an error (for first-try logic)
 
     // Refs for auto-scroll
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -459,7 +479,7 @@ export function RehearsalMode({
                     break;
                 case "ArrowRight":
                     e.preventDefault();
-                    next();
+                    handleManualNext();
                     break;
                 case "ArrowLeft":
                     e.preventDefault();
@@ -474,7 +494,7 @@ export function RehearsalMode({
 
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [hasStarted, showFeedbackModal, showUpgradeModal, pendingExit, togglePause, next, previous, retry]);
+    }, [hasStarted, showFeedbackModal, showUpgradeModal, pendingExit, togglePause, next, previous, retry, status, feedback]); // Added status/feedback deps via handleManualNext closure risk (or ideally refs)
 
     // Current scene detection
     const currentScene = script.scenes?.find((scene, idx) => {
@@ -485,22 +505,70 @@ export function RehearsalMode({
     // Next line preview
     const nextLine = script.lines[currentLineIndex + 1];
 
-    // Detect success/error for animations
+    // Detect success/error for animations AND track metrics
+    // Detect success/error for animations (Purely visual)
     useEffect(() => {
-        // Success: line advanced
-        if (currentLineIndex > prevLineIndex.current && prevStatus.current === "listening_user") {
+        if (currentLineIndex > prevLineIndex.current && (prevStatus.current === "listening_user" || prevStatus.current === "evaluating")) {
             setShowSuccessAnimation(true);
             setTimeout(() => setShowSuccessAnimation(false), 800);
         }
         prevLineIndex.current = currentLineIndex;
     }, [currentLineIndex]);
 
+    // RELIABLE STATS TRACKING: Use feedback state from the hook
+    useEffect(() => {
+        if (feedback === "correct") {
+            sessionMetricsRef.current.linesValidatedTotal++;
+
+            // First try logic: Only if no error occurred on this line
+            if (!hasErrorOnCurrentLineRef.current) {
+                sessionMetricsRef.current.linesValidatedFirstTry++;
+            }
+        }
+    }, [feedback]);
+
+    // Reset error flag when line changes
+    useEffect(() => {
+        hasErrorOnCurrentLineRef.current = false;
+    }, [currentLineIndex]);
+
+    // Wrapped Next function to track Manual Skips
+    const handleManualNext = () => {
+        // If we are listening to user and they skip (and haven't validated yet), it's a "Skip"
+        // We check feedback !== "correct" to avoid counting auto-advance as skip if user clicks fast
+        if (status === "listening_user" && feedback !== "correct") {
+            sessionMetricsRef.current.linesSkipped++;
+            trackLineError(currentLineIndex, 'skip');
+        }
+        next();
+    };
+
     useEffect(() => {
         // Error: status changed to error
         if (status === "error" && prevStatus.current !== "error") {
             setShowErrorAnimation(true);
             setTimeout(() => setShowErrorAnimation(false), 600);
+
+            // Track wrong answer
+            sessionMetricsRef.current.linesWrong++;
+            hasErrorOnCurrentLineRef.current = true; // Mark this line as having an error
         }
+
+        // If we recovered from error (retry succeeded), track the validated line
+        if (prevStatus.current === "error" && status !== "error" && status !== "listening_user") {
+            // This means they retried and succeeded - counts as validated but not first try
+            sessionMetricsRef.current.linesValidatedTotal++;
+            // Note: We don't increment firstTry because hasErrorOnCurrentLineRef is likely true (or we just rely on the other effect not running if logic is separate)
+            // Wait, if status goes error -> setup -> listening... the other effect handles validation.
+            // But if we go error -> next (skip?), we handle it.
+            // Actually, the main success effect handles "moving forward".
+            // This block here (lines 533-536) seems redundant or potentially double-counting if the main effect also fires?
+
+            // Let's REMOVE this block to avoid double counting. 
+            // The main effect (currentLineIndex change) handles "moving to next line".
+            // If we are just recovering from error to "listening", we haven't validated yet.
+        }
+
         prevStatus.current = status;
     }, [status]);
 
@@ -517,6 +585,12 @@ export function RehearsalMode({
             ? Math.round((currentLineIndex / script.lines.length) * 100)
             : 0;
 
+        const metrics = sessionMetricsRef.current;
+        const totalValidated = metrics.linesValidatedTotal;
+        const firstTryRate = totalValidated > 0
+            ? Math.round((metrics.linesValidatedFirstTry / totalValidated) * 100)
+            : 0;
+
         return {
             scriptTitle: script.title || "Script sans titre",
             characterNames: userCharacters,
@@ -524,6 +598,12 @@ export function RehearsalMode({
             durationSeconds,
             linesRehearsed: currentLineIndex,
             completionPercentage,
+            // Add detailed stats
+            linesValidatedFirstTry: metrics.linesValidatedFirstTry,
+            linesWrong: metrics.linesWrong,
+            linesSkipped: metrics.linesSkipped,
+            linesValidatedTotal: metrics.linesValidatedTotal,
+            firstTryRate,
             settings: {
                 textMode: lineVisibility,
                 rehearsalMode,
@@ -533,8 +613,28 @@ export function RehearsalMode({
         };
     };
 
+    // Track a line error (skip, timeout, mismatch)
+    const trackLineError = (lineIndex: number, errorType: 'skip' | 'timeout' | 'mismatch') => {
+        const line = script.lines[lineIndex];
+        if (!line) return;
 
-    // [NEW] Helper to save stats
+        lineErrorsRef.current.push({
+            scriptId: (script as any).id,
+            lineIndex,
+            lineText: line.text?.substring(0, 200) || '', // Truncate for storage
+            characterName: line.character,
+            errorType
+        });
+
+        // Increment skip metric
+        if (errorType === 'skip') {
+            sessionMetricsRef.current.linesSkipped++;
+        }
+
+        console.log(`[LineError] Tracked ${errorType} at line ${lineIndex}`);
+    };
+
+    // Helper to save stats and line errors
     const persistSessionStats = async () => {
         if (hasSavedStats.current || isDemo) return;
         // Only save if meaningful duration (> 10s) or lines (> 0)
@@ -544,9 +644,28 @@ export function RehearsalMode({
         hasSavedStats.current = true;
         console.log("[Stats] Saving session...", stats);
 
+        const metrics = sessionMetricsRef.current;
+        const firstTryRate = metrics.linesValidatedTotal > 0
+            ? Math.round((metrics.linesValidatedFirstTry / metrics.linesValidatedTotal) * 100)
+            : 0;
+
+        // Store stats for recap modal
+        setSessionStatsForRecap({
+            durationSeconds: stats.durationSeconds,
+            linesRehearsed: stats.linesRehearsed,
+            completionPercentage: stats.completionPercentage,
+            linesValidatedFirstTry: metrics.linesValidatedFirstTry,
+            linesWrong: metrics.linesWrong,
+            linesSkipped: metrics.linesSkipped,
+            firstTryRate
+        });
+
         try {
+            // Use playId if available, fallback to scriptId or script.id
+            const actualScriptId = playId || scriptId || (script as any).id;
+
             await saveSessionStats({
-                scriptId: (script as any).id, // ParsedScript sometimes attached id in actions
+                scriptId: actualScriptId,
                 scriptTitle: script.title || "Untitled",
                 characterName: (userCharacters || []).join(", "),
                 startTime: new Date(sessionStartRef.current),
@@ -555,8 +674,23 @@ export function RehearsalMode({
                 linesTotal: script.lines.length,
                 linesRehearsed: stats.linesRehearsed,
                 completionPercentage: stats.completionPercentage,
-                mode: rehearsalMode
+                mode: rehearsalMode,
+                // Detailed metrics
+                linesValidatedFirstTry: metrics.linesValidatedFirstTry,
+                linesWrong: metrics.linesWrong,
+                linesSkipped: metrics.linesSkipped
             });
+
+            // Save line errors if any
+            if (lineErrorsRef.current.length > 0) {
+                console.log("[Stats] Saving", lineErrorsRef.current.length, "line errors...");
+                // Update line errors with correct scriptId
+                lineErrorsRef.current = lineErrorsRef.current.map(e => ({
+                    ...e,
+                    scriptId: actualScriptId
+                }));
+                await saveLineErrors(lineErrorsRef.current);
+            }
         } catch (e) {
             console.error("[Stats] Failed to save", e);
         }
@@ -1472,7 +1606,7 @@ export function RehearsalMode({
 
                         {/* Skip Button */}
                         <button
-                            onClick={next}
+                            onClick={handleManualNext}
                             className="p-3 md:p-4 rounded-full bg-card border border-border text-foreground hover:bg-muted active:scale-90 transition-all flex flex-col items-center gap-1 group"
                         >
                             <SkipForward className="w-5 h-5 md:w-6 md:h-6 group-active:translate-x-1 transition-transform" />
@@ -1484,6 +1618,116 @@ export function RehearsalMode({
 
 
 
+            {/* Stats Recap Modal */}
+            {sessionStatsForRecap && !showFeedbackModal && !showUpgradeModal && (
+                <Portal>
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                        <div className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                            {/* Header */}
+                            <div className="bg-gradient-to-r from-primary/20 to-violet-500/20 p-6 text-center">
+                                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center ring-4 ring-primary/10">
+                                    <Check className="w-8 h-8 text-primary" />
+                                </div>
+                                <h3 className="text-xl font-bold text-foreground">Répétition terminée !</h3>
+                            </div>
+
+                            {/* Stats Grid */}
+                            <div className="p-5 space-y-3">
+                                {/* Top stats row */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="bg-muted/30 rounded-2xl p-4 text-center">
+                                        <p className="text-2xl font-bold text-foreground">
+                                            {Math.floor(sessionStatsForRecap.durationSeconds / 60)}
+                                            <span className="text-sm font-normal text-muted-foreground">min</span>
+                                        </p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Durée</p>
+                                    </div>
+                                    <div className="bg-muted/30 rounded-2xl p-4 text-center">
+                                        <p className="text-2xl font-bold text-foreground">{sessionStatsForRecap.linesRehearsed}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Répliques</p>
+                                    </div>
+                                </div>
+
+                                {/* Detailed stats */}
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="bg-teal-500/10 rounded-xl p-3 text-center">
+                                        <p className="text-xl font-bold text-teal-400">
+                                            {sessionStatsForRecap.linesValidatedFirstTry}
+                                        </p>
+                                        <p className="text-[9px] text-teal-400/70 uppercase font-bold">1er coup</p>
+                                    </div>
+                                    <div className={cn(
+                                        "rounded-xl p-3 text-center",
+                                        sessionStatsForRecap.linesWrong > 0 ? "bg-red-500/10" : "bg-muted/20"
+                                    )}>
+                                        <p className={cn(
+                                            "text-xl font-bold",
+                                            sessionStatsForRecap.linesWrong > 0 ? "text-red-400" : "text-muted-foreground"
+                                        )}>
+                                            {sessionStatsForRecap.linesWrong}
+                                        </p>
+                                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Erreurs</p>
+                                    </div>
+                                    <div className={cn(
+                                        "rounded-xl p-3 text-center",
+                                        sessionStatsForRecap.linesSkipped > 0 ? "bg-orange-500/10" : "bg-muted/20"
+                                    )}>
+                                        <p className={cn(
+                                            "text-xl font-bold",
+                                            sessionStatsForRecap.linesSkipped > 0 ? "text-orange-400" : "text-muted-foreground"
+                                        )}>
+                                            {sessionStatsForRecap.linesSkipped}
+                                        </p>
+                                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Passées</p>
+                                    </div>
+                                </div>
+
+                                {/* First try rate banner */}
+                                <div className="bg-primary/10 rounded-2xl p-4 text-center">
+                                    <p className="text-3xl font-bold text-primary">{sessionStatsForRecap.firstTryRate}%</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Réussite du 1er coup</p>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="p-5 pt-0 space-y-3">
+                                <Button
+                                    onClick={() => {
+                                        setSessionStatsForRecap(null);
+                                        if (!isDemo) {
+                                            setShowFeedbackModal(true);
+                                        } else {
+                                            setShowUpgradeModal(true);
+                                        }
+                                    }}
+                                    className="w-full bg-primary hover:bg-primary/90 text-foreground font-bold py-3 rounded-xl"
+                                >
+                                    Continuer
+                                </Button>
+                                {sessionStatsForRecap.linesSkipped > 0 && troupeId && playId && (
+                                    <a
+                                        href={`/troupes/${troupeId}/plays/${playId}/my-character`}
+                                        className="block w-full text-center text-xs text-orange-400 hover:text-orange-300 transition-colors py-2 font-medium"
+                                    >
+                                        Voir les répliques difficiles →
+                                    </a>
+                                )}
+                                <button
+                                    onClick={() => {
+                                        setSessionStatsForRecap(null);
+                                        releaseWakeLock();
+                                        onExit();
+                                    }}
+                                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
+                                >
+                                    Passer le feedback
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </Portal>
+            )}
+
             {/* Feedback Modal */}
             < FeedbackModal
                 isOpen={showFeedbackModal}
@@ -1494,3 +1738,4 @@ export function RehearsalMode({
         </>
     );
 }
+

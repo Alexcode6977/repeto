@@ -311,10 +311,88 @@ export async function getLastFeedbacksForCharacters(characterIds: string[]) {
     return latest;
 }
 
+
+
 /**
- * Get personalized preparation details for a session.
- * specific to the current user's characters.
+ * DEBUG HELPER: Diagnose why the RPC returned empty
  */
+async function diagnoseEmptyPrep(supabase: any, sessionId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [{ playTitle: "DEBUG: Not Logged In", characterName: "N/A", scenes: [] }];
+
+    // 1. Get Troupe ID from Event
+    const { data: event } = await supabase.from('events').select('troupe_id').eq('id', sessionId).single();
+    if (!event) return [{ playTitle: "DEBUG: Event Not Found", characterName: "N/A", scenes: [] }];
+
+    // 2. Check Play Characters for this User
+    // We need to find plays in this troupe where the user is an actor
+    const { data: characters } = await supabase
+        .from('play_characters')
+        .select(`
+            id, 
+            name, 
+            play_id, 
+            plays!inner(troupe_id, title)
+        `)
+        .eq('actor_id', user.id)
+        .eq('plays.troupe_id', event.troupe_id);
+
+    if (!characters || characters.length === 0) {
+        return [{
+            playTitle: "DEBUG: Casting Issue",
+            characterName: "No Character Found",
+            scenes: [{ title: `User ${user.email} is not assigned to any character in this troupe's plays. Check Casting.` }]
+        }];
+    }
+
+    // 3. Check Session Plan
+    const { data: plan } = await supabase.from('session_plans').select('selected_scenes').eq('event_id', sessionId).single();
+
+    if (!plan || !plan.selected_scenes || plan.selected_scenes.length === 0) {
+        return [{
+            playTitle: "DEBUG: Plan Issue",
+            characterName: "No Scenes Selected",
+            scenes: [{ title: "The session plan is empty. No scenes selected." }]
+        }];
+    }
+
+    const selectedIds = plan.selected_scenes.map((s: any) => typeof s === 'string' ? s : s.id);
+
+    // 4. Check if Characters are in Scenes
+    const debugItems = [];
+    for (const char of characters) {
+        // Find scenes this character is in
+        const { data: charScenes } = await supabase
+            .from('scene_characters')
+            .select('scene_id')
+            .eq('character_id', char.id);
+
+        const charSceneIds = charScenes?.map((cs: any) => cs.scene_id) || [];
+
+        // Intersect
+        const matching = charSceneIds.filter((id: any) => selectedIds.includes(id));
+
+        if (matching.length === 0) {
+            debugItems.push({
+                playTitle: `DEBUG: ${char.plays.title}`,
+                characterName: char.name,
+                scenes: [{
+                    title: "Character Not In Selected Scenes",
+                    summary: `Character ID ${char.id} is in scenes [${charSceneIds.length} total], but none match the plan's selection [${selectedIds.length} total].`
+                }]
+            });
+        }
+    }
+
+    if (debugItems.length > 0) return debugItems;
+
+    return [{
+        playTitle: "DEBUG: Unknown",
+        characterName: "System",
+        scenes: [{ title: "Everything looks correct but RPC returned empty. Check RPC logs." }]
+    }];
+}
+
 export async function getUserPreparationDetails(sessionId: string) {
     console.log("--> getUserPreparationDetails (RPC) START", sessionId);
     const supabase = await createClient();
@@ -326,16 +404,18 @@ export async function getUserPreparationDetails(sessionId: string) {
 
     if (error) {
         console.error("Error fetching preparation details (RPC):", error);
-        return [];
+        return [{
+            playTitle: "RPC ERROR",
+            characterName: "System",
+            scenes: [{ title: error.message, summary: error.details }]
+        }];
     }
 
     if (!data || data.length === 0) {
-        console.log("RPC returned empty data");
-        return [];
+        console.log("RPC returned empty data, running DIAGNOSTIC...");
+        return await diagnoseEmptyPrep(supabase, sessionId);
     }
 
-    // Sort scenes within each group (optional, if order matters)
-    // The RPC returns groups, we can just return data directly as it matches the structure.
     console.log("RPC Data received:", data.length, "groups");
     return data;
 }

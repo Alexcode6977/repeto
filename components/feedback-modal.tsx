@@ -15,6 +15,10 @@ interface FeedbackModalProps {
         durationSeconds: number;
         linesRehearsed: number;
         completionPercentage: number;
+        linesValidatedFirstTry?: number;
+        linesWrong?: number;
+        linesSkipped?: number;
+        firstTryRate?: number;
         settings: Record<string, unknown>;
     };
 }
@@ -99,17 +103,51 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                         Ton avis m'aide à m'améliorer !
                     </p>
 
-                    {/* Session Summary */}
-                    <div className="mt-4 flex justify-center gap-4 text-xs text-muted-foreground">
-                        <span>{sessionData.scriptTitle}</span>
-                        <span>•</span>
-                        <span className="text-yellow-400 font-medium">
-                            {Array.isArray(sessionData.characterName)
-                                ? sessionData.characterName.join(", ")
-                                : sessionData.characterName}
-                        </span>
-                        <span>•</span>
-                        <span>{formatDuration(sessionData.durationSeconds)}</span>
+                    {/* Session Summary - Detailed Dashboard */}
+                    <div className="mt-4 w-full bg-card/50 rounded-xl p-4 border border-white/5 space-y-4">
+                        <div className="flex justify-between items-center text-xs text-muted-foreground mb-2">
+                            <span>{sessionData.scriptTitle}</span>
+                            <span>{formatDuration(sessionData.durationSeconds)}</span>
+                        </div>
+
+                        {/* Efficiency Score */}
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="text-left">
+                                <p className="text-sm text-muted-foreground">Efficacité</p>
+                                <p className="text-2xl font-bold text-green-400">
+                                    {sessionData.firstTryRate || 0}%
+                                    <span className="text-xs font-normal text-muted-foreground ml-1">du 1er coup</span>
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-muted-foreground">Lignes vues</p>
+                                <p className="text-2xl font-bold text-white">
+                                    {sessionData.linesRehearsed}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Detailed Metrics Grid */}
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-green-500/10 rounded-lg p-2 text-center border border-green-500/20">
+                                <span className="block text-lg font-bold text-green-400">
+                                    {sessionData.linesValidatedFirstTry || 0}
+                                </span>
+                                <span className="text-[10px] uppercase text-green-400/70 font-bold">Validées</span>
+                            </div>
+                            <div className="bg-red-500/10 rounded-lg p-2 text-center border border-red-500/20">
+                                <span className="block text-lg font-bold text-red-400">
+                                    {sessionData.linesWrong || 0}
+                                </span>
+                                <span className="text-[10px] uppercase text-red-400/70 font-bold">Erreurs</span>
+                            </div>
+                            <div className="bg-blue-500/10 rounded-lg p-2 text-center border border-blue-500/20">
+                                <span className="block text-lg font-bold text-blue-400">
+                                    {sessionData.linesSkipped || 0}
+                                </span>
+                                <span className="text-[10px] uppercase text-blue-400/70 font-bold">Passées</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -606,6 +606,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         isPaused: status === "paused",
         previous,
         initializeAudio,
-        isPlayingRecording
+        isPlayingRecording,
+        retryCount: retryCountRef.current
     };
 }

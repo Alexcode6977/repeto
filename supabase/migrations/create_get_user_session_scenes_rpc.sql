@@ -87,3 +87,7 @@ begin
   return coalesce(v_result, '[]'::json);
 end;
 $$ language plpgsql;
+
+-- Grant permissions (CRITICAL FIX)
+grant execute on function get_user_session_scenes(uuid) to authenticated;
+grant execute on function get_user_session_scenes(uuid) to service_role;
