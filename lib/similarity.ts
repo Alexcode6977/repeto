@@ -2,7 +2,7 @@
  * Play-specific misinterpretation fixes
  */
 const PLAY_FIXES: Record<string, [RegExp, string][]> = {
-    "ON PURGE BÉBÉ": [
+    "ON PURGE BEBE": [
         [/les hybrides/g, "les hébrides"],
         [/\bbene\b/g, "ben"],
         [/\bbain\b/g, "ben"],
@@ -16,10 +16,11 @@ const PLAY_FIXES: Record<string, [RegExp, string][]> = {
         [/\bchoux\b/g, "chouilloux"],
         [/chou ill?ou/g, "chouilloux"],
     ],
-    "FEU LA MÈRE DE MADAME": [
+    "FEU LA MERE DE MADAME": [
         // Titres et Noms
         [/\bm[âa]t[âa]me\b/gi, "madame"],
         [/\bmatame\b/gi, "madame"],
+        [/\bm[aâ]t[aâ]m\b/gi, "madame"],
         [/\bmoussié\b/gi, "monsieur"],
         [/\btié\b/gi, "dieu"],
         [/\bmon tié\b/gi, "mon dieu"],
@@ -106,8 +107,10 @@ export function cleanTranscript(text: string, playTitle?: string): string {
 
     // Apply play-specific fixes if title matches
     if (playTitle) {
+        // NORMALIZE title: Uppercase + No Accents to match keys (e.g. "FEU LA MERE DE MADAME")
         const normalizedTitle = playTitle.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
         for (const [title, fixes] of Object.entries(PLAY_FIXES)) {
+            // Check if strict inclusion holds (keys are already uppercase/accent-free)
             if (normalizedTitle.includes(title)) {
                 for (const [pattern, replacement] of fixes) {
                     t = t.replace(pattern, replacement);
@@ -249,20 +252,28 @@ function frenchPhonetic(text: string): string {
 
     if (s.trim().length === 0) return "";
 
-    // 0. DIALECT CONSONANT NORMALIZATION (Universal rules for Alsatian, Picard, etc.)
-    // These map voiced/unvoiced consonant pairs to a single form
-    // This allows "pien" to match "bien", "tit" to match "dit", etc.
+    // 0. DIALECT CONSONANT NORMALIZATION (Universal rules for Alsatian/Germanic accents)
+    // We are aggressive here because this function is only used as a fallback
+    // when strict equality or standard similarity fails.
     s = s
-        // b ↔ p (pien/bien, bas/pas, pon/bon)
-        .replace(/\bp/g, "b")
-        // d ↔ t at word start or in common patterns (tit/dit, te/de, ti/du)
-        .replace(/\bt(?=[eiaou])/g, "d")
-        // g ↔ c/k (gôté/côté, gondende/contente)
-        .replace(/\bg(?=[aou])/g, "c")
-        // j ↔ ch (che/je, chipe/jupe, chipon/jupon)
+        // b ↔ p (pien/bien, bas/pas, pon/bon, rapière/rabiere)
+        .replace(/p/g, "b")
+        // d ↔ t (temante/demande, tit/dit, te/de, gondende/contente)
+        .replace(/t/g, "d")
+        // g ↔ c (k) (gôté/côté, gondende/contente, écal/égal)
+        // We normalize to 'k' equivalent sound (which is often mapped to 'k' later, but here we map g->c or similar)
+        // Actually, later we map c->k. Let's map g->k if hard, but g varies.
+        // Simple swap: specific "g" hard sound to "k" sound replacement logic is complex.
+        // Let's stick to the mapped pairs: Hard G <-> K/C.
+        .replace(/g(?=[aou])/g, "c")
+        .replace(/gu/g, "c") // guerre -> cuerre (match k)
+
+        // j ↔ ch (che/je, chipe/jupe) - but allow 'ch' to be normalized later
         .replace(/\bch/g, "j")
-        // v ↔ f (frai/vrai, foilà/voilà, fous/vous)
-        .replace(/\bf(?=[aeiou])/g, "v");
+        .replace(/\bsh/g, "j") // shouyo -> chouilloux -> jouilloux
+
+        // v ↔ f (frai/vrai, foilà/voilà)
+        .replace(/f/g, "v");
 
     // 1. Phonetization (Word-aware)
     s = s.replace(/\bph/g, "f")

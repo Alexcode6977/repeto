@@ -14,7 +14,7 @@ export interface UseSpeechReturn {
     isListening: boolean;
     transcript: string;
     listeningError: string | null;
-    listen: (estimatedDurationMs?: number, expectedText?: string) => Promise<string>;
+    listen: (estimatedDurationMs?: number, expectedText?: string, playTitle?: string) => Promise<string>;
     stop: () => void;
     speak: (text: string, voice?: SpeechSynthesisVoice) => Promise<void>;
     pause: () => void;
@@ -324,7 +324,7 @@ export function useSpeech(): UseSpeechReturn {
     // Track active recognition promise to prevent double-starts and race conditions
     const activeRecognitionRef = useRef<{ resolve: (s: string) => void; reject: (r: any) => void } | null>(null);
 
-    const listen = useCallback((estimatedDurationMs?: number, expectedText?: string): Promise<string> => {
+    const listen = useCallback((estimatedDurationMs?: number, expectedText?: string, playTitle?: string): Promise<string> => {
         return new Promise((resolve, reject) => {
             if (typeof window === "undefined" || !recognitionRef.current) {
                 reject("Speech recognition not supported");
@@ -425,7 +425,8 @@ export function useSpeech(): UseSpeechReturn {
                 // --- EARLY EXIT CHECK ---
                 // If we know what to expect, check if we have a match already.
                 if (expectedText && combinedTranscript.length > 5) {
-                    const similarity = calculateSimilarity(combinedTranscript, expectedText);
+                    // PASS PLAY CONTEXT for improved matching (phonetic/accents)
+                    const similarity = calculateSimilarity(combinedTranscript, expectedText, playTitle);
                     // 95% similarity prevents premature cut-off (user request)
                     if (similarity > 0.95) {
                         console.log("[Speech] Early Exit triggered! Match:", similarity.toFixed(2));

@@ -507,8 +507,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                     const spokenText = stripStageDirections(line.text);
                     const estimatedDuration = Math.max(spokenText.length * 70, 2000);
 
-                    // FIX: Pass the expected text for EARLY EXIT
-                    const transcript = await listen(estimatedDuration, spokenText);
+                    // FIX: Pass the expected text for EARLY EXIT and Play Context for phonetic fixes
+                    const transcript = await listen(estimatedDuration, spokenText, script.title);
                     if (!isMountedRef.current) return;
 
                     setLastTranscript(transcript);
