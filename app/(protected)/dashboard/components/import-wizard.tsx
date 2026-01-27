@@ -24,7 +24,7 @@ const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 interface ImportWizardProps {
     showImportGuide: boolean;
     setShowImportGuide: (show: boolean) => void;
-    userTier: "free" | "solo_pro" | "troupe";
+    userTier: "free" | "solo_pro" | "troupe" | "troupe_xl";
     userEmail: string | null;
     onImportComplete: () => Promise<void>;
     onError: (msg: string) => void;

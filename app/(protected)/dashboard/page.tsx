@@ -47,7 +47,7 @@ export default function Home() {
   const [userName, setUserName] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
-  const [userTier, setUserTier] = useState<"free" | "solo_pro" | "troupe">("free");
+  const [userTier, setUserTier] = useState<"free" | "solo_pro" | "troupe" | "troupe_xl">("free");
 
   const [scriptsList, setScriptsList] = useState<ScriptMetadata[]>([]);
   const [isLoading, setIsLoading] = useState(true);
