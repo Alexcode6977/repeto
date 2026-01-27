@@ -150,7 +150,7 @@ export async function importScriptWithAI(formData: FormData): Promise<ParsedScri
 /**
  * Get user's subscription tier for client-side UI decisions
  */
-export async function getUserTierAction(): Promise<"free" | "solo_pro" | "troupe"> {
+export async function getUserTierAction(): Promise<"free" | "solo_pro" | "troupe" | "troupe_xl"> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
