@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe, STRIPE_PRICES } from '@/lib/stripe';
+import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
@@ -15,11 +15,9 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { priceId, troupeId, troupeName } = body;
+        const { priceId, troupeId, troupeName, troupeTier } = body;
 
-        // Validate price ID
-        const validPriceIds = [STRIPE_PRICES.SOLO_PRO_MONTHLY, STRIPE_PRICES.TROUPE_MONTHLY];
-        if (!validPriceIds.includes(priceId)) {
+        if (!priceId) {
             return NextResponse.json(
                 { error: 'Prix invalide.' },
                 { status: 400 }
@@ -56,7 +54,7 @@ export async function POST(request: NextRequest) {
         const origin = request.headers.get('origin') || 'http://localhost:3000';
 
         // For troupe creation, redirect to a special handler
-        const isTroupeCreation = priceId === STRIPE_PRICES.TROUPE_MONTHLY && troupeName;
+        const isTroupeCreation = troupeName && (troupeTier === 'troupe' || troupeTier === 'troupe_xl');
 
         const successUrl = isTroupeCreation
             ? `${origin}/api/stripe/troupe-success?session_id={CHECKOUT_SESSION_ID}`
@@ -86,13 +84,15 @@ export async function POST(request: NextRequest) {
             metadata: {
                 supabase_user_id: user.id,
                 troupe_id: troupeId || '',
-                troupe_name: troupeName || '', // Store troupe name for creation
+                troupe_name: troupeName || '',
+                troupe_tier: troupeTier || 'troupe', // Store tier for creation
             },
             subscription_data: {
                 metadata: {
                     supabase_user_id: user.id,
                     troupe_id: troupeId || '',
                     troupe_name: troupeName || '',
+                    troupe_tier: troupeTier || 'troupe',
                 },
             },
             billing_address_collection: 'auto',
@@ -107,4 +107,3 @@ export async function POST(request: NextRequest) {
         );
     }
 }
-

@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
 
         const userId = session.metadata?.supabase_user_id;
         const troupeName = session.metadata?.troupe_name;
+        const troupeTier = session.metadata?.troupe_tier || 'troupe'; // troupe or troupe_xl
         const subscriptionId = session.subscription as string;
 
         if (!userId || !troupeName) {
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
                 .insert({
                     id: userId,
                     email: email,
-                    subscription_tier: 'troupe',
+                    subscription_tier: troupeTier,
                     subscription_status: 'active',
                     stripe_customer_id: session.customer as string,
                     stripe_subscription_id: subscriptionId,
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
             await supabaseAdmin
                 .from('profiles')
                 .update({
-                    subscription_tier: 'troupe',
+                    subscription_tier: troupeTier,
                     subscription_status: 'active',
                     stripe_subscription_id: subscriptionId,
                 })
@@ -92,6 +93,7 @@ export async function GET(request: NextRequest) {
                 name: troupeName,
                 created_by: userId,
                 join_code: joinCode,
+                subscription_tier: troupeTier, // Store the tier on the troupe
             })
             .select('id')
             .single();

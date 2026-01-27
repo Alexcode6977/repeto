@@ -5,6 +5,12 @@ import { NextResponse } from 'next/server';
 export async function GET() {
     return NextResponse.json({
         solo_pro: process.env.STRIPE_SOLO_PRO_PRICE_ID || null,
+        troupe_monthly: process.env.STRIPE_TROUPE_PRICE_ID || null,
+        troupe_yearly: process.env.STRIPE_TROUPE_YEARLY_PRICE_ID || null,
+        troupe_xl_monthly: process.env.STRIPE_TROUPE_XL_PRICE_ID || null,
+        troupe_xl_yearly: process.env.STRIPE_TROUPE_XL_YEARLY_PRICE_ID || null,
+        // Legacy fallback
         troupe: process.env.STRIPE_TROUPE_PRICE_ID || null,
     });
 }
+

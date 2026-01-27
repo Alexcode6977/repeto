@@ -287,6 +287,25 @@ export async function approveJoinRequestAction(troupeId: string, requestId: stri
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    // Check member limit before approving
+    const { data: troupe } = await supabaseAdmin
+        .from('troupes')
+        .select('subscription_tier')
+        .eq('id', troupeId)
+        .single();
+
+    const { count: memberCount } = await supabaseAdmin
+        .from('troupe_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('troupe_id', troupeId);
+
+    const tier = troupe?.subscription_tier || 'troupe';
+    const maxMembers = tier === 'troupe_xl' ? 999 : 12;
+
+    if ((memberCount || 0) >= maxMembers) {
+        throw new Error(`MEMBER_LIMIT_REACHED:${maxMembers}`);
+    }
+
     // 1. Add to members
     const { error: memberError } = await supabaseAdmin
         .from('troupe_members')
