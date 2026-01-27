@@ -435,7 +435,6 @@ export function ListenModeTroupe({
                 </div>
             </div>
         );
-        );
     }
 
     // === PLAYBACK SCREEN ===
