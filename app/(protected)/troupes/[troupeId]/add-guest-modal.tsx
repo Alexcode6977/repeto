@@ -114,7 +114,7 @@ export function AddGuestModal({ troupeId }: { troupeId: string }) {
                             Plus tard
                         </Button>
                         <Button asChild className="bg-violet-500 hover:bg-violet-600">
-                            <Link href={`/troupes/${troupeId}/settings?upgrade=true`}>
+                            <Link href={`/troupes/${troupeId}/subscription?upgrade=xl`}>
                                 <Sparkles className="w-4 h-4 mr-2" />
                                 Passer à Troupe XL
                             </Link>
