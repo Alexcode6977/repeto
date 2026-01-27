@@ -41,11 +41,11 @@ export default async function SessionsPage({
                 )}
             </div>
 
-            {/* Mobile Nav Hub */}
-            <SessionsMobileChoices troupeId={troupeId} />
+            {/* Mobile Nav Hub - Admin Only */}
+            {isAdmin && <SessionsMobileChoices troupeId={troupeId} />}
 
             {/* Session List (The "Planifier" content) */}
-            <div id="planning-section" className="hidden md:block">
+            <div id="planning-section" className={isAdmin ? "hidden md:block" : "block"}>
                 <SessionListClient
                     sessions={sessions}
                     troupeId={troupeId}

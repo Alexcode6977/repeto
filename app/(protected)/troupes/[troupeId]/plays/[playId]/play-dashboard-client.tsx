@@ -343,65 +343,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 </div>
             </div>
 
-            {/* 4. Action Grid (2x2 for members, 2x2+enregistrer for admins) */}
-            <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
-
-                {/* Lire */}
-                <Card
-                    className="border-0 bg-green-500/10 hover:bg-green-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
-                    onClick={() => {
-                        startMode("reader");
-                        trigger('medium');
-                    }}
-                >
-                    <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
-                        <BookOpen className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-green-400 text-lg">Lire</h3>
-                        <p className="text-[10px] text-green-400/60 uppercase font-bold tracking-wider">Script complet</p>
-                    </div>
-                </Card>
-
-                {/* Répéter */}
-                <Card
-                    className="border-0 bg-primary/10 hover:bg-primary/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
-                    onClick={() => {
-                        startMode("rehearsal");
-                        trigger('medium');
-                    }}
-                >
-                    <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                        <Play className="w-6 h-6 ml-1 fill-current" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-primary text-lg">Répéter</h3>
-                        <p className="text-[10px] text-primary/60 uppercase font-bold tracking-wider">Mode Interactif</p>
-                    </div>
-                </Card>
-
-                {/* Écouter */}
-                <Card
-                    className="border-0 bg-teal-500/10 hover:bg-teal-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
-                    onClick={() => {
-                        const userChars = myCharacters.map((c: any) => c.character_name);
-                        if (userChars.length > 0) {
-                            setRehearsalChars(userChars);
-                            setViewMode("listen");
-                            trigger('medium');
-                        } else {
-                            alert("Choisissez un personnage pour écouter.");
-                        }
-                    }}
-                >
-                    <div className="w-12 h-12 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
-                        <Headphones className="w-6 h-6" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-teal-400 text-lg">Écouter</h3>
-                        <p className="text-[10px] text-teal-400/60 uppercase font-bold tracking-wider">Audio seul</p>
-                    </div>
-                </Card>
+            {/* 4. Secondary Actions Grid (Visio & Recording) */}
+            <div className="grid grid-cols-2 gap-3 flex-1 min-h-0 pb-32 md:pb-0">
 
                 {/* Enregistrer - ONLY for Admin */}
                 {isAdmin && (
@@ -437,6 +380,68 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         <p className="text-[10px] text-violet-400/60 uppercase font-bold tracking-wider">Visio</p>
                     </div>
                 </Card>
+            </div>
+
+            {/* PERMANENT STICKY FOOTER - PRIMARY ACTIONS */}
+            <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 z-[100] bg-gradient-to-t from-background via-background/95 to-transparent pt-8">
+                <div className="max-w-md mx-auto flex items-center gap-3">
+
+                    {/* LIRE (Always active) */}
+                    <button
+                        onClick={() => {
+                            startMode("reader");
+                            trigger('medium');
+                        }}
+                        className="flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl bg-card border border-border/50 shadow-lg active:scale-95 transition-all hover:bg-muted/50"
+                    >
+                        <BookOpen className="w-6 h-6 text-green-500" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Lire</span>
+                    </button>
+
+                    {/* ÉCOUTER */}
+                    <button
+                        onClick={() => {
+                            if (rehearsalChars && rehearsalChars.length > 0) {
+                                setViewMode("listen");
+                                trigger('medium');
+                            } else {
+                                alert("👆 Sélectionnez d'abord un personnage !");
+                                trigger('error');
+                            }
+                        }}
+                        className={cn(
+                            "flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border shadow-lg active:scale-95 transition-all",
+                            rehearsalChars && rehearsalChars.length > 0
+                                ? "bg-card border-teal-500/30 text-teal-500 hover:bg-teal-500/10"
+                                : "bg-card/50 border-border/30 text-muted-foreground/50 opacity-70"
+                        )}
+                    >
+                        <Headphones className="w-6 h-6" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Écouter</span>
+                    </button>
+
+                    {/* RÉPÉTER (Main CTA) */}
+                    <button
+                        onClick={() => {
+                            if (rehearsalChars && rehearsalChars.length > 0) {
+                                startMode("rehearsal");
+                                trigger('medium');
+                            } else {
+                                alert("👆 Sélectionnez d'abord un personnage !");
+                                trigger('error');
+                            }
+                        }}
+                        className={cn(
+                            "flex-[1.5] flex flex-col items-center justify-center gap-1 p-3 rounded-2xl shadow-xl active:scale-95 transition-all",
+                            rehearsalChars && rehearsalChars.length > 0
+                                ? "bg-primary text-primary-foreground shadow-primary/30 hover:bg-primary/90"
+                                : "bg-muted text-muted-foreground border border-border"
+                        )}
+                    >
+                        <Play className={cn("w-7 h-7 fill-current", !rehearsalChars && "opacity-50")} />
+                        <span className={cn("text-xs font-black uppercase tracking-widest", !rehearsalChars && "opacity-50")}>Répéter</span>
+                    </button>
+                </div>
             </div>
 
             {/* VIDEO OVERLAY - PERSISTENT */}

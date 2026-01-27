@@ -81,70 +81,62 @@ export function ScriptViewer({ script, onConfirm, forcedMode }: ScriptViewerProp
             </div>
 
             {selectedChars.length > 0 && (
-                <div className="flex justify-center pt-8 animate-in fade-in zoom-in duration-500 w-full">
-                    {forcedMode ? (
-                        // Single Button Mode
-                        <button
-                            onClick={() => onConfirm(selectedChars, forcedMode)}
-                            className={cn(
-                                "group relative flex items-center justify-center gap-6 px-12 py-6 rounded-[2rem] transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl",
-                                forcedMode === 'reader'
-                                    ? "bg-card border border-border hover:bg-white/10 hover:border-primary/50"
-                                    : "bg-primary/10 border border-primary/20 hover:bg-primary/20 hover:border-primary/50 shadow-primary/20"
-                            )}
-                        >
-                            <div className={cn(
-                                "w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-500 group-hover:scale-110",
-                                forcedMode === 'reader' ? "bg-yellow-500/20" : "bg-primary/30"
-                            )}>
-                                {forcedMode === 'reader' ? (
-                                    <BookOpen className="w-6 h-6 text-yellow-400" />
-                                ) : (
-                                    <Play className="w-6 h-6 text-foreground fill-white" />
+                <div className="fixed bottom-0 left-0 right-0 p-4 pt-12 bg-gradient-to-t from-background via-background to-transparent z-50 animate-in slide-in-from-bottom-10 fade-in duration-500">
+                    <div className="max-w-xl mx-auto flex justify-center">
+                        {forcedMode ? (
+                            // Single Button Mode - Full Width Sticky
+                            <button
+                                onClick={() => onConfirm(selectedChars, forcedMode)}
+                                className={cn(
+                                    "w-full max-w-sm group relative flex items-center justify-center gap-4 px-8 py-5 rounded-[1.5rem] transition-all duration-300 shadow-xl shadow-primary/20",
+                                    forcedMode === 'reader'
+                                        ? "bg-card border border-primary/20 hover:bg-white/10"
+                                        : "bg-primary text-primary-foreground hover:bg-primary/90"
                                 )}
-                            </div>
-                            <div className="text-left">
-                                <h3 className="text-xl font-black text-foreground uppercase tracking-wider">
-                                    {forcedMode === 'reader' ? "Commencer la lecture" : "Lancer la répétition"}
-                                </h3>
-                                <p className={cn(
-                                    "text-[10px]",
-                                    forcedMode === 'reader' ? "text-muted-foreground" : "text-gray-300"
+                            >
+                                <div className={cn(
+                                    "w-10 h-10 rounded-full flex items-center justify-center transition-transform group-hover:scale-110",
+                                    forcedMode === 'reader' ? "bg-yellow-500/20" : "bg-white/20"
                                 )}>
-                                    {selectedChars.length} personnage{selectedChars.length > 1 ? 's' : ''} sélectionné{selectedChars.length > 1 ? 's' : ''}
-                                </p>
-                            </div>
-                        </button>
-                    ) : (
-                        // Dual Button Mode (Fallback)
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg w-full">
-                            <button
-                                onClick={() => onConfirm(selectedChars, 'reader')}
-                                className="group relative flex flex-col items-center justify-center gap-4 p-8 bg-card border border-border rounded-[2rem] hover:bg-white/10 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl"
-                            >
-                                <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                                    <BookOpen className="w-8 h-8 text-yellow-400" />
+                                    {forcedMode === 'reader' ? (
+                                        <BookOpen className="w-5 h-5 text-yellow-400" />
+                                    ) : (
+                                        <Play className="w-5 h-5 fill-current" />
+                                    )}
                                 </div>
-                                <div className="text-center">
-                                    <h3 className="text-xl font-black text-foreground uppercase tracking-wider">Lire</h3>
-                                    <p className="text-muted-foreground text-[10px]">{selectedChars.length > 1 ? 'Lecture collective' : 'Découvrir le texte'}</p>
+                                <div className="text-left">
+                                    <h3 className="text-lg font-black uppercase tracking-wider">
+                                        {forcedMode === 'reader' ? "Commencer" : "C'est parti"}
+                                    </h3>
+                                    <p className={cn(
+                                        "text-[10px] font-medium",
+                                        forcedMode === 'reader' ? "text-muted-foreground" : "text-primary-foreground/80"
+                                    )}>
+                                        {selectedChars.length} rôle{selectedChars.length > 1 ? 's' : ''}
+                                    </p>
                                 </div>
                             </button>
+                        ) : (
+                            // Dual Button Mode - Side by Side Sticky
+                            <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
+                                <button
+                                    onClick={() => onConfirm(selectedChars, 'reader')}
+                                    className="flex flex-col items-center justify-center gap-1 p-3 bg-card/80 backdrop-blur-md border border-border rounded-2xl hover:bg-white/10 transition-all active:scale-95"
+                                >
+                                    <BookOpen className="w-6 h-6 text-yellow-500" />
+                                    <span className="text-xs font-bold uppercase">Lire</span>
+                                </button>
 
-                            <button
-                                onClick={() => onConfirm(selectedChars, 'rehearsal')}
-                                className="group relative flex flex-col items-center justify-center gap-4 p-8 bg-primary/10 border border-primary/20 rounded-[2rem] hover:bg-primary/20 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20"
-                            >
-                                <div className="w-16 h-16 bg-primary/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                                    <Play className="w-8 h-8 text-foreground fill-white" />
-                                </div>
-                                <div className="text-center">
-                                    <h3 className="text-xl font-black text-foreground uppercase tracking-wider">Répéter</h3>
-                                    <p className="text-gray-300 text-[10px]">{selectedChars.length > 1 ? "L'IA complète le groupe" : "L'IA donne la réplique"}</p>
-                                </div>
-                            </button>
-                        </div>
-                    )}
+                                <button
+                                    onClick={() => onConfirm(selectedChars, 'rehearsal')}
+                                    className="flex flex-col items-center justify-center gap-1 p-3 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
+                                >
+                                    <Play className="w-6 h-6 fill-current" />
+                                    <span className="text-xs font-bold uppercase">Répéter</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

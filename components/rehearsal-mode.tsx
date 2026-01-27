@@ -785,517 +785,251 @@ export function RehearsalMode({
 
 
     if (!hasStarted) {
-        // Get a sample user line for preview
-        const sampleUserLine = script.lines.find(l => {
-            const normalizedLineChar = l.character.toLowerCase().trim();
-            const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-            return (userCharacters || []).some(userChar => {
-                const normalizedUserChar = (userChar || "").toLowerCase().trim();
-                return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-            });
-        });
-        const sampleOtherLine = script.lines.find(l => !(userCharacters || []).includes(l.character));
+        // Quick Start Logic
+        const quickStartSettings = useMemo(() => {
+            if (typeof window !== 'undefined') {
+                const saved = localStorage.getItem(`souffleur_rehearsal_settings_${playId || script.title}`);
+                return saved ? JSON.parse(saved) : null;
+            }
+            return null;
+        }, [playId, script.title]);
+
+        const startQuick = () => {
+            if (quickStartSettings) {
+                setRehearsalMode(quickStartSettings.rehearsalMode);
+                setTtsProvider(quickStartSettings.ttsProvider);
+                setLineVisibility(quickStartSettings.lineVisibility);
+                setStartLineIndex(quickStartSettings.startLineIndex || 0);
+                handleStart();
+            }
+        };
+
+        const handleStartWithSave = () => {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(`souffleur_rehearsal_settings_${playId || script.title}`, JSON.stringify({
+                    rehearsalMode,
+                    ttsProvider,
+                    lineVisibility,
+                    startLineIndex,
+                    timestamp: Date.now()
+                }));
+            }
+            handleStart();
+        };
 
         return (
-            <div className={cn(
-                "flex flex-col lg:flex-row w-full animate-in fade-in duration-500 bg-background",
-                isVisio ? "h-full items-center justify-center" : "max-w-7xl mx-auto min-h-[100dvh]"
-            )}>
+            <div className="flex flex-col h-[100dvh] bg-background">
 
-                {/* LEFT PANEL - Live Preview */}
-                {!isVisio && (
-                    <div className="lg:w-[45%] flex flex-col items-center justify-start pt-12 lg:pt-16 p-6 lg:p-8 lg:border-r border-border order-2 lg:order-1">
-                        {/* Logo & Character */}
-                        <div className="text-center space-y-4 mb-8">
-                            <div className="relative inline-block">
-                                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse-glow" />
-                                <img src="/repeto.png" alt="Repeto" className="relative w-20 h-20 mx-auto object-contain drop-shadow-2xl" />
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-foreground tracking-tight">En scène</h2>
-                                <p className="text-muted-foreground text-sm">Vous jouez <span className="text-yellow-400 font-bold">{(userCharacters || []).join(", ")}</span></p>
-                            </div>
-                        </div>
-
-                        {/* Preview Card - Glassmorphism */}
-                        <div className="w-full max-w-md space-y-6">
-                            <div className="text-center">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Aperçu</span>
-                            </div>
-
-                            {/* Preview Container */}
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl space-y-4 transition-all duration-500">
-                                {/* Other character line example */}
-                                {sampleOtherLine && (
-                                    <div className="p-3 rounded-xl bg-card border border-border transition-all duration-300">
-                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
-                                            {sampleOtherLine.character}
-                                        </p>
-                                        <p className="text-muted-foreground text-sm font-serif">
-                                            {sampleOtherLine.text.substring(0, 80)}...
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* User line example - Animated based on visibility */}
-                                {sampleUserLine && (
-                                    <div
-                                        key={lineVisibility}
-                                        className={cn(
-                                            "p-4 rounded-xl transition-all duration-500 animate-in fade-in slide-in-from-bottom-2",
-                                            lineVisibility === "visible"
-                                                ? "bg-yellow-500/15 border-2 border-yellow-500/50"
-                                                : lineVisibility === "hint"
-                                                    ? "bg-orange-500/10 border-2 border-orange-500/30"
-                                                    : "bg-muted/50 border-2 border-border"
-                                        )}
-                                    >
-                                        <p className="text-[10px] font-bold text-yellow-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                            <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                                            {(userCharacters || []).length > 1 ? 'Vos Roles' : `${userCharacters[0]} (Vous)`}
-                                        </p>
-                                        <p className={cn(
-                                            "text-lg font-serif transition-all duration-500",
-                                            lineVisibility === "visible"
-                                                ? "text-yellow-100"
-                                                : lineVisibility === "hint"
-                                                    ? "text-orange-200"
-                                                    : "text-muted-foreground"
-                                        )}>
-                                            {getVisibleText(sampleUserLine.text.substring(0, 100), true)}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Mode indicators */}
-                            <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
-                                <span className={cn("transition-colors", lineVisibility === "visible" && "text-yellow-400 font-bold")}>
-                                    👁️ Visible
-                                </span>
-                                <span className={cn("transition-colors", lineVisibility === "hint" && "text-orange-400 font-bold")}>
-                                    💡 Indice
-                                </span>
-                                <span className={cn("transition-colors", lineVisibility === "hidden" && "text-muted-foreground font-bold")}>
-                                    🙈 Caché
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* RIGHT PANEL - Settings */}
-                <div className={cn(
-                    "flex flex-col items-center overflow-y-auto order-1 lg:order-2",
-                    isVisio ? "w-full h-full justify-center p-4" : "lg:w-[55%] p-6 lg:p-8 lg:py-10"
-                )}>
-                    {/* Stepper - Enhanced with labels */}
-                    {!isVisio && (
-                        <div className="flex items-center justify-center gap-1 mb-8">
-                            {[
-                                { num: 1, label: "Scène", icon: "🎬", active: true },
-                                { num: 2, label: "Texte", icon: "📝", active: true },
-                                { num: 3, label: "Voix", icon: "🎙️", active: true },
-                                { num: 4, label: "Jouer", icon: "🎭", active: false }
-                            ].map((step, i) => (
-                                <div key={step.num} className="flex items-center">
-                                    <div className="flex flex-col items-center gap-1">
-                                        <div className={cn(
-                                            "w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold transition-all",
-                                            step.active
-                                                ? "bg-primary/20 text-foreground border-2 border-primary/50 shadow-lg shadow-primary/20"
-                                                : "bg-card/50 text-muted-foreground border border-border"
-                                        )}>
-                                            {step.icon}
-                                        </div>
-                                        <span className={cn(
-                                            "text-[9px] font-bold uppercase tracking-wider",
-                                            step.active ? "text-primary" : "text-muted-foreground/50"
-                                        )}>
-                                            {step.label}
-                                        </span>
-                                    </div>
-                                    {i < 3 && (
-                                        <div className={cn(
-                                            "w-6 h-[2px] mx-1 mt-[-16px]",
-                                            step.active ? "bg-primary/30" : "bg-border"
-                                        )} />
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Start Button - Enhanced CTA */}
-                    <div className="max-w-md mx-auto w-full mb-6">
+                {/* 1. STICKY HEADER (Mobile & Desktop) */}
+                <div className="flex-none p-4 pb-0 md:p-6 bg-background/80 mobile-safe-top z-40 backdrop-blur-xl border-b border-border/50">
+                    <div className="max-w-4xl mx-auto flex items-center justify-between">
                         <Button
-                            size="lg"
-                            onClick={() => {
-                                if (!ttsProvider) setTtsProvider("browser");
-                                handleStart();
-                            }}
-                            className="w-full text-xl font-black py-7 rounded-2xl bg-gradient-to-r from-primary via-primary to-purple-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(124,58,237,0.5)] animate-pulse-subtle group"
+                            variant="ghost"
+                            size="sm"
+                            onClick={onExit}
+                            className="text-muted-foreground hover:text-foreground -ml-2"
                         >
-                            <Play className="mr-3 h-7 w-7 fill-current group-hover:scale-110 transition-transform" />
-                            🎬 Entrer en scène
+                            ← Retour
                         </Button>
-                        <p className="text-center text-[10px] text-muted-foreground mt-2">Votre micro sera activé</p>
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Mode Répétition</h2>
+                        <div className="flex gap-2">
+                            {quickStartSettings && (
+                                <Button
+                                    onClick={startQuick}
+                                    variant="outline"
+                                    size="sm"
+                                    className="hidden md:flex bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500/20 gap-2"
+                                >
+                                    <span>⚡ Rapide</span>
+                                </Button>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Settings Cards */}
-                    {!isVisio && (
-                        <div className="space-y-6 max-w-md mx-auto w-full">
-
-                            {/* DEMO MODE ALERT */}
-                            {isDemo && (
-                                <div className="bg-primary/20 border border-primary/50 text-foreground p-4 rounded-xl text-sm font-medium text-center animate-pulse flex flex-col gap-2">
-                                    <p>Mode Démonstration</p>
-                                    <button onClick={() => setShowUpgradeModal(true)} className="text-xs underline text-primary-foreground/80 hover:text-foreground">
-                                        Voir les limitations
-                                    </button>
+                    {/* Compact Mode Preview Card */}
+                    <div className="max-w-4xl mx-auto mt-4">
+                        <div className="bg-card border border-border rounded-2xl p-4 shadow-lg flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className={cn(
+                                    "w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20",
+                                    rehearsalMode === 'full' ? "bg-indigo-500 text-white" :
+                                        rehearsalMode === 'cue' ? "bg-violet-500 text-white" :
+                                            "bg-fuchsia-500 text-white"
+                                )}>
+                                    {rehearsalMode === 'full' ? "📖" : rehearsalMode === 'cue' ? "💬" : "⚡"}
                                 </div>
-                            )}
-
-                            {/* Card 1: Scene Selection */}
-                            {script.scenes && script.scenes.length > 0 && (
-                                <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎬 Point de départ</label>
-                                    <select
-                                        className="w-full bg-background/50 border border-border rounded-xl p-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                                        onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
-                                        value={startLineIndex}
-                                    >
-                                        {(!script.scenes?.[0] || script.scenes[0].index > 0) && (
-                                            <option value={0}>Début de la pièce</option>
-                                        )}
-                                        {script.scenes.map((scene) => (
-                                            <option key={scene.index} value={scene.index}>{scene.title}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Card 2: Text Visibility - Enhanced with descriptions */}
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">📝 Vos Répliques</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                        { id: "visible", label: "Visibles", emoji: "👁️", desc: "Texte complet" },
-                                        { id: "hint", label: "Indices", emoji: "💡", desc: "Premiers mots" },
-                                        { id: "hidden", label: "Cachées", emoji: "🙈", desc: "Test mémoire" }
-                                    ].map(v => (
-                                        <button
-                                            key={v.id}
-                                            onClick={() => {
-                                                if (isDemo && v.id !== 'visible') {
-                                                    setShowUpgradeModal(true);
-                                                    return;
-                                                }
-                                                setLineVisibility(v.id as typeof lineVisibility);
-                                            }}
-                                            className={cn(
-                                                "py-3 px-2 rounded-xl text-xs font-bold transition-all duration-300 touch-manipulation flex flex-col items-center gap-0.5",
-                                                lineVisibility === v.id
-                                                    ? "bg-white text-black shadow-lg scale-105"
-                                                    : "bg-card text-muted-foreground border border-border hover:bg-white/10 active:scale-95",
-                                                isDemo && v.id !== 'visible' && "opacity-50 cursor-not-allowed"
-                                            )}
-                                        >
-                                            <span className="text-lg">{v.emoji}</span>
-                                            <span className="font-bold">{v.label}</span>
-                                            <span className={cn("text-[8px]", lineVisibility === v.id ? "text-foreground/60" : "text-muted-foreground/60")}>{v.desc}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Card 3: Rehearsal Mode - Enhanced with clearer labels */}
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎭 Mode de répétition</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[
-                                        { id: "full", label: "Intégrale", icon: "📖", desc: "Tout le texte lu" },
-                                        { id: "cue", label: "Réplique", icon: "💬", desc: "Avant vos lignes" },
-                                        { id: "check", label: "Filage", icon: "⚡", desc: "Vos lignes seules" },
-                                    ].map(m => (
-                                        <button
-                                            key={m.id}
-                                            onClick={() => {
-                                                if (isDemo && m.id !== 'full') {
-                                                    setShowUpgradeModal(true);
-                                                    return;
-                                                }
-                                                setRehearsalMode(m.id as typeof rehearsalMode);
-                                            }}
-                                            className={cn(
-                                                "p-3 rounded-xl text-center transition-all duration-300 touch-manipulation border flex flex-col items-center gap-1",
-                                                rehearsalMode === m.id
-                                                    ? "bg-primary/20 border-primary/50 shadow-lg shadow-primary/10"
-                                                    : "bg-card border-border hover:bg-white/10 active:scale-95",
-                                                isDemo && m.id !== 'full' && "opacity-50 cursor-not-allowed"
-                                            )}
-                                        >
-                                            <span className="text-lg">{m.icon}</span>
-                                            <span className={cn("text-xs font-bold", rehearsalMode === m.id ? "text-foreground" : "text-muted-foreground")}>{m.label}</span>
-                                            <span className="text-[8px] text-muted-foreground leading-tight">{m.desc}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
-
-                            {/* Card 4: Voice Settings - Governance Rules */}
-                            {(() => {
-                                const isTroupeContext = !!troupeId;
-                                const isLibraryScript = isPublicScript;
-                                const isUserScript = !isPublicScript && !troupeId;
-
-                                // TROUPE MODE: No voice config shown (managed in CastingManager)
-                                if (isTroupeContext) {
-                                    return (
-                                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg">
-                                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
-                                            <div className="py-3 rounded-xl text-xs font-medium bg-muted/30 border border-border text-muted-foreground text-center">
-                                                Voix gérées par l'admin de la troupe
-                                            </div>
-                                        </div>
-                                    );
-                                }
-
-                                // SOLO + LIBRARY + PRO: Read-only AI voices (admin pre-assigned)
-                                if (isLibraryScript && isPremiumUnlocked) {
-                                    return (
-                                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg">
-                                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
-                                            <div className="py-3 rounded-xl text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center flex items-center justify-center gap-2">
-                                                <Sparkles className="w-3 h-3" />
-                                                Voix IA officielles
-                                            </div>
-                                            <p className="text-[10px] text-muted-foreground text-center mt-2">
-                                                Attribuées par l'admin Repeto
-                                            </p>
-                                        </div>
-                                    );
-                                }
-
-                                // SOLO + LIBRARY + FREE: Browser voice config
-                                if (isLibraryScript && !isPremiumUnlocked) {
-                                    return (
-                                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-3">
-                                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
-                                            <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
-                                                Voix Standard
-                                            </div>
-                                            <BrowserVoiceConfig
-                                                characters={script.characters}
-                                                voices={voices}
-                                                assignments={voiceAssignments}
-                                                onAssign={setVoiceForRole}
-                                            />
-                                            <a
-                                                href="/profile"
-                                                className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
-                                            >
-                                                <Sparkles className="w-3 h-3" />
-                                                Passez à Pro pour des voix IA
-                                            </a>
-                                        </div>
-                                    );
-                                }
-
-                                // SOLO + USER SCRIPT + PRO: Full control (existing UI)
-                                if (isUserScript && isPremiumUnlocked) {
-                                    return (
-                                        <>
-                                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-4">
-                                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <button
-                                                        onClick={() => setTtsProvider("browser")}
-                                                        className={cn(
-                                                            "py-3 rounded-xl text-xs font-bold transition-all border",
-                                                            ttsProvider === "browser"
-                                                                ? "bg-muted/30 border-border text-foreground"
-                                                                : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                                        )}
-                                                    >
-                                                        Standard
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setTtsProvider("openai")}
-                                                        className={cn(
-                                                            "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
-                                                            ttsProvider === "openai"
-                                                                ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                                                : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                                        )}
-                                                    >
-                                                        <Sparkles className="w-3 h-3" />
-                                                        Neural AI
-                                                    </button>
-                                                </div>
-                                                {isDemo && <div className="absolute inset-0 z-10" onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }} />}
-                                            </div>
-
-                                            {/* Browser voice distribution */}
-                                            {ttsProvider === "browser" && (
-                                                <BrowserVoiceConfig
-                                                    characters={script.characters}
-                                                    voices={voices}
-                                                    assignments={voiceAssignments}
-                                                    onAssign={setVoiceForRole}
-                                                />
-                                            )}
-
-                                            {/* OpenAI voice distribution */}
-                                            {ttsProvider === "openai" && (
-                                                <div className="space-y-2 animate-in slide-in-from-top-2 fade-in duration-300">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Distribution Neural AI</span>
-                                                        {existingVoiceConfig && (
-                                                            <span className="flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                                                                <Check className="w-3 h-3" />
-                                                                Voix figées
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {isLoadingVoiceConfig ? (
-                                                        <div className="flex items-center justify-center py-4">
-                                                            <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
-                                                        </div>
-                                                    ) : script.characters && script.characters.filter(c => !(userCharacters || []).includes(c)).length > 0 ? (
-                                                        <div className="space-y-2 max-h-40 overflow-y-auto no-scrollbar">
-                                                            {script.characters.filter(c => !(userCharacters || []).includes(c)).map((char) => (
-                                                                <div key={char} className={cn(
-                                                                    "flex items-center gap-2 p-2 rounded-lg border",
-                                                                    existingVoiceConfig
-                                                                        ? "bg-emerald-900/30 border-emerald-600/40"
-                                                                        : "bg-emerald-900/20 border-emerald-700/30"
-                                                                )}>
-                                                                    <div className="w-7 h-7 rounded-full bg-emerald-700 flex items-center justify-center text-[9px] font-bold text-emerald-300 shrink-0">
-                                                                        {char.substring(0, 2).toUpperCase()}
-                                                                    </div>
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <p className="text-xs font-medium text-emerald-300 truncate">{char}</p>
-                                                                        {existingVoiceConfig ? (
-                                                                            <p className="text-[10px] text-emerald-500 font-medium">
-                                                                                {(openaiVoiceAssignments[char] || "nova").charAt(0).toUpperCase() + (openaiVoiceAssignments[char] || "nova").slice(1)}
-                                                                            </p>
-                                                                        ) : (
-                                                                            <select
-                                                                                className="w-full bg-transparent text-[10px] text-emerald-500 focus:outline-none cursor-pointer"
-                                                                                value={openaiVoiceAssignments[char] || "nova"}
-                                                                                onChange={(e) => setOpenaiVoiceAssignments(prev => ({ ...prev, [char]: e.target.value as any }))}
-                                                                            >
-                                                                                {["alloy", "echo", "fable", "onyx", "nova", "shimmer"].map(v => (
-                                                                                    <option key={v} value={v} className="bg-background text-foreground">{v.charAt(0).toUpperCase() + v.slice(1)}</option>
-                                                                                ))}
-                                                                            </select>
-                                                                        )}
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={() => testOpenAIVoice(char, openaiVoiceAssignments[char] || "nova")}
-                                                                        disabled={testingVoice === char}
-                                                                        className="px-2 py-1.5 rounded-full hover:bg-emerald-500/20 text-emerald-400 disabled:opacity-50 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1 transition-colors"
-                                                                    >
-                                                                        {testingVoice === char ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-current" />}
-                                                                        Test
-                                                                    </button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <p className="text-xs text-emerald-500/70 italic">Aucun autre personnage détecté.</p>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </>
-                                    );
-                                }
-
-                                // SOLO + USER SCRIPT + FREE: Browser voice config only
-                                return (
-                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg space-y-3">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
-                                        <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
-                                            Voix Standard
-                                        </div>
-                                        <BrowserVoiceConfig
-                                            characters={script.characters}
-                                            voices={voices}
-                                            assignments={voiceAssignments}
-                                            onAssign={setVoiceForRole}
-                                        />
-                                        <a
-                                            href="/profile"
-                                            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
-                                        >
-                                            <Sparkles className="w-3 h-3" />
-                                            Passez à Pro pour des voix IA
-                                        </a>
-                                    </div>
-                                );
-                            })()}
-
-                            {/* Card 5: Tolerance Slider */}
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50 relative">
-                                {isDemo && (
-                                    <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] z-20 flex items-center justify-center rounded-2xl"
-                                        onClick={(e) => { e.stopPropagation(); setShowUpgradeModal(true); }}>
-                                        <Lock className="w-6 h-6 text-foreground/50" />
-                                    </div>
-                                )}
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎯 Barre de Tolérance</label>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs text-muted-foreground">Précision reconnaissance vocale</span>
-                                        <span className="text-sm font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">{Math.round(threshold * 100)}%</span>
-                                    </div>
-                                    <input
-                                        type="range" min="0.5" max="0.95" step="0.05"
-                                        value={threshold}
-                                        onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                                        className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
-                                    />
-                                    <div className="flex justify-between text-[10px] text-muted-foreground font-medium">
-                                        <span>😌 Relax</span><span>🎯 Strict</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Card 6: Car Mode Toggle */}
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-5 shadow-lg transition-all hover:bg-muted/50">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                                            🚗 Mode Voiture
-                                            <span className="text-[8px] font-bold text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20">BETA</span>
-                                        </label>
-                                        <p className="text-[10px] text-muted-foreground mt-1">Force la sortie audio sur les hauts-parleurs</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setForceAudioOutput(!forceAudioOutput)}
-                                        className={cn(
-                                            "relative w-14 h-7 rounded-full transition-colors shrink-0",
-                                            forceAudioOutput ? "bg-yellow-500" : "bg-muted"
-                                        )}
-                                    >
-                                        <span className={cn(
-                                            "absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow",
-                                            forceAudioOutput ? "left-8" : "left-1"
-                                        )} />
-                                    </button>
+                                <div>
+                                    <h3 className="font-bold text-foreground leading-tight">
+                                        {rehearsalMode === "full" ? "Lecture Intégrale" : rehearsalMode === "cue" ? "Donne la Réplique" : "Mode Solo"}
+                                    </h3>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {lineVisibility === 'visible' ? "Texte Visible" : lineVisibility === 'hint' ? "Indices cachés" : "Texte Caché"}
+                                    </p>
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
+                </div>
 
-                    <button onClick={onExit} className="w-full max-w-md mx-auto text-sm font-medium text-muted-foreground hover:text-foreground transition-colors text-center py-2">
-                        Retour au menu
-                    </button>
+                {/* 2. SCROLLABLE SETTINGS */}
+                <div className="flex-1 overflow-y-auto p-4 pb-32 md:p-8 space-y-6">
+                    <div className="max-w-2xl mx-auto space-y-6">
+
+                        {/* Quick Start Mobile Button */}
+                        {quickStartSettings && (
+                            <button
+                                onClick={startQuick}
+                                className="w-full md:hidden py-3 px-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider hover:bg-indigo-500/20 flex items-center justify-center gap-2 mb-4"
+                            >
+                                <span>⚡</span> Reprendre (derniers réglages)
+                            </button>
+                        )}
+
+                        {/* Scene Selection - Horizontal */}
+                        {script.scenes && script.scenes.length > 0 && (
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Départ</label>
+                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 snap-x no-scrollbar">
+                                    <button
+                                        onClick={() => setStartLineIndex(0)}
+                                        className={cn(
+                                            "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start",
+                                            startLineIndex === 0
+                                                ? "bg-card border-indigo-500 text-foreground ring-1 ring-indigo-500"
+                                                : "bg-card/50 border-border text-muted-foreground"
+                                        )}
+                                    >
+                                        Début
+                                    </button>
+                                    {script.scenes.map((scene) => (
+                                        <button
+                                            key={scene.index}
+                                            onClick={() => setStartLineIndex(scene.index)}
+                                            className={cn(
+                                                "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start whitespace-nowrap",
+                                                startLineIndex === scene.index
+                                                    ? "bg-card border-indigo-500 text-foreground ring-1 ring-indigo-500"
+                                                    : "bg-card/50 border-border text-muted-foreground"
+                                            )}
+                                        >
+                                            {scene.title}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Visibility Settings - Card Grid */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Visibilité</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {[
+                                    { id: "visible", label: "Visible", sub: "Texte complet" },
+                                    { id: "hint", label: "Indices", sub: "1ers mots" },
+                                    { id: "hidden", label: "Caché", sub: "À l'aveugle" },
+                                ].map((v) => (
+                                    <button
+                                        key={v.id}
+                                        onClick={() => setLineVisibility(v.id as any)}
+                                        className={cn(
+                                            "p-3 rounded-xl text-center transition-all duration-300 border flex flex-col gap-1 items-center active:scale-95",
+                                            lineVisibility === v.id
+                                                ? "bg-foreground text-background border-foreground shadow-lg"
+                                                : "bg-card border-border text-muted-foreground"
+                                        )}
+                                    >
+                                        <span className="text-sm font-bold">{v.label}</span>
+                                        <span className={cn("text-[9px]", lineVisibility === v.id ? "opacity-70" : "text-muted-foreground")}>{v.sub}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Mode Selection */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Mode de répétition</label>
+                            <div className="space-y-2">
+                                {[
+                                    { id: "full", label: "Intégrale", sub: "Je lis aussi les autres rôles", icon: "📖" },
+                                    { id: "cue", label: "Réplique", sub: "L'IA s'arrête avant ma ligne", icon: "💬" },
+                                    { id: "check", label: "Solo", sub: "Je vérifie mes lignes seul", icon: "⚡" },
+                                ].map((m) => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setRehearsalMode(m.id as any)}
+                                        className={cn(
+                                            "w-full p-4 rounded-xl text-left transition-all duration-300 border flex items-center gap-4 active:scale-98",
+                                            rehearsalMode === m.id
+                                                ? "bg-indigo-500/10 border-indigo-500 shadow-sm ring-1 ring-indigo-500"
+                                                : "bg-card border-border hover:bg-card/80"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-full flex items-center justify-center text-xl",
+                                            rehearsalMode === m.id ? "bg-indigo-500 text-white" : "bg-muted"
+                                        )}>
+                                            {m.icon}
+                                        </div>
+                                        <div>
+                                            <div className={cn("text-sm font-bold", rehearsalMode === m.id ? "text-indigo-500" : "text-foreground")}>{m.label}</div>
+                                            <div className="text-[10px] text-muted-foreground">{m.sub}</div>
+                                        </div>
+                                        {rehearsalMode === m.id && <Check className="w-5 h-5 text-indigo-500 ml-auto" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Voice Provider Selection */}
+                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">🎙️ Voix de lecture</label>
+                                {!isPremiumUnlocked && <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">Basic</Badge>}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <button
+                                    onClick={() => setTtsProvider("browser")}
+                                    className={cn(
+                                        "py-3 rounded-xl text-xs font-bold transition-all border",
+                                        ttsProvider === "browser"
+                                            ? "bg-muted/30 dark:bg-white/10 border-border dark:border-white/30 text-foreground"
+                                            : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                    )}
+                                >
+                                    Standard
+                                </button>
+                                <button
+                                    onClick={() => isPremiumUnlocked ? setTtsProvider("openai") : setShowUpgradeModal(true)}
+                                    className={cn(
+                                        "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
+                                        ttsProvider === "openai"
+                                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
+                                            : "bg-transparent border-border text-muted-foreground hover:bg-card",
+                                        !isPremiumUnlocked && "opacity-50"
+                                    )}
+                                >
+                                    {isPremiumUnlocked ? <Sparkles className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                                    Neural AI
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                {/* 3. FLOAT BOTTOM START BUTTON */}
+                <div className="fixed bottom-0 left-0 right-0 p-4 pt-8 bg-gradient-to-t from-background via-background to-transparent z-50">
+                    <Button
+                        size="lg"
+                        onClick={handleStartWithSave}
+                        className="w-full max-w-md mx-auto text-lg font-bold py-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_30px_rgba(79,70,229,0.4)] animate-pulse-glow"
+                    >
+                        <Play className="mr-2 h-6 w-6 fill-current" />
+                        Commencer ({script.scenes && startLineIndex > 0 ? "Scène" : "Début"})
+                    </Button>
                 </div>
             </div>
-
         );
     }
 

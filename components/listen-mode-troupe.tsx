@@ -221,85 +221,144 @@ export function ListenModeTroupe({
 
     // === SETUP SCREEN ===
     if (!hasStarted) {
-        return (
-            <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full max-w-7xl mx-auto animate-in fade-in duration-500 bg-background overflow-y-auto">
+        // Quick Start Logic
+        const quickStartSettings = useMemo(() => {
+            if (typeof window !== 'undefined') {
+                const saved = localStorage.getItem(`souffleur_listen_settings_${playId}`);
+                return saved ? JSON.parse(saved) : null;
+            }
+            return null;
+        }, [playId]);
 
-                {/* LEFT PANEL - Preview (Hidden on mobile) */}
-                <div className="hidden lg:flex lg:w-[45%] flex-col items-center justify-start pt-16 p-8 border-r border-border">
-                    <div className="text-center space-y-4 mb-8">
-                        <div className="relative inline-block">
-                            <div className="absolute inset-0 bg-teal-500/20 blur-xl rounded-full animate-pulse-glow" />
-                            <Headphones className="relative w-20 h-20 text-teal-400 mx-auto" />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Mode Écoute Troupe</h2>
-                            <p className="text-muted-foreground text-sm">
-                                Vous écoutez <span className="text-teal-400 font-bold">{userCharacters.join(", ")}</span>
-                            </p>
-                        </div>
+        const startQuick = () => {
+            if (quickStartSettings) {
+                setListenMode(quickStartSettings.listenMode);
+                setTtsProvider(quickStartSettings.ttsProvider);
+                setAnnounceCharacter(quickStartSettings.announceCharacter);
+                setStartLineIndex(quickStartSettings.startLineIndex || 0);
+                handleStart();
+            }
+        };
+
+        const handleStartWithSave = () => {
+            if (typeof window !== 'undefined') {
+                localStorage.setItem(`souffleur_listen_settings_${playId}`, JSON.stringify({
+                    listenMode,
+                    ttsProvider,
+                    announceCharacter,
+                    startLineIndex,
+                    timestamp: Date.now()
+                }));
+            }
+            handleStart();
+        };
+
+        return (
+            <div className="flex flex-col h-[100dvh] bg-background">
+
+                {/* 1. STICKY HEADER (Mobile & Desktop) - Preview & Mode Info */}
+                <div className="flex-none p-4 pb-0 md:p-6 bg-background/80 mobile-safe-top z-40 backdrop-blur-xl border-b border-border/50">
+                    <div className="max-w-4xl mx-auto flex items-center justify-between">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onExit}
+                            className="text-muted-foreground hover:text-foreground -ml-2"
+                        >
+                            ← Retour
+                        </Button>
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Mode Écoute</h2>
+                        <div className="w-8" /> {/* Spacer */}
                     </div>
 
-                    {/* Mode indicator */}
-                    <div className="w-full max-w-md space-y-4">
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl">
-                            <div className="text-center space-y-2">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Mode sélectionné</span>
-                                <p className="text-lg font-bold text-foreground">
-                                    {listenMode === "full" ? "📖 Intégrale" : listenMode === "cue" ? "💬 Réplique" : "⚡ Solo"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {listenMode === "full"
-                                        ? "Toutes les répliques seront lues"
-                                        : listenMode === "cue"
-                                            ? "Seules les répliques avant les vôtres"
-                                            : "Seulement vos répliques"}
-                                </p>
+                    {/* Compact Mode Preview Card */}
+                    <div className="max-w-4xl mx-auto mt-4 px-1">
+                        <div className="bg-card border border-border rounded-2xl p-4 shadow-lg flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className={cn(
+                                    "w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg shadow-teal-500/20",
+                                    listenMode === 'full' ? "bg-teal-500 text-white" :
+                                        listenMode === 'cue' ? "bg-indigo-500 text-white" :
+                                            "bg-amber-500 text-white"
+                                )}>
+                                    {listenMode === 'full' ? "📖" : listenMode === 'cue' ? "💬" : "⚡"}
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-foreground leading-tight">
+                                        {listenMode === "full" ? "Lecture Intégrale" : listenMode === "cue" ? "Donne la Réplique" : "Mode Solo"}
+                                    </h3>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        {listenMode === "full" ? "Tout le texte" : listenMode === "cue" ? "Vos indices seulement" : "Vos lignes seules"}
+                                    </p>
+                                </div>
                             </div>
+
+                            {quickStartSettings && (
+                                <Button
+                                    onClick={startQuick}
+                                    variant="outline"
+                                    size="sm"
+                                    className="hidden md:flex bg-teal-500/10 text-teal-500 border-teal-500/20 hover:bg-teal-500/20 gap-2"
+                                >
+                                    <span>⚡ Rapide</span>
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
 
-                {/* RIGHT PANEL - Settings (Full width on mobile) */}
-                <div className="lg:w-[55%] flex flex-col items-center justify-center p-4 pt-8 pb-12 lg:p-8 lg:py-10 overflow-y-auto">
-                    {/* Start Button */}
-                    <div className="w-full mb-6 flex flex-col items-center">
-                        <Button
-                            size="lg"
-                            onClick={handleStart}
-                            className="text-lg md:text-xl font-black py-6 md:py-7 px-8 md:px-12 rounded-2xl bg-gradient-to-r from-teal-500 via-teal-600 to-emerald-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(20,184,166,0.5)] animate-pulse-subtle group"
-                        >
-                            <Headphones className="mr-3 h-7 w-7 group-hover:scale-110 transition-transform" />
-                            🎧 Commencer l'écoute
-                        </Button>
-                        <p className="text-center text-[10px] text-muted-foreground mt-2">Pas de micro nécessaire</p>
-                    </div>
+                {/* 2. SCROLLABLE SETTINGS */}
+                <div className="flex-1 overflow-y-auto p-4 pb-32 md:p-8 space-y-6">
+                    <div className="max-w-2xl mx-auto space-y-6">
 
-                    {/* Settings Cards */}
-                    <div className="space-y-6 max-w-md mx-auto w-full">
+                        {/* Quick Start Mobile Button */}
+                        {quickStartSettings && (
+                            <button
+                                onClick={startQuick}
+                                className="w-full md:hidden py-3 px-4 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-bold uppercase tracking-wider hover:bg-teal-500/20 flex items-center justify-center gap-2 mb-4"
+                            >
+                                <span>⚡</span> Reprendre (derniers réglages)
+                            </button>
+                        )}
 
-                        {/* Scene Selection */}
+                        {/* Scene Selection (Horizontal Scroll on Mobile) */}
                         {script.scenes && script.scenes.length > 0 && (
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎬 Point de départ</label>
-                                <select
-                                    className="w-full bg-background/50 border border-border rounded-xl p-3 text-foreground focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none cursor-pointer"
-                                    onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
-                                    value={startLineIndex}
-                                >
-                                    {(!script.scenes?.[0] || script.scenes[0].index > 0) && (
-                                        <option value={0}>Début de la pièce</option>
-                                    )}
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Départ</label>
+                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 snap-x no-scrollbar">
+                                    <button
+                                        onClick={() => setStartLineIndex(0)}
+                                        className={cn(
+                                            "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start",
+                                            startLineIndex === 0
+                                                ? "bg-card border-teal-500 text-foreground ring-1 ring-teal-500"
+                                                : "bg-card/50 border-border text-muted-foreground"
+                                        )}
+                                    >
+                                        Début
+                                    </button>
                                     {script.scenes.map((scene) => (
-                                        <option key={scene.index} value={scene.index}>{scene.title}</option>
+                                        <button
+                                            key={scene.index}
+                                            onClick={() => setStartLineIndex(scene.index)}
+                                            className={cn(
+                                                "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start whitespace-nowrap",
+                                                startLineIndex === scene.index
+                                                    ? "bg-card border-teal-500 text-foreground ring-1 ring-teal-500"
+                                                    : "bg-card/50 border-border text-muted-foreground"
+                                            )}
+                                        >
+                                            {scene.title}
+                                        </button>
                                     ))}
-                                </select>
+                                </div>
                             </div>
                         )}
 
-                        {/* Listen Mode Selection */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎧 Mode d'écoute</label>
-                            <div className="grid grid-cols-3 gap-2">
+                        {/* Mode Selection (Cards) */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Configuration</label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                 {[
                                     { id: "full", label: "Intégrale", icon: "📖", desc: "Tout le texte" },
                                     { id: "cue", label: "Réplique", icon: "💬", desc: "Avant vos lignes" },
@@ -309,79 +368,73 @@ export function ListenModeTroupe({
                                         key={m.id}
                                         onClick={() => setListenMode(m.id as ListenMode)}
                                         className={cn(
-                                            "p-3 rounded-xl text-center transition-all duration-300 touch-manipulation border flex flex-col items-center gap-1",
+                                            "p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3 active:scale-98",
                                             listenMode === m.id
-                                                ? "bg-teal-500/20 border-teal-500/50 shadow-lg shadow-teal-500/10"
-                                                : "bg-card border-border hover:bg-white/10 active:scale-95"
+                                                ? "bg-card border-teal-500 shadow-md ring-1 ring-teal-500"
+                                                : "bg-card/50 border-border opacity-70 hover:opacity-100"
                                         )}
                                     >
-                                        <span className="text-lg">{m.icon}</span>
-                                        <span className={cn("text-xs font-bold", listenMode === m.id ? "text-foreground" : "text-muted-foreground")}>{m.label}</span>
-                                        <span className="text-[8px] text-muted-foreground leading-tight">{m.desc}</span>
+                                        <span className="text-xl">{m.icon}</span>
+                                        <div>
+                                            <p className={cn("text-sm font-bold", listenMode === m.id ? "text-foreground" : "text-muted-foreground")}>{m.label}</p>
+                                        </div>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Voice Provider Selection */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={() => setTtsProvider("browser")}
-                                    className={cn(
-                                        "py-3 rounded-xl text-xs font-bold transition-all border",
-                                        ttsProvider === "browser"
-                                            ? "bg-muted/30 dark:bg-white/10 border-border dark:border-white/30 text-foreground"
-                                            : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                    )}
-                                >
-                                    Standard
-                                </button>
-                                <button
-                                    onClick={() => setTtsProvider("openai")}
-                                    className={cn(
-                                        "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
-                                        ttsProvider === "openai"
-                                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                            : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                    )}
-                                >
-                                    <Sparkles className="w-3 h-3" />
-                                    Neural AI
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Announce Character Toggle */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">📢 Annonce des personnages</label>
-                                    <p className="text-[10px] text-muted-foreground mt-1">Dire le nom avant chaque réplique</p>
+                        {/* Toggles (Voice & Announce) */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={() => setTtsProvider(prev => prev === 'openai' ? 'browser' : 'openai')}
+                                className={cn(
+                                    "p-4 rounded-xl border text-left transition-all",
+                                    ttsProvider === 'openai'
+                                        ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
+                                        : "bg-card/50 border-border text-muted-foreground"
+                                )}
+                            >
+                                <div className="text-[10px] uppercase font-bold tracking-widest mb-1">Voix</div>
+                                <div className="flex items-center gap-2 font-bold">
+                                    {ttsProvider === 'openai' ? <Sparkles className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
+                                    {ttsProvider === 'openai' ? "Neural AI" : "Standard"}
                                 </div>
-                                <button
-                                    onClick={() => setAnnounceCharacter(!announceCharacter)}
-                                    className={cn(
-                                        "relative w-14 h-7 rounded-full transition-colors shrink-0",
-                                        announceCharacter ? "bg-teal-500" : "bg-muted"
-                                    )}
-                                >
-                                    <span className={cn(
-                                        "absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow",
-                                        announceCharacter ? "left-8" : "left-1"
-                                    )} />
-                                </button>
-                            </div>
+                            </button>
+
+                            <button
+                                onClick={() => setAnnounceCharacter(!announceCharacter)}
+                                className={cn(
+                                    "p-4 rounded-xl border text-left transition-all",
+                                    announceCharacter
+                                        ? "bg-indigo-500/10 border-indigo-500/50 text-indigo-500"
+                                        : "bg-card/50 border-border text-muted-foreground"
+                                )}
+                            >
+                                <div className="text-[10px] uppercase font-bold tracking-widest mb-1">Noms</div>
+                                <div className="flex items-center gap-2 font-bold">
+                                    <span className="text-lg">{announceCharacter ? "📢" : "😶"}</span>
+                                    {announceCharacter ? "Annoncés" : "Masqués"}
+                                </div>
+                            </button>
                         </div>
                     </div>
+                </div>
 
-                    <button onClick={onExit} className="w-full max-w-md mx-auto text-sm font-medium text-muted-foreground hover:text-foreground transition-colors text-center py-2 mt-6">
-                        Retour au menu
-                    </button>
+                {/* 3. FLOAT BOTTOM START BUTTON */}
+                <div className="fixed bottom-0 left-0 right-0 p-4 pt-8 bg-gradient-to-t from-background via-background to-transparent z-50">
+                    <Button
+                        size="lg"
+                        onClick={handleStartWithSave}
+                        className="w-full max-w-md mx-auto text-lg font-bold py-6 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white shadow-[0_0_30px_rgba(20,184,166,0.4)] animate-pulse-glow"
+                    >
+                        <Headphones className="mr-2 h-6 w-6" />
+                        Commencer ({script.scenes && script.scenes.length > 0 && startLineIndex > 0
+                            ? "Scène " + (script.scenes.find(s => s.index === startLineIndex)?.title?.split(' ')[1] || startLineIndex)
+                            : "Début"})
+                    </Button>
                 </div>
             </div>
+        );
         );
     }
 
