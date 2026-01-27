@@ -49,13 +49,13 @@ export function TroupeSubscriptionManager({
 
             if (!priceId) throw new Error("Prix non configuré.");
 
+            // Don't pass troupeName - this is an upgrade, not creation
             const res = await fetch('/api/stripe/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     priceId,
-                    troupeId,
-                    troupeName,
+                    troupeId, // Pass existing troupe ID for upgrade
                     troupeTier: targetTier
                 }),
             });
