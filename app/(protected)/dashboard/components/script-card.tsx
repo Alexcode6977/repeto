@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ScriptMetadata } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2 } from "lucide-react";
+import { DownloadButton } from "@/components/offline/download-button";
 
 const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 
@@ -135,24 +136,11 @@ export function ScriptCard({
                     </div>
                 </div>
 
-                {/* Mobile Play Button overlay */}
-                <div className="md:hidden absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 shadow-xl pointer-events-none">
-                    <Play className="w-6 h-6 text-foreground fill-white ml-1" />
-                </div>
-
                 {/* Desktop Hover Actions */}
                 <div className="hidden md:flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                    <Button
-                        className="flex-1 bg-white text-black hover:bg-primary hover:text-foreground border-0 font-bold rounded-xl"
-                        size="sm"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onLoad(script);
-                        }}
-                    >
-                        <Play className="w-4 h-4 mr-2 fill-current" />
-                        Répéter
-                    </Button>
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <DownloadButton scriptId={script.id} className="bg-white/10 hover:bg-white/20 text-white border-0 w-12 h-12" />
+                    </div>
 
                     {(script.is_owner || userEmail === ADMIN_EMAIL) && (
                         <Button
@@ -170,8 +158,8 @@ export function ScriptCard({
                             variant="ghost"
                             size="icon"
                             className={`rounded-xl ${script.is_public
-                                    ? "bg-amber-500/20 text-amber-400"
-                                    : "bg-white/10 text-muted-foreground"
+                                ? "bg-amber-500/20 text-amber-400"
+                                : "bg-white/10 text-muted-foreground"
                                 }`}
                             onClick={handleToggle}
                             disabled={isToggling}

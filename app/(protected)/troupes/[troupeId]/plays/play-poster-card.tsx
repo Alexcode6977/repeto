@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useHaptic } from "@/lib/hooks/use-haptic";
+import { DownloadButton } from "@/components/offline/download-button";
 
 interface PlayPosterCardProps {
     play: {
@@ -72,7 +73,10 @@ export function PlayPosterCard({ play, troupeId, index = 0, isCompact = false }:
 
                         {/* Top Right Decoration - Hidden on compact */}
                         {!isCompact && (
-                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                            <div className="absolute top-4 right-4 flex gap-2 items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+                                <div onClick={(e) => e.preventDefault()}>
+                                    <DownloadButton scriptId={play.id} troupeId={troupeId} className="bg-black/20 hover:bg-black/40 text-white border-white/20" />
+                                </div>
                                 <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
                                     <span className="text-white text-lg">→</span>
                                 </div>

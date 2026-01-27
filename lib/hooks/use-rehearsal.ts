@@ -3,6 +3,7 @@ import { ParsedScript, ScriptLine } from "../types";
 import { useSpeech } from "./use-speech";
 import { useOpenAITTS } from "./use-openai-tts";
 import { calculateSimilarity, stripStageDirections } from "../similarity";
+import { offlineManager } from "../offline/offline-manager";
 
 export type RehearsalStatus =
     | "setup"
@@ -76,6 +77,32 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         // Priority 2: OpenAI TTS
         if (ttsProvider === "openai") {
             const assignedVoice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "nova";
+
+            // OFFLINE CHECK
+            const hash = await offlineManager.generateHash(text, assignedVoice);
+            const offlineUrl = lineId ? await offlineManager.getAudio(lineId, hash) : null;
+            // Also check by content-hash-only as fallback if lineId specific asset missing? 
+            // The offlineManager.getAudio checks by lineId (which is unique asset ID). 
+            // So if lineId is passed, we good.
+
+            if (offlineUrl) {
+                console.log("[Rehearsal] Playing OFFLINE audio for:", lineId);
+                // Play blob
+                return new Promise((resolve, reject) => {
+                    const audio = new Audio(offlineUrl);
+                    audio.onended = () => resolve();
+                    audio.onerror = (e) => {
+                        console.error("Offline audio error", e);
+                        // Fallback to online if file corrupt?
+                        resolve();
+                    };
+                    audio.play().catch(e => {
+                        console.error("Play error", e);
+                        resolve();
+                    });
+                });
+            }
+
             await openaiSpeech.speak(text, assignedVoice);
         }
         // Priority 3: Browser TTS

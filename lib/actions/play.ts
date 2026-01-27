@@ -264,3 +264,39 @@ export async function deletePlayAction(playId: string) {
     revalidatePath(`/troupes`);
 }
 
+// ... existing code ...
+
+export async function getScriptDetails(scriptId: string) {
+    const supabase = await createClient();
+
+    const { data: script, error } = await supabase
+        .from('scripts')
+        .select('*')
+        .eq('id', scriptId)
+        .single();
+
+    if (error || !script) return null;
+
+    // Normalize to match "Play" structure for OfflineManager
+    // Personal scripts store the ParsedScript in 'content' column
+    const content = script.content as ParsedScript;
+
+    return {
+        id: script.id,
+        title: script.title,
+        script_content: content,
+        // Mock DB relations from JSON content
+        play_scenes: content.scenes?.map((s, i) => ({
+            id: `local_scene_${i}`,
+            title: s.title,
+            order_index: i
+        })) || [],
+        play_characters: content.characters?.map((name, i) => ({
+            id: `local_char_${i}`,
+            name: name,
+            actor_id: null, // Personal scripts usually have no actor assignments in DB
+            profile: null
+        })) || [],
+        is_script: true // Flag to identify origin
+    };
+}

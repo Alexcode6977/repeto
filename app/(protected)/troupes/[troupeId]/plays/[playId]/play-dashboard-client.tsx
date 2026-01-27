@@ -22,6 +22,7 @@ import { useHaptic } from "@/lib/hooks/use-haptic";
 import { VoiceConfig } from "@/lib/actions/voice-cache";
 import { LiveKitRoom, VideoConference, RoomAudioRenderer } from "@livekit/components-react";
 import "@livekit/components-styles";
+import { DownloadButton } from "@/components/offline/download-button";
 import { useRouter, useSearchParams } from "next/navigation";
 
 interface PlayDashboardClientProps {
@@ -199,6 +200,9 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 </div>
 
                 <div className="flex gap-2">
+                    {/* Download Button */}
+                    <DownloadButton scriptId={play.id} troupeId={troupeId} />
+
                     {/* Stats Dialog */}
                     <Dialog>
                         <DialogTrigger asChild>
