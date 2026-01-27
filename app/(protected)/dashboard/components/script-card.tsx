@@ -3,8 +3,15 @@
 import { useState } from "react";
 import { ScriptMetadata } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2 } from "lucide-react";
+import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2, MoreHorizontal, Download, Pencil } from "lucide-react";
 import { DownloadButton } from "@/components/offline/download-button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 
@@ -78,6 +85,54 @@ export function ScriptCard({
         >
             {/* Card Background gradient */}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background z-10" />
+
+            {/* Mobile Actions Menu - Top Left */}
+            <div className="absolute top-4 left-4 z-30 md:hidden" onClick={(e) => e.stopPropagation()}>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="bg-white/10 backdrop-blur-md border border-white/20 text-foreground rounded-full w-9 h-9 hover:bg-white/20"
+                        >
+                            <MoreHorizontal className="w-5 h-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-48">
+                        <DropdownMenuItem onClick={() => onSettings(script)}>
+                            <Settings2 className="w-4 h-4 mr-2" />
+                            Réglages
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsRenaming(true)} disabled={!script.is_owner}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Renommer
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                            <DownloadButton
+                                scriptId={script.id}
+                                className="w-full justify-start bg-transparent hover:bg-accent border-0 px-2 py-1.5 text-sm cursor-pointer"
+                                showLabel
+                            />
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {(script.is_owner || userEmail === ADMIN_EMAIL) && (
+                            <DropdownMenuItem
+                                onClick={handleDelete}
+                                disabled={isDeleting}
+                                className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                            >
+                                {isDeleting ? (
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                )}
+                                Supprimer
+                            </DropdownMenuItem>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
 
             {/* Public Badge - Floating */}
             {script.is_public && (

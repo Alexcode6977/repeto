@@ -166,7 +166,7 @@ export function CastingManager({
                             >
                                 <SelectTrigger className="w-full h-9 text-xs border-dashed border-primary/30">
                                     <Mic className="w-3 h-3 mr-2 opacity-50" />
-                                    <SelectValue placeholder="Voix IA" />
+                                    <SelectValue placeholder="Voix Premium" />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -191,7 +191,7 @@ export function CastingManager({
                         <div className="w-full md:w-[160px] flex items-center gap-2 px-3 h-9 rounded-md border border-border bg-muted/50 text-xs text-muted-foreground">
                             <Mic className="w-3 h-3 opacity-50" />
                             <span>
-                                {VOICES.find(v => v.id === voiceAssignments[char.name])?.name || "Pas de voix IA"}
+                                {VOICES.find(v => v.id === voiceAssignments[char.name])?.name || "Pas de voix Premium"}
                             </span>
                         </div>
                     )}

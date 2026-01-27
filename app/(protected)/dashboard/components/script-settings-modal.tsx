@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Loader2, Volume2, Settings2 } from "lucide-react";
+import { X, Loader2, Volume2, Settings2, VolumeX } from "lucide-react";
 import { getVoiceConfig, createVoiceConfig, VoiceConfig, VoiceAssignment, OpenAIVoice } from "@/lib/actions/voice-cache";
 import { getScriptById } from "../actions";
+import { synthesizeSpeech } from "@/app/actions/tts";
 
 // Available AI voices with French names
 const AI_VOICES: { value: OpenAIVoice; label: string; description: string }[] = [
@@ -36,6 +37,8 @@ export function ScriptSettingsModal({
     const [existingConfig, setExistingConfig] = useState<VoiceConfig[] | null>(null);
     const [voiceAssignments, setVoiceAssignments] = useState<Record<string, OpenAIVoice>>({});
     const [error, setError] = useState<string | null>(null);
+    const [playingVoice, setPlayingVoice] = useState<string | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         loadExistingConfig();
@@ -72,6 +75,49 @@ export function ScriptSettingsModal({
             ...prev,
             [character]: voice,
         }));
+    };
+
+    const handleTestVoice = async (character: string) => {
+        const voice = voiceAssignments[character] || "alloy";
+
+        // Stop any currently playing audio
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+
+        // If clicking same character, just stop
+        if (playingVoice === character) {
+            setPlayingVoice(null);
+            return;
+        }
+
+        setPlayingVoice(character);
+
+        try {
+            const result = await synthesizeSpeech(
+                `Bonjour, je suis ${character}. Voici un exemple de ma voix.`,
+                voice
+            );
+
+            if ('error' in result) {
+                setError(result.error);
+                setPlayingVoice(null);
+                return;
+            }
+
+            const audio = new Audio(result.audio);
+            audioRef.current = audio;
+            audio.onended = () => setPlayingVoice(null);
+            audio.onerror = () => {
+                setError("Erreur de lecture audio");
+                setPlayingVoice(null);
+            };
+            await audio.play();
+        } catch (err) {
+            setError("Erreur lors du test de voix");
+            setPlayingVoice(null);
+        }
     };
 
     const handleSave = async () => {
@@ -139,30 +185,58 @@ export function ScriptSettingsModal({
                             <div>
                                 <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
                                     <Volume2 className="w-4 h-4" />
-                                    Attribution des voix IA
+                                    Attribution des voix Premium
                                 </h3>
                                 <div className="space-y-3">
-                                    {characters.map((character) => (
+                                    {characters.map((character, index) => (
                                         <div
                                             key={character}
-                                            className="flex items-center justify-between gap-4 p-4 bg-muted/30 border border-border rounded-2xl"
+                                            className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4 p-4 bg-muted/30 border border-border rounded-2xl"
                                         >
-                                            <span className="font-bold text-foreground truncate">
-                                                {character}
-                                            </span>
-                                            <select
-                                                value={voiceAssignments[character] || "alloy"}
-                                                onChange={(e) =>
-                                                    handleVoiceChange(character, e.target.value as OpenAIVoice)
-                                                }
-                                                className="bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                            >
-                                                {AI_VOICES.map((voice) => (
-                                                    <option key={voice.value} value={voice.value}>
-                                                        {voice.label} - {voice.description}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            {/* Character name - always visible */}
+                                            <div className="flex items-center gap-2">
+                                                <div
+                                                    className="w-1.5 h-8 rounded-full"
+                                                    style={{ backgroundColor: `hsl(${(index * 60) % 360}, 70%, 50%)` }}
+                                                />
+                                                <span className="font-bold text-foreground text-sm md:text-base">
+                                                    {character}
+                                                </span>
+                                            </div>
+                                            {/* Voice selector + test button */}
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={voiceAssignments[character] || "alloy"}
+                                                    onChange={(e) =>
+                                                        handleVoiceChange(character, e.target.value as OpenAIVoice)
+                                                    }
+                                                    className="flex-1 md:flex-none md:w-auto bg-background border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                >
+                                                    {AI_VOICES.map((voice) => (
+                                                        <option key={voice.value} value={voice.value}>
+                                                            {voice.label} - {voice.description}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleTestVoice(character)}
+                                                    disabled={playingVoice !== null && playingVoice !== character}
+                                                    className={`shrink-0 rounded-xl h-10 w-10 ${playingVoice === character
+                                                        ? 'bg-primary/20 text-primary animate-pulse'
+                                                        : 'hover:bg-primary/10'
+                                                        }`}
+                                                    title={playingVoice === character ? "Arrêter" : "Tester la voix"}
+                                                >
+                                                    {playingVoice === character ? (
+                                                        <VolumeX className="w-5 h-5" />
+                                                    ) : (
+                                                        <Volume2 className="w-5 h-5" />
+                                                    )}
+                                                </Button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

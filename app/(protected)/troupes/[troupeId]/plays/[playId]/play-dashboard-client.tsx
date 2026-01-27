@@ -343,105 +343,102 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 </div>
             </div>
 
-            {/* 4. Secondary Actions Grid (Visio & Recording) */}
-            <div className="grid grid-cols-2 gap-3 flex-1 min-h-0 pb-32 md:pb-0">
+            {/* 4. Action Buttons Grid - 2x2 Layout */}
+            <div className="grid grid-cols-2 gap-3 pb-8">
 
-                {/* Enregistrer - ONLY for Admin */}
-                {isAdmin && (
-                    <Link href={`/troupes/${troupeId}/plays/${play.id}/record`} className="contents">
-                        <Card
-                            className="border-0 bg-red-500/10 hover:bg-red-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
-                            onClick={() => trigger('medium')}
-                        >
-                            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-400">
-                                <Mic className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-red-400 text-lg">Enregistrer</h3>
-                                <p className="text-[10px] text-red-400/60 uppercase font-bold tracking-wider">Ma voix</p>
-                            </div>
-                        </Card>
-                    </Link>
-                )}
-
-                {/* Répéter à distance (VISIO) */}
+                {/* LIRE */}
                 <Card
-                    className="border-0 bg-violet-500/10 hover:bg-violet-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-4 text-center rounded-3xl"
+                    className="border-0 bg-green-500/10 hover:bg-green-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
+                    onClick={() => {
+                        startMode("reader");
+                        trigger('medium');
+                    }}
+                >
+                    <div className="w-14 h-14 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
+                        <BookOpen className="w-7 h-7" />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-green-400 text-lg">Lire</h3>
+                        <p className="text-[10px] text-green-400/60 uppercase font-bold tracking-wider">Le texte</p>
+                    </div>
+                </Card>
+
+                {/* ÉCOUTER */}
+                <Card
+                    className={cn(
+                        "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
+                        rehearsalChars && rehearsalChars.length > 0
+                            ? "bg-teal-500/10 hover:bg-teal-500/20"
+                            : "bg-muted/30 opacity-60"
+                    )}
+                    onClick={() => {
+                        if (rehearsalChars && rehearsalChars.length > 0) {
+                            setViewMode("listen");
+                            trigger('medium');
+                        } else {
+                            alert("👆 Sélectionnez d'abord un personnage !");
+                            trigger('error');
+                        }
+                    }}
+                >
+                    <div className={cn(
+                        "w-14 h-14 rounded-full flex items-center justify-center",
+                        rehearsalChars && rehearsalChars.length > 0 ? "bg-teal-500/20 text-teal-400" : "bg-muted text-muted-foreground"
+                    )}>
+                        <Headphones className="w-7 h-7" />
+                    </div>
+                    <div>
+                        <h3 className={cn("font-bold text-lg", rehearsalChars && rehearsalChars.length > 0 ? "text-teal-400" : "text-muted-foreground")}>Écouter</h3>
+                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", rehearsalChars && rehearsalChars.length > 0 ? "text-teal-400/60" : "text-muted-foreground/60")}>Le script</p>
+                    </div>
+                </Card>
+
+                {/* RÉPÉTER */}
+                <Card
+                    className={cn(
+                        "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
+                        rehearsalChars && rehearsalChars.length > 0
+                            ? "bg-primary/20 hover:bg-primary/30"
+                            : "bg-muted/30 opacity-60"
+                    )}
+                    onClick={() => {
+                        if (rehearsalChars && rehearsalChars.length > 0) {
+                            startMode("rehearsal");
+                            trigger('medium');
+                        } else {
+                            alert("👆 Sélectionnez d'abord un personnage !");
+                            trigger('error');
+                        }
+                    }}
+                >
+                    <div className={cn(
+                        "w-14 h-14 rounded-full flex items-center justify-center",
+                        rehearsalChars && rehearsalChars.length > 0 ? "bg-primary/30 text-primary" : "bg-muted text-muted-foreground"
+                    )}>
+                        <Play className="w-7 h-7 fill-current" />
+                    </div>
+                    <div>
+                        <h3 className={cn("font-bold text-lg", rehearsalChars && rehearsalChars.length > 0 ? "text-primary" : "text-muted-foreground")}>Répéter</h3>
+                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", rehearsalChars && rehearsalChars.length > 0 ? "text-primary/60" : "text-muted-foreground/60")}>Mon rôle</p>
+                    </div>
+                </Card>
+
+                {/* À DISTANCE (VISIO) */}
+                <Card
+                    className="border-0 bg-violet-500/10 hover:bg-violet-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
                     onClick={() => {
                         trigger('medium');
                         router.push(`/troupes/${troupeId}/plays/${play.id}/visio`);
                     }}
                 >
-                    <div className="w-12 h-12 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400">
-                        <Video className="w-6 h-6" />
+                    <div className="w-14 h-14 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400">
+                        <Video className="w-7 h-7" />
                     </div>
                     <div>
                         <h3 className="font-bold text-violet-400 text-lg">À distance</h3>
                         <p className="text-[10px] text-violet-400/60 uppercase font-bold tracking-wider">Visio</p>
                     </div>
                 </Card>
-            </div>
-
-            {/* PERMANENT STICKY FOOTER - PRIMARY ACTIONS */}
-            <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 z-[100] bg-gradient-to-t from-background via-background/95 to-transparent pt-8">
-                <div className="max-w-md mx-auto flex items-center gap-3">
-
-                    {/* LIRE (Always active) */}
-                    <button
-                        onClick={() => {
-                            startMode("reader");
-                            trigger('medium');
-                        }}
-                        className="flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl bg-card border border-border/50 shadow-lg active:scale-95 transition-all hover:bg-muted/50"
-                    >
-                        <BookOpen className="w-6 h-6 text-green-500" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Lire</span>
-                    </button>
-
-                    {/* ÉCOUTER */}
-                    <button
-                        onClick={() => {
-                            if (rehearsalChars && rehearsalChars.length > 0) {
-                                setViewMode("listen");
-                                trigger('medium');
-                            } else {
-                                alert("👆 Sélectionnez d'abord un personnage !");
-                                trigger('error');
-                            }
-                        }}
-                        className={cn(
-                            "flex-1 flex flex-col items-center gap-1 p-3 rounded-2xl border shadow-lg active:scale-95 transition-all",
-                            rehearsalChars && rehearsalChars.length > 0
-                                ? "bg-card border-teal-500/30 text-teal-500 hover:bg-teal-500/10"
-                                : "bg-card/50 border-border/30 text-muted-foreground/50 opacity-70"
-                        )}
-                    >
-                        <Headphones className="w-6 h-6" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Écouter</span>
-                    </button>
-
-                    {/* RÉPÉTER (Main CTA) */}
-                    <button
-                        onClick={() => {
-                            if (rehearsalChars && rehearsalChars.length > 0) {
-                                startMode("rehearsal");
-                                trigger('medium');
-                            } else {
-                                alert("👆 Sélectionnez d'abord un personnage !");
-                                trigger('error');
-                            }
-                        }}
-                        className={cn(
-                            "flex-[1.5] flex flex-col items-center justify-center gap-1 p-3 rounded-2xl shadow-xl active:scale-95 transition-all",
-                            rehearsalChars && rehearsalChars.length > 0
-                                ? "bg-primary text-primary-foreground shadow-primary/30 hover:bg-primary/90"
-                                : "bg-muted text-muted-foreground border border-border"
-                        )}
-                    >
-                        <Play className={cn("w-7 h-7 fill-current", !rehearsalChars && "opacity-50")} />
-                        <span className={cn("text-xs font-black uppercase tracking-widest", !rehearsalChars && "opacity-50")}>Répéter</span>
-                    </button>
-                </div>
             </div>
 
             {/* VIDEO OVERLAY - PERSISTENT */}

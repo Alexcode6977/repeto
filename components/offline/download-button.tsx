@@ -12,11 +12,12 @@ interface DownloadButtonProps {
     scriptId: string;
     troupeId?: string;
     className?: string;
+    showLabel?: boolean;
 }
 
 type DownloadStatus = "idle" | "downloading" | "done" | "error";
 
-export function DownloadButton({ scriptId, troupeId, className }: DownloadButtonProps) {
+export function DownloadButton({ scriptId, troupeId, className, showLabel }: DownloadButtonProps) {
     const [status, setStatus] = useState<DownloadStatus>("idle");
     const [progress, setProgress] = useState(0);
 
@@ -47,12 +48,13 @@ export function DownloadButton({ scriptId, troupeId, className }: DownloadButton
         return (
             <Button
                 variant="outline"
-                size="icon"
-                className={cn("h-10 w-10 number-full bg-green-500/20 text-green-500 border-green-500/50 hover:bg-green-500/30", className)}
+                size={showLabel ? "default" : "icon"}
+                className={cn("h-10 rounded-full bg-green-500/20 text-green-500 border-green-500/50 hover:bg-green-500/30", showLabel ? "w-auto px-3" : "w-10", className)}
                 onClick={() => handleDownload()} // Allow re-sync
                 title="Téléchargé (Cliquer pour mettre à jour)"
             >
                 <Check className="w-5 h-5" />
+                {showLabel && <span className="ml-2">Téléchargé</span>}
             </Button>
         );
     }
@@ -85,12 +87,13 @@ export function DownloadButton({ scriptId, troupeId, className }: DownloadButton
     return (
         <Button
             variant="outline"
-            size="icon"
-            className={cn("h-10 w-10 rounded-full bg-secondary/20 border-0 hover:bg-secondary/40", className)}
+            size={showLabel ? "default" : "icon"}
+            className={cn("h-10 rounded-full bg-secondary/20 border-0 hover:bg-secondary/40", showLabel ? "w-auto px-3" : "w-10", className)}
             onClick={handleDownload}
             title="Télécharger hors-ligne"
         >
             <Download className="w-5 h-5 text-muted-foreground" />
+            {showLabel && <span className="ml-2">Télécharger</span>}
         </Button>
     );
 }

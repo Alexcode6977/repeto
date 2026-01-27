@@ -75,6 +75,18 @@ export function DashboardHeader({
                                 <Search className="w-6 h-6" />
                             </Button>
                             <Button
+                                size="icon"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-10 h-10 shadow-lg shadow-primary/20"
+                                onClick={onImportClick}
+                                disabled={isPending}
+                            >
+                                {isPending ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <Plus className="w-5 h-5" />
+                                )}
+                            </Button>
+                            <Button
                                 variant="ghost"
                                 onClick={onLogout}
                                 size="icon"

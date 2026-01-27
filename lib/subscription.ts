@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type SubscriptionTier = 'free' | 'solo_pro' | 'troupe';
+export type SubscriptionTier = 'free' | 'solo_pro' | 'troupe' | 'troupe_xl';
 
 export interface SubscriptionLimits {
     maxPersonalScripts: number;
@@ -26,6 +26,13 @@ export const TIER_LIMITS: Record<SubscriptionTier, SubscriptionLimits> = {
         canAccessTroupeFeatures: false,
     },
     troupe: {
+        maxPersonalScripts: Infinity,
+        hasAiVoices: true,
+        hasAdvancedPlanning: true,
+        canRecord: true,
+        canAccessTroupeFeatures: true,
+    },
+    troupe_xl: {
         maxPersonalScripts: Infinity,
         hasAiVoices: true,
         hasAdvancedPlanning: true,

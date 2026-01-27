@@ -280,7 +280,7 @@ export function ListenMode({
                                 📢 {announceCharacter ? "Annonce activée" : "Sans annonce"}
                             </span>
                             <span className={cn("transition-colors", ttsProvider === "openai" && "text-emerald-400 font-bold")}>
-                                🎙️ {ttsProvider === "openai" ? "Voix IA" : "Voix Standard"}
+                                🎙️ {ttsProvider === "openai" ? "Voix Premium" : "Voix Standard"}
                             </span>
                         </div>
                     </div>
@@ -375,7 +375,7 @@ export function ListenMode({
                                         <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
                                         <div className="py-3 rounded-xl text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center flex items-center justify-center gap-2">
                                             <Sparkles className="w-3 h-3" />
-                                            Voix IA officielles
+                                            Voix Premium officielles
                                         </div>
                                         <p className="text-[10px] text-muted-foreground text-center mt-2">
                                             Attribuées par l'admin Repeto
@@ -403,7 +403,7 @@ export function ListenMode({
                                             className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
                                         >
                                             <Sparkles className="w-3 h-3" />
-                                            Passez à Pro pour des voix IA
+                                            Passez à Pro pour des voix Premium
                                         </a>
                                     </div>
                                 );
@@ -470,7 +470,7 @@ export function ListenMode({
                                         className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
                                     >
                                         <Sparkles className="w-3 h-3" />
-                                        Passez à Pro pour des voix IA
+                                        Passez à Pro pour des voix Premium
                                     </a>
                                 </div>
                             );
@@ -497,6 +497,30 @@ export function ListenMode({
                                 </button>
                             </div>
                         </div>
+
+                        {/* Didascalies Toggle - Only show if script has didascalies */}
+                        {hasDidascalies && (
+                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">📋 Lire les didascalies</label>
+                                        <p className="text-[10px] text-muted-foreground mt-1">Inclure les indications scéniques</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setSkipDidascalies(!skipDidascalies)}
+                                        className={cn(
+                                            "relative w-14 h-7 rounded-full transition-colors shrink-0",
+                                            !skipDidascalies ? "bg-cyan-500" : "bg-muted"
+                                        )}
+                                    >
+                                        <span className={cn(
+                                            "absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow",
+                                            !skipDidascalies ? "left-8" : "left-1"
+                                        )} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <button onClick={onExit} className="w-full max-w-md mx-auto text-sm font-medium text-muted-foreground hover:text-foreground transition-colors text-center py-2 mt-6">
@@ -526,8 +550,9 @@ export function ListenMode({
                         </div>
 
                         {currentScene && (
-                            <div className="hidden md:block text-[10px] text-muted-foreground max-w-[200px] truncate">
-                                {currentScene.title}
+                            <div className="px-3 py-1.5 rounded-full text-[10px] font-bold border bg-muted/30 text-foreground border-border flex items-center gap-1.5 max-w-[180px] md:max-w-[250px]">
+                                <span className="text-muted-foreground">🎬</span>
+                                <span className="truncate">{currentScene.title}</span>
                             </div>
                         )}
                     </div>

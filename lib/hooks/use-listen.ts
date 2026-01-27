@@ -323,7 +323,7 @@ export function useListen({
                 // 1. Announce character if enabled
                 if (announceCharacter) {
                     if (!isValid()) return;
-                    await speakDirect(`${line.character} dit :`);
+                    await speakDirect(line.character);
                     if (!isValid()) return;
                     await new Promise(r => setTimeout(r, 100));
                     if (!isValid()) return;
@@ -378,7 +378,7 @@ export function useListen({
                 if (!isValid()) return;
 
                 // 3. Small pause before next
-                await new Promise(r => setTimeout(r, 150));
+                await new Promise(r => setTimeout(r, 600));
                 if (!isValid()) return;
 
                 // 4. Auto-advance

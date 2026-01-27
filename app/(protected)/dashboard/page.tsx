@@ -348,6 +348,7 @@ export default function Home() {
             });
           }
         }}
+        onImport={() => setShowImportGuide(true)}
       />
 
       {/* 5. IMPORT WIZARD (Overlay) */}

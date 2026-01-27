@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Sparkles, ArrowRight, BookOpen, Play, Sliders, Repeat, Check, X, Users, User, Crown, Menu, X as XIcon, ChevronDown, Star } from "lucide-react";
+import { SingleMask, TripleMask } from "@/components/icons/masks";
 import { PLANS } from "@/lib/stripe";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ export default function LandingPage() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [openFaq, setOpenFaq] = useState<number | null>(null);
+    const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
     useEffect(() => {
         const handleScroll = () => {
@@ -35,11 +37,11 @@ export default function LandingPage() {
         },
         {
             question: "Puis-je utiliser Repeto hors ligne ?",
-            answer: "Oui ! Une fois votre script chargé, le mode lecture basique fonctionne sans internet. La reconnaissance vocale et les voix IA nécessitent cependant une connexion."
+            answer: "Oui ! Une fois votre script chargé, le mode lecture basique fonctionne sans internet. La reconnaissance vocale et les voix Premium nécessitent cependant une connexion."
         },
         {
             question: "Quels formats de script sont acceptés ?",
-            answer: "Nous acceptons tous les fichiers PDF. Notre IA analyse la structure pour identifier automatiquement les personnages et les dialogues."
+            answer: "Nous acceptons tous les fichiers PDF. Notre algorithme analyse la structure pour identifier automatiquement les personnages et les dialogues."
         },
         {
             question: "Puis-je changer d'avis ?",
@@ -155,7 +157,7 @@ export default function LandingPage() {
                         </h1>
 
                         <p className="max-w-xl mx-auto text-lg md:text-xl text-white/60 leading-relaxed">
-                            Le souffleur intelligent qui vous donne la réplique, vous fait répéter inlassablement, et ne s'impatiente jamais.
+                            Le comédien virtuel qui vous donne la réplique, vous fait répéter inlassablement, et ne s'impatiente jamais.
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
@@ -192,7 +194,7 @@ export default function LandingPage() {
                             <FeatureCard
                                 icon={<BookOpen className="w-8 h-8 text-blue-400" />}
                                 title="Importez"
-                                description="PDF, Word ou texte brut. Notre IA analyse et formate instantanément votre script."
+                                description="PDF, Word ou texte brut. Notre système analyse et formate instantanément votre script."
                                 gradient="from-blue-500/20 to-cyan-500/5"
                             />
                             <FeatureCard
@@ -246,37 +248,46 @@ export default function LandingPage() {
 
                 {/* Pricing - Épuré */}
                 <section id="tarifs" className="py-24 bg-white/[0.02]">
-                    <div className="max-w-7xl mx-auto px-6">
+                    <div className="max-w-[1400px] mx-auto px-6">
                         <div className="text-center mb-16 space-y-4">
                             <h2 className="text-3xl md:text-5xl font-bold text-white">Tarifs simples</h2>
                             <p className="text-white/50 text-lg">Commencez gratuitement, passez Pro quand vous êtes prêt.</p>
+
+                            {/* Billing Toggle */}
+                            <div className="flex items-center justify-center gap-4 mt-8">
+                                <span className={cn("text-sm font-medium transition-colors", billingCycle === 'monthly' ? "text-white" : "text-white/50")}>
+                                    Mensuel
+                                </span>
+                                <div
+                                    onClick={() => setBillingCycle(prev => prev === 'monthly' ? 'yearly' : 'monthly')}
+                                    className="w-14 h-8 bg-white/10 rounded-full p-1 cursor-pointer transition-colors relative border border-white/10"
+                                >
+                                    <div className={cn(
+                                        "w-6 h-6 bg-primary rounded-full shadow-sm transition-transform duration-300",
+                                        billingCycle === 'yearly' ? "translate-x-6" : "translate-x-0"
+                                    )} />
+                                </div>
+                                <span className={cn("text-sm font-medium transition-colors flex items-center gap-2", billingCycle === 'yearly' ? "text-white" : "text-white/50")}>
+                                    Annuel
+                                    <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                        -20% (2 mois offerts)
+                                    </span>
+                                </span>
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[1400px] mx-auto">
+                            {/* Free */}
+                            <PricingCard plan="free" icon={<SingleMask className="w-6 h-6" />} billingCycle={billingCycle} />
 
-                            {/* Section Comédien (2/3) */}
-                            <div className="lg:col-span-2 flex flex-col space-y-8 animate-in slide-in-from-bottom-4 duration-700 delay-100">
-                                <h3 className="text-2xl font-bold text-center text-white flex items-center justify-center gap-3">
-                                    <User className="w-6 h-6 text-primary" />
-                                    Je suis comédien
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1">
-                                    <PricingCard plan="free" icon={<User className="w-6 h-6" />} />
-                                    <PricingCard plan="solo_pro" icon={<Crown className="w-6 h-6" />} popular />
-                                </div>
-                            </div>
+                            {/* Solo Pro */}
+                            <PricingCard plan="solo_pro" icon={<SingleMask className="w-6 h-6" />} billingCycle={billingCycle} />
 
-                            {/* Section Troupe (1/3) */}
-                            <div className="lg:col-span-1 flex flex-col space-y-8 animate-in slide-in-from-bottom-4 duration-700 delay-200">
-                                <h3 className="text-2xl font-bold text-center text-white flex items-center justify-center gap-3">
-                                    <Users className="w-6 h-6 text-purple-400" />
-                                    Je gère une troupe
-                                </h3>
-                                <div className="flex-1">
-                                    <PricingCard plan="troupe" icon={<Users className="w-6 h-6" />} />
-                                </div>
-                            </div>
+                            {/* Troupe */}
+                            <PricingCard plan="troupe" icon={<TripleMask className="w-6 h-6" />} billingCycle={billingCycle} />
 
+                            {/* Troupe XL */}
+                            <PricingCard plan="troupe_xl" icon={<TripleMask className="w-6 h-6" />} billingCycle={billingCycle} badge="Grandes Troupes" />
                         </div>
                     </div>
                 </section>
@@ -336,16 +347,44 @@ function FeatureCard({ icon, title, description, gradient }: { icon: any, title:
     )
 }
 
-function PricingCard({ plan, icon, popular }: { plan: 'free' | 'solo_pro' | 'troupe', icon: any, popular?: boolean }) {
-    const details = PLANS[plan];
+function PricingCard({ plan, icon, popular, billingCycle, badge }: { plan: 'free' | 'solo_pro' | 'troupe' | 'troupe_xl', icon: any, popular?: boolean, billingCycle: 'monthly' | 'yearly', badge?: string }) {
+    const details = PLANS[plan]; // Note: PLANS.troupe_xl must be defined in lib/stripe
+
+    // Calculate Price
+    const monthlyPrice = details.price;
+    const yearlyPriceTotal = monthlyPrice * 10;
+
+    // Format price to avoid floating point errors
+    const formatPrice = (price: number) => {
+        if (price === 0) return "0€";
+        return Number.isInteger(price)
+            ? `${price}€`
+            : `${price.toFixed(2).replace('.', ',')}€`;
+    };
+
+    const displayPrice = billingCycle === 'monthly'
+        ? formatPrice(monthlyPrice)
+        : formatPrice(yearlyPriceTotal);
+
+    const period = monthlyPrice === 0 ? "" : billingCycle === 'monthly' ? "/mois" : "/an";
+
+    const savedAmount = monthlyPrice * 2;
+    const formattedSavedAmount = Number.isInteger(savedAmount)
+        ? `${savedAmount}€`
+        : `${savedAmount.toFixed(2).replace('.', ',')}€`;
 
     return (
         <div className={cn(
             "relative p-8 rounded-3xl border transition-all duration-300 flex flex-col h-full",
             popular
-                ? "bg-white/[0.04] border-primary/50 shadow-2xl shadow-primary/10 z-10"
+                ? "bg-white/[0.04] border-primary/50 shadow-2xl shadow-primary/10 z-10 scale-105"
                 : "bg-white/[0.02] border-white/5 hover:border-white/10"
         )}>
+            {badge && (
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white/10 border border-white/10 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-lg">
+                    {badge}
+                </div>
+            )}
             {popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full shadow-lg shadow-primary/40">
                     Recommandé
@@ -362,10 +401,15 @@ function PricingCard({ plan, icon, popular }: { plan: 'free' | 'solo_pro' | 'tro
                 <h3 className="text-lg font-medium text-white/60 text-center mb-2">{details.name}</h3>
                 <div className="flex items-baseline justify-center gap-1 text-white">
                     <span className="text-4xl font-bold tracking-tight">
-                        {details.price === 0 ? '0€' : `${details.price}€`}
+                        {displayPrice}
                     </span>
-                    <span className="text-white/40">/mois</span>
+                    <span className="text-white/40">{period}</span>
                 </div>
+                {billingCycle === 'yearly' && monthlyPrice > 0 && (
+                    <p className="text-center text-xs text-emerald-400 font-bold mt-2">
+                        Économisez {formattedSavedAmount} / an
+                    </p>
+                )}
                 <p className="text-center text-sm text-white/40 mt-4 h-10">{details.description}</p>
             </div>
 
@@ -378,14 +422,14 @@ function PricingCard({ plan, icon, popular }: { plan: 'free' | 'solo_pro' | 'tro
                 ))}
             </ul>
 
-            <Link href="/signup" className="mt-auto w-full">
+            <Link href={`/signup?plan=${plan}&billing=${billingCycle}`} className="mt-auto w-full">
                 <Button className={cn(
-                    "w-full h-12 rounded-xl text-base font-medium transition-all",
+                    "w-full h-12 rounded-xl text-base font-bold transition-all",
                     popular
                         ? "bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
                         : "bg-white/5 hover:bg-white/10 text-white border border-white/5"
                 )}>
-                    {plan === 'free' ? 'Commencer gratuitement' : 'Choisir ce plan'}
+                    {plan === 'free' ? 'Commencer gratuitement' : 'Commencer mon essai gratuit'}
                 </Button>
             </Link>
         </div>

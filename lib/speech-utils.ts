@@ -236,8 +236,8 @@ export function applyPhoneticCorrections(text: string): string {
         .replace(/\bVentrebleu\b/gi, 'Ventrebleû')
         // Common mistranslations / mispronunciations / Missing liaisons
         .replace(/\b(?<!')assurez-vous\b/gi, 'assuré-vous') // Pronounce final 'z' correctly
-        .replace(/\b(?<!')voyons\b/gi, 'voi-yon') // Softer ending
-        .replace(/\bEh bien\b/gi, 'É bien')
+        .replace(/\bvoyons\b/gi, 'voi-yon') // Softer ending
+        // Note: Removed "Eh bien" -> "É bien" correction as it caused speech recognition validation errors
         .replace(/\best-il\b/gi, 'è-til')
         .replace(/\best-elle\b/gi, 'è-telle')
         .replace(/\bpeut-être\b/gi, 'peut-ètre')

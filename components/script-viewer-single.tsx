@@ -2,9 +2,16 @@
 
 import { ParsedScript } from "@/lib/types";
 import { Button } from "./ui/button";
-import { BookOpen, Play, Headphones, Check } from "lucide-react";
+import { BookOpen, Play, Headphones, Check, ChevronDown } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 interface ScriptViewerSingleProps {
     script: ParsedScript;
@@ -13,11 +20,10 @@ interface ScriptViewerSingleProps {
 
 /**
  * ScriptViewerSingle - Character selection for NORMAL mode (Dashboard)
- * Only allows selecting ONE character at a time.
- * Categorizes characters into "Personnages" and "Autres (Technique)"
+ * Compact layout: everything visible on one screen without scrolling
  */
 export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProps) {
-    const [selectedChar, setSelectedChar] = useState<string | null>(null);
+    const [selectedChar, setSelectedChar] = useState<string>("");
 
     // Technical role detection
     const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off"];
@@ -44,59 +50,52 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
         }
     };
 
+    const isDisabled = !selectedChar;
+
     return (
-        <div className="space-y-12 w-full max-w-2xl py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center space-y-4">
-                <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
-                    Choisissez votre personnage
+        <div className="w-full max-w-lg mx-auto py-6 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Header */}
+            <div className="text-center mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mb-2">
+                    Prêt à répéter ?
                 </h2>
-                <p className="text-muted-foreground text-sm md:text-base">
-                    Sélectionnez le rôle que vous souhaitez interpréter
+                <p className="text-muted-foreground text-sm">
+                    Choisissez votre rôle et lancez-vous
                 </p>
             </div>
 
-            <div className="space-y-8">
-                {/* Main Characters Section */}
-                <div className="space-y-3">
-                    <div className="text-center">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                            🎭 Personnages
-                        </span>
-                    </div>
-                    <div className="flex flex-wrap gap-3 justify-center max-w-xl mx-auto">
-                        {mainCharacters.map((char) => {
-                            const isSelected = selectedChar === char;
-                            return (
-                                <Button
+            {/* Compact Selection Area */}
+            <div className="space-y-6">
+                {/* Character Select Dropdown */}
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                        🎭 Votre personnage
+                    </label>
+                    <Select value={selectedChar} onValueChange={setSelectedChar}>
+                        <SelectTrigger className="w-full h-14 rounded-2xl bg-card border-border text-lg font-semibold">
+                            <SelectValue placeholder="Sélectionnez un rôle..." />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                            {mainCharacters.map((char) => (
+                                <SelectItem
                                     key={char}
-                                    variant={isSelected ? "default" : "glass"}
-                                    onClick={() => setSelectedChar(isSelected ? null : char)}
-                                    className={cn(
-                                        "h-auto py-3 px-6 rounded-2xl text-base font-bold transition-all duration-300",
-                                        isSelected
-                                            ? "scale-105 shadow-[0_0_20px_rgba(124,58,237,0.4)] ring-2 ring-primary/50"
-                                            : "hover:bg-white/10 hover:scale-[1.02]"
-                                    )}
+                                    value={char}
+                                    className="text-base py-3 cursor-pointer"
                                 >
                                     {char}
-                                </Button>
-                            );
-                        })}
-                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
-                {/* Technical Roles Section (if any exist) */}
+                {/* Technical Roles - Inline Compact */}
                 {technicalCharacters.length > 0 && (
-                    <div className="space-y-3 pt-4 border-t border-border/50">
-                        <div className="text-center">
-                            <span className="text-xs font-bold text-muted-foreground/70 uppercase tracking-widest">
-                                📋 Autres (Technique)
-                            </span>
-                            <p className="text-[10px] text-muted-foreground/50 mt-1">
-                                Cliquez pour activer/désactiver la lecture
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2 justify-center max-w-xl mx-auto">
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-muted-foreground/70 uppercase tracking-widest flex items-center gap-2">
+                            📋 Technique
+                        </label>
+                        <div className="flex flex-wrap gap-2">
                             {technicalCharacters.map((char) => {
                                 const isIgnored = ignoredTechnical.includes(char);
                                 return (
@@ -104,69 +103,113 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
                                         key={char}
                                         onClick={() => toggleTechnical(char)}
                                         className={cn(
-                                            "flex items-center gap-2 py-2 px-4 rounded-xl text-sm font-medium border transition-all duration-300",
+                                            "flex items-center gap-2 py-2 px-3 rounded-xl text-xs font-medium border transition-all duration-200",
                                             !isIgnored
                                                 ? "bg-primary/10 border-primary/30 text-foreground"
                                                 : "bg-muted/20 border-dashed border-border text-muted-foreground/60 hover:bg-muted/30"
                                         )}
                                     >
                                         <div className={cn(
-                                            "w-4 h-4 rounded flex items-center justify-center border transition-colors",
+                                            "w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors",
                                             !isIgnored ? "bg-primary border-primary" : "bg-transparent border-muted-foreground/30"
                                         )}>
-                                            {!isIgnored && <Check className="w-3 h-3 text-primary-foreground" />}
+                                            {!isIgnored && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
                                         </div>
-                                        <span className={cn(isIgnored && "line-through")}>{char}</span>
+                                        <span>{char}</span>
                                     </button>
                                 );
                             })}
                         </div>
                     </div>
                 )}
-            </div>
 
-            {selectedChar && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-8 animate-in fade-in zoom-in duration-500 max-w-2xl mx-auto w-full">
-                    <button
-                        onClick={() => handleConfirm('reader')}
-                        className="group relative flex flex-col items-center justify-center gap-4 p-6 md:p-8 bg-card border border-border rounded-[2rem] hover:bg-white/10 hover:border-yellow-500/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl"
-                    >
-                        <div className="w-14 h-14 md:w-16 md:h-16 bg-yellow-500/20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                            <BookOpen className="w-7 h-7 md:w-8 md:h-8 text-yellow-400" />
-                        </div>
-                        <div className="text-center">
-                            <h3 className="text-lg md:text-xl font-black text-foreground uppercase tracking-wider">Lire</h3>
-                            <p className="text-muted-foreground text-[10px]">Découvrir le texte</p>
-                        </div>
-                    </button>
+                {/* Divider */}
+                <div className="border-t border-border/50 my-4" />
 
-                    <button
-                        onClick={() => handleConfirm('listen')}
-                        className="group relative flex flex-col items-center justify-center gap-4 p-6 md:p-8 bg-cyan-500/10 border border-cyan-500/20 rounded-[2rem] hover:bg-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-xl shadow-cyan-500/10"
-                    >
-                        <div className="w-14 h-14 md:w-16 md:h-16 bg-cyan-500/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                            <Headphones className="w-7 h-7 md:w-8 md:h-8 text-cyan-400" />
-                        </div>
-                        <div className="text-center">
-                            <h3 className="text-lg md:text-xl font-black text-foreground uppercase tracking-wider">Écouter</h3>
-                            <p className="text-cyan-300 text-[10px]">Mode livre audio</p>
-                        </div>
-                    </button>
+                {/* 3 Mode Buttons - Always Visible */}
+                <div className="space-y-3">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-center block">
+                        Choisissez un mode
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                        {/* LIRE */}
+                        <button
+                            onClick={() => handleConfirm('reader')}
+                            disabled={isDisabled}
+                            className={cn(
+                                "group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300",
+                                isDisabled
+                                    ? "opacity-40 cursor-not-allowed bg-card border-border"
+                                    : "bg-card border-border hover:bg-yellow-500/10 hover:border-yellow-500/50 active:scale-95"
+                            )}
+                        >
+                            <div className={cn(
+                                "w-12 h-12 rounded-full flex items-center justify-center transition-transform",
+                                isDisabled ? "bg-muted/20" : "bg-yellow-500/20 group-hover:scale-110"
+                            )}>
+                                <BookOpen className={cn("w-6 h-6", isDisabled ? "text-muted-foreground" : "text-yellow-400")} />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Lire</h3>
+                                <p className="text-muted-foreground text-[9px] hidden md:block">Découvrir</p>
+                            </div>
+                        </button>
 
-                    <button
-                        onClick={() => handleConfirm('rehearsal')}
-                        className="group relative flex flex-col items-center justify-center gap-4 p-6 md:p-8 bg-primary/10 border border-primary/20 rounded-[2rem] hover:bg-primary/20 hover:border-primary/50 transition-all duration-300 hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20"
-                    >
-                        <div className="w-14 h-14 md:w-16 md:h-16 bg-primary/30 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
-                            <Play className="w-7 h-7 md:w-8 md:h-8 text-foreground fill-white" />
-                        </div>
-                        <div className="text-center">
-                            <h3 className="text-lg md:text-xl font-black text-foreground uppercase tracking-wider">Répéter</h3>
-                            <p className="text-gray-300 text-[10px]">L'IA donne la réplique</p>
-                        </div>
-                    </button>
+                        {/* ÉCOUTER */}
+                        <button
+                            onClick={() => handleConfirm('listen')}
+                            disabled={isDisabled}
+                            className={cn(
+                                "group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300",
+                                isDisabled
+                                    ? "opacity-40 cursor-not-allowed bg-card border-border"
+                                    : "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/15 hover:border-cyan-500/50 active:scale-95"
+                            )}
+                        >
+                            <div className={cn(
+                                "w-12 h-12 rounded-full flex items-center justify-center transition-transform",
+                                isDisabled ? "bg-muted/20" : "bg-cyan-500/20 group-hover:scale-110"
+                            )}>
+                                <Headphones className={cn("w-6 h-6", isDisabled ? "text-muted-foreground" : "text-cyan-400")} />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Écouter</h3>
+                                <p className="text-cyan-300 text-[9px] hidden md:block">Audio</p>
+                            </div>
+                        </button>
+
+                        {/* RÉPÉTER */}
+                        <button
+                            onClick={() => handleConfirm('rehearsal')}
+                            disabled={isDisabled}
+                            className={cn(
+                                "group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300",
+                                isDisabled
+                                    ? "opacity-40 cursor-not-allowed bg-card border-border"
+                                    : "bg-primary/5 border-primary/20 hover:bg-primary/15 hover:border-primary/50 active:scale-95 shadow-lg shadow-primary/10"
+                            )}
+                        >
+                            <div className={cn(
+                                "w-12 h-12 rounded-full flex items-center justify-center transition-transform",
+                                isDisabled ? "bg-muted/20" : "bg-primary/20 group-hover:scale-110"
+                            )}>
+                                <Play className={cn("w-6 h-6", isDisabled ? "text-muted-foreground" : "text-foreground fill-white")} />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Répéter</h3>
+                                <p className="text-gray-300 text-[9px] hidden md:block">Avec le Partenaire</p>
+                            </div>
+                        </button>
+                    </div>
                 </div>
-            )}
+
+                {/* Helper text */}
+                {isDisabled && (
+                    <p className="text-center text-muted-foreground/50 text-xs animate-pulse">
+                        ↑ Sélectionnez d'abord un personnage
+                    </p>
+                )}
+            </div>
         </div>
     );
 }

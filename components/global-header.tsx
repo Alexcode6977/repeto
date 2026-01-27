@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { User, Shield, BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SingleMask, TripleMask } from "./icons/masks";
 
 interface GlobalHeaderProps {
     displayName: string;
     isAdmin: boolean;
-    tier: "free" | "solo_pro" | "troupe";
+    tier: "free" | "solo_pro" | "troupe" | "troupe_xl";
 }
 
 export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) {
@@ -30,7 +31,7 @@ export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) 
                 {/* Small Logo */}
                 <div className="w-10 h-10 rounded-xl bg-secondary/20 border border-border flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
                     <div className="w-6 h-6 rounded-full bg-primary blur-md absolute opacity-50" />
-                    <span className="relative text-xl">🎭</span>
+                    <SingleMask className="w-6 h-6 relative z-10" />
                 </div>
                 <span className="text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">Repeto</span>
             </Link>
@@ -38,13 +39,13 @@ export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) 
             <div className="flex items-center gap-3">
                 <Link href="/troupes">
                     <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer mr-2">
-                        <span className="text-xl">🎭</span>
+                        <TripleMask className="w-6 h-6" />
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">Troupes</span>
                     </div>
                 </Link>
 
                 {/* Stats Link - Only for Premium/Troupe */}
-                {(tier === "solo_pro" || tier === "troupe") && (
+                {(tier === "solo_pro" || tier === "troupe" || tier === "troupe_xl") && (
                     <Link href="/stats">
                         <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 transition-colors cursor-pointer mr-2">
                             <BarChart2 className="w-4 h-4 text-blue-400" />

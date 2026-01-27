@@ -38,7 +38,7 @@ export default function DemoPage() {
                             Découvrez <span className="text-primary italic">Repeto</span> en action
                         </h1>
                         <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto font-light">
-                            Regardez comment REPETO transforme vos séances de répétition avec l'intelligence artificielle.
+                            Regardez comment REPETO vous accompagne dans vos séances de répétition et les rend plus efficaces.
                         </p>
                     </div>
 

@@ -208,7 +208,7 @@ export default function ProfilePage() {
                     </div>
                     <p className="text-muted-foreground flex items-center justify-center md:justify-start gap-2">
                         <Calendar className="w-4 h-4" />
-                        Membre depuis {new Date().getFullYear()}
+                        Membre depuis {user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear()}
                     </p>
                 </div>
                 <Button
@@ -278,49 +278,7 @@ export default function ProfilePage() {
                 </div>
             )}
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-                {/* Sessions Stat */}
-                <div className="p-5 rounded-2xl bg-card border border-border flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-primary/20">
-                        <MessageSquare className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Sessions</p>
-                        <p className="text-2xl font-bold text-foreground">
-                            {stats.totalSessions}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Average Rating */}
-                <div className="p-5 rounded-2xl bg-card border border-border flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-yellow-500/20">
-                        <Star className="w-6 h-6 text-yellow-500" />
-                    </div>
-                    <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Note Moyenne</p>
-                        <p className="text-2xl font-bold text-foreground">
-                            {stats.averageRating > 0 ? `${stats.averageRating}/5` : "-"}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Time Stat */}
-                <div className="p-5 rounded-2xl bg-card border border-border flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-indigo-500/20">
-                        <Clock className="w-6 h-6 text-indigo-500" />
-                    </div>
-                    <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wider font-bold">Temps Total</p>
-                        <p className="text-2xl font-bold text-foreground">
-                            {stats.totalDuration > 0 ? formatDuration(stats.totalDuration) : "0m"}
-                        </p>
-                    </div>
-                </div>
-
-            </div>
 
             {/* Feedback History */}
             <div className="space-y-4">

@@ -41,7 +41,7 @@ export const STRIPE_PRICES = {
 };
 
 // Subscription tier mapping
-export type SubscriptionTier = 'free' | 'solo_pro' | 'troupe';
+export type SubscriptionTier = 'free' | 'solo_pro' | 'troupe' | 'troupe_xl';
 
 // Helper to get tier from price ID
 export function getTierFromPriceId(priceId: string): SubscriptionTier {
@@ -54,15 +54,14 @@ export function getTierFromPriceId(priceId: string): SubscriptionTier {
 // Plan details for UI - use getters for stripePriceId to ensure runtime evaluation
 export const PLANS = {
     free: {
-        name: 'Gratuit',
+        name: 'Starter',
         price: 0,
         priceLabel: 'Gratuit',
-        description: 'Pour découvrir Souffleur',
+        description: 'Pour découvrir Repeto',
         features: [
             'Accès à la bibliothèque publique',
             '1 import de script personnel',
             'Voix système (robotique)',
-            'Consultation planning troupe',
         ],
         limitations: [
             'Voix IA non disponibles',
@@ -71,17 +70,14 @@ export const PLANS = {
         stripePriceId: undefined as string | undefined,
     },
     solo_pro: {
-        name: 'Solo Pro',
+        name: 'Premium',
         price: 4.99,
         priceLabel: '4,99€/mois',
         get stripePriceId() { return process.env.STRIPE_SOLO_PRO_PRICE_ID; },
-        description: 'Pour le comédien individuel',
+        description: 'Pour le comédien régulier',
         features: [
             'Imports de scripts illimités',
             'Voix IA interactives',
-            'Planification personnelle',
-            'Enregistrement pour soi',
-            'Support prioritaire',
         ],
         limitations: [],
     },
@@ -90,14 +86,28 @@ export const PLANS = {
         price: 20,
         priceLabel: '20€/mois',
         get stripePriceId() { return process.env.STRIPE_TROUPE_PRICE_ID; },
-        description: 'Pour le chef de troupe / Association',
+        description: 'Pour l\'ensemble d\'une troupe jusqu\'à 12 membres',
         features: [
-            'Scripts de troupe illimités',
-            '"Master Audio" partagé',
-            'Gestion complète (matching présences/scènes)',
-            'Centralisation des enregistrements',
-            'Membres illimités',
-            'Tous les membres ont accès aux fonctionnalités',
+            'Organisation de la troupe',
+            'Calendrier',
+            'Gestion des répétitions',
+            'Gestion des séances',
+            'Annotation du texte',
+            'Jusqu\'à 12 membres',
+        ],
+        limitations: [],
+    },
+    troupe_xl: {
+        name: 'Troupe XL',
+        price: 30,
+        priceLabel: '30€/mois',
+        get stripePriceId() { return process.env.STRIPE_TROUPE_XL_PRICE_ID; },
+        description: 'Pour les grandes troupes',
+        features: [
+            'Tout ce qui est inclus dans Troupe',
+            'Plus de 12 membres',
+            'Support dédié prioritaire',
+            'Formation de démarrage offerte',
         ],
         limitations: [],
     },

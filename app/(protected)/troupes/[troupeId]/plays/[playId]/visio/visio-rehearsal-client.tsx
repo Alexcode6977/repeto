@@ -185,7 +185,7 @@ export function VisioRehearsalClient({ troupeId, play, userId, members }: VisioR
                                         <Users className="w-4 h-4" /> Mon partenaire joue...
                                     </Label>
                                     <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-500 text-xs">
-                                        ⚠️ Ce personnage sera joué par votre partenaire, pas par l'IA.
+                                        ⚠️ Ce personnage sera joué par votre partenaire, pas par le Souffleur.
                                     </div>
                                     <select
                                         className="w-full p-3 rounded-xl bg-muted/50 border border-border outline-none focus:ring-2 focus:ring-orange-500/50 transition-all font-bold"
@@ -292,7 +292,7 @@ export function VisioRehearsalClient({ troupeId, play, userId, members }: VisioR
                     {/* Info */}
                     <div className="text-center text-sm text-muted-foreground space-y-2">
                         <p>✨ Votre partenaire verra le script en temps réel</p>
-                        <p>🎤 Les autres rôles seront joués par l'IA</p>
+                        <p>🎤 Les autres rôles seront joués par le Souffleur</p>
                         <p>🎬 Vous contrôlez la répétition</p>
                     </div>
                 </div>

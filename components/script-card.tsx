@@ -63,11 +63,11 @@ export const ScriptCard = memo(function ScriptCard({
                         Shared
                     </div>
                 )}
-                {/* Voice IA Badge */}
+                {/* Voice Premium Badge */}
                 {s.hasVoiceConfig && (
                     <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 text-emerald-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
                         <Mic className="w-3 h-3" />
-                        Voix IA
+                        Voix Premium
                     </div>
                 )}
             </div>

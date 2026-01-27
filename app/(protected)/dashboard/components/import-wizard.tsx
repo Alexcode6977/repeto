@@ -240,7 +240,7 @@ export function ImportWizard({
             }
         } catch (err: any) {
             if (!aiImportCancelled) {
-                onError(err.message || "Erreur lors de l'import IA.");
+                onError(err.message || "Erreur lors de l'import Automatique.");
                 setIsAiImporting(false);
                 setAiImportStep(0);
             }
@@ -471,9 +471,9 @@ export function ImportWizard({
                                         </div>
                                     ) : (
                                         <div className="space-y-6">
-                                            <div className="text-center mb-6"><h3 className="text-xl font-bold text-foreground">Import IA en cours...</h3></div>
+                                            <div className="text-center mb-6"><h3 className="text-xl font-bold text-foreground">Analyse Intelligente en cours...</h3></div>
                                             <div className="p-4 rounded-2xl border bg-muted/30 border-primary/30">
-                                                <div className="flex items-center gap-3 mb-2"><Loader2 className="w-4 h-4 animate-spin text-primary" /><span className="font-medium text-foreground">Traitement IA étape {aiImportStep}</span></div>
+                                                <div className="flex items-center gap-3 mb-2"><Loader2 className="w-4 h-4 animate-spin text-primary" /><span className="font-medium text-foreground">Traitement Automatique étape {aiImportStep}</span></div>
                                                 <div className="ml-7">
                                                     <div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-1000" style={{ width: `${aiImportProgress}%` }} /></div>
                                                 </div>

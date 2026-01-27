@@ -14,6 +14,7 @@ interface ScriptGridProps {
     onDelete: (id: string) => Promise<void>;
     onTogglePublic: (script: ScriptMetadata) => Promise<void>;
     onSettings: (script: ScriptMetadata) => void;
+    onImport: () => void;
 }
 
 export function ScriptGrid({
@@ -26,6 +27,7 @@ export function ScriptGrid({
     onDelete,
     onTogglePublic,
     onSettings,
+    onImport,
 }: ScriptGridProps) {
 
     // Filtering Logic - Only show user's own scripts
@@ -75,8 +77,11 @@ export function ScriptGrid({
                 )
             ) : (
                 /* Empty State (Global) */
-                <div className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-border rounded-[2rem] bg-card mx-4 md:mx-0">
-                    <div className="w-32 h-32 mx-auto mb-4 relative">
+                <div
+                    onClick={onImport}
+                    className="col-span-full py-20 text-center space-y-4 border-2 border-dashed border-border rounded-[2rem] bg-card mx-4 md:mx-0 cursor-pointer hover:bg-muted/50 transition-colors group"
+                >
+                    <div className="w-32 h-32 mx-auto mb-4 relative transition-transform group-hover:scale-105">
                         <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full skeleton-shimmer" />
                         <img
                             src="/repeto.png"
@@ -87,8 +92,8 @@ export function ScriptGrid({
                     <h3 className="text-xl font-bold text-foreground">
                         Votre bibliothèque est vide
                     </h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto px-4">
-                        Touchez le bouton + pour importer votre premier script PDF.
+                    <p className="text-muted-foreground max-w-sm mx-auto px-4 group-hover:text-primary transition-colors">
+                        Touchez ici ou le bouton + pour importer votre premier script PDF.
                     </p>
                 </div>
             )}

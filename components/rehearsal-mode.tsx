@@ -42,7 +42,7 @@ const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
                     <div className="space-y-2">
                         <h3 className="text-xl font-bold text-foreground">Fonctionnalité réservée</h3>
                         <p className="text-sm text-muted-foreground leading-relaxed">
-                            Créez un compte gratuitement pour débloquer tous les modes de répétition et les voix IA.
+                            Créez un compte gratuitement pour débloquer tous les modes de répétition et les voix Premium.
                         </p>
                     </div>
 
@@ -212,7 +212,7 @@ export function RehearsalMode({
                     setOpenaiVoiceAssignments(assignments);
                 } else {
                     // Fallback: Generate local assignments if no config exists (Shared Library / Unconfigured Troupe Plays)
-                    // This ensures users still get AI voices even if the Global Admin hasn't run the setup script
+                    // This ensures users still get Premium voices even if the Global Admin hasn't run the setup script
                     const VOICES: OpenAIVoice[] = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
                     const localAssignments: Record<string, OpenAIVoice> = {};
 
@@ -820,9 +820,9 @@ export function RehearsalMode({
         return (
             <div className="flex flex-col h-[100dvh] bg-background">
 
-                {/* 1. STICKY HEADER (Mobile & Desktop) */}
-                <div className="flex-none p-4 pb-0 md:p-6 bg-background/80 mobile-safe-top z-40 backdrop-blur-xl border-b border-border/50">
-                    <div className="max-w-4xl mx-auto flex items-center justify-between">
+                {/* COMPACT HEADER */}
+                <div className="flex-none p-4 bg-background/80 mobile-safe-top z-40 backdrop-blur-xl border-b border-border/50">
+                    <div className="max-w-lg mx-auto flex items-center justify-between">
                         <Button
                             variant="ghost"
                             size="sm"
@@ -831,97 +831,50 @@ export function RehearsalMode({
                         >
                             ← Retour
                         </Button>
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Mode Répétition</h2>
-                        <div className="flex gap-2">
-                            {quickStartSettings && (
-                                <Button
-                                    onClick={startQuick}
-                                    variant="outline"
-                                    size="sm"
-                                    className="hidden md:flex bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500/20 gap-2"
-                                >
-                                    <span>⚡ Rapide</span>
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Compact Mode Preview Card */}
-                    <div className="max-w-4xl mx-auto mt-4">
-                        <div className="bg-card border border-border rounded-2xl p-4 shadow-lg flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className={cn(
-                                    "w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20",
-                                    rehearsalMode === 'full' ? "bg-indigo-500 text-white" :
-                                        rehearsalMode === 'cue' ? "bg-violet-500 text-white" :
-                                            "bg-fuchsia-500 text-white"
-                                )}>
-                                    {rehearsalMode === 'full' ? "📖" : rehearsalMode === 'cue' ? "💬" : "⚡"}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-foreground leading-tight">
-                                        {rehearsalMode === "full" ? "Lecture Intégrale" : rehearsalMode === "cue" ? "Donne la Réplique" : "Mode Solo"}
-                                    </h3>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        {lineVisibility === 'visible' ? "Texte Visible" : lineVisibility === 'hint' ? "Indices cachés" : "Texte Caché"}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Répétition</h2>
+                        <div className="w-16" /> {/* Spacer for centering */}
                     </div>
                 </div>
 
-                {/* 2. SCROLLABLE SETTINGS */}
-                <div className="flex-1 overflow-y-auto p-4 pb-32 md:p-8 space-y-6">
-                    <div className="max-w-2xl mx-auto space-y-6">
+                {/* COMPACT SETTINGS - All on one screen */}
+                <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-5">
+                    <div className="max-w-lg mx-auto space-y-5">
 
                         {/* Quick Start Mobile Button */}
                         {quickStartSettings && (
                             <button
                                 onClick={startQuick}
-                                className="w-full md:hidden py-3 px-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider hover:bg-indigo-500/20 flex items-center justify-center gap-2 mb-4"
+                                className="w-full py-3 px-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider hover:bg-indigo-500/20 flex items-center justify-center gap-2"
                             >
                                 <span>⚡</span> Reprendre (derniers réglages)
                             </button>
                         )}
 
-                        {/* Scene Selection - Horizontal */}
-                        {script.scenes && script.scenes.length > 0 && (
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Départ</label>
-                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 snap-x no-scrollbar">
-                                    <button
-                                        onClick={() => setStartLineIndex(0)}
-                                        className={cn(
-                                            "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start",
-                                            startLineIndex === 0
-                                                ? "bg-card border-indigo-500 text-foreground ring-1 ring-indigo-500"
-                                                : "bg-card/50 border-border text-muted-foreground"
-                                        )}
-                                    >
-                                        Début
-                                    </button>
-                                    {script.scenes.map((scene) => (
-                                        <button
-                                            key={scene.index}
-                                            onClick={() => setStartLineIndex(scene.index)}
-                                            className={cn(
-                                                "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start whitespace-nowrap",
-                                                startLineIndex === scene.index
-                                                    ? "bg-card border-indigo-500 text-foreground ring-1 ring-indigo-500"
-                                                    : "bg-card/50 border-border text-muted-foreground"
-                                            )}
-                                        >
-                                            {scene.title}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Visibility Settings - Card Grid */}
+                        {/* DÉPART - Dropdown Select */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Visibilité</label>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                                Départ
+                            </label>
+                            <select
+                                value={startLineIndex}
+                                onChange={(e) => setStartLineIndex(Number(e.target.value))}
+                                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
+                                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '20px' }}
+                            >
+                                <option value={0}>Début</option>
+                                {script.scenes?.map((scene) => (
+                                    <option key={scene.index} value={scene.index}>
+                                        {scene.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* VISIBILITÉ - 3 pills inline */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                                Visibilité
+                            </label>
                             <div className="grid grid-cols-3 gap-2">
                                 {[
                                     { id: "visible", label: "Visible", sub: "Texte complet" },
@@ -932,9 +885,9 @@ export function RehearsalMode({
                                         key={v.id}
                                         onClick={() => setLineVisibility(v.id as any)}
                                         className={cn(
-                                            "p-3 rounded-xl text-center transition-all duration-300 border flex flex-col gap-1 items-center active:scale-95",
+                                            "py-2.5 rounded-xl text-center transition-all border active:scale-95 flex flex-col items-center gap-0.5",
                                             lineVisibility === v.id
-                                                ? "bg-foreground text-background border-foreground shadow-lg"
+                                                ? "bg-foreground text-background border-foreground"
                                                 : "bg-card border-border text-muted-foreground"
                                         )}
                                     >
@@ -945,56 +898,47 @@ export function RehearsalMode({
                             </div>
                         </div>
 
-                        {/* Mode Selection */}
+                        {/* MODE - 3 pills on ONE LINE */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Mode de répétition</label>
-                            <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                                Mode
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
                                 {[
-                                    { id: "full", label: "Intégrale", sub: "Je lis aussi les autres rôles", icon: "📖" },
-                                    { id: "cue", label: "Réplique", sub: "L'IA s'arrête avant ma ligne", icon: "💬" },
-                                    { id: "check", label: "Solo", sub: "Je vérifie mes lignes seul", icon: "⚡" },
+                                    { id: "full", label: "Intégrale", icon: "📖" },
+                                    { id: "cue", label: "Réplique", icon: "💬" },
+                                    { id: "check", label: "Solo", icon: "⚡" },
                                 ].map((m) => (
                                     <button
                                         key={m.id}
                                         onClick={() => setRehearsalMode(m.id as any)}
                                         className={cn(
-                                            "w-full p-4 rounded-xl text-left transition-all duration-300 border flex items-center gap-4 active:scale-98",
+                                            "py-3 px-2 rounded-xl text-center transition-all border active:scale-95 flex flex-col items-center gap-1",
                                             rehearsalMode === m.id
-                                                ? "bg-indigo-500/10 border-indigo-500 shadow-sm ring-1 ring-indigo-500"
-                                                : "bg-card border-border hover:bg-card/80"
+                                                ? "bg-indigo-500/20 border-indigo-500 text-indigo-400"
+                                                : "bg-card border-border text-muted-foreground"
                                         )}
                                     >
-                                        <div className={cn(
-                                            "w-10 h-10 rounded-full flex items-center justify-center text-xl",
-                                            rehearsalMode === m.id ? "bg-indigo-500 text-white" : "bg-muted"
-                                        )}>
-                                            {m.icon}
-                                        </div>
-                                        <div>
-                                            <div className={cn("text-sm font-bold", rehearsalMode === m.id ? "text-indigo-500" : "text-foreground")}>{m.label}</div>
-                                            <div className="text-[10px] text-muted-foreground">{m.sub}</div>
-                                        </div>
-                                        {rehearsalMode === m.id && <Check className="w-5 h-5 text-indigo-500 ml-auto" />}
+                                        <span className="text-lg">{m.icon}</span>
+                                        <span className="text-xs font-bold">{m.label}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Voice Provider Selection */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
-                            <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">🎙️ Voix de lecture</label>
-                                {!isPremiumUnlocked && <Badge variant="secondary" className="text-[10px] bg-amber-500/10 text-amber-500 border-amber-500/20">Basic</Badge>}
-                            </div>
-
+                        {/* VOIX - 2 inline buttons */}
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
+                                Voix
+                            </label>
                             <div className="grid grid-cols-2 gap-2">
                                 <button
                                     onClick={() => setTtsProvider("browser")}
                                     className={cn(
-                                        "py-3 rounded-xl text-xs font-bold transition-all border",
+                                        "py-3 rounded-xl text-sm font-bold transition-all border active:scale-95",
                                         ttsProvider === "browser"
-                                            ? "bg-muted/30 dark:bg-white/10 border-border dark:border-white/30 text-foreground"
-                                            : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                            ? "bg-muted/50 border-border text-foreground"
+                                            : "bg-card border-border text-muted-foreground"
                                     )}
                                 >
                                     Standard
@@ -1002,31 +946,36 @@ export function RehearsalMode({
                                 <button
                                     onClick={() => isPremiumUnlocked ? setTtsProvider("openai") : setShowUpgradeModal(true)}
                                     className={cn(
-                                        "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
+                                        "py-3 rounded-xl text-sm font-bold transition-all border flex items-center justify-center gap-2 active:scale-95",
                                         ttsProvider === "openai"
                                             ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                            : "bg-transparent border-border text-muted-foreground hover:bg-card",
+                                            : "bg-card border-border text-muted-foreground",
                                         !isPremiumUnlocked && "opacity-50"
                                     )}
                                 >
                                     {isPremiumUnlocked ? <Sparkles className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                                    Neural AI
+                                    Premium
                                 </button>
                             </div>
+                            {ttsProvider === "openai" && existingVoiceConfig && (
+                                <p className="text-[10px] text-emerald-400/70 text-center mt-1">
+                                    ✓ Voix configurées via Réglages
+                                </p>
+                            )}
                         </div>
 
                     </div>
                 </div>
 
-                {/* 3. FLOAT BOTTOM START BUTTON */}
-                <div className="fixed bottom-0 left-0 right-0 p-4 pt-8 bg-gradient-to-t from-background via-background to-transparent z-50">
+                {/* FLOAT BOTTOM START BUTTON */}
+                <div className="fixed bottom-0 left-0 right-0 p-4 pt-6 bg-gradient-to-t from-background via-background to-transparent z-50 flex justify-center">
                     <Button
                         size="lg"
                         onClick={handleStartWithSave}
-                        className="w-full max-w-md mx-auto text-lg font-bold py-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_30px_rgba(79,70,229,0.4)] animate-pulse-glow"
+                        className="w-full max-w-sm text-lg font-bold py-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_30px_rgba(79,70,229,0.4)]"
                     >
                         <Play className="mr-2 h-6 w-6 fill-current" />
-                        Commencer ({script.scenes && startLineIndex > 0 ? "Scène" : "Début"})
+                        Commencer
                     </Button>
                 </div>
             </div>
