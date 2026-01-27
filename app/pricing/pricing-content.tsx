@@ -166,7 +166,15 @@ function PricingCard({
     const details = PLANS[plan];
 
     const monthlyPrice = details.price;
-    const yearlyPriceTotal = monthlyPrice * 10;
+
+    // Actual yearly prices (not calculated)
+    const yearlyPrices: Record<string, number> = {
+        free: 0,
+        solo_pro: 50,
+        troupe: 200,
+        troupe_xl: 300,
+    };
+    const yearlyPriceTotal = yearlyPrices[plan] ?? monthlyPrice * 10;
 
     const formatPrice = (price: number) => {
         if (price === 0) return "Gratuit";
@@ -181,7 +189,8 @@ function PricingCard({
 
     const period = monthlyPrice === 0 ? "" : billingCycle === 'monthly' ? "/mois" : "/an";
 
-    const savedAmount = monthlyPrice * 2;
+    // Calculate savings (monthly * 12 - yearly)
+    const savedAmount = (monthlyPrice * 12) - yearlyPriceTotal;
     const formattedSavedAmount = Number.isInteger(savedAmount)
         ? `${savedAmount}€`
         : `${savedAmount.toFixed(2).replace('.', ',')}€`;
