@@ -658,7 +658,7 @@ export async function getTroupeSettingsData(troupeId: string) {
     const { data: troupeData, error: troupeError } = await supabase
         .from('troupes')
         .select(`
-            id, name, join_code, created_at, created_by, subscription_status,
+            id, name, join_code, created_at, created_by, subscription_status, subscription_tier,
             members:troupe_members (
                 user_id, role,
                 profiles (id, email, first_name, stripe_customer_id)
@@ -690,6 +690,12 @@ export async function getTroupeSettingsData(troupeId: string) {
         `)
         .eq('troupe_id', troupeId);
 
+    // 3. Get Guest count
+    const { count: guestCount } = await supabase
+        .from('troupe_guests')
+        .select('*', { count: 'exact', head: true })
+        .eq('troupe_id', troupeId);
+
     const requests = pendingRequests?.map((r: any) => {
         const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
         return {
@@ -704,7 +710,23 @@ export async function getTroupeSettingsData(troupeId: string) {
         };
     }) || [];
 
-    const isSubscribed = troupeData.subscription_status === 'active';
+    const tier = (troupeData as any).subscription_tier || 'troupe';
+    const isSubscribed = troupeData.subscription_status === 'active' || tier === 'troupe' || tier === 'troupe_xl';
+
+    // Plan display name based on tier
+    const planNames: Record<string, string> = {
+        'troupe': 'Troupe',
+        'troupe_xl': 'Troupe XL',
+    };
+    const planName = isSubscribed ? (planNames[tier] || 'Troupe') : 'Free';
+
+    // Member limits based on tier
+    const memberLimits: Record<string, number> = {
+        'troupe': 12,
+        'troupe_xl': 999,
+    };
+    const memberLimit = isSubscribed ? (memberLimits[tier] || 12) : 10;
+    const totalCount = troupeData.members.length + (guestCount || 0);
 
     return {
         troupe: {
@@ -713,7 +735,8 @@ export async function getTroupeSettingsData(troupeId: string) {
             join_code: troupeData.join_code,
             created_at: troupeData.created_at,
             created_by: troupeData.created_by,
-            subscription_status: troupeData.subscription_status
+            subscription_status: troupeData.subscription_status,
+            subscription_tier: tier
         },
         members: troupeData.members.map((m: any) => {
             const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
@@ -725,9 +748,10 @@ export async function getTroupeSettingsData(troupeId: string) {
         }),
         requests: requests,
         subscription: {
-            plan: isSubscribed ? 'Troupe' : 'Free',
-            memberLimit: isSubscribed ? 1000 : 10,
-            currentCount: troupeData.members.length,
+            plan: planName,
+            tier: tier, // raw tier value
+            memberLimit: memberLimit,
+            currentCount: totalCount,
             hasStripeCustomerId: !!(Array.isArray(myMembership.profiles) ? myMembership.profiles[0] : myMembership.profiles)?.stripe_customer_id,
             status: troupeData.subscription_status
         }
