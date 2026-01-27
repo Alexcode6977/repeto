@@ -287,7 +287,7 @@ export async function approveJoinRequestAction(troupeId: string, requestId: stri
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Check member limit before approving
+    // Check member + guest limit before approving
     const { data: troupe } = await supabaseAdmin
         .from('troupes')
         .select('subscription_tier')
@@ -299,10 +299,16 @@ export async function approveJoinRequestAction(troupeId: string, requestId: stri
         .select('*', { count: 'exact', head: true })
         .eq('troupe_id', troupeId);
 
+    const { count: guestCount } = await supabaseAdmin
+        .from('troupe_guests')
+        .select('*', { count: 'exact', head: true })
+        .eq('troupe_id', troupeId);
+
     const tier = troupe?.subscription_tier || 'troupe';
     const maxMembers = tier === 'troupe_xl' ? 999 : 12;
+    const totalCount = (memberCount || 0) + (guestCount || 0);
 
-    if ((memberCount || 0) >= maxMembers) {
+    if (totalCount >= maxMembers) {
         throw new Error(`MEMBER_LIMIT_REACHED:${maxMembers}`);
     }
 
@@ -524,6 +530,31 @@ export async function addGuestMember(troupeId: string, name: string, email?: str
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) throw new Error('Unauthorized');
+
+    // Check member + guest limit before adding
+    const { data: troupe } = await supabase
+        .from('troupes')
+        .select('subscription_tier')
+        .eq('id', troupeId)
+        .single();
+
+    const { count: memberCount } = await supabase
+        .from('troupe_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('troupe_id', troupeId);
+
+    const { count: guestCount } = await supabase
+        .from('troupe_guests')
+        .select('*', { count: 'exact', head: true })
+        .eq('troupe_id', troupeId);
+
+    const tier = troupe?.subscription_tier || 'troupe';
+    const maxMembers = tier === 'troupe_xl' ? 999 : 12;
+    const totalCount = (memberCount || 0) + (guestCount || 0);
+
+    if (totalCount >= maxMembers) {
+        throw new Error(`MEMBER_LIMIT_REACHED:${maxMembers}`);
+    }
 
     const { error } = await supabase
         .from('troupe_guests')

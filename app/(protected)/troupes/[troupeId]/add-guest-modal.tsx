@@ -24,9 +24,13 @@ export function AddGuestModal({ troupeId }: { troupeId: string }) {
             setIsOpen(false);
             setName("");
             setEmail("");
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Erreur lors de l'ajout du membre.");
+            if (error.message?.includes('MEMBER_LIMIT_REACHED')) {
+                alert("Limite de 12 membres atteinte. Passez à Troupe XL pour ajouter plus de membres.");
+            } else {
+                alert("Erreur lors de l'ajout du membre.");
+            }
         } finally {
             setIsLoading(false);
         }
