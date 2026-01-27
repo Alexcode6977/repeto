@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ScriptMetadata } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2 } from "lucide-react";
+import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2 } from "lucide-react";
 import { DownloadButton } from "@/components/offline/download-button";
 
 const ADMIN_EMAIL = "alex69.sartre@gmail.com";
@@ -16,6 +16,7 @@ interface ScriptCardProps {
     onRename: (id: string, newTitle: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
     onTogglePublic: (script: ScriptMetadata) => Promise<void>;
+    onSettings: (script: ScriptMetadata) => void;
 }
 
 export function ScriptCard({
@@ -26,6 +27,7 @@ export function ScriptCard({
     onRename,
     onDelete,
     onTogglePublic,
+    onSettings,
 }: ScriptCardProps) {
     const [isRenaming, setIsRenaming] = useState(false);
     const [tempTitle, setTempTitle] = useState(script.title);
@@ -138,6 +140,16 @@ export function ScriptCard({
 
                 {/* Desktop Hover Actions */}
                 <div className="hidden md:flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+                    {/* Settings Button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="bg-white/10 hover:bg-primary/20 hover:text-primary text-foreground rounded-xl"
+                        onClick={(e) => { e.stopPropagation(); onSettings(script); }}
+                    >
+                        <Settings2 className="w-4 h-4" />
+                    </Button>
+
                     <div onClick={(e) => e.stopPropagation()}>
                         <DownloadButton scriptId={script.id} className="bg-white/10 hover:bg-white/20 text-white border-0 w-12 h-12" />
                     </div>

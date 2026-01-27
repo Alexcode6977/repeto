@@ -8,40 +8,32 @@ interface ScriptGridProps {
     scripts: ScriptMetadata[];
     isLoading: boolean;
     searchQuery: string;
-    libraryView: "personal" | "shared";
     userEmail: string | null;
     onLoad: (script: ScriptMetadata) => void;
     onRename: (id: string, newTitle: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
     onTogglePublic: (script: ScriptMetadata) => Promise<void>;
+    onSettings: (script: ScriptMetadata) => void;
 }
 
 export function ScriptGrid({
     scripts,
     isLoading,
     searchQuery,
-    libraryView,
     userEmail,
     onLoad,
     onRename,
     onDelete,
     onTogglePublic,
+    onSettings,
 }: ScriptGridProps) {
 
-    // Filtering Logic
+    // Filtering Logic - Only show user's own scripts
     const normSearch = searchQuery.trim().toLowerCase();
     const filteredScripts = scripts.filter((s) => {
-        // If searching, ignore tabs (Global Search). Else, respect tabs.
-        const matchesTab = normSearch
-            ? true
-            : libraryView === "personal"
-                ? s.is_owner
-                : !s.is_owner || s.is_public;
-
         const matchesSearch =
             !normSearch || s.title.toLowerCase().includes(normSearch);
-
-        return matchesTab && matchesSearch;
+        return s.is_owner && matchesSearch;
     });
 
     return (
@@ -66,6 +58,7 @@ export function ScriptGrid({
                             onRename={onRename}
                             onDelete={onDelete}
                             onTogglePublic={onTogglePublic}
+                            onSettings={onSettings}
                         />
                     ))
                 ) : (
@@ -76,9 +69,7 @@ export function ScriptGrid({
                         </div>
                         <h3 className="text-xl font-bold text-muted-foreground">Aucun document ici</h3>
                         <p className="text-muted-foreground max-w-sm mx-auto px-4">
-                            {libraryView === "personal"
-                                ? "Commencez par importer votre premier script."
-                                : "Les scripts partagés avec vous apparaîtront ici."}
+                            Aucun script ne correspond à votre recherche.
                         </p>
                     </div>
                 )

@@ -23,9 +23,10 @@ import { Loader2, AlertCircle } from "lucide-react"; // Using lucide direct impo
 import { Button as UIButton } from "@/components/ui/button";
 
 import { DashboardHeader } from "./components/dashboard-header";
-import { LibraryTabs } from "./components/library-tabs";
+
 import { ScriptGrid } from "./components/script-grid";
 import { ImportWizard } from "./components/import-wizard";
+import { ScriptSettingsModal } from "./components/script-settings-modal";
 
 // Lazy load heavy components
 const RehearsalMode = dynamic(() => import("@/components/rehearsal-mode").then(mod => ({ default: mod.RehearsalMode })), {
@@ -54,7 +55,7 @@ export default function Home() {
 
   // Filter State
   const [searchQuery, setSearchQuery] = useState("");
-  const [libraryView, setLibraryView] = useState<"personal" | "shared">("personal");
+
   const [showMobileSearch, setShowMobileSearch] = useState(false);
 
   // Import State
@@ -73,6 +74,9 @@ export default function Home() {
   });
   const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>([]);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+  // Settings Modal State
+  const [settingsScript, setSettingsScript] = useState<{ id: string; title: string; characters: string[] } | null>(null);
 
   const router = useRouter();
 
@@ -313,11 +317,7 @@ export default function Home() {
         isPending={false} // Global pending state if needed
       />
 
-      {/* 2. TABS */}
-      <LibraryTabs
-        libraryView={libraryView}
-        setLibraryView={setLibraryView}
-      />
+
 
       {/* 3. ERROR (Global) */}
       {error && (
@@ -332,12 +332,22 @@ export default function Home() {
         scripts={scriptsList}
         isLoading={isLoading}
         searchQuery={searchQuery}
-        libraryView={libraryView}
         userEmail={userEmail}
         onLoad={handleLoadScript}
         onDelete={handleDeleteScript}
         onRename={handleRenameScript}
         onTogglePublic={handleTogglePublic}
+        onSettings={async (s) => {
+          // Load full script to get characters
+          const fullScript = await getScriptById(s.id);
+          if (fullScript) {
+            setSettingsScript({
+              id: s.id,
+              title: fullScript.title,
+              characters: fullScript.characters || [],
+            });
+          }
+        }}
       />
 
       {/* 5. IMPORT WIZARD (Overlay) */}
@@ -349,6 +359,16 @@ export default function Home() {
         onImportComplete={refreshScripts}
         onError={setError}
       />
+
+      {/* 6. SCRIPT SETTINGS MODAL */}
+      {settingsScript && (
+        <ScriptSettingsModal
+          scriptId={settingsScript.id}
+          scriptTitle={settingsScript.title}
+          characters={settingsScript.characters}
+          onClose={() => setSettingsScript(null)}
+        />
+      )}
     </div>
   );
 }

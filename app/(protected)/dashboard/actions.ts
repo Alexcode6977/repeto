@@ -256,11 +256,11 @@ export async function getScripts() {
 
     if (!user) return [];
 
-    // Fetch User's scripts OR Public scripts
+    // Fetch only user's own scripts (catalog is separate)
     const { data, error } = await supabase
         .from("scripts")
         .select("id, title, content, created_at, user_id, is_public")
-        .or(`user_id.eq.${user.id},is_public.eq.true`)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
     if (error) {
@@ -275,7 +275,7 @@ export async function getScripts() {
         characterCount: row.content?.characters?.length || 0,
         lineCount: row.content?.lines?.length || 0,
         is_public: row.is_public || false,
-        is_owner: row.user_id === user.id,
+        is_owner: true, // Always true since we only fetch user's scripts
     }));
 }
 
@@ -614,4 +614,85 @@ export async function finalizeParsingAction(formData: FormData, characters: stri
         console.error("[Action] Finalize error:", error);
         return { error: error.message };
     }
+}
+
+// ===== CATALOG ACTIONS =====
+
+export interface CatalogScript {
+    id: string;
+    title: string;
+    characterCount: number;
+    lineCount: number;
+    author?: string;
+}
+
+/**
+ * Fetch all public scripts for the catalog browser
+ */
+export async function getCatalogScripts(): Promise<CatalogScript[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from("scripts")
+        .select("id, title, content")
+        .eq("is_public", true)
+        .order("title", { ascending: true });
+
+    if (error) {
+        console.error("Error fetching catalog:", error);
+        return [];
+    }
+
+    return data.map((row) => ({
+        id: row.id,
+        title: row.title,
+        characterCount: row.content?.characters?.length || 0,
+        lineCount: row.content?.lines?.length || 0,
+        author: row.content?.author || undefined,
+    }));
+}
+
+/**
+ * Import a script from the public catalog to user's personal library
+ */
+export async function importFromCatalog(sourceScriptId: string): Promise<{ success: boolean; newScriptId?: string; error?: string }> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Non authentifié" };
+    }
+
+    // 1. Fetch the source script
+    const { data: sourceScript, error: fetchError } = await supabase
+        .from("scripts")
+        .select("title, content")
+        .eq("id", sourceScriptId)
+        .eq("is_public", true)
+        .single();
+
+    if (fetchError || !sourceScript) {
+        console.error("Error fetching source script:", fetchError);
+        return { success: false, error: "Script non trouvé dans le catalogue" };
+    }
+
+    // 2. Create a copy in user's personal library
+    const { data: newScript, error: insertError } = await supabase
+        .from("scripts")
+        .insert({
+            user_id: user.id,
+            title: sourceScript.title,
+            content: sourceScript.content,
+            is_public: false, // Personal copy is private
+        })
+        .select("id")
+        .single();
+
+    if (insertError || !newScript) {
+        console.error("Error creating script copy:", insertError);
+        return { success: false, error: "Erreur lors de la copie du script" };
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true, newScriptId: newScript.id };
 }
