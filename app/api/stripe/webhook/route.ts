@@ -95,30 +95,53 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     console.log(`[Webhook] Checkout completed - User: ${userId}, Tier: ${tier}, Troupe: ${troupeId || 'N/A'}`);
 
     // Update profile or troupe based on subscription type
+    const supabase = getSupabaseAdmin();
+
     if (troupeId && tier === 'troupe') {
-        // Troupe subscription
-        await getSupabaseAdmin()
+        // Troupe subscription - reactivate if inactive
+        const { data: troupeData } = await supabase
+            .from('troupes')
+            .select('subscription_status, inactivated_at')
+            .eq('id', troupeId)
+            .single();
+
+        const wasInactive = troupeData?.subscription_status === 'inactive';
+
+        // Update troupe
+        await supabase
             .from('troupes')
             .update({
                 subscription_status: 'active',
                 subscription_tier: 'troupe',
                 stripe_customer_id: session.customer as string,
                 stripe_subscription_id: subscriptionId,
+                inactivated_at: null, // Clear inactivation date on reactivation
             })
             .eq('id', troupeId);
 
         // Also mark the owner as having a troupe subscription
-        await getSupabaseAdmin()
+        await supabase
             .from('profiles')
             .update({
                 subscription_tier: 'troupe',
                 subscription_status: 'active',
                 stripe_subscription_id: subscriptionId,
+                subscription_end_date: new Date(subscription.current_period_end * 1000).toISOString(),
             })
             .eq('id', userId);
+
+        console.log(`[Webhook] ${wasInactive ? 'Reactivated' : 'Activated'} troupe subscription for troupe ${troupeId}`);
     } else {
-        // Solo Pro subscription
-        await getSupabaseAdmin()
+        // Solo Pro subscription - upgrade from trial if trialing
+        const { data: profileData } = await supabase
+            .from('profiles')
+            .select('subscription_status')
+            .eq('id', userId)
+            .single();
+
+        const wasTrialing = profileData?.subscription_status === 'trialing';
+
+        await supabase
             .from('profiles')
             .update({
                 subscription_tier: tier,
@@ -127,10 +150,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
                 subscription_end_date: new Date(subscription.current_period_end * 1000).toISOString(),
             })
             .eq('id', userId);
+
+        console.log(`[Webhook] ${wasTrialing ? 'Upgraded trial to' : 'Activated'} ${tier} subscription for user ${userId}`);
     }
 
     // Log subscription event
-    await getSupabaseAdmin().from('subscription_events').insert({
+    await supabase.from('subscription_events').insert({
         user_id: userId,
         troupe_id: troupeId || null,
         event_type: 'created',

@@ -1,5 +1,6 @@
 import { getSessionDetails } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
+import { isAdminRole } from "@/lib/utils/roles";
 import { LiveSessionClient } from "./live-client";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,7 +14,7 @@ export default async function LiveSessionPage({
     const troupe = await getTroupeDetails(troupeId);
 
     // Non-admins are in read-only mode
-    const isReadOnly = troupe?.my_role !== 'admin';
+    const isReadOnly = !isAdminRole(troupe?.my_role);
 
     if (!sessionData) return <div>Séance introuvable</div>;
     if (!sessionData.session_plans || sessionData.session_plans.selected_scenes.length === 0) {

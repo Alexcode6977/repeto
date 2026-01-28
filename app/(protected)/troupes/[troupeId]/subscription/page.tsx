@@ -1,4 +1,5 @@
 import { getTroupeDetails, getTroupeSettingsData } from "@/lib/actions/troupe";
+import { isAdminRole } from "@/lib/utils/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ export default async function SubscriptionPage({
     const { troupeId } = await params;
     const troupe = await getTroupeDetails(troupeId);
 
-    if (!troupe || troupe.my_role !== 'admin') {
+    if (!troupe || !isAdminRole(troupe.my_role)) {
         redirect(`/troupes/${troupeId}`);
     }
 

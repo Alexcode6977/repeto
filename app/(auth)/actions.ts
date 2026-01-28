@@ -98,11 +98,21 @@ export async function signup(formData: FormData) {
         redirect("/signup?error=" + encodeURIComponent(error.message));
     }
 
-    // Update profile with first name (profile is auto-created by trigger)
+    // Update profile with first name AND activate 14-day Solo Pro trial
     if (signUpData.user) {
+        const now = new Date();
+        const trialEndDate = new Date(now);
+        trialEndDate.setDate(trialEndDate.getDate() + 14); // 14 days trial
+
         await supabase
             .from("profiles")
-            .update({ first_name: firstName })
+            .update({
+                first_name: firstName,
+                subscription_tier: 'solo_pro',
+                subscription_status: 'trialing',
+                trial_started_at: now.toISOString(),
+                trial_end_date: trialEndDate.toISOString()
+            })
             .eq("id", signUpData.user.id);
     }
 

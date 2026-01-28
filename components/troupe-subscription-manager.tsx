@@ -15,6 +15,8 @@ interface TroupeSubscriptionManagerProps {
         tier?: string;
         hasStripeCustomerId: boolean;
         status?: string;
+        trialEndDate?: string | null;
+        trialStartedAt?: string | null;
     };
 }
 
@@ -29,6 +31,18 @@ export function TroupeSubscriptionManager({
     const tier = subscription.tier || 'troupe';
     const isSubscribed = subscription.plan !== 'Free';
     const isTroupeXL = tier === 'troupe_xl';
+    const isTrialing = subscription.status === 'trialing';
+
+    // Calculate days remaining in trial
+    const getDaysRemaining = () => {
+        if (!isTrialing || !subscription.trialEndDate) return null;
+        const now = new Date();
+        const endDate = new Date(subscription.trialEndDate);
+        const diffTime = endDate.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return Math.max(0, diffDays);
+    };
+    const daysRemaining = getDaysRemaining();
 
     const priceLabels: Record<string, string> = {
         'troupe': '20€/mois',
@@ -36,7 +50,7 @@ export function TroupeSubscriptionManager({
     };
     const currentPriceLabel = isSubscribed ? (priceLabels[tier] || '20€/mois') : 'Gratuit';
 
-    const handleUpgrade = async (targetTier: 'troupe' | 'troupe_xl') => {
+    const handleUpgrade = async (targetTier: 'troupe' | 'troupe_xl', billingCycle: 'monthly' | 'yearly' = 'monthly') => {
         setLoading(true);
         setError(null);
 
@@ -44,7 +58,14 @@ export function TroupeSubscriptionManager({
             const pricesRes = await fetch('/api/stripe/prices');
             const prices = await pricesRes.json();
 
-            const priceKey = targetTier === 'troupe_xl' ? 'troupe_xl_monthly' : 'troupe_monthly';
+            // Determine the correct price key based on tier and billing cycle
+            let priceKey: string;
+            if (targetTier === 'troupe_xl') {
+                priceKey = billingCycle === 'yearly' ? 'troupe_xl_yearly' : 'troupe_xl_monthly';
+            } else {
+                priceKey = billingCycle === 'yearly' ? 'troupe_yearly' : 'troupe_monthly';
+            }
+
             const priceId = prices[priceKey];
 
             if (!priceId) throw new Error("Prix non configuré.");
@@ -124,28 +145,77 @@ export function TroupeSubscriptionManager({
                     </div>
                 </div>
 
+                {/* Trial Status */}
+                {isTrialing && daysRemaining !== null && (
+                    <div className="p-4 rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20">
+                        <div className="flex items-start gap-3">
+                            <Sparkles className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <div className="flex-1 space-y-2">
+                                <div>
+                                    <p className="font-semibold text-sm mb-1">Essai gratuit actif</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Commencé le {subscription.trialStartedAt ? new Date(subscription.trialStartedAt).toLocaleDateString('fr-FR') : 'N/A'}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        {daysRemaining > 0
+                                            ? `${daysRemaining} jour${daysRemaining > 1 ? 's' : ''} restant${daysRemaining > 1 ? 's' : ''}`
+                                            : "Expire aujourd'hui"
+                                        }
+                                    </p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    ⚡ Activez votre abonnement pour continuer après l'essai
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex flex-wrap gap-3">
-                    {/* Show upgrade to Troupe if Free */}
-                    {!isSubscribed && (
-                        <Button
-                            onClick={() => handleUpgrade('troupe')}
-                            disabled={loading}
-                        >
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
-                            Passer à Troupe (20€/mois)
-                        </Button>
+                    {/* Show upgrade to Troupe if on trial or free */}
+                    {(isTrialing || !isSubscribed) && (
+                        <>
+                            <Button
+                                onClick={() => handleUpgrade('troupe', 'monthly')}
+                                disabled={loading}
+                                className="flex-1"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
+                                Mensuel - Troupe (20€/mois)
+                            </Button>
+                            <Button
+                                onClick={() => handleUpgrade('troupe', 'yearly')}
+                                disabled={loading}
+                                variant="outline"
+                                className="flex-1"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
+                                Annuel - Troupe (200€/an)
+                            </Button>
+                        </>
                     )}
 
                     {/* Show upgrade to XL if on Troupe */}
                     {isSubscribed && !isTroupeXL && (
-                        <Button
-                            onClick={() => handleUpgrade('troupe_xl')}
-                            disabled={loading}
-                            className="bg-violet-600 hover:bg-violet-700"
-                        >
-                            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
-                            Passer à Troupe XL (30€/mois)
-                        </Button>
+                        <>
+                            <Button
+                                onClick={() => handleUpgrade('troupe_xl', 'monthly')}
+                                disabled={loading}
+                                className="bg-violet-600 hover:bg-violet-700 flex-1"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                Mensuel - Troupe XL (30€/mois)
+                            </Button>
+                            <Button
+                                onClick={() => handleUpgrade('troupe_xl', 'yearly')}
+                                disabled={loading}
+                                variant="outline"
+                                className="flex-1"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                Annuel - Troupe XL (300€/an)
+                            </Button>
+                        </>
                     )}
 
                     {/* Show portal if subscribed */}

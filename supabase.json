@@ -630,6 +630,24 @@
         "is_primary_key": ""
     },
     {
+        "table_name": "profiles",
+        "column_name": "trial_end_date",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "profiles",
+        "column_name": "trial_started_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
         "table_name": "rehearsal_feedback",
         "column_name": "id",
         "data_type": "uuid",
@@ -1524,6 +1542,33 @@
         "table_name": "troupes",
         "column_name": "max_members",
         "data_type": "integer",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "trial_end_date",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "trial_started_at",
+        "data_type": "timestamp with time zone",
+        "character_maximum_length": null,
+        "is_nullable": "YES",
+        "column_default": null,
+        "is_primary_key": ""
+    },
+    {
+        "table_name": "troupes",
+        "column_name": "inactivated_at",
+        "data_type": "timestamp with time zone",
         "character_maximum_length": null,
         "is_nullable": "YES",
         "column_default": null,

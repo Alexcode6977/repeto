@@ -29,15 +29,39 @@ export async function GET(request: Request) {
 
         // Check if user has a profile with first_name, if not try to get it from metadata
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
-            const fullName = user.user_metadata.full_name || user.user_metadata.name;
-            const firstName = fullName.split(' ')[0]; // Simple extraction
-
-            await supabase
+        if (user) {
+            // Check if this is a new user (no first_name means new profile)
+            const { data: existingProfile } = await supabase
                 .from('profiles')
-                .update({ first_name: firstName })
+                .select('first_name, subscription_status')
                 .eq('id', user.id)
-                .is('first_name', null); // Only update if empty
+                .single();
+
+            const isNewUser = !existingProfile?.first_name;
+
+            if (user.user_metadata?.full_name || user.user_metadata?.name) {
+                const fullName = user.user_metadata.full_name || user.user_metadata.name;
+                const firstName = fullName.split(' ')[0]; // Simple extraction
+
+                const updateData: any = { first_name: firstName };
+
+                // If new user, activate 14-day Solo Pro trial
+                if (isNewUser) {
+                    const now = new Date();
+                    const trialEndDate = new Date(now);
+                    trialEndDate.setDate(trialEndDate.getDate() + 14); // 14 days trial
+
+                    updateData.subscription_tier = 'solo_pro';
+                    updateData.subscription_status = 'trialing';
+                    updateData.trial_started_at = now.toISOString();
+                    updateData.trial_end_date = trialEndDate.toISOString();
+                }
+
+                await supabase
+                    .from('profiles')
+                    .update(updateData)
+                    .eq('id', user.id);
+            }
         }
 
         return NextResponse.redirect(`${origin}${next}`);

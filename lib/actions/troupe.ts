@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isAdminRole } from '@/lib/utils/roles';
 
-export async function createTroupe(name: string) {
+export async function createTroupe(name: string, hasMoreThan12Members: boolean = false) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -16,13 +17,25 @@ export async function createTroupe(name: string) {
     // Generate a simple 6-char code
     const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // 1. Create Troupe
+    // Determine tier based on member count
+    const tier = hasMoreThan12Members ? 'troupe_xl' : 'troupe';
+
+    // Calculate trial end date (30 days)
+    const now = new Date();
+    const trialEndDate = new Date(now);
+    trialEndDate.setDate(trialEndDate.getDate() + 30); // 30 days trial
+
+    // 1. Create Troupe with trial
     const { data: troupe, error: troupeError } = await supabase
         .from('troupes')
         .insert({
             name,
             join_code: joinCode,
-            created_by: user.id
+            created_by: user.id,
+            subscription_tier: tier,
+            subscription_status: 'trialing',
+            trial_started_at: now.toISOString(),
+            trial_end_date: trialEndDate.toISOString()
         })
         .select()
         .single();
@@ -616,13 +629,19 @@ export async function removeTroupeMember(troupeId: string, userId: string) {
     revalidatePath(`/troupes/${troupeId}/settings`);
 }
 
-export async function updateMemberRole(troupeId: string, userId: string, newRole: 'admin' | 'member') {
+export async function updateMemberRole(troupeId: string, userId: string, newRole: 'admin' | 'adjoint' | 'metteur_en_scene' | 'member') {
+    console.log('[UPDATE ROLE] Start - troupeId:', troupeId, 'userId:', userId, 'newRole:', newRole);
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) throw new Error("Unauthorized");
+    if (!user) {
+        console.log('[UPDATE ROLE] ERROR: No user found');
+        throw new Error("Unauthorized");
+    }
 
-    // Verify admin status
+    console.log('[UPDATE ROLE] Current user:', user.id);
+
+    // Verify admin-like status (admin, adjoint, metteur_en_scene)
     const { data: requester } = await supabase
         .from('troupe_members')
         .select('role')
@@ -630,18 +649,34 @@ export async function updateMemberRole(troupeId: string, userId: string, newRole
         .eq('user_id', user.id)
         .single();
 
-    if (requester?.role !== 'admin') {
+    console.log('[UPDATE ROLE] Requester role:', requester?.role);
+
+    if (!isAdminRole(requester?.role)) {
+        console.log('[UPDATE ROLE] ERROR: User is not admin');
         throw new Error("Only admins can change roles");
     }
 
-    const { error } = await supabase
+    console.log('[UPDATE ROLE] Executing database update...');
+    const { error, data } = await supabase
         .from('troupe_members')
         .update({ role: newRole })
         .eq('troupe_id', troupeId)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select();
 
-    if (error) throw error;
+    if (error) {
+        console.log('[UPDATE ROLE] ERROR:', JSON.stringify(error));
+        throw error;
+    }
+
+    console.log('[UPDATE ROLE] SUCCESS - Updated data:', JSON.stringify(data));
+
+    // Revalidate all troupe pages to reflect the change
+    revalidatePath(`/troupes/${troupeId}`);
     revalidatePath(`/troupes/${troupeId}/settings`);
+    revalidatePath(`/troupes`);
+
+    console.log('[UPDATE ROLE] Paths revalidated');
 }
 
 export async function getTroupeSettingsData(troupeId: string) {
@@ -659,6 +694,7 @@ export async function getTroupeSettingsData(troupeId: string) {
         .from('troupes')
         .select(`
             id, name, join_code, created_at, created_by, subscription_status, subscription_tier,
+            trial_end_date, trial_started_at,
             members:troupe_members (
                 user_id, role,
                 profiles (id, email, first_name, stripe_customer_id)
@@ -672,12 +708,12 @@ export async function getTroupeSettingsData(troupeId: string) {
         return null;
     }
 
-    // Check if current user is admin
+    // Check if current user is admin-like (admin, adjoint, metteur_en_scene)
     const myMembership = troupeData.members.find((m: any) => m.user_id === user.id);
     console.log("Membership found:", myMembership);
 
-    if (myMembership?.role !== 'admin') {
-        console.log("User is not admin:", myMembership?.role);
+    if (!isAdminRole(myMembership?.role)) {
+        console.log("User does not have admin permissions:", myMembership?.role);
         return null;
     }
 
@@ -753,7 +789,9 @@ export async function getTroupeSettingsData(troupeId: string) {
             memberLimit: memberLimit,
             currentCount: totalCount,
             hasStripeCustomerId: !!(Array.isArray(myMembership.profiles) ? myMembership.profiles[0] : myMembership.profiles)?.stripe_customer_id,
-            status: troupeData.subscription_status
+            status: troupeData.subscription_status,
+            trialEndDate: (troupeData as any).trial_end_date || null,
+            trialStartedAt: (troupeData as any).trial_started_at || null
         }
     };
 

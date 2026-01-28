@@ -1,5 +1,7 @@
 'use server';
 
+import { isAdminRole } from '@/lib/utils/roles';
+
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
@@ -45,7 +47,7 @@ export async function getTroupeSessions(troupeId: string) {
 
         if (membership) {
             isMember = true;
-            isAdmin = membership.role === 'admin';
+            isAdmin = isAdminRole(membership.role);
         }
     }
 

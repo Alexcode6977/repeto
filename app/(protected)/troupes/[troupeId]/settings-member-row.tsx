@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,17 +28,21 @@ interface SettingsMemberRowProps {
 
 export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsMemberRowProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const router = useRouter();
 
     const isMe = member.user_id === currentUserId; // Warning: this logic in parent passed creator ID, need real request user ID ideally.
     // For now assuming safe enough or UI will error on server action.
 
-    const handleRoleChange = async (newRole: "admin" | "member") => {
+    const handleRoleChange = async (newRole: "admin" | "adjoint" | "metteur_en_scene" | "member") => {
+        console.log('🎯 Changing role to:', newRole, 'for user:', member.user_id);
         setIsLoading(true);
         try {
             await updateMemberRole(troupeId, member.user_id, newRole);
+            console.log('✅ Role changed successfully');
+            router.refresh(); // Force page refresh to show updated role
         } catch (error) {
-            console.error(error);
-            alert("Erreur lors du changement de rôle");
+            console.error('❌ Error changing role:', error);
+            alert("Erreur lors du changement de rôle: " + (error instanceof Error ? error.message : 'Unknown error'));
         } finally {
             setIsLoading(false);
         }
@@ -72,6 +77,16 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                         {member.role === 'admin' && (
                             <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
                                 Admin
+                            </Badge>
+                        )}
+                        {member.role === 'adjoint' && (
+                            <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/20">
+                                Adjoint
+                            </Badge>
+                        )}
+                        {member.role === 'metteur_en_scene' && (
+                            <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/20">
+                                Metteur en scène
                             </Badge>
                         )}
                     </div>
@@ -117,19 +132,19 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        {/* ... (Existing menu items) ... */}
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuLabel>Changer le rôle</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleRoleChange(member.role === 'admin' ? 'member' : 'admin')}>
-                            {member.role === 'admin' ? (
-                                <>
-                                    <Shield className="w-4 h-4 mr-2" /> Rétrograder Membre
-                                </>
-                            ) : (
-                                <>
-                                    <ShieldCheck className="w-4 h-4 mr-2" /> Promouvoir Admin
-                                </>
-                            )}
+                        <DropdownMenuItem onClick={() => handleRoleChange('admin')} disabled={member.role === 'admin'}>
+                            <ShieldCheck className="w-4 h-4 mr-2" /> Admin
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRoleChange('adjoint')} disabled={member.role === 'adjoint'}>
+                            <ShieldCheck className="w-4 h-4 mr-2" /> Adjoint
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRoleChange('metteur_en_scene')} disabled={member.role === 'metteur_en_scene'}>
+                            <ShieldCheck className="w-4 h-4 mr-2" /> Metteur en scène
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleRoleChange('member')} disabled={member.role === 'member'}>
+                            <Shield className="w-4 h-4 mr-2" /> Membre
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
