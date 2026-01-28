@@ -788,7 +788,7 @@ export async function getTroupeSettingsData(troupeId: string) {
             tier: tier, // raw tier value
             memberLimit: memberLimit,
             currentCount: totalCount,
-            hasStripeCustomerId: !!(Array.isArray(myMembership.profiles) ? myMembership.profiles[0] : myMembership.profiles)?.stripe_customer_id,
+            hasStripeCustomerId: !!(myMembership?.profiles && (Array.isArray(myMembership.profiles) ? myMembership.profiles[0] : myMembership.profiles)?.stripe_customer_id),
             status: troupeData.subscription_status,
             trialEndDate: (troupeData as any).trial_end_date || null,
             trialStartedAt: (troupeData as any).trial_started_at || null
