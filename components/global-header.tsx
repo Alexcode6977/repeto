@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Shield, BarChart2 } from "lucide-react";
+import { User, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SingleMask, TripleMask } from "./icons/masks";
 
@@ -44,17 +44,6 @@ export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) 
                     </div>
                 </Link>
 
-                {/* Stats Link - Only for Premium/Troupe */}
-                {(tier === "solo_pro" || tier === "troupe" || tier === "troupe_xl") && (
-                    <Link href="/stats">
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 transition-colors cursor-pointer mr-2">
-                            <BarChart2 className="w-4 h-4 text-blue-400" />
-                            <span className="text-sm font-medium text-blue-400 hidden md:inline-block">
-                                Stats
-                            </span>
-                        </div>
-                    </Link>
-                )}
 
                 {/* Admin Button - Only visible for admin */}
                 {isAdmin && (

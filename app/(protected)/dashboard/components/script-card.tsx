@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { ScriptMetadata } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2, MoreHorizontal, Download, Pencil } from "lucide-react";
+import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2, MoreHorizontal, Download, Pencil, BarChart2 } from "lucide-react";
 import { DownloadButton } from "@/components/offline/download-button";
+import Link from "next/link";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -204,6 +205,17 @@ export function ScriptCard({
                     >
                         <Settings2 className="w-4 h-4" />
                     </Button>
+
+                    <Link href={`/stats?playId=${script.id}`} onClick={(e) => e.stopPropagation()}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="bg-white/10 hover:bg-blue-500/20 hover:text-blue-400 text-foreground rounded-xl"
+                            title="Voir les statistiques"
+                        >
+                            <BarChart2 className="w-4 h-4" />
+                        </Button>
+                    </Link>
 
                     <div onClick={(e) => e.stopPropagation()}>
                         <DownloadButton scriptId={script.id} className="bg-white/10 hover:bg-white/20 text-white border-0 w-12 h-12" />

@@ -161,6 +161,7 @@ export async function getUserStats(period: '7days' | '30days' | 'all' = 'all') {
     }));
 
 
+
     // Streak Calculation (simplified)
     // Check consecutive days backwards from today
     let streak = 0;
@@ -169,9 +170,70 @@ export async function getUserStats(period: '7days' | '30days' | 'all' = 'all') {
     return {
         totalTimeSeconds,
         totalSessions,
-        streakDays: streak,
-        activityData: activityData, // We need to sort this properly by date
+        streakDays: streak, // Kept for types but we might replace "Streak" with "Plays Count" in UI
+        uniqueScriptsCount: playsMap.size,
+        activityData: activityData,
         recentPlays
+    };
+}
+
+export async function getPlayDetailedStats(scriptId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    // Fetch sessions for this script
+    const { data: sessions, error } = await supabase
+        .from("rehearsal_sessions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("script_id", scriptId)
+        .order("start_time", { ascending: true });
+
+    if (error || !sessions) {
+        console.error("Error fetching detailed stats:", error);
+        return null;
+    }
+
+    // Aggregate Data
+    let totalLinesRehearsed = 0;
+    let totalFirstTry = 0;
+
+    // Progression over time (Completion %)
+    const progressionData = sessions.map(s => ({
+        date: new Date(s.start_time).toLocaleDateString('fr-FR'),
+        completion: s.completion_percentage || 0,
+        duration: Math.round((s.duration_seconds || 0) / 60)
+    }));
+
+    // Aggregate Success Rates
+    sessions.forEach(s => {
+        totalLinesRehearsed += (s.lines_rehearsed || 0);
+        totalFirstTry += (s.lines_validated_first_try || 0);
+    });
+
+    const firstTryRate = totalLinesRehearsed > 0
+        ? Math.round((totalFirstTry / totalLinesRehearsed) * 100)
+        : 0;
+
+    // Calculate a "histogram" of success based on approximation if we don't have per-try counts
+    // Since we only have "First Try" vs "Total", we can deduct "Retries".
+    // For a histogram, we might want "Session by Session performance" or stick to the simple breakdown.
+    // Let's return the breakdown: Success 1st Try vs Retry Needed.
+
+    const successDistribution = [
+        { name: '1er Essai', value: firstTryRate, fill: '#22c55e' }, // Green
+        { name: 'Plusieurs Essais', value: 100 - firstTryRate, fill: '#f59e0b' }, // Amber
+    ];
+
+    return {
+        totalSessions: sessions.length,
+        totalTimeSeconds: sessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0),
+        avgCompletion: Math.round(sessions.reduce((acc, s) => acc + (s.completion_percentage || 0), 0) / (sessions.length || 1)),
+        firstTryRate,
+        successDistribution,
+        progressionData
     };
 }
 

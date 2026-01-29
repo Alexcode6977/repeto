@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle, Download } from "lucide-react";
+import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle, Download, BarChart2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { deleteAccount, getInvoices, Invoice } from "./actions";
@@ -219,6 +220,36 @@ export default function ProfilePage() {
                     Se déconnecter
                 </Button>
             </div>
+
+            {/* Stats Section - Only for Premium/Troupe */}
+            {(subscriptionTier === "solo_pro" || subscriptionTier === "troupe" || subscriptionTier === "troupe_xl") && (
+                <div className="space-y-4">
+                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                        <BarChart2 className="w-5 h-5 text-primary" />
+                        Mes Statistiques
+                    </h2>
+                    <Link href="/stats">
+                        <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/50 transition-all cursor-pointer group flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 rounded-xl bg-blue-500/10 text-blue-400 group-hover:scale-110 transition-transform">
+                                    <BarChart2 className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-semibold text-foreground group-hover:text-primary transition-colors">
+                                        Voir mes statistiques
+                                    </h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Analysez votre temps de répétition et vos progrès
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="p-2 rounded-full bg-secondary text-muted-foreground group-hover:text-foreground transition-colors">
+                                <ChevronDown className="w-5 h-5 -rotate-90" />
+                            </div>
+                        </div>
+                    </Link>
+                </div>
+            )}
 
             {/* Subscription Section */}
             <div className="space-y-4">

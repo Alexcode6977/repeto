@@ -61,6 +61,7 @@ export default function AdminPage() {
     const [togglingPremium, setTogglingPremium] = useState<string | null>(null);
     const [libraryScripts, setLibraryScripts] = useState<LibraryScriptEntry[]>([]);
     const [updatingVoice, setUpdatingVoice] = useState<string | null>(null);
+    const [expandedScriptId, setExpandedScriptId] = useState<string | null>(null);
 
     useEffect(() => {
         const checkAdmin = async () => {
@@ -543,59 +544,73 @@ export default function AdminPage() {
 
                     <div className="space-y-4">
                         {libraryScripts.map((script) => (
-                            <div key={script.id} className="p-4 rounded-xl border border-border bg-card/50">
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                                    <BookOpen className="w-5 h-5 text-purple-500" />
-                                    {script.title}
-                                </h3>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {script.characters.map((charName) => {
-                                        const currentVoice = script.voiceConfigs.find((c: any) => c.character_name === charName)?.voice;
-                                        const isLoading = updatingVoice === `${script.id}-${charName}`;
-
-                                        return (
-                                            <div key={charName} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                                        {charName.substring(0, 2).toUpperCase()}
-                                                    </div>
-                                                    <span className="text-sm font-medium">{charName}</span>
-                                                </div>
-
-                                                <div className="w-[180px] flex items-center gap-2">
-                                                    <Select
-                                                        value={currentVoice || ""}
-                                                        onValueChange={(val) => handleLibraryVoiceUpdate(script.id, charName, val as OpenAIVoice)}
-                                                        disabled={isLoading}
-                                                    >
-                                                        <SelectTrigger className="h-8 text-xs border-dashed border-primary/30">
-                                                            {isLoading ? (
-                                                                <Loader2 className="w-3 h-3 animate-spin mx-auto" />
-                                                            ) : (
-                                                                <>
-                                                                    <Mic className="w-3 h-3 mr-2 opacity-50" />
-                                                                    <SelectValue placeholder="Choisir..." />
-                                                                </>
-                                                            )}
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {VOICES.map((v) => (
-                                                                <SelectItem key={v.id} value={v.id}>
-                                                                    <span className="flex items-center gap-2">
-                                                                        <span>{v.name}</span>
-                                                                        <span className="text-[10px] text-muted-foreground opacity-50">({v.gender})</span>
-                                                                    </span>
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    {currentVoice && <VoicePreviewButton voice={currentVoice} />}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                            <div key={script.id} className="rounded-xl border border-border bg-card/50 overflow-hidden transition-all duration-200">
+                                <div
+                                    className="p-4 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors"
+                                    onClick={() => setExpandedScriptId(expandedScriptId === script.id ? null : script.id)}
+                                >
+                                    <h3 className="text-lg font-bold flex items-center gap-2">
+                                        <BookOpen className="w-5 h-5 text-purple-500" />
+                                        {script.title}
+                                    </h3>
+                                    {expandedScriptId === script.id ? (
+                                        <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                                    ) : (
+                                        <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                                    )}
                                 </div>
+
+                                {expandedScriptId === script.id && (
+                                    <div className="p-4 pt-0 border-t border-white/5 bg-black/20 animate-in slide-in-from-top-2 duration-200">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                            {script.characters.map((charName) => {
+                                                const currentVoice = script.voiceConfigs.find((c: any) => c.character_name === charName)?.voice;
+                                                const isLoading = updatingVoice === `${script.id}-${charName}`;
+
+                                                return (
+                                                    <div key={charName} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                                                                {charName.substring(0, 2).toUpperCase()}
+                                                            </div>
+                                                            <span className="text-sm font-medium">{charName}</span>
+                                                        </div>
+
+                                                        <div className="w-[180px] flex items-center gap-2">
+                                                            <Select
+                                                                value={currentVoice || ""}
+                                                                onValueChange={(val) => handleLibraryVoiceUpdate(script.id, charName, val as OpenAIVoice)}
+                                                                disabled={isLoading}
+                                                            >
+                                                                <SelectTrigger className="h-8 text-xs border-dashed border-primary/30">
+                                                                    {isLoading ? (
+                                                                        <Loader2 className="w-3 h-3 animate-spin mx-auto" />
+                                                                    ) : (
+                                                                        <>
+                                                                            <Mic className="w-3 h-3 mr-2 opacity-50" />
+                                                                            <SelectValue placeholder="Choisir..." />
+                                                                        </>
+                                                                    )}
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {VOICES.map((v) => (
+                                                                        <SelectItem key={v.id} value={v.id}>
+                                                                            <span className="flex items-center gap-2">
+                                                                                <span>{v.name}</span>
+                                                                                <span className="text-[10px] text-muted-foreground opacity-50">({v.gender})</span>
+                                                                            </span>
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            {currentVoice && <VoicePreviewButton voice={currentVoice} />}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

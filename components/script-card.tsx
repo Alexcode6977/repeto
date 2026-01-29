@@ -2,8 +2,9 @@
 
 import { useState, memo } from "react";
 import { Button } from "@/components/ui/button";
-import { FileText, Play, Trash2, Globe, Edit3, Mic } from "lucide-react";
+import { FileText, Play, Trash2, Globe, Edit3, Mic, BarChart2 } from "lucide-react";
 import { DownloadButton } from "./offline/download-button";
+import Link from "next/link";
 
 interface ScriptMetadata {
     id: string;
@@ -136,6 +137,17 @@ export const ScriptCard = memo(function ScriptCard({
                             <Trash2 className="w-4 h-4" />
                         </Button>
                     )}
+
+                    <Link href={`/stats?playId=${s.id}`} onClick={(e) => e.stopPropagation()}>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="bg-white/10 hover:bg-blue-500/20 hover:text-blue-400 text-foreground rounded-xl"
+                            title="Voir les statistiques"
+                        >
+                            <BarChart2 className="w-4 h-4" />
+                        </Button>
+                    </Link>
                 </div>
             </div>
         </div>

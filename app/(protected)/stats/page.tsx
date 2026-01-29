@@ -11,8 +11,14 @@ export const metadata: Metadata = {
     description: "Suivez votre progression de répétition.",
 };
 
-export default async function StatsPage() {
+interface PageProps {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function StatsPage({ searchParams }: PageProps) {
     const stats = await getUserStats('all');
+    const params = await searchParams;
+    const playId = typeof params.playId === 'string' ? params.playId : undefined;
 
     return (
         <div className="max-w-7xl mx-auto p-6 md:p-12 pb-32 animate-in fade-in zoom-in duration-500 relative min-h-screen">
@@ -27,7 +33,7 @@ export default async function StatsPage() {
                 </Link>
             </div>
 
-            <StatsDashboard initialStats={stats} />
+            <StatsDashboard initialStats={stats} initialSelectedPlayId={playId} />
         </div>
     );
 }
