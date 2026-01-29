@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { deleteTroupe } from "@/lib/actions/troupe";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface DeleteTroupeButtonProps {
@@ -30,11 +31,11 @@ export function DeleteTroupeButton({ troupeId, troupeName }: DeleteTroupeButtonP
         setIsLoading(true);
         try {
             await deleteTroupe(troupeId);
+            toast.success("Troupe supprimée avec succès");
             router.push("/troupes");
-            router.refresh();
         } catch (error) {
             console.error(error);
-            alert("Erreur lors de la suppression de la troupe.");
+            toast.error("Erreur lors de la suppression de la troupe.");
             setIsLoading(false);
         }
     };

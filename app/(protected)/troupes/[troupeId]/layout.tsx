@@ -54,11 +54,11 @@ export default async function TroupeLayout({
 
             {/* Sidebar - Visible on Desktop */}
             <div className="hidden md:block">
-                <TroupeSidebar troupeId={troupeId} role={troupe.my_role} />
+                <TroupeSidebar troupeId={troupeId} roles={troupe.my_roles} />
             </div>
 
             {/* Mobile Navigation - Visible on Mobile */}
-            <TroupeMobileNav troupeId={troupeId} role={troupe.my_role} />
+            <TroupeMobileNav troupeId={troupeId} roles={troupe.my_roles} />
 
             {/* Main Content */}
             <main className="md:ml-64 min-h-screen pb-20 md:pb-0 pt-20 flex flex-col">

@@ -1,6 +1,6 @@
 'use server';
 
-import { isAdminRole } from '@/lib/utils/roles';
+import { canManageTroupe, canDirectTroupe } from '@/lib/utils/roles';
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
@@ -32,28 +32,27 @@ export async function getTroupeSessions(troupeId: string) {
     }
 
     // 2. Determine User Role
-    let isMember = false;
-    let isAdmin = false;
+    let canViewDrafts = false;
 
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
         const { data: membership } = await supabase
             .from('troupe_members')
-            .select('role')
+            .select('roles')
             .eq('troupe_id', troupeId)
             .eq('user_id', user.id)
             .single();
 
         if (membership) {
-            isMember = true;
-            isAdmin = isAdminRole(membership.role);
+            // Admins, Adjoints, and Directors can see drafts
+            canViewDrafts = canManageTroupe(membership.roles) || canDirectTroupe(membership.roles);
         }
     }
 
     // 3. Filter based on visibility
-    // Admin sees EVERYTHING
-    if (isAdmin) {
+    // Admin/Director sees EVERYTHING
+    if (canViewDrafts) {
         return data;
     }
 

@@ -13,12 +13,14 @@ import {
     Settings
 } from "lucide-react";
 
+import { canManageTroupe, canDirectTroupe, canAccessArtisticContent } from "@/lib/utils/roles";
+
 interface TroupeSidebarProps {
     troupeId: string;
-    role?: string;
+    roles?: string[]; // Now array
 }
 
-export function TroupeSidebar({ troupeId, role }: TroupeSidebarProps) {
+export function TroupeSidebar({ troupeId, roles }: TroupeSidebarProps) {
     const pathname = usePathname();
 
     const navItems = [
@@ -26,41 +28,46 @@ export function TroupeSidebar({ troupeId, role }: TroupeSidebarProps) {
             label: "Tableau de Bord",
             href: `/troupes/${troupeId}`,
             icon: LayoutDashboard,
-            active: pathname === `/troupes/${troupeId}`
+            active: pathname === `/troupes/${troupeId}`,
+            // Visibility: Manage only
+            visible: canManageTroupe(roles)
         },
         {
             label: "Calendrier",
             href: `/troupes/${troupeId}/calendar`,
             icon: Calendar,
-            active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
+            active: pathname.startsWith(`/troupes/${troupeId}/calendar`),
+            // Visibility: All
+            visible: true
         },
         {
             label: "Pièces & Scripts",
             href: `/troupes/${troupeId}/plays`,
             icon: BookOpen,
-            active: pathname.startsWith(`/troupes/${troupeId}/plays`)
+            active: pathname.startsWith(`/troupes/${troupeId}/plays`),
+            // Visibility: Artistic content (Member or MES)
+            visible: canAccessArtisticContent(roles)
         },
         {
             label: "Préparation Séance",
             href: `/troupes/${troupeId}/sessions`,
             icon: ClipboardList,
             active: pathname.startsWith(`/troupes/${troupeId}/sessions`) && !pathname.includes('/live'),
-            restricted: true // Only for admins/managers
+            // Visibility: Director only
+            visible: canDirectTroupe(roles)
         },
         {
             label: "Séance Live",
             href: `/troupes/${troupeId}/sessions/live`,
             icon: Users,
-            active: pathname === `/troupes/${troupeId}/sessions/live` || pathname.includes('/live')
+            active: pathname === `/troupes/${troupeId}/sessions/live` || pathname.includes('/live'),
+            // Visibility: Artistic content (Member or MES)
+            visible: canAccessArtisticContent(roles)
         }
     ];
 
     // Filter items based on permissions
-    const visibleNavItems = navItems.filter(item => {
-        if (item.label === "Tableau de Bord" && role !== 'admin') return false;
-        if (item.label === "Préparation Séance" && role === 'member') return false;
-        return true;
-    });
+    const visibleNavItems = navItems.filter(item => item.visible);
 
     // Detect if we are in the sessions area
     const isInSessions = pathname.startsWith(`/troupes/${troupeId}/sessions`);

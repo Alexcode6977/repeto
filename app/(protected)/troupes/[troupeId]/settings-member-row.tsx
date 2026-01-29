@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { UserMinus, Shield, ShieldCheck, MoreVertical, Loader2, Trash2 } from "lucide-react";
-import { removeTroupeMember, updateMemberRole } from "@/lib/actions/troupe";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Shield, MoreVertical, Loader2, Trash2, Check } from "lucide-react";
+import { removeTroupeMember, updateMemberRoles } from "@/lib/actions/troupe";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -19,6 +23,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 interface SettingsMemberRowProps {
     member: any;
@@ -30,41 +35,54 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
 
-    const isMe = member.user_id === currentUserId; // Warning: this logic in parent passed creator ID, need real request user ID ideally.
-    // For now assuming safe enough or UI will error on server action.
+    const currentRoles = Array.isArray(member.roles) ? member.roles : (member.role ? [member.role] : []);
 
-    const handleRoleChange = async (newRole: "admin" | "adjoint" | "metteur_en_scene" | "member") => {
-        console.log('🎯 Changing role to:', newRole, 'for user:', member.user_id);
+    const handleRoleToggle = async (roleToToggle: string) => {
         setIsLoading(true);
         try {
-            await updateMemberRole(troupeId, member.user_id, newRole);
-            console.log('✅ Role changed successfully');
-            router.refresh(); // Force page refresh to show updated role
+            let newRoles = [...currentRoles];
+            if (newRoles.includes(roleToToggle)) {
+                newRoles = newRoles.filter(r => r !== roleToToggle);
+            } else {
+                newRoles.push(roleToToggle);
+            }
+
+            // Ensure at least one role? Or allow empty (which effectively is nothing)?
+            // Better to enforce at least 'member' usually, but strict separation implies maybe 'admin' only is valid.
+            // Let's allow any combination.
+
+            await updateMemberRoles(troupeId, member.user_id, newRoles);
+            router.refresh();
         } catch (error) {
-            console.error('❌ Error changing role:', error);
-            alert("Erreur lors du changement de rôle: " + (error instanceof Error ? error.message : 'Unknown error'));
+            console.error('Error changing roles:', error);
+            // toast.error?
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleRemove = async () => {
-        // No confirm() anymore, handled by Dialog
         setIsLoading(true);
         try {
             await removeTroupeMember(troupeId, member.user_id);
+            router.refresh();
         } catch (error) {
             console.error(error);
-            alert("Erreur lors de la suppression");
         } finally {
             setIsLoading(false);
         }
     };
 
+    const availableRoles = [
+        { id: 'admin', label: 'Admin', color: 'text-yellow-600 bg-yellow-500/10 border-yellow-500/20' },
+        { id: 'adjoint', label: 'Adjoint', color: 'text-blue-600 bg-blue-500/10 border-blue-500/20' },
+        { id: 'metteur_en_scene', label: 'Metteur en scène', color: 'text-purple-600 bg-purple-500/10 border-purple-500/20' },
+        { id: 'member', label: 'Membre', color: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' },
+    ];
+
     return (
         <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-all group">
             <div className="flex items-center gap-4">
-                {/* ... (Existing Avatar/Info code) ... */}
                 <Avatar className="h-10 w-10 border border-primary/20">
                     <AvatarImage src={member.avatar_url} />
                     <AvatarFallback className="bg-primary/10 text-primary font-bold">
@@ -72,30 +90,24 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                     </AvatarFallback>
                 </Avatar>
                 <div>
-                    <div className="font-bold text-foreground flex items-center gap-2">
+                    <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
                         {member.first_name} {member.last_name}
-                        {member.role === 'admin' && (
-                            <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
-                                Admin
-                            </Badge>
-                        )}
-                        {member.role === 'adjoint' && (
-                            <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] bg-blue-500/10 text-blue-600 border-blue-500/20">
-                                Adjoint
-                            </Badge>
-                        )}
-                        {member.role === 'metteur_en_scene' && (
-                            <Badge variant="secondary" className="px-1.5 py-0 h-5 text-[10px] bg-purple-500/10 text-purple-600 border-purple-500/20">
-                                Metteur en scène
-                            </Badge>
-                        )}
+
+                        {currentRoles.map((role: string) => {
+                            const roleConfig = availableRoles.find(r => r.id === role);
+                            if (!roleConfig) return null;
+                            return (
+                                <Badge key={role} variant="secondary" className={cn("px-1.5 py-0 h-5 text-[10px]", roleConfig.color)}>
+                                    {roleConfig.label}
+                                </Badge>
+                            );
+                        })}
                     </div>
                     <p className="text-xs text-muted-foreground">{member.email}</p>
                 </div>
             </div>
 
             <div className="flex items-center gap-2">
-                {/* NEW: Direct Delete Button with Confirmation */}
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <Button
@@ -125,29 +137,39 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                     </AlertDialogContent>
                 </AlertDialog>
 
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                <Popover>
+                    <PopoverTrigger asChild>
                         <Button variant="ghost" size="icon" disabled={isLoading}>
                             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4 text-muted-foreground" />}
                         </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Changer le rôle</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => handleRoleChange('admin')} disabled={member.role === 'admin'}>
-                            <ShieldCheck className="w-4 h-4 mr-2" /> Admin
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleRoleChange('adjoint')} disabled={member.role === 'adjoint'}>
-                            <ShieldCheck className="w-4 h-4 mr-2" /> Adjoint
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleRoleChange('metteur_en_scene')} disabled={member.role === 'metteur_en_scene'}>
-                            <ShieldCheck className="w-4 h-4 mr-2" /> Metteur en scène
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleRoleChange('member')} disabled={member.role === 'member'}>
-                            <Shield className="w-4 h-4 mr-2" /> Membre
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-56 p-2">
+                        <div className="space-y-1">
+                            <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mb-1">
+                                Rôles (Cumulables)
+                            </p>
+                            {availableRoles.map((role) => {
+                                const isSelected = currentRoles.includes(role.id);
+                                return (
+                                    <button
+                                        key={role.id}
+                                        onClick={() => handleRoleToggle(role.id)}
+                                        className={cn(
+                                            "w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md transition-colors",
+                                            isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted text-foreground"
+                                        )}
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <Shield className="w-3.5 h-3.5 opacity-70" />
+                                            {role.label}
+                                        </span>
+                                        {isSelected && <Check className="w-4 h-4" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
         </div>
     );

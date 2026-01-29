@@ -12,71 +12,56 @@ import {
 } from "lucide-react";
 import { useHaptic } from "@/lib/hooks/use-haptic";
 
+import { canManageTroupe, canDirectTroupe, canAccessArtisticContent } from "@/lib/utils/roles";
+
 interface TroupeMobileNavProps {
     troupeId: string;
-    role?: string;
+    roles?: string[];
 }
 
-export function TroupeMobileNav({ troupeId, role }: TroupeMobileNavProps) {
+export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
     const pathname = usePathname();
     const { trigger } = useHaptic();
-    const isAdmin = role === 'admin' || role === 'director'; // Adjust based on actual role string used in app
 
-    // Base items common to all or majority
-    // We will construct the array based on role to ensure exact order
+    // Build items based on permission check
+    const navItems = [];
 
-    let navItems = [];
+    // 1. Calendar (All)
+    navItems.push({
+        label: "Calendrier",
+        href: `/troupes/${troupeId}/calendar`,
+        icon: Calendar,
+        active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
+    });
 
-    if (isAdmin) {
-        // ADMIN / DIRECTOR NAVIGATION
-        navItems = [
-            {
-                label: "Calendrier",
-                href: `/troupes/${troupeId}/calendar`,
-                icon: Calendar,
-                active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
-            },
-            {
-                label: "Pièces",
-                href: `/troupes/${troupeId}/plays`,
-                icon: BookOpen,
-                active: pathname.startsWith(`/troupes/${troupeId}/plays`)
-            },
-            {
-                label: "Séances",
-                href: `/troupes/${troupeId}/sessions`,
-                icon: Timer, // Represents 'Time' / 'Sessions'
-                active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
-            },
-            {
-                label: "Organisation",
-                href: `/troupes/${troupeId}`,
-                icon: LayoutDashboard, // Dashboard view
-                active: pathname === `/troupes/${troupeId}` || pathname === `/troupes/${troupeId}/dashboard`
-            }
-        ];
-    } else {
-        // MEMBER NAVIGATION
-        navItems = [
-            {
-                label: "Calendrier",
-                href: `/troupes/${troupeId}/calendar`,
-                icon: Calendar,
-                active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
-            },
-            {
-                label: "Pièces",
-                href: `/troupes/${troupeId}/plays`,
-                icon: BookOpen,
-                active: pathname.startsWith(`/troupes/${troupeId}/plays`)
-            },
-            {
-                label: "Séances",
-                href: `/troupes/${troupeId}/sessions`,
-                icon: Timer,
-                active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
-            }
-        ];
+    // 2. Pièces (Member or MES)
+    if (canAccessArtisticContent(roles)) {
+        navItems.push({
+            label: "Pièces",
+            href: `/troupes/${troupeId}/plays`,
+            icon: BookOpen,
+            active: pathname.startsWith(`/troupes/${troupeId}/plays`)
+        });
+    }
+
+    // 3. Séances (MES only)
+    if (canDirectTroupe(roles)) {
+        navItems.push({
+            label: "Prép. Séance",
+            href: `/troupes/${troupeId}/sessions`,
+            icon: Timer,
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
+        });
+    }
+
+    // 4. Organisation (Admin/Adjoint)
+    if (canManageTroupe(roles)) {
+        navItems.push({
+            label: "Organisation",
+            href: `/troupes/${troupeId}`,
+            icon: LayoutDashboard,
+            active: pathname === `/troupes/${troupeId}` || pathname === `/troupes/${troupeId}/dashboard`
+        });
     }
 
     return (

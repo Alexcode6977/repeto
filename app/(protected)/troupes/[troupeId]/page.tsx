@@ -1,4 +1,5 @@
 import { getTroupeDetails, getTroupeMembers, getTroupeGuests, getJoinRequests, getTroupeSettingsData } from "@/lib/actions/troupe";
+import { canManageTroupe } from "@/lib/utils/roles";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CreditCard, Users, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -24,8 +25,8 @@ export default async function TroupeDashboard({
 
     // Default Fetches
     const troupe = await getTroupeDetails(troupeId);
-    const isAdmin = troupe?.my_role === 'admin';
-    const isPending = troupe?.my_role === 'pending';
+    const isAdmin = canManageTroupe(troupe?.my_roles);
+    const isPending = troupe?.my_roles?.includes('pending');
 
     // Redirect non-admins to Plays page
     if (troupe && !isAdmin && !isPending) {
