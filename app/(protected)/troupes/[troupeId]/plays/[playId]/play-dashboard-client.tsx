@@ -44,7 +44,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     });
     const [isMounted, setIsMounted] = useState(false);
     const [userId, setUserId] = useState<string>("");
-    const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal">("reader");
+    const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal" | "listen">("reader");
     const { trigger } = useHaptic();
 
     // Video State
@@ -157,6 +157,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         setRehearsalChars(chars);
                         if (mode === 'rehearsal') {
                             setViewMode("rehearsal");
+                        } else if (mode === 'listen') {
+                            setViewMode("listen");
                         } else {
                             setViewMode("setup");
                         }
@@ -175,12 +177,16 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const estimatedDuration = Math.round(lineCount * 0.5);
 
     // Filter characters
+    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off"];
+    const isTechnical = (name: string) => name && technicalKeywords.some(k => name.toLowerCase().includes(k));
+
     const myCharacters = play.play_characters?.filter((c: any) => c.actor_id === userId) || [];
-    const otherCharacters = play.play_characters?.filter((c: any) => c.actor_id !== userId) || [];
+    // Exclude technical roles from the "Available/Other" list
+    const otherCharacters = play.play_characters?.filter((c: any) => c.actor_id !== userId && !isTechnical(c.character_name) && !isTechnical(c.name)) || [];
     const allCharacters = [...myCharacters, ...otherCharacters];
 
     // Helper to start standard modes
-    const startMode = (mode: "reader" | "rehearsal") => {
+    const startMode = (mode: "reader" | "rehearsal" | "listen") => {
         setIntendedMode(mode);
         setViewMode("viewer");
     };
@@ -367,46 +373,28 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 <Card
                     className={cn(
                         "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
-                        // For director, always enabled. For member, depends on character selection.
-                        (isAdmin || (rehearsalChars && rehearsalChars.length > 0))
-                            ? "bg-teal-500/10 hover:bg-teal-500/20"
-                            : "bg-muted/30 opacity-60"
+                        "bg-teal-500/10 hover:bg-teal-500/20"
                     )}
                     onClick={() => {
-                        // Director can always listen (maybe defaults to full cast or needs selection? strictly following user request to just show it for now, logic might vary but let's assume same selection logic or just enabled)
-                        // Actually, 'rehearsalChars' logic applies to listening too usually. 
-                        // But for Director "Annoter" is requested, implying they might not "Répéter" (play a role).
-                        // Let's keep the selection check for consistency unless director has a "view all" mode.
-                        // User said: "tu changes rien pour le membre".
-                        // For director: "enlever répéter et repeter à distance et tu mets lire, écouter et annoter".
-
-                        if (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) {
-                            // If admin and no selection, maybe we should prompt or default?
-                            // For now assuming Admin behaves like member for Listen validation OR just allowed.
-                            // Let's stick to existing validation for safety but allow the card to be visible/enabled.
-                            if (!isAdmin && (!rehearsalChars || rehearsalChars.length === 0)) {
-                                alert("👆 Sélectionnez d'abord un personnage !");
-                                trigger('error');
-                                return;
-                            }
-
+                        if (rehearsalChars && rehearsalChars.length > 0) {
+                            // Already selected -> Go directly to Listen
                             setViewMode("listen");
-                            trigger('medium');
                         } else {
-                            alert("👆 Sélectionnez d'abord un personnage !");
-                            trigger('error');
+                            // Not selected -> Go to Selection (Forced: Listen)
+                            startMode("listen");
                         }
+                        trigger('medium');
                     }}
                 >
                     <div className={cn(
                         "w-14 h-14 rounded-full flex items-center justify-center",
-                        (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) ? "bg-teal-500/20 text-teal-400" : "bg-muted text-muted-foreground"
+                        "bg-teal-500/20 text-teal-400"
                     )}>
                         <Headphones className="w-7 h-7" />
                     </div>
                     <div>
-                        <h3 className={cn("font-bold text-lg", (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) ? "text-teal-400" : "text-muted-foreground")}>Écouter</h3>
-                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) ? "text-teal-400/60" : "text-muted-foreground/60")}>Le script</p>
+                        <h3 className={cn("font-bold text-lg", "text-teal-400")}>Écouter</h3>
+                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", "text-teal-400/60")}>Le script</p>
                     </div>
                 </Card>
 
@@ -416,29 +404,28 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         <Card
                             className={cn(
                                 "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
-                                rehearsalChars && rehearsalChars.length > 0
-                                    ? "bg-primary/20 hover:bg-primary/30"
-                                    : "bg-muted/30 opacity-60"
+                                "bg-primary/20 hover:bg-primary/30"
                             )}
                             onClick={() => {
                                 if (rehearsalChars && rehearsalChars.length > 0) {
-                                    startMode("rehearsal");
-                                    trigger('medium');
+                                    // Already selected -> Go directly to Rehearsal
+                                    setViewMode("rehearsal");
                                 } else {
-                                    alert("👆 Sélectionnez d'abord un personnage !");
-                                    trigger('error');
+                                    // Not selected -> Go to Selection (Forced: Rehearsal)
+                                    startMode("rehearsal");
                                 }
+                                trigger('medium');
                             }}
                         >
                             <div className={cn(
                                 "w-14 h-14 rounded-full flex items-center justify-center",
-                                rehearsalChars && rehearsalChars.length > 0 ? "bg-primary/30 text-primary" : "bg-muted text-muted-foreground"
+                                "bg-primary/30 text-primary"
                             )}>
                                 <Play className="w-7 h-7 fill-current" />
                             </div>
                             <div>
-                                <h3 className={cn("font-bold text-lg", rehearsalChars && rehearsalChars.length > 0 ? "text-primary" : "text-muted-foreground")}>Répéter</h3>
-                                <p className={cn("text-[10px] uppercase font-bold tracking-wider", rehearsalChars && rehearsalChars.length > 0 ? "text-primary/60" : "text-muted-foreground/60")}>Mon rôle</p>
+                                <h3 className={cn("font-bold text-lg", "text-primary")}>Répéter</h3>
+                                <p className={cn("text-[10px] uppercase font-bold tracking-wider", "text-primary/60")}>Mon rôle</p>
                             </div>
                         </Card>
 
@@ -536,6 +523,6 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
             )}
         </div>
     );
-
-
 }
+
+
