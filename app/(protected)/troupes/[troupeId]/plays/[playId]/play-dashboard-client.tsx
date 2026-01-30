@@ -45,6 +45,15 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const [isMounted, setIsMounted] = useState(false);
     const [userId, setUserId] = useState<string>("");
     const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal" | "listen">("reader");
+    // Filter characters
+    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off", "poursuite", "lumière", "son", "indication"];
+    const isTechnical = (name: string) => name && technicalKeywords.some(k => name.toLowerCase().includes(k));
+
+    // Get list of all technical role names to pass to sub-components
+    const technicalRoleNames = play.play_characters
+        ?.filter((c: any) => isTechnical(c.character_name) || isTechnical(c.name))
+        .map((c: any) => c.character_name) || [];
+
     const { trigger } = useHaptic();
 
     // Video State
@@ -95,6 +104,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 onExit={() => setViewMode("dashboard")}
                 playId={play.id}
                 troupeId={troupeId}
+                skipCharacters={technicalRoleNames}
             />
         );
     }
@@ -108,6 +118,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 initialSettings={sessionSettings}
                 playId={play.id}
                 troupeId={troupeId}
+                initialIgnoredCharacters={technicalRoleNames}
             />
         );
     }
@@ -121,6 +132,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 settings={sessionSettings}
                 playId={play.id}
                 userId={userId}
+                skipCharacters={technicalRoleNames}
             />
         );
     }
@@ -175,10 +187,6 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const sceneCount = play.play_scenes?.length || 0;
     const lineCount = script?.lines?.filter((l: any) => l.type === 'dialogue').length || 0;
     const estimatedDuration = Math.round(lineCount * 0.5);
-
-    // Filter characters
-    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off"];
-    const isTechnical = (name: string) => name && technicalKeywords.some(k => name.toLowerCase().includes(k));
 
     const myCharacters = play.play_characters?.filter((c: any) => c.actor_id === userId) || [];
     // Exclude technical roles from the "Available/Other" list

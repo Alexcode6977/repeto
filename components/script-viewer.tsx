@@ -16,12 +16,28 @@ interface ScriptViewerProps {
 export function ScriptViewer({ script, onConfirm, forcedMode }: ScriptViewerProps) {
     const [selectedChars, setSelectedChars] = useState<string[]>([]);
 
-    // Technical role detection
-    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off"];
+    // Generic Character Filtering - Updated with extended roles
+    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off", "poursuite", "lumière", "son", "indication"];
     const isTechnical = (char: string) => technicalKeywords.some(k => char.toLowerCase().includes(k));
 
-    const mainCharacters = script.characters.filter(c => !isTechnical(c));
-    const technicalCharacters = script.characters.filter(c => isTechnical(c));
+    // Derive all characters from lines to ensure we catch those missing from metadata (like Poursuite)
+    // But EXCLUDE structural elements like "SCENE", "ACTE" or explicit scene headings
+    const structuralBlacklist = ["scene", "acte", "act"];
+
+    const allLinesCharacters = new Set(
+        script.lines
+            .filter(l =>
+                l.character &&
+                l.type !== 'scene_heading' &&
+                !structuralBlacklist.some(b => l.character.toLowerCase().includes(b))
+            )
+            .map(l => l.character)
+            .filter(Boolean)
+    );
+    const allCharacters = Array.from(new Set([...script.characters, ...Array.from(allLinesCharacters)]));
+
+    const mainCharacters = allCharacters.filter(c => !isTechnical(c));
+    const technicalCharacters = allCharacters.filter(c => isTechnical(c));
 
     const toggleChar = (char: string) => {
         setSelectedChars(prev =>
@@ -58,7 +74,19 @@ export function ScriptViewer({ script, onConfirm, forcedMode }: ScriptViewerProp
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                                const main = script.characters.filter(c => !isTechnical(c));
+                                const structuralBlacklist = ["scene", "acte", "act"];
+                                const allLinesCharacters = new Set(
+                                    script.lines
+                                        .filter(l =>
+                                            l.character &&
+                                            l.type !== 'scene_heading' &&
+                                            !structuralBlacklist.some(b => l.character.toLowerCase().includes(b))
+                                        )
+                                        .map(l => l.character)
+                                        .filter(Boolean)
+                                );
+                                const allCharacters = Array.from(new Set([...script.characters, ...Array.from(allLinesCharacters)]));
+                                const main = allCharacters.filter(c => !isTechnical(c));
                                 setSelectedChars(prev => [...new Set([...prev, ...main])]);
                             }}
                             className="text-[10px] uppercase font-bold tracking-widest text-primary hover:text-primary/80"

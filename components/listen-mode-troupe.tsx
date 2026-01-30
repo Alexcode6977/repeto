@@ -16,6 +16,7 @@ interface ListenModeTroupeProps {
     onExit: () => void;
     playId: string;
     troupeId: string;
+    skipCharacters?: string[];
 }
 
 export function ListenModeTroupe({
@@ -23,7 +24,8 @@ export function ListenModeTroupe({
     userCharacters = [],
     onExit,
     playId,
-    troupeId
+    troupeId,
+    skipCharacters = []
 }: ListenModeTroupeProps) {
     // Configuration state
     const [listenMode, setListenMode] = useState<ListenMode>("full");
@@ -40,12 +42,25 @@ export function ListenModeTroupe({
     const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
     const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, OpenAIVoice>>({});
 
-    // Didascalies detection
+    // Didascalies detection - MERGE WITH PASSED SKIP CHARACTERS
     const hasDidascalies = useMemo(() =>
         script.characters.some(c =>
             c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
         ), [script.characters]);
-    const [skipDidascalies, setSkipDidascalies] = useState(true);
+
+    // Default to skipping if technical roles are passed OR didascalies found
+    const [shouldSkip, setShouldSkip] = useState(true);
+
+    // Calculate final list of ignored characters
+    const effectiveSkippedCharacters = useMemo(() => {
+        if (!shouldSkip) return [];
+
+        const internalDidascalies = script.characters.filter(c =>
+            c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
+        );
+
+        return [...new Set([...internalDidascalies, ...skipCharacters])];
+    }, [shouldSkip, script.characters, skipCharacters]);
 
     // Fetch User Capabilities
     useEffect(() => {
@@ -120,9 +135,7 @@ export function ListenModeTroupe({
         announceCharacter,
         initialLineIndex: startLineIndex,
         openaiVoiceAssignments,
-        skipCharacters: hasDidascalies && skipDidascalies
-            ? script.characters.filter(c => c.toLowerCase().includes("didascalie"))
-            : [],
+        skipCharacters: effectiveSkippedCharacters,
         playId,
         troupeId
     });
