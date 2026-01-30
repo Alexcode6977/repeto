@@ -16,15 +16,20 @@ export async function createPlay(
     if (!user) throw new Error('Unauthorized');
 
     // Verify Admin rights
+    // Verify Perms via DB or just rely on RLS (better practice usually)
+    // But since we have a manual check here, let's update it to check for 'roles' array
     const { data: member } = await supabase
         .from('troupe_members')
-        .select('role')
+        .select('roles')
         .eq('troupe_id', troupeId)
         .eq('user_id', user.id)
         .single();
 
-    if (member?.role !== 'admin') {
-        throw new Error('Seul l\'administrateur peut ajouter une pièce.');
+    const roles = member?.roles || [];
+    const canCreate = roles.includes('admin') || roles.includes('metteur_en_scene');
+
+    if (!canCreate) {
+        throw new Error('Seul l\'administrateur ou le metteur en scène peut ajouter une pièce.');
     }
 
     // 1. Create Play

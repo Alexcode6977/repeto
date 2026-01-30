@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AddEventModal } from "./add-event-modal";
 import { CalendarView } from "./calendar-view";
 import { CalendarUpcomingList } from "./calendar-upcoming-list";
+import { canManageCalendar } from "@/lib/utils/roles";
 
 export default async function CalendarPage({
     params,
@@ -47,7 +48,7 @@ export default async function CalendarPage({
         }))
     ];
 
-    const isAdmin = troupe.my_role === 'admin';
+    const canManage = canManageCalendar(troupe.my_roles);
 
     // Group events by date
     const eventsByDate: Record<number, any[]> = {};
@@ -67,7 +68,7 @@ export default async function CalendarPage({
                         Répétitions et événements de la troupe.
                     </p>
                 </div>
-                {isAdmin && (
+                {canManage && (
                     <AddEventModal troupeId={troupeId} />
                 )}
             </div>
@@ -79,7 +80,7 @@ export default async function CalendarPage({
                 eventsByDate={eventsByDate}
                 userId={user?.id || ''}
                 members={allMembers}
-                isAdmin={isAdmin}
+                isAdmin={canManage}
             />
 
             {/* Upcoming Events List - Both mobile agenda and desktop cards */}

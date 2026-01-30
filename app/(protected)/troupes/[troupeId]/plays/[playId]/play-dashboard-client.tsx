@@ -131,7 +131,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 script={play.script_content as ParsedScript}
                 character={rehearsalChars[0]}
                 onStart={(settings) => {
-                    setSessionSettings(settings);
+                    setSessionSettings(settings); // Settings are now correct
                     setViewMode("reader");
                 }}
                 onBack={() => setViewMode("viewer")}

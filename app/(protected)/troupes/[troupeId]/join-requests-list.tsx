@@ -5,6 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Check, X, Loader2, UserPlus } from "lucide-react";
 import { approveJoinRequestAction, rejectJoinRequestAction } from "@/lib/actions/troupe";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { getRoleLabels } from "@/lib/utils/roles";
 
 interface JoinRequestsListProps {
     troupeId: string;
@@ -13,13 +21,16 @@ interface JoinRequestsListProps {
 
 export function JoinRequestsList({ troupeId, requests }: JoinRequestsListProps) {
     const [loadingId, setLoadingId] = useState<string | null>(null);
+    const [selectedRoles, setSelectedRoles] = useState<Record<string, string>>({});
 
     if (requests.length === 0) return null;
 
     const handleApprove = async (requestId: string, userId: string) => {
         setLoadingId(requestId);
         try {
-            await approveJoinRequestAction(troupeId, requestId, userId);
+            // Default to 'member' if no role selected
+            const role = selectedRoles[requestId] || 'member';
+            await approveJoinRequestAction(troupeId, requestId, userId, [role]);
         } catch (error) {
             console.error(error);
             alert("Erreur lors de l'approbation.");
@@ -51,39 +62,60 @@ export function JoinRequestsList({ troupeId, requests }: JoinRequestsListProps) 
             </h3>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {requests.map((request) => (
-                    <div key={request.id} className="flex items-center gap-4 p-4 rounded-2xl border border-primary/30 bg-primary/5 backdrop-blur-md transition-all shadow-[0_0_15px_rgba(var(--primary-rgb),0.1)]">
-                        <Avatar className="h-10 w-10 border border-primary/20">
-                            <AvatarFallback className="bg-primary/20 text-primary font-bold">
-                                {(request.first_name?.[0] || request.email?.[0] || "?").toUpperCase()}
-                            </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground truncate">
-                                {request.first_name || "Nouvel utilisateur"}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground truncate">
-                                {request.email}
-                            </p>
+                    <div key={request.id} className="flex flex-col gap-4 p-4 rounded-2xl border border-primary/30 bg-primary/5 backdrop-blur-md transition-all shadow-[0_0_15px_rgba(var(--primary-rgb),0.1)]">
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 border border-primary/20">
+                                <AvatarFallback className="bg-primary/20 text-primary font-bold">
+                                    {(request.first_name?.[0] || request.email?.[0] || "?").toUpperCase()}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-foreground truncate">
+                                    {request.first_name || "Nouvel utilisateur"}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                    {request.email}
+                                </p>
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 rounded-full bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-foreground transition-all border border-green-500/20"
-                                onClick={() => handleApprove(request.id, request.user_id)}
+
+                        <div className="flex items-center gap-2 mt-2">
+                            <Select
+                                value={selectedRoles[request.id] || "member"}
+                                onValueChange={(value) => setSelectedRoles(prev => ({ ...prev, [request.id]: value }))}
                                 disabled={!!loadingId}
                             >
-                                {loadingId === request.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-4 w-4" />}
-                            </Button>
-                            <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-foreground transition-all border border-red-500/20"
-                                onClick={() => handleReject(request.id)}
-                                disabled={!!loadingId}
-                            >
-                                {loadingId === request.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-4 w-4" />}
-                            </Button>
+                                <SelectTrigger className="h-8 text-xs bg-background/50 border-input">
+                                    <SelectValue placeholder="Rôle" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="member">Membre</SelectItem>
+                                    <SelectItem value="metteur_en_scene">Metteur en scène</SelectItem>
+                                    <SelectItem value="adjoint">Adjoint</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <div className="flex gap-1">
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 rounded-full bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-foreground transition-all border border-green-500/20"
+                                    onClick={() => handleApprove(request.id, request.user_id)}
+                                    disabled={!!loadingId}
+                                >
+                                    {loadingId === request.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-4 w-4" />}
+                                </Button>
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-8 w-8 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-foreground transition-all border border-red-500/20"
+                                    onClick={() => handleReject(request.id)}
+                                    disabled={!!loadingId}
+                                >
+                                    {loadingId === request.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-4 w-4" />}
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 ))}

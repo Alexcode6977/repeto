@@ -289,7 +289,7 @@ export async function getJoinRequests(troupeId: string) {
     }));
 }
 
-export async function approveJoinRequestAction(troupeId: string, requestId: string, userId: string) {
+export async function approveJoinRequestAction(troupeId: string, requestId: string, userId: string, roles: string[] = ['member']) {
     const supabase = await createClient(); // Keep for auth check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
@@ -331,7 +331,7 @@ export async function approveJoinRequestAction(troupeId: string, requestId: stri
         .insert({
             troupe_id: troupeId,
             user_id: userId,
-            roles: ['member']
+            roles: roles // Use provided roles
         });
 
     if (memberError) {
