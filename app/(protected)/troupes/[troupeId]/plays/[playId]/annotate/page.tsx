@@ -1,5 +1,6 @@
 import { getPlayDetails } from "@/lib/actions/play";
-import { getTroupeGuests } from "@/lib/actions/troupe";
+import { getTroupeGuests, getTroupeDetails } from "@/lib/actions/troupe";
+import { canManageContent } from "@/lib/utils/roles";
 import { createClient } from "@/lib/supabase/server";
 import { AnnotatorClient } from "./annotator-client";
 
@@ -14,11 +15,8 @@ export default async function AnnotatePage({
     if (!play) return <div>Pièce introuvable</div>;
 
     // Verify permissions (Director/Admin only)
-    const { getTroupeDetails } = await import("@/lib/actions/troupe");
-    const { hasRole } = await import("@/lib/utils/roles");
     const troupeDetails = await getTroupeDetails(troupeId);
-
-    const canManage = hasRole(troupeDetails?.my_roles, 'admin') || hasRole(troupeDetails?.my_roles, 'metteur_en_scene');
+    const canManage = canManageContent(troupeDetails?.my_roles);
 
     if (!canManage) {
         return <div className="p-8 text-center">Accès non autorisé</div>;

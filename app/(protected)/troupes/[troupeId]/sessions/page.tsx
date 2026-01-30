@@ -1,5 +1,6 @@
 import { getTroupeSessions } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
+import { canManageContent } from "@/lib/utils/roles";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, MessageSquare } from "lucide-react";
 import Link from "next/link";
@@ -14,22 +15,9 @@ export default async function SessionsPage({
     const { troupeId } = await params;
     const troupe = await getTroupeDetails(troupeId);
     const sessions = await getTroupeSessions(troupeId);
-    // Check for expanded permissions (Admin, Adjoint, Metteur en scène)
-    // We need to import the helper or check roles manually. 
-    // troupe.my_role is a string (primary role), but we should check the array if available.
-    // However, getTroupeDetails returns `my_role` as string, NOT `my_roles` array (Wait, did I not fix this?)
-    // Checking `troupe.ts` again... getTroupeDetails returns `my_roles` (plural).
-    // Let's verify what `getTroupeDetails` returns in `page.tsx`.
 
-    // In `lib/actions/troupe.ts`: `return { ...troupe, my_roles: roles };`
-    // So distinct property `my_roles`.
-
-    const { hasRole } = await import("@/lib/utils/roles");
-    const canManage = hasRole(troupe?.my_roles, 'admin') ||
-        hasRole(troupe?.my_roles, 'metteur_en_scene') ||
-        hasRole(troupe?.my_roles, 'adjoint');
-
-    // We pass this as 'isAdmin' to the client component to unlock the view
+    // Admin, Adjoint, or Metteur en scène can manage sessions
+    const canManage = canManageContent(troupe?.my_roles);
     const isAdmin = canManage;
 
     return (

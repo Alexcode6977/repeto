@@ -179,8 +179,10 @@ export default async function TroupeDashboard({
                                             {member.email}
                                         </p>
                                     </div>
-                                    <Badge variant="outline" className={`text-[10px] uppercase font-bold rounded-full px-2 py-0 ${member.role === 'admin' ? 'text-primary border-primary/30' : 'text-muted-foreground'}`}>
-                                        {member.role === 'admin' ? 'Admin' : 'Membre'}
+                                    <Badge variant="outline" className={`text-[10px] uppercase font-bold rounded-full px-2 py-0 ${member.roles?.includes('admin') ? 'text-primary border-primary/30' : 'text-muted-foreground'}`}>
+                                        {member.roles?.includes('admin') ? 'Admin' :
+                                            member.roles?.includes('metteur_en_scene') ? 'Metteur en scène' :
+                                                member.roles?.includes('adjoint') ? 'Adjoint' : 'Membre'}
                                     </Badge>
                                 </div>
                             ))}

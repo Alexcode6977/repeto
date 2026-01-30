@@ -74,7 +74,7 @@ export async function getUserTroupes() {
     const { data: memberData, error: memberError } = await supabase
         .from('troupe_members')
         .select(`
-            role,
+            roles,
             troupes (
                 id,
                 name,
@@ -108,7 +108,7 @@ export async function getUserTroupes() {
                 const troupe = item.troupes as any;
                 troupeMap.set(troupe.id, {
                     ...troupe,
-                    my_role: item.role
+                    my_roles: item.roles || []
                 });
             }
         });
@@ -120,7 +120,7 @@ export async function getUserTroupes() {
             if (!troupeMap.has(troupe.id)) {
                 troupeMap.set(troupe.id, {
                     ...troupe,
-                    my_role: 'admin' // Creator is always admin
+                    my_roles: ['admin'] // Creator is always admin
                 });
             }
         });
@@ -152,7 +152,7 @@ export async function getUserTroupes() {
                 if (!troupeMap.has(troupe.id)) {
                     troupeMap.set(troupe.id, {
                         ...troupe,
-                        my_role: 'pending'
+                        my_roles: ['pending']
                     });
                 }
             }
@@ -802,12 +802,12 @@ export async function deleteTroupe(troupeId: string) {
     // Verify admin
     const { data: membership, error: memError } = await supabase
         .from('troupe_members')
-        .select('role')
+        .select('roles')
         .eq('troupe_id', troupeId)
         .eq('user_id', user.id)
         .single();
 
-    if (memError || !membership || membership.role !== 'admin') {
+    if (memError || !membership || !canManageTroupe(membership.roles)) {
         throw new Error("Vous n'avez pas les droits pour supprimer cette troupe.");
     }
 
@@ -843,12 +843,12 @@ export async function updateTroupeName(troupeId: string, newName: string) {
     // Verify admin
     const { data: membership, error: memError } = await supabase
         .from('troupe_members')
-        .select('role')
+        .select('roles')
         .eq('troupe_id', troupeId)
         .eq('user_id', user.id)
         .single();
 
-    if (memError || !membership || membership.role !== 'admin') {
+    if (memError || !membership || !canManageTroupe(membership.roles)) {
         throw new Error("Vous n'avez pas les droits pour modifier cette troupe.");
     }
 

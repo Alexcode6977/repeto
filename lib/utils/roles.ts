@@ -52,6 +52,15 @@ export function canAccessArtisticContent(userRoles: string[] | null | undefined)
 }
 
 /**
+ * Check if user can MANAGE CONTENT (plays, casting, annotations)
+ * Roles: Admin OR Metteur en scène
+ */
+export function canManageContent(userRoles: string[] | null | undefined): boolean {
+    if (!userRoles) return false;
+    return hasRole(userRoles, 'admin') || hasRole(userRoles, 'metteur_en_scene');
+}
+
+/**
  * Get display names for roles
  */
 export function getRoleLabels(roles: string[]): string {

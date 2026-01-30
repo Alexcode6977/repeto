@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { DeletePlayButton } from "./delete-play-button";
 import { PlayPosterCard } from "./play-poster-card";
 import { PlaysCarousel } from "./plays-carousel";
-import { hasRole } from "@/lib/utils/roles";
+import { canManageContent, hasRole } from "@/lib/utils/roles";
 
 export default async function TroupePlaysPage({
     params
@@ -20,10 +20,9 @@ export default async function TroupePlaysPage({
 
     if (!troupe) return <div>Troupe not found</div>;
 
-    // Check permissions using role utilities
-    // Metter en scène needs to add plays
-    const canManageContent = hasRole(troupe.my_roles, 'admin') || hasRole(troupe.my_roles, 'metteur_en_scene');
-    const isAdmin = hasRole(troupe.my_roles, 'admin'); // Keep specific admin check if needed for other things
+    // Check permissions using centralized utility
+    const canManage = canManageContent(troupe.my_roles);
+    const isAdmin = hasRole(troupe.my_roles, 'admin');
 
     return (
         <div className="space-y-12">
@@ -44,14 +43,14 @@ export default async function TroupePlaysPage({
 
             {/* Mobile View: Horizontal Carousel */}
             <div className="md:hidden">
-                <PlaysCarousel plays={plays} troupeId={troupeId} isAdmin={canManageContent} />
+                <PlaysCarousel plays={plays} troupeId={troupeId} isAdmin={canManage} />
             </div>
 
             {/* Desktop View: Grid */}
             <div className="hidden md:grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
                 {plays.map((play: any, index: number) => (
                     <div key={play.id} className="relative group/wrapper">
-                        {canManageContent && (
+                        {canManage && (
                             <div className="absolute -top-2 -right-2 z-50 opacity-0 group-hover/wrapper:opacity-100 transition-opacity">
                                 <DeletePlayButton playId={play.id} playTitle={play.title} />
                             </div>
@@ -61,7 +60,7 @@ export default async function TroupePlaysPage({
                 ))}
 
                 {/* Add New Play Card (Admin Only) */}
-                {canManageContent && (
+                {canManage && (
                     <Link href={`/troupes/${troupeId}/plays/new`} className="block group relative w-full aspect-[2/3]">
                         <div className="absolute inset-0 rounded-2xl border-2 border-dashed border-white/10 hover:border-primary/50 hover:bg-primary/5 flex flex-col items-center justify-center gap-4 transition-all duration-300 text-muted-foreground hover:text-primary">
                             <div className="w-16 h-16 rounded-full bg-secondary/30 flex items-center justify-center group-hover:scale-110 transition-transform">

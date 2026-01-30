@@ -71,8 +71,10 @@ export default async function TroupesPage() {
                                         {troupe.name}
                                     </CardTitle>
                                     <CardDescription className="text-muted-foreground font-medium pt-1">
-                                        {troupe.my_role === 'admin' ? '👑 Administrateur' :
-                                            troupe.my_role === 'pending' ? '⏳ En attente de validation' : '👥 Membre'}
+                                        {troupe.my_roles?.includes('pending') ? '⏳ En attente de validation' :
+                                            troupe.my_roles?.includes('admin') ? '👑 Administrateur' :
+                                                troupe.my_roles?.includes('metteur_en_scene') ? '🎬 Metteur en scène' :
+                                                    troupe.my_roles?.includes('adjoint') ? '🔧 Adjoint' : '👥 Membre'}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="px-8 pb-8 pt-0">

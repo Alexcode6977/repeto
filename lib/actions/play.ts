@@ -206,7 +206,33 @@ export async function updateCasting(characterId: string, actorId: string | null,
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // Reset both and set the correct one
+    // Get play and troupe info to verify permissions
+    const { data: character } = await supabase
+        .from('play_characters')
+        .select('play_id, plays(troupe_id)')
+        .eq('id', characterId)
+        .single();
+
+    if (!character) throw new Error('Character not found');
+
+    const troupeId = (character.plays as any)?.troupe_id;
+    if (!troupeId) throw new Error('Troupe not found');
+
+    // Verify user has permission (Admin or Metteur en scène)
+    const { data: membership } = await supabase
+        .from('troupe_members')
+        .select('roles')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', user.id)
+        .single();
+
+    const roles = membership?.roles || [];
+    const canManage = roles.includes('admin') || roles.includes('metteur_en_scene');
+    if (!canManage) {
+        throw new Error('Seul l\'administrateur ou le metteur en scène peut modifier le casting.');
+    }
+
+    // Update casting
     const { error } = await supabase
         .from('play_characters')
         .update({
@@ -254,8 +280,30 @@ export async function deletePlayAction(playId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // Verify admin rights could be done here too, but RLS should handle it.
-    // For now we just perform the delete.
+    // Get play to verify permissions
+    const { data: play } = await supabase
+        .from('plays')
+        .select('troupe_id')
+        .eq('id', playId)
+        .single();
+
+    if (!play) throw new Error('Play not found');
+
+    // Verify user has permission (Admin or Metteur en scène)
+    const { data: membership } = await supabase
+        .from('troupe_members')
+        .select('roles')
+        .eq('troupe_id', play.troupe_id)
+        .eq('user_id', user.id)
+        .single();
+
+    const roles = membership?.roles || [];
+    const canManage = roles.includes('admin') || roles.includes('metteur_en_scene');
+    if (!canManage) {
+        throw new Error('Seul l\'administrateur ou le metteur en scène peut supprimer une pièce.');
+    }
+
+    // Delete play
     const { error } = await supabase
         .from('plays')
         .delete()

@@ -1,5 +1,6 @@
 import { getTroupeSessions } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
+import { canManageTroupe, canDirectTroupe } from "@/lib/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -99,13 +100,13 @@ export default async function LiveSessionsPage({
 
                                         <Button asChild size="lg" className={cn(
                                             "rounded-xl font-black text-xs uppercase tracking-widest px-6 h-12 shadow-lg transition-all active:scale-95",
-                                            troupe?.my_role === 'admin'
+                                            (canManageTroupe(troupe?.my_roles) || canDirectTroupe(troupe?.my_roles))
                                                 ? "bg-green-500 hover:bg-green-600 text-foreground shadow-green-500/20"
                                                 : "bg-secondary hover:bg-secondary/80 text-secondary-foreground shadow-secondary/20"
                                         )}>
                                             <Link href={`/troupes/${troupeId}/sessions/${session.id}/live`}>
                                                 <Play className="w-4 h-4 mr-2 fill-current" />
-                                                {troupe?.my_role === 'admin' ? "Lancer" : "Voir"}
+                                                {(canManageTroupe(troupe?.my_roles) || canDirectTroupe(troupe?.my_roles)) ? "Lancer" : "Voir"}
                                             </Link>
                                         </Button>
                                     </div>

@@ -1,5 +1,6 @@
 import { getPlayDetails } from "@/lib/actions/play";
-import { getTroupeGuests } from "@/lib/actions/troupe";
+import { getTroupeGuests, getTroupeDetails } from "@/lib/actions/troupe";
+import { canManageContent } from "@/lib/utils/roles";
 import { createClient } from "@/lib/supabase/server";
 import { PlayDashboardClient } from "./play-dashboard-client";
 import { getVoiceConfig } from "@/lib/actions/voice-cache";
@@ -13,15 +14,11 @@ export default async function PlayDashboardPage({
     const play = await getPlayDetails(playId);
     if (!play) return <div>Pièce introuvable</div>;
 
-    // Get admin status
     // Get admin/director status
-    const { getTroupeDetails } = await import("@/lib/actions/troupe");
-    const { hasRole } = await import("@/lib/utils/roles");
     const troupeDetails = await getTroupeDetails(troupeId);
 
     // Check if user can manage casting (Admin or Metteur en scène)
-    // Note: getTroupeDetails returns 'my_roles' (array)
-    const canManage = hasRole(troupeDetails?.my_roles, 'admin') || hasRole(troupeDetails?.my_roles, 'metteur_en_scene');
+    const canManage = canManageContent(troupeDetails?.my_roles);
 
     // Get troupe members for casting dropdown
     const supabase = await createClient();
