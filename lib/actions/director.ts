@@ -16,7 +16,8 @@ export async function injectDirectorNote(
     playId: string,
     sceneIndex: number,
     text: string,
-    targetLineIndex?: number
+    targetLineIndex?: number,
+    authorName: string = 'Metteur en Scène'
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -43,7 +44,7 @@ export async function injectDirectorNote(
     const newLine: ScriptLine = {
         id: newLineId,
         type: 'stage_direction',
-        character: 'Metteur en Scène', // Special character name for visual distinction
+        character: authorName, // Use the provided author name (e.g. "Régie Son")
         text: `[NOTE] ${text}` // Prefix or specific formatting can be handled in UI too
     };
 

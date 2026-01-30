@@ -13,7 +13,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { FileText, Calendar, Play, BookOpen, Mic, Headphones, Info, Users, Settings, Video } from "lucide-react";
+import { FileText, Calendar, Play, BookOpen, Mic, Headphones, Info, Users, Settings, Video, PenTool } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -346,7 +346,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
             {/* 4. Action Buttons Grid - 2x2 Layout */}
             <div className="grid grid-cols-2 gap-3 pb-8">
 
-                {/* LIRE */}
+                {/* LIRE - Common */}
                 <Card
                     className="border-0 bg-green-500/10 hover:bg-green-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
                     onClick={() => {
@@ -363,16 +363,33 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                     </div>
                 </Card>
 
-                {/* ÉCOUTER */}
+                {/* ÉCOUTER - Common */}
                 <Card
                     className={cn(
                         "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
-                        rehearsalChars && rehearsalChars.length > 0
+                        // For director, always enabled. For member, depends on character selection.
+                        (isAdmin || (rehearsalChars && rehearsalChars.length > 0))
                             ? "bg-teal-500/10 hover:bg-teal-500/20"
                             : "bg-muted/30 opacity-60"
                     )}
                     onClick={() => {
-                        if (rehearsalChars && rehearsalChars.length > 0) {
+                        // Director can always listen (maybe defaults to full cast or needs selection? strictly following user request to just show it for now, logic might vary but let's assume same selection logic or just enabled)
+                        // Actually, 'rehearsalChars' logic applies to listening too usually. 
+                        // But for Director "Annoter" is requested, implying they might not "Répéter" (play a role).
+                        // Let's keep the selection check for consistency unless director has a "view all" mode.
+                        // User said: "tu changes rien pour le membre".
+                        // For director: "enlever répéter et repeter à distance et tu mets lire, écouter et annoter".
+
+                        if (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) {
+                            // If admin and no selection, maybe we should prompt or default?
+                            // For now assuming Admin behaves like member for Listen validation OR just allowed.
+                            // Let's stick to existing validation for safety but allow the card to be visible/enabled.
+                            if (!isAdmin && (!rehearsalChars || rehearsalChars.length === 0)) {
+                                alert("👆 Sélectionnez d'abord un personnage !");
+                                trigger('error');
+                                return;
+                            }
+
                             setViewMode("listen");
                             trigger('medium');
                         } else {
@@ -383,62 +400,90 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 >
                     <div className={cn(
                         "w-14 h-14 rounded-full flex items-center justify-center",
-                        rehearsalChars && rehearsalChars.length > 0 ? "bg-teal-500/20 text-teal-400" : "bg-muted text-muted-foreground"
+                        (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) ? "bg-teal-500/20 text-teal-400" : "bg-muted text-muted-foreground"
                     )}>
                         <Headphones className="w-7 h-7" />
                     </div>
                     <div>
-                        <h3 className={cn("font-bold text-lg", rehearsalChars && rehearsalChars.length > 0 ? "text-teal-400" : "text-muted-foreground")}>Écouter</h3>
-                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", rehearsalChars && rehearsalChars.length > 0 ? "text-teal-400/60" : "text-muted-foreground/60")}>Le script</p>
+                        <h3 className={cn("font-bold text-lg", (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) ? "text-teal-400" : "text-muted-foreground")}>Écouter</h3>
+                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", (isAdmin || (rehearsalChars && rehearsalChars.length > 0)) ? "text-teal-400/60" : "text-muted-foreground/60")}>Le script</p>
                     </div>
                 </Card>
 
-                {/* RÉPÉTER */}
-                <Card
-                    className={cn(
-                        "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
-                        rehearsalChars && rehearsalChars.length > 0
-                            ? "bg-primary/20 hover:bg-primary/30"
-                            : "bg-muted/30 opacity-60"
-                    )}
-                    onClick={() => {
-                        if (rehearsalChars && rehearsalChars.length > 0) {
-                            startMode("rehearsal");
-                            trigger('medium');
-                        } else {
-                            alert("👆 Sélectionnez d'abord un personnage !");
-                            trigger('error');
-                        }
-                    }}
-                >
-                    <div className={cn(
-                        "w-14 h-14 rounded-full flex items-center justify-center",
-                        rehearsalChars && rehearsalChars.length > 0 ? "bg-primary/30 text-primary" : "bg-muted text-muted-foreground"
-                    )}>
-                        <Play className="w-7 h-7 fill-current" />
-                    </div>
-                    <div>
-                        <h3 className={cn("font-bold text-lg", rehearsalChars && rehearsalChars.length > 0 ? "text-primary" : "text-muted-foreground")}>Répéter</h3>
-                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", rehearsalChars && rehearsalChars.length > 0 ? "text-primary/60" : "text-muted-foreground/60")}>Mon rôle</p>
-                    </div>
-                </Card>
+                {!isAdmin ? (
+                    <>
+                        {/* RÉPÉTER - Member Only */}
+                        <Card
+                            className={cn(
+                                "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
+                                rehearsalChars && rehearsalChars.length > 0
+                                    ? "bg-primary/20 hover:bg-primary/30"
+                                    : "bg-muted/30 opacity-60"
+                            )}
+                            onClick={() => {
+                                if (rehearsalChars && rehearsalChars.length > 0) {
+                                    startMode("rehearsal");
+                                    trigger('medium');
+                                } else {
+                                    alert("👆 Sélectionnez d'abord un personnage !");
+                                    trigger('error');
+                                }
+                            }}
+                        >
+                            <div className={cn(
+                                "w-14 h-14 rounded-full flex items-center justify-center",
+                                rehearsalChars && rehearsalChars.length > 0 ? "bg-primary/30 text-primary" : "bg-muted text-muted-foreground"
+                            )}>
+                                <Play className="w-7 h-7 fill-current" />
+                            </div>
+                            <div>
+                                <h3 className={cn("font-bold text-lg", rehearsalChars && rehearsalChars.length > 0 ? "text-primary" : "text-muted-foreground")}>Répéter</h3>
+                                <p className={cn("text-[10px] uppercase font-bold tracking-wider", rehearsalChars && rehearsalChars.length > 0 ? "text-primary/60" : "text-muted-foreground/60")}>Mon rôle</p>
+                            </div>
+                        </Card>
 
-                {/* À DISTANCE (VISIO) */}
-                <Card
-                    className="border-0 bg-violet-500/10 hover:bg-violet-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
-                    onClick={() => {
-                        trigger('medium');
-                        router.push(`/troupes/${troupeId}/plays/${play.id}/visio`);
-                    }}
-                >
-                    <div className="w-14 h-14 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400">
-                        <Video className="w-7 h-7" />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-violet-400 text-lg">À distance</h3>
-                        <p className="text-[10px] text-violet-400/60 uppercase font-bold tracking-wider">Visio</p>
-                    </div>
-                </Card>
+                        {/* À DISTANCE (VISIO) - Member Only */}
+                        <Card
+                            className="border-0 bg-violet-500/10 hover:bg-violet-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
+                            onClick={() => {
+                                trigger('medium');
+                                router.push(`/troupes/${troupeId}/plays/${play.id}/visio`);
+                            }}
+                        >
+                            <div className="w-14 h-14 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400">
+                                <Video className="w-7 h-7" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-violet-400 text-lg">À distance</h3>
+                                <p className="text-[10px] text-violet-400/60 uppercase font-bold tracking-wider">Visio</p>
+                            </div>
+                        </Card>
+                    </>
+                ) : (
+                    <>
+                        {/* ANNOTER - Director Only */}
+                        <Card
+                            className="border-0 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
+                            onClick={() => {
+                                trigger('medium');
+                                router.push(`/troupes/${troupeId}/plays/${play.id}/annotate`);
+                            }}
+                        >
+                            <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
+                                <PenTool className="w-7 h-7" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-amber-400 text-lg">Annoter</h3>
+                                <p className="text-[10px] text-amber-400/60 uppercase font-bold tracking-wider">Notes & Mise en scène</p>
+                            </div>
+                        </Card>
+
+                        {/* Placeholder/Empty slot to keep grid balanced if needed, or let grid handle it */}
+                        {/* Since user asked for "Lire, Écouter, Annoter" -> that's 3 items. */}
+                        {/* Grid is 2 cols. 3 items will leave 1 empty space. That's fine. */}
+                    </>
+                )}
+
             </div>
 
             {/* VIDEO OVERLAY - PERSISTENT */}
