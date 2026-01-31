@@ -10,9 +10,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "./ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { BookOpen, Play, Headphones, Check, UserCircle } from "lucide-react";
+import { BookOpen, Play, Headphones, Check, UserCircle, ChevronDown, X, Users } from "lucide-react";
 
 interface ScriptViewerProps {
     script: ParsedScript;
@@ -169,6 +171,161 @@ export function ScriptViewer({ script, onConfirm, forcedMode }: ScriptViewerProp
         )
     }
 
+    // --- PREMIUM REHEARSAL MODE RENDER (New Design) ---
+    if (forcedMode === 'rehearsal') {
+        return (
+            <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative">
+                    {/* Background Gradient Blobs */}
+                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                    <div className="p-8 space-y-8 relative z-10">
+                        {/* Title Section */}
+                        <div className="text-center space-y-2">
+                            <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-violet-300 via-violet-500 to-purple-500 drop-shadow-sm">
+                                Mode Répétition
+                            </h2>
+                            <p className="text-muted-foreground/80 text-sm font-medium">
+                                Sélectionnez vos rôles à interpréter
+                            </p>
+                        </div>
+
+                        {/* Character Selection Popover */}
+                        <div className="space-y-4">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1">
+                                Personnages
+                            </label>
+
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <button className="w-full h-14 pl-4 pr-4 bg-white/5 border border-white/10 text-lg hover:bg-white/10 transition-all focus:ring-2 focus:ring-violet-500/50 rounded-xl flex items-center justify-between group">
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className="p-1.5 rounded-full bg-violet-500/20 text-violet-500 group-hover:bg-violet-500/30 transition-colors">
+                                                <Users className="w-5 h-5" />
+                                            </div>
+                                            <span className={cn("truncate", selectedChars.length === 0 && "text-muted-foreground")}>
+                                                {selectedChars.length === 0
+                                                    ? "Choisir des personnages..."
+                                                    : selectedChars.length === 1
+                                                        ? selectedChars[0]
+                                                        : `${selectedChars.length} personnages sélectionnés`
+                                                }
+                                            </span>
+                                        </div>
+                                        <ChevronDown className="w-4 h-4 text-muted-foreground opacity-50" />
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-zinc-950/95 backdrop-blur-xl border-white/10 text-zinc-100 shadow-2xl rounded-xl" align="center">
+                                    <div className="p-2 border-b border-white/5 flex justify-between items-center bg-white/5">
+                                        <div className="px-2 text-xs font-bold text-muted-foreground">
+                                            {selectedChars.length} sélectionné{selectedChars.length > 1 ? 's' : ''}
+                                        </div>
+                                        <div className="flex gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={selectAll}
+                                                className="h-6 text-[10px] uppercase font-bold text-violet-400 hover:text-violet-300 hover:bg-violet-500/10"
+                                            >
+                                                Tout
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={deselectAll}
+                                                className="h-6 text-[10px] uppercase font-bold text-muted-foreground hover:text-white hover:bg-white/10"
+                                            >
+                                                Rien
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <ScrollArea className="h-[280px] p-2">
+                                        <div className="space-y-1">
+                                            {mainCharacters.map((char) => {
+                                                const isSelected = selectedChars.includes(char);
+                                                return (
+                                                    <button
+                                                        key={char}
+                                                        onClick={() => toggleChar(char)}
+                                                        className={cn(
+                                                            "w-full flex items-center justify-between p-2.5 rounded-lg transition-all duration-200 group text-sm",
+                                                            isSelected
+                                                                ? "bg-violet-500/20 text-white"
+                                                                : "hover:bg-white/5 text-muted-foreground hover:text-zinc-200"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center gap-3 min-w-0">
+                                                            <div className={cn(
+                                                                "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors",
+                                                                isSelected ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground group-hover:bg-white/20"
+                                                            )}>
+                                                                {char.substring(0, 1)}
+                                                            </div>
+                                                            <span className="truncate font-medium">{char}</span>
+                                                        </div>
+                                                        {isSelected && (
+                                                            <Check className="w-4 h-4 text-violet-400 shrink-0" />
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </ScrollArea>
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+
+                        {/* Technical Roles */}
+                        {technicalCharacters.length > 0 && (
+                            <div className="space-y-4 pt-4 border-t border-white/5">
+                                <label className="text-xs font-bold text-muted-foreground/70 uppercase tracking-widest flex items-center justify-center gap-2">
+                                    <span className="w-8 h-[1px] bg-white/10"></span>
+                                    Rôles Techniques
+                                    <span className="w-8 h-[1px] bg-white/10"></span>
+                                </label>
+                                <div className="flex flex-wrap gap-2 justify-center">
+                                    {technicalCharacters.map((char) => {
+                                        const isSelected = selectedChars.includes(char);
+                                        return (
+                                            <button
+                                                key={char}
+                                                onClick={() => toggleTechnical(char)}
+                                                className={cn(
+                                                    "flex items-center gap-2 py-1.5 px-3 rounded-full text-[10px] font-bold transition-all duration-300 border",
+                                                    isSelected
+                                                        ? "bg-violet-500/10 border-violet-500/50 text-violet-400"
+                                                        : "bg-white/5 border-transparent text-muted-foreground hover:bg-white/10 hover:text-foreground"
+                                                )}
+                                            >
+                                                <span>{char}</span>
+                                                {isSelected && <Check className="w-3 h-3" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Button */}
+                        <button
+                            onClick={() => onConfirm(selectedChars, forcedMode)}
+                            disabled={selectedChars.length === 0}
+                            className={cn(
+                                "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg mt-2",
+                                selectedChars.length > 0
+                                    ? "bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:shadow-purple-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                                    : "bg-white/5 text-muted-foreground cursor-not-allowed border border-white/5"
+                            )}
+                        >
+                            <span className="font-bold text-sm tracking-wider uppercase">Commencer la répétition</span>
+                            <Play className={cn("w-5 h-5 fill-current", selectedChars.length > 0 ? "text-white" : "text-zinc-600")} />
+                        </button>
+                    </div>
+                </Card>
+            </div>
+        );
+    }
     // --- STANDARD RENDER (Troupe Dashboard / Listen / Rehearsal defaults) ---
     return (
         <div className="space-y-12 w-full max-w-2xl py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

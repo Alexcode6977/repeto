@@ -10,8 +10,9 @@ import { getVoiceConfig, createVoiceConfig, VoiceConfig, determineSourceType, So
 import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock, Check } from "lucide-react";
+import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
@@ -810,166 +811,224 @@ export function RehearsalMode({
         };
 
         return (
-            <div className="flex flex-col h-[100dvh] bg-background">
+            <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center">
+                <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative w-full">
+                    {/* Background Gradient Blobs */}
+                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                {/* COMPACT HEADER */}
-                <div className="flex-none p-4 bg-background/80 mobile-safe-top z-40 backdrop-blur-xl border-b border-border/50">
-                    <div className="max-w-lg mx-auto flex items-center justify-between">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onExit}
-                            className="text-muted-foreground hover:text-foreground -ml-2"
-                        >
-                            ← Retour
-                        </Button>
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Répétition</h2>
-                        <div className="w-16" /> {/* Spacer for centering */}
-                    </div>
-                </div>
-
-                {/* COMPACT SETTINGS - All on one screen */}
-                <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-5">
-                    <div className="max-w-lg mx-auto space-y-5">
-
-                        {/* Quick Start Mobile Button */}
-                        {quickStartSettings && (
+                    <div className="p-6 md:p-8 space-y-8 relative z-10">
+                        {/* Header */}
+                        <div className="space-y-6">
                             <button
-                                onClick={startQuick}
-                                className="w-full py-3 px-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-wider hover:bg-indigo-500/20 flex items-center justify-center gap-2"
+                                onClick={onExit}
+                                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider group"
                             >
-                                <span>⚡</span> Reprendre (derniers réglages)
+                                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                                Retour
                             </button>
-                        )}
 
-                        {/* DÉPART - Dropdown Select */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
-                                Départ
-                            </label>
-                            <select
-                                value={startLineIndex}
-                                onChange={(e) => setStartLineIndex(Number(e.target.value))}
-                                className="w-full bg-card border border-border rounded-xl px-4 py-3 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
-                                style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '20px' }}
+                            <div className="space-y-2">
+                                <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-violet-300 via-violet-500 to-purple-500 drop-shadow-sm">
+                                    Répétition
+                                </h2>
+                                {/* Quick Start Button */}
+                                {quickStartSettings && (
+                                    <button
+                                        onClick={startQuick}
+                                        className="mt-2 py-2 px-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-500/20 flex items-center gap-2 transition-all w-fit"
+                                    >
+                                        <span>⚡</span> Reprendre (derniers réglages)
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Settings Sections */}
+                        <div className="space-y-8">
+
+                            {/* 0. DEPART */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Play className="w-3 h-3" />
+                                    Départ
+                                </label>
+                                <select
+                                    value={startLineIndex}
+                                    onChange={(e) => setStartLineIndex(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+                                >
+                                    <option value={0} className="bg-zinc-900">Début du script</option>
+                                    {script.scenes?.map((scene) => (
+                                        <option key={scene.index} value={scene.index} className="bg-zinc-900">
+                                            {scene.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* 1. VISIBILITY */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <ScanEye className="w-3 h-3" />
+                                    Visibilité
+                                </label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[
+                                        { id: "visible", label: "Visible", sub: "Texte complet", icon: Eye },
+                                        { id: "hint", label: "Indices", sub: "1ers mots", icon: ScanEye },
+                                        { id: "hidden", label: "Caché", sub: "À l'aveugle", icon: EyeOff },
+                                    ].map((v) => {
+                                        const isActive = lineVisibility === v.id;
+                                        const Icon = v.icon;
+                                        return (
+                                            <button
+                                                key={v.id}
+                                                onClick={() => setLineVisibility(v.id as any)}
+                                                className={cn(
+                                                    "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
+                                                    isActive
+                                                        ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1",
+                                                    isActive ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                )}>
+                                                    <Icon className="w-3 h-3" />
+                                                </div>
+                                                <div>
+                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                        {v.label}
+                                                    </div>
+                                                </div>
+                                                {isActive && <Check className="w-3 h-3 text-violet-400 absolute top-3 right-3" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* 2. MODE */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Mic className="w-3 h-3" />
+                                    Mode
+                                </label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[
+                                        { id: "full", label: "Intégrale", sub: "Tout le cast", icon: Users },
+                                        { id: "cue", label: "Réplique", sub: "Juste avant", icon: MessageSquare },
+                                        { id: "check", label: "Solo", sub: "Mes lignes", icon: Zap },
+                                    ].map((m) => {
+                                        const isActive = rehearsalMode === m.id;
+                                        const Icon = m.icon;
+                                        return (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => setRehearsalMode(m.id as any)}
+                                                className={cn(
+                                                    "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
+                                                    isActive
+                                                        ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1",
+                                                    isActive ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                )}>
+                                                    <Icon className="w-3 h-3" />
+                                                </div>
+                                                <div>
+                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                        {m.label}
+                                                    </div>
+                                                </div>
+                                                {isActive && <Check className="w-3 h-3 text-violet-400 absolute top-3 right-3" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* 3. VOIX */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Sparkles className="w-3 h-3" />
+                                    Voix
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={() => setTtsProvider("browser")}
+                                        className={cn(
+                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
+                                            ttsProvider === "browser"
+                                                ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                                                : "bg-white/5 border-transparent hover:bg-white/10"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                            ttsProvider === "browser" ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
+                                        )}>
+                                            <span className="text-[10px] font-bold">STD</span>
+                                        </div>
+                                        <div>
+                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "browser" ? "text-white" : "text-muted-foreground")}>
+                                                Standard
+                                            </div>
+                                        </div>
+                                        {ttsProvider === "browser" && <Check className="w-4 h-4 text-violet-400 absolute top-3 right-3" />}
+                                    </button>
+
+                                    <button
+                                        onClick={() => isPremiumUnlocked ? setTtsProvider("openai") : setShowUpgradeModal(true)}
+                                        className={cn(
+                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
+                                            ttsProvider === "openai"
+                                                ? "bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                                                : "bg-white/5 border-transparent hover:bg-white/10",
+                                            !isPremiumUnlocked && "opacity-50"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                            ttsProvider === "openai" ? "bg-emerald-500 text-white" : "bg-white/10 text-muted-foreground"
+                                        )}>
+                                            <Sparkles className="w-3 h-3" />
+                                        </div>
+                                        <div>
+                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "openai" ? "text-emerald-400" : "text-muted-foreground")}>
+                                                Premium
+                                            </div>
+                                            {!isPremiumUnlocked && (
+                                                <div className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                                    <Lock className="w-2 h-2" /> Verrouillé
+                                                </div>
+                                            )}
+                                        </div>
+                                        {ttsProvider === "openai" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="pt-4">
+                            <button
+                                onClick={handleStartWithSave}
+                                className="w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:shadow-purple-500/25 hover:scale-[1.02] active:scale-[0.98]"
                             >
-                                <option value={0}>Début</option>
-                                {script.scenes?.map((scene) => (
-                                    <option key={scene.index} value={scene.index}>
-                                        {scene.title}
-                                    </option>
-                                ))}
-                            </select>
+                                <span className="font-bold text-sm tracking-wider uppercase">C'est parti</span>
+                                <Play className="w-5 h-5 fill-current group-hover:translate-x-1 transition-transform" />
+                            </button>
                         </div>
-
-                        {/* VISIBILITÉ - 3 pills inline */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
-                                Visibilité
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[
-                                    { id: "visible", label: "Visible", sub: "Texte complet" },
-                                    { id: "hint", label: "Indices", sub: "1ers mots" },
-                                    { id: "hidden", label: "Caché", sub: "À l'aveugle" },
-                                ].map((v) => (
-                                    <button
-                                        key={v.id}
-                                        onClick={() => setLineVisibility(v.id as any)}
-                                        className={cn(
-                                            "py-2.5 rounded-xl text-center transition-all border active:scale-95 flex flex-col items-center gap-0.5",
-                                            lineVisibility === v.id
-                                                ? "bg-foreground text-background border-foreground"
-                                                : "bg-card border-border text-muted-foreground"
-                                        )}
-                                    >
-                                        <span className="text-sm font-bold">{v.label}</span>
-                                        <span className={cn("text-[9px]", lineVisibility === v.id ? "opacity-70" : "text-muted-foreground")}>{v.sub}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* MODE - 3 pills on ONE LINE */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
-                                Mode
-                            </label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[
-                                    { id: "full", label: "Intégrale", icon: "📖" },
-                                    { id: "cue", label: "Réplique", icon: "💬" },
-                                    { id: "check", label: "Solo", icon: "⚡" },
-                                ].map((m) => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => setRehearsalMode(m.id as any)}
-                                        className={cn(
-                                            "py-3 px-2 rounded-xl text-center transition-all border active:scale-95 flex flex-col items-center gap-1",
-                                            rehearsalMode === m.id
-                                                ? "bg-indigo-500/20 border-indigo-500 text-indigo-400"
-                                                : "bg-card border-border text-muted-foreground"
-                                        )}
-                                    >
-                                        <span className="text-lg">{m.icon}</span>
-                                        <span className="text-xs font-bold">{m.label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* VOIX - 2 inline buttons */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">
-                                Voix
-                            </label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button
-                                    onClick={() => setTtsProvider("browser")}
-                                    className={cn(
-                                        "py-3 rounded-xl text-sm font-bold transition-all border active:scale-95",
-                                        ttsProvider === "browser"
-                                            ? "bg-muted/50 border-border text-foreground"
-                                            : "bg-card border-border text-muted-foreground"
-                                    )}
-                                >
-                                    Standard
-                                </button>
-                                <button
-                                    onClick={() => isPremiumUnlocked ? setTtsProvider("openai") : setShowUpgradeModal(true)}
-                                    className={cn(
-                                        "py-3 rounded-xl text-sm font-bold transition-all border flex items-center justify-center gap-2 active:scale-95",
-                                        ttsProvider === "openai"
-                                            ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                            : "bg-card border-border text-muted-foreground",
-                                        !isPremiumUnlocked && "opacity-50"
-                                    )}
-                                >
-                                    {isPremiumUnlocked ? <Sparkles className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                                    Premium
-                                </button>
-                            </div>
-                            {ttsProvider === "openai" && existingVoiceConfig && (
-                                <p className="text-[10px] text-emerald-400/70 text-center mt-1">
-                                    ✓ Voix configurées via Réglages
-                                </p>
-                            )}
-                        </div>
-
                     </div>
-                </div>
-
-                {/* FLOAT BOTTOM START BUTTON */}
-                <div className="fixed bottom-0 left-0 right-0 p-4 pt-6 bg-gradient-to-t from-background via-background to-transparent z-50 flex justify-center">
-                    <Button
-                        size="lg"
-                        onClick={handleStartWithSave}
-                        className="w-full max-w-sm text-lg font-bold py-6 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_30px_rgba(79,70,229,0.4)]"
-                    >
-                        <Play className="mr-2 h-6 w-6 fill-current" />
-                        Commencer
-                    </Button>
-                </div>
+                </Card>
             </div>
         );
     }

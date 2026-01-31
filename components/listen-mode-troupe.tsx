@@ -7,8 +7,9 @@ import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { getVoiceConfig, determineSourceType, VoiceConfig } from "@/lib/actions/voice-cache";
 import { Button } from "./ui/button";
-import { Play, Pause, SkipForward, SkipBack, X, Sparkles, Headphones, RotateCcw } from "lucide-react";
+import { Play, Pause, SkipForward, SkipBack, X, Sparkles, Headphones, RotateCcw, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, Check, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card } from "./ui/card";
 
 interface ListenModeTroupeProps {
     script: ParsedScript;
@@ -267,185 +268,184 @@ export function ListenModeTroupe({
         };
 
         return (
-            <div className="flex flex-col h-[100dvh] bg-background">
+            <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center">
+                <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative w-full">
+                    {/* Background Gradient Blobs (Teal/Cyan) */}
+                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                {/* 1. STICKY HEADER (Mobile & Desktop) - Preview & Mode Info */}
-                <div className="flex-none p-4 pb-0 md:p-6 bg-background/80 mobile-safe-top z-40 backdrop-blur-xl border-b border-border/50">
-                    <div className="max-w-4xl mx-auto flex items-center justify-between">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onExit}
-                            className="text-muted-foreground hover:text-foreground -ml-2"
-                        >
-                            ← Retour
-                        </Button>
-                        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Mode Écoute</h2>
-                        <div className="w-8" /> {/* Spacer */}
-                    </div>
-
-                    {/* Compact Mode Preview Card */}
-                    <div className="max-w-4xl mx-auto mt-4 px-1">
-                        <div className="bg-card border border-border rounded-2xl p-4 shadow-lg flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className={cn(
-                                    "w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg shadow-teal-500/20",
-                                    listenMode === 'full' ? "bg-teal-500 text-white" :
-                                        listenMode === 'cue' ? "bg-indigo-500 text-white" :
-                                            "bg-amber-500 text-white"
-                                )}>
-                                    {listenMode === 'full' ? "📖" : listenMode === 'cue' ? "💬" : "⚡"}
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-foreground leading-tight">
-                                        {listenMode === "full" ? "Lecture Intégrale" : listenMode === "cue" ? "Donne la Réplique" : "Mode Solo"}
-                                    </h3>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        {listenMode === "full" ? "Tout le texte" : listenMode === "cue" ? "Vos indices seulement" : "Vos lignes seules"}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {quickStartSettings && (
-                                <Button
-                                    onClick={startQuick}
-                                    variant="outline"
-                                    size="sm"
-                                    className="hidden md:flex bg-teal-500/10 text-teal-500 border-teal-500/20 hover:bg-teal-500/20 gap-2"
-                                >
-                                    <span>⚡ Rapide</span>
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* 2. SCROLLABLE SETTINGS */}
-                <div className="flex-1 overflow-y-auto p-4 pb-32 md:p-8 space-y-6">
-                    <div className="max-w-2xl mx-auto space-y-6">
-
-                        {/* Quick Start Mobile Button */}
-                        {quickStartSettings && (
+                    <div className="p-6 md:p-8 space-y-8 relative z-10">
+                        {/* Header */}
+                        <div className="space-y-6">
                             <button
-                                onClick={startQuick}
-                                className="w-full md:hidden py-3 px-4 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-bold uppercase tracking-wider hover:bg-teal-500/20 flex items-center justify-center gap-2 mb-4"
+                                onClick={onExit}
+                                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider group"
                             >
-                                <span>⚡</span> Reprendre (derniers réglages)
+                                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                                Retour
                             </button>
-                        )}
 
-                        {/* Scene Selection (Horizontal Scroll on Mobile) */}
-                        {script.scenes && script.scenes.length > 0 && (
                             <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Départ</label>
-                                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0 snap-x no-scrollbar">
+                                <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-teal-300 via-teal-500 to-cyan-500 drop-shadow-sm flex items-center gap-3">
+                                    <Headphones className="w-8 h-8 md:w-10 md:h-10 text-teal-500" />
+                                    Mode Écoute
+                                </h2>
+                                {/* Quick Start Button */}
+                                {quickStartSettings && (
                                     <button
-                                        onClick={() => setStartLineIndex(0)}
-                                        className={cn(
-                                            "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start",
-                                            startLineIndex === 0
-                                                ? "bg-card border-teal-500 text-foreground ring-1 ring-teal-500"
-                                                : "bg-card/50 border-border text-muted-foreground"
-                                        )}
+                                        onClick={startQuick}
+                                        className="mt-2 py-2 px-3 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 text-[10px] font-bold uppercase tracking-wider hover:bg-teal-500/20 flex items-center gap-2 transition-all w-fit"
                                     >
-                                        Début
+                                        <span>⚡</span> Reprendre (derniers réglages)
                                     </button>
-                                    {script.scenes.map((scene) => (
-                                        <button
-                                            key={scene.index}
-                                            onClick={() => setStartLineIndex(scene.index)}
-                                            className={cn(
-                                                "flex-none px-4 py-3 rounded-xl border text-sm font-medium transition-all snap-start whitespace-nowrap",
-                                                startLineIndex === scene.index
-                                                    ? "bg-card border-teal-500 text-foreground ring-1 ring-teal-500"
-                                                    : "bg-card/50 border-border text-muted-foreground"
-                                            )}
-                                        >
-                                            {scene.title}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Mode Selection (Cards) */}
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest pl-1">Configuration</label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                                {[
-                                    { id: "full", label: "Intégrale", icon: "📖", desc: "Tout le texte" },
-                                    { id: "cue", label: "Réplique", icon: "💬", desc: "Avant vos lignes" },
-                                    { id: "check", label: "Solo", icon: "⚡", desc: "Vos lignes seules" },
-                                ].map(m => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => setListenMode(m.id as ListenMode)}
-                                        className={cn(
-                                            "p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3 active:scale-98",
-                                            listenMode === m.id
-                                                ? "bg-card border-teal-500 shadow-md ring-1 ring-teal-500"
-                                                : "bg-card/50 border-border opacity-70 hover:opacity-100"
-                                        )}
-                                    >
-                                        <span className="text-xl">{m.icon}</span>
-                                        <div>
-                                            <p className={cn("text-sm font-bold", listenMode === m.id ? "text-foreground" : "text-muted-foreground")}>{m.label}</p>
-                                        </div>
-                                    </button>
-                                ))}
+                                )}
                             </div>
                         </div>
 
-                        {/* Toggles (Voice & Announce) */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                onClick={() => setTtsProvider(prev => prev === 'openai' ? 'browser' : 'openai')}
-                                className={cn(
-                                    "p-4 rounded-xl border text-left transition-all",
-                                    ttsProvider === 'openai'
-                                        ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-500"
-                                        : "bg-card/50 border-border text-muted-foreground"
-                                )}
-                            >
-                                <div className="text-[10px] uppercase font-bold tracking-widest mb-1">Voix</div>
-                                <div className="flex items-center gap-2 font-bold">
-                                    {ttsProvider === 'openai' ? <Sparkles className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
-                                    {ttsProvider === 'openai' ? "Neural AI" : "Standard"}
-                                </div>
-                            </button>
+                        {/* Settings Sections */}
+                        <div className="space-y-8">
 
-                            <button
-                                onClick={() => setAnnounceCharacter(!announceCharacter)}
-                                className={cn(
-                                    "p-4 rounded-xl border text-left transition-all",
-                                    announceCharacter
-                                        ? "bg-indigo-500/10 border-indigo-500/50 text-indigo-500"
-                                        : "bg-card/50 border-border text-muted-foreground"
-                                )}
-                            >
-                                <div className="text-[10px] uppercase font-bold tracking-widest mb-1">Noms</div>
-                                <div className="flex items-center gap-2 font-bold">
-                                    <span className="text-lg">{announceCharacter ? "📢" : "😶"}</span>
-                                    {announceCharacter ? "Annoncés" : "Masqués"}
+                            {/* 0. DEPART */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Play className="w-3 h-3" />
+                                    Départ
+                                </label>
+                                <select
+                                    value={startLineIndex}
+                                    onChange={(e) => setStartLineIndex(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+                                >
+                                    <option value={0} className="bg-zinc-900">Début du script</option>
+                                    {script.scenes?.map((scene) => (
+                                        <option key={scene.index} value={scene.index} className="bg-zinc-900">
+                                            {scene.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* 1. CONFIGURATION (MODE) */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Headphones className="w-3 h-3" />
+                                    Configuration
+                                </label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[
+                                        { id: "full", label: "Intégrale", sub: "Tout le texte", icon: Users },
+                                        { id: "cue", label: "Réplique", sub: "Juste les cues", icon: MessageSquare },
+                                        { id: "check", label: "Solo", sub: "Mes lignes", icon: Zap },
+                                    ].map((m) => {
+                                        const isActive = listenMode === m.id;
+                                        const Icon = m.icon;
+                                        return (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => setListenMode(m.id as any)}
+                                                className={cn(
+                                                    "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
+                                                    isActive
+                                                        ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
+                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1",
+                                                    isActive ? "bg-teal-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                )}>
+                                                    <Icon className="w-3 h-3" />
+                                                </div>
+                                                <div>
+                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                        {m.label}
+                                                    </div>
+                                                </div>
+                                                {isActive && <Check className="w-3 h-3 text-teal-400 absolute top-3 right-3" />}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
+                            </div>
+
+                            {/* 2. OPTIONS (VOIX & NOMS) */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Sparkles className="w-3 h-3" />
+                                    Options
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {/* Voice Toggle */}
+                                    <button
+                                        onClick={() => setTtsProvider(prev => prev === 'openai' ? 'browser' : 'openai')}
+                                        className={cn(
+                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
+                                            ttsProvider === "openai"
+                                                ? "bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                                                : "bg-white/5 border-transparent hover:bg-white/10"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                            ttsProvider === "openai" ? "bg-emerald-500 text-white" : "bg-white/10 text-muted-foreground"
+                                        )}>
+                                            {ttsProvider === "openai" ? <Sparkles className="w-3 h-3" /> : <Headphones className="w-3 h-3" />}
+                                        </div>
+                                        <div>
+                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "openai" ? "text-emerald-400" : "text-muted-foreground")}>
+                                                {ttsProvider === "openai" ? "AI Neural" : "Standard"}
+                                            </div>
+                                            <div className="text-[9px] text-muted-foreground mt-0.5">
+                                                {ttsProvider === "openai" ? "Haute qualité" : "Voix système"}
+                                            </div>
+                                        </div>
+                                        {ttsProvider === "openai" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
+                                    </button>
+
+                                    {/* Announce Names Toggle */}
+                                    <button
+                                        onClick={() => setAnnounceCharacter(!announceCharacter)}
+                                        className={cn(
+                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
+                                            announceCharacter
+                                                ? "bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+                                                : "bg-white/5 border-transparent hover:bg-white/10"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                            announceCharacter ? "bg-indigo-500 text-white" : "bg-white/10 text-muted-foreground"
+                                        )}>
+                                            <span className="text-xs">📢</span>
+                                        </div>
+                                        <div>
+                                            <div className={cn("text-xs font-bold uppercase tracking-wide", announceCharacter ? "text-indigo-400" : "text-muted-foreground")}>
+                                                Noms
+                                            </div>
+                                            <div className="text-[9px] text-muted-foreground mt-0.5">
+                                                {announceCharacter ? "Annoncés" : "Masqués"}
+                                            </div>
+                                        </div>
+                                        {announceCharacter && <Check className="w-4 h-4 text-indigo-400 absolute top-3 right-3" />}
+                                    </button>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Action Button */}
+                        <div className="pt-4">
+                            <button
+                                onClick={handleStartWithSave}
+                                className="w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <span className="font-bold text-sm tracking-wider uppercase">Lancer l'écoute</span>
+                                <Headphones className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
                             </button>
                         </div>
                     </div>
-                </div>
-
-                {/* 3. FLOAT BOTTOM START BUTTON */}
-                <div className="fixed bottom-0 left-0 right-0 p-4 pt-8 bg-gradient-to-t from-background via-background to-transparent z-50">
-                    <Button
-                        size="lg"
-                        onClick={handleStartWithSave}
-                        className="w-full max-w-md mx-auto text-lg font-bold py-6 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white shadow-[0_0_30px_rgba(20,184,166,0.4)] animate-pulse-glow"
-                    >
-                        <Headphones className="mr-2 h-6 w-6" />
-                        Commencer ({script.scenes && script.scenes.length > 0 && startLineIndex > 0
-                            ? "Scène " + (script.scenes.find(s => s.index === startLineIndex)?.title?.split(' ')[1] || startLineIndex)
-                            : "Début"})
-                    </Button>
-                </div>
+                </Card>
             </div>
         );
     }
