@@ -68,6 +68,7 @@ export default function LandingPage() {
                     : "bg-transparent border-transparent py-6"
             )}>
                 <div className="w-full max-w-7xl mx-auto px-6 flex justify-between items-center">
+
                     <div className="flex items-center gap-3 group cursor-pointer">
                         <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-primary/80 to-purple-600/80 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform duration-500 overflow-hidden">
                             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -93,10 +94,9 @@ export default function LandingPage() {
                         <Link href="/login" className="hidden md:block text-sm font-medium text-white/70 hover:text-white transition-colors">
                             Connexion
                         </Link>
-                        <Link href="/signup">
-                            <Button className="rounded-full bg-white text-black hover:bg-white/90 px-6 font-bold text-sm h-11 transition-all hover:scale-105 active:scale-95">
-                                Essayer
-                            </Button>
+
+                        <Link href="/login" className="md:hidden text-sm font-medium text-white/70 hover:text-white transition-colors mr-2">
+                            Connexion
                         </Link>
                         <button
                             className="md:hidden p-2 text-white"
@@ -163,7 +163,7 @@ export default function LandingPage() {
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
                             <Link href="/signup" className="w-full sm:w-auto">
                                 <Button size="lg" className="w-full sm:w-auto h-14 px-8 rounded-full bg-primary hover:bg-primary/90 text-white font-bold text-base shadow-[0_0_30px_rgba(var(--primary),0.4)] hover:shadow-[0_0_40px_rgba(var(--primary),0.6)] hover:scale-105 transition-all">
-                                    C'est parti
+                                    Créer mon compte
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </Button>
                             </Link>
