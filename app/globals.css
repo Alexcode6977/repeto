@@ -107,10 +107,20 @@
     @apply bg-background text-foreground antialiased;
     background: var(--body-gradient);
     min-height: 100vh;
+    /* Native App Feel: Safe Areas */
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+
+    /* Native App Feel: Disable "Web" Behaviors */
     overscroll-behavior-y: none;
+    /* No elastic bounce */
     -webkit-tap-highlight-color: transparent;
+    /* No blue flash on tap */
+    user-select: none;
+    /* No text selection */
+    -webkit-user-select: none;
+    touch-action: pan-x pan-y;
+    /* Disable pinch-zoom */
   }
 
   /* Enhanced cursor visibility for pointer devices (iPad with mouse, etc.) */
