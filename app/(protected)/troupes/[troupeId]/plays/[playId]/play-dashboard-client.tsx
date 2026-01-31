@@ -52,7 +52,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     // Get list of all technical role names to pass to sub-components
     const technicalRoleNames = play.play_characters
         ?.filter((c: any) => isTechnical(c.character_name) || isTechnical(c.name))
-        .map((c: any) => c.character_name) || [];
+        .map((c: any) => c.character_name || c.name)
+        .filter(Boolean) || [];
 
     const { trigger } = useHaptic();
 

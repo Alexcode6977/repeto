@@ -30,6 +30,7 @@ export const stripe = {
 export function getStripePrices() {
     return {
         SOLO_PRO_MONTHLY: process.env.STRIPE_SOLO_PRO_PRICE_ID!,
+        SOLO_PRO_YEARLY: process.env.STRIPE_SOLO_PRO_PRICE_ID_Yearly!,
         TROUPE_MONTHLY: process.env.STRIPE_TROUPE_PRICE_ID!,
     };
 }
@@ -37,6 +38,7 @@ export function getStripePrices() {
 // Keep for backward compatibility but now as function alias
 export const STRIPE_PRICES = {
     get SOLO_PRO_MONTHLY() { return process.env.STRIPE_SOLO_PRO_PRICE_ID!; },
+    get SOLO_PRO_YEARLY() { return process.env.STRIPE_SOLO_PRO_PRICE_ID_Yearly!; },
     get TROUPE_MONTHLY() { return process.env.STRIPE_TROUPE_PRICE_ID!; },
 };
 
@@ -46,7 +48,7 @@ export type SubscriptionTier = 'free' | 'solo_pro' | 'troupe' | 'troupe_xl';
 // Helper to get tier from price ID
 export function getTierFromPriceId(priceId: string): SubscriptionTier {
     const prices = getStripePrices();
-    if (priceId === prices.SOLO_PRO_MONTHLY) return 'solo_pro';
+    if (priceId === prices.SOLO_PRO_MONTHLY || priceId === prices.SOLO_PRO_YEARLY) return 'solo_pro';
     if (priceId === prices.TROUPE_MONTHLY) return 'troupe';
     return 'free';
 }
@@ -74,6 +76,7 @@ export const PLANS = {
         price: 4.99,
         priceLabel: '4,99€/mois',
         get stripePriceId() { return process.env.STRIPE_SOLO_PRO_PRICE_ID; },
+        get stripePriceIdYearly() { return process.env.STRIPE_SOLO_PRO_PRICE_ID_Yearly; },
         description: 'Pour le comédien régulier',
         features: [
             'Imports de scripts illimités',

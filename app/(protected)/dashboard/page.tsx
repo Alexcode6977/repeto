@@ -222,11 +222,11 @@ export default function Home() {
   // Using conditional rendering instead of early returns to avoid React hooks order issues
 
   // Listen Mode
-  if (rehearsalChar && script && viewMode === "listen") {
+  if (script && viewMode === "listen") {
     return (
       <ListenMode
         script={script}
-        userCharacters={[rehearsalChar]}
+        userCharacters={rehearsalChar ? [rehearsalChar] : []}
         onExit={handleExitView}
         scriptId={selectedScriptMeta?.id}
         isPublicScript={selectedScriptMeta?.isPublic}

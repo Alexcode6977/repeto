@@ -90,8 +90,8 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
     // Helper to check if a line should be skipped
     const shouldSkipLine = (lineChar: string) => {
         const normalizedLineChar = lineChar.toLowerCase().trim();
-        return skipCharacters.some(skipChar =>
-            normalizedLineChar === skipChar.toLowerCase().trim()
+        return (skipCharacters || []).some(skipChar =>
+            skipChar && normalizedLineChar === skipChar.toLowerCase().trim()
         );
     };
 

@@ -45,12 +45,12 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
     };
 
     const handleConfirm = (mode: 'reader' | 'rehearsal' | 'listen') => {
-        if (selectedChar) {
+        if (mode === 'listen' || selectedChar) {
             onConfirm(selectedChar, mode, ignoredTechnical);
         }
     };
 
-    const isDisabled = !selectedChar;
+    const isSelectionRequired = !selectedChar;
 
     return (
         <div className="w-full max-w-lg mx-auto py-6 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -135,19 +135,19 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
                         {/* LIRE */}
                         <button
                             onClick={() => handleConfirm('reader')}
-                            disabled={isDisabled}
+                            disabled={isSelectionRequired}
                             className={cn(
                                 "group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300",
-                                isDisabled
+                                isSelectionRequired
                                     ? "opacity-40 cursor-not-allowed bg-card border-border"
                                     : "bg-card border-border hover:bg-yellow-500/10 hover:border-yellow-500/50 active:scale-95"
                             )}
                         >
                             <div className={cn(
                                 "w-12 h-12 rounded-full flex items-center justify-center transition-transform",
-                                isDisabled ? "bg-muted/20" : "bg-yellow-500/20 group-hover:scale-110"
+                                isSelectionRequired ? "bg-muted/20" : "bg-yellow-500/20 group-hover:scale-110"
                             )}>
-                                <BookOpen className={cn("w-6 h-6", isDisabled ? "text-muted-foreground" : "text-yellow-400")} />
+                                <BookOpen className={cn("w-6 h-6", isSelectionRequired ? "text-muted-foreground" : "text-yellow-400")} />
                             </div>
                             <div className="text-center">
                                 <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Lire</h3>
@@ -158,19 +158,16 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
                         {/* ÉCOUTER */}
                         <button
                             onClick={() => handleConfirm('listen')}
-                            disabled={isDisabled}
                             className={cn(
                                 "group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300",
-                                isDisabled
-                                    ? "opacity-40 cursor-not-allowed bg-card border-border"
-                                    : "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/15 hover:border-cyan-500/50 active:scale-95"
+                                "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/15 hover:border-cyan-500/50 active:scale-95"
                             )}
                         >
                             <div className={cn(
                                 "w-12 h-12 rounded-full flex items-center justify-center transition-transform",
-                                isDisabled ? "bg-muted/20" : "bg-cyan-500/20 group-hover:scale-110"
+                                "bg-cyan-500/20 group-hover:scale-110"
                             )}>
-                                <Headphones className={cn("w-6 h-6", isDisabled ? "text-muted-foreground" : "text-cyan-400")} />
+                                <Headphones className="w-6 h-6 text-cyan-400" />
                             </div>
                             <div className="text-center">
                                 <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Écouter</h3>
@@ -181,19 +178,19 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
                         {/* RÉPÉTER */}
                         <button
                             onClick={() => handleConfirm('rehearsal')}
-                            disabled={isDisabled}
+                            disabled={isSelectionRequired}
                             className={cn(
                                 "group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300",
-                                isDisabled
+                                isSelectionRequired
                                     ? "opacity-40 cursor-not-allowed bg-card border-border"
                                     : "bg-primary/5 border-primary/20 hover:bg-primary/15 hover:border-primary/50 active:scale-95 shadow-lg shadow-primary/10"
                             )}
                         >
                             <div className={cn(
                                 "w-12 h-12 rounded-full flex items-center justify-center transition-transform",
-                                isDisabled ? "bg-muted/20" : "bg-primary/20 group-hover:scale-110"
+                                isSelectionRequired ? "bg-muted/20" : "bg-primary/20 group-hover:scale-110"
                             )}>
-                                <Play className={cn("w-6 h-6", isDisabled ? "text-muted-foreground" : "text-foreground fill-white")} />
+                                <Play className={cn("w-6 h-6", isSelectionRequired ? "text-muted-foreground" : "text-foreground fill-white")} />
                             </div>
                             <div className="text-center">
                                 <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Répéter</h3>
@@ -204,9 +201,9 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
                 </div>
 
                 {/* Helper text */}
-                {isDisabled && (
+                {isSelectionRequired && (
                     <p className="text-center text-muted-foreground/50 text-xs animate-pulse">
-                        ↑ Sélectionnez d'abord un personnage
+                        ↑ Sélectionnez un personnage pour lire ou répéter
                     </p>
                 )}
             </div>

@@ -263,6 +263,7 @@ export default function ProfilePage() {
                     endDate={subscriptionEndDate}
                     cancelAtPeriodEnd={cancelAtPeriodEnd}
                     hasStripeCustomer={!!stripeCustomerId}
+                    trialStartDate={user?.created_at}
                 />
             </div>
 
