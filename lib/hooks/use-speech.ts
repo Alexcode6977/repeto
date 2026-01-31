@@ -92,7 +92,6 @@ export function useSpeech(): UseSpeechReturn {
 
                 const elapsed = Math.round(performance.now() - startTime);
                 if (finalVoices.length > 0) {
-                    console.log(`[Speech] Loaded ${finalVoices.length} French voices in ${elapsed}ms:`, finalVoices.map(v => v.name).join(", "));
                     setVoices(finalVoices);
                 } else {
                     console.warn(`[Speech] No voices available yet (took ${elapsed}ms)`);
@@ -288,10 +287,6 @@ export function useSpeech(): UseSpeechReturn {
             utterance.rate = rate;
             utterance.volume = volume;
 
-            utterance.pitch = pitch;
-            utterance.rate = rate;
-            utterance.volume = volume;
-
             utterance.onend = () => {
                 cleanup();
                 resolve();
@@ -333,7 +328,6 @@ export function useSpeech(): UseSpeechReturn {
 
             // ATOMICITY: Force stop any existing recognition session
             if (activeRecognitionRef.current) {
-                console.log("[Speech] Interrupting previous recognition session");
                 const old = activeRecognitionRef.current;
                 activeRecognitionRef.current = null;
                 try { recognitionRef.current.abort(); } catch (e) { }
@@ -355,7 +349,7 @@ export function useSpeech(): UseSpeechReturn {
             // 3. DRAMATIC PAUSES: If text contains '...', '!', '?', or ';', we allow more silence (2.5s)
             let baseSilence = 1200;
             if (expectedText && /[!?;:…]|\.\.\./.test(expectedText)) {
-                console.log("[Speech] Dramatic line detected, increasing silence timeout");
+                // Dramatic line detected, increasing silence timeout
                 baseSilence = 2500;
             }
             const proportionalTime = estimatedDurationMs
@@ -393,9 +387,8 @@ export function useSpeech(): UseSpeechReturn {
                     // Timeout reached
                     if (!hasSpeechStarted) {
                         console.warn("[Speech] Initial silence timeout - No speech detected");
-                    } else {
-                        console.log("[Speech] End of speech silence timeout");
                     }
+                    // End of speech silence
                     const result = (finalTranscript + " " + interimTranscript).trim();
                     finalizeRecognition(result);
                 }, delay);
@@ -427,9 +420,8 @@ export function useSpeech(): UseSpeechReturn {
                 if (expectedText && combinedTranscript.length > 5) {
                     // PASS PLAY CONTEXT for improved matching (phonetic/accents)
                     const similarity = calculateSimilarity(combinedTranscript, expectedText, playTitle);
-                    // 95% similarity prevents premature cut-off (user request)
+                    // Early exit - high similarity match
                     if (similarity > 0.95) {
-                        console.log("[Speech] Early Exit triggered! Match:", similarity.toFixed(2));
                         finalizeRecognition(combinedTranscript);
                         return;
                     }
@@ -440,7 +432,6 @@ export function useSpeech(): UseSpeechReturn {
 
                 // Check for quick commands
                 if (isVoiceCommand(combinedTranscript)) {
-                    console.log("[Speech] Quick command detected:", combinedTranscript);
                     finalizeRecognition(combinedTranscript);
                     return;
                 }
@@ -610,7 +601,7 @@ export function useSpeech(): UseSpeechReturn {
             // iOS often switches to "Phone Receiver" when mic is active if no audio is playing.
             // We play a silent oscillator AND a silent Audio element to force the "Media" audio session.
             if (forceOutput || true) { // Always warm up on iPad/Mobile
-                console.log("[Speech] Audio Warmup: Activating silent oscillator & dummy media");
+                // Audio warmup: Activating silent oscillator & dummy media
 
                 // 1. Silent Oscillator (Low Level)
                 const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;

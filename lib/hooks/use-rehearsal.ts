@@ -58,7 +58,6 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         // Priority 1: User Recording
         const recording = recordings.find(r => r.line_id === lineId);
         if (recording) {
-            console.log("[Rehearsal] Playing custom recording for line:", lineId);
             setIsPlayingRecording(true);
             return new Promise((resolve) => {
                 const audio = new Audio(recording.audio_url);
@@ -86,7 +85,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             // So if lineId is passed, we good.
 
             if (offlineUrl) {
-                console.log("[Rehearsal] Playing OFFLINE audio for:", lineId);
+                // Playing offline cached audio
                 // Play blob
                 return new Promise((resolve, reject) => {
                     const audio = new Audio(offlineUrl);
@@ -256,13 +255,6 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
     };
 
     const start = (immediate = false) => {
-        console.log("[Rehearsal] start() called", {
-            scriptLines: script.lines.length,
-            userCharacters,
-            mode,
-            initialLineIndex,
-            immediate
-        });
         if (transitionLockRef.current) return;
         transitionLockRef.current = true;
         stopAll();

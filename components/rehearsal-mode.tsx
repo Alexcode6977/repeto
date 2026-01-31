@@ -118,11 +118,7 @@ export function RehearsalMode({
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
     const [hasStarted, setHasStarted] = useState(false);
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | null>(null);
-    const [forceAudioOutput, setForceAudioOutput] = useState(false); // CarPlay experimental fix
-
-    // Generic Character Filtering
-    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor"];
-    const isTechnical = (char: string) => technicalKeywords.some(k => char.toLowerCase().includes(k));
+    const [forceAudioOutput] = useState(false); // CarPlay experimental fix (read-only for now)
 
     // Initialize ignored characters - merge prop with default didascalies
     const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>(() => {
@@ -145,7 +141,8 @@ export function RehearsalMode({
 
     // Premium / Feature State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
-    const [canRecordAudio, setCanRecordAudio] = useState(false);
+    // canRecordAudio is set but currently unused - keeping for future use
+    const [, setCanRecordAudio] = useState(false);
 
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
@@ -184,8 +181,7 @@ export function RehearsalMode({
     // Voice Cache State
     const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
     const [isLoadingVoiceConfig, setIsLoadingVoiceConfig] = useState(false);
-    const [voiceCacheSourceType, setVoiceCacheSourceType] = useState<SourceType | null>(null);
-    const [voiceCacheSourceId, setVoiceCacheSourceId] = useState<string | null>(null);
+
 
     // Fetch existing voice config on mount
     useEffect(() => {
@@ -196,8 +192,6 @@ export function RehearsalMode({
 
             if (!sourceId) return;
 
-            setVoiceCacheSourceType(sourceType);
-            setVoiceCacheSourceId(sourceId);
             setIsLoadingVoiceConfig(true);
 
             try {
@@ -779,20 +773,18 @@ export function RehearsalMode({
         return "..............."; // Visual placeholder
     };
 
-    // DEBUG: Log characters and state
-    console.log("[RehearsalMode] ttsProvider:", ttsProvider, "isPremiumUnlocked:", isPremiumUnlocked);
-    console.log("[RehearsalMode] script.characters:", script.characters);
+    // Quick Start Logic - MOVED OUTSIDE conditional to respect React hooks rules
+    const quickStartSettings = useMemo(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(`souffleur_rehearsal_settings_${playId || script.title}`);
+            return saved ? JSON.parse(saved) : null;
+        }
+        return null;
+    }, [playId, script.title]);
 
 
     if (!hasStarted) {
-        // Quick Start Logic
-        const quickStartSettings = useMemo(() => {
-            if (typeof window !== 'undefined') {
-                const saved = localStorage.getItem(`souffleur_rehearsal_settings_${playId || script.title}`);
-                return saved ? JSON.parse(saved) : null;
-            }
-            return null;
-        }, [playId, script.title]);
+        // Quick Start Logic - quickStartSettings is now defined above, outside this conditional
 
         const startQuick = () => {
             if (quickStartSettings) {

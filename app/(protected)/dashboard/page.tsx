@@ -219,7 +219,9 @@ export default function Home() {
   };
 
   // --- RENDER VIEWS ---
+  // Using conditional rendering instead of early returns to avoid React hooks order issues
 
+  // Listen Mode
   if (rehearsalChar && script && viewMode === "listen") {
     return (
       <ListenMode
@@ -233,6 +235,7 @@ export default function Home() {
     );
   }
 
+  // Rehearsal Mode
   if (rehearsalChar && script && viewMode === "rehearsal") {
     return (
       <RehearsalMode
@@ -247,6 +250,7 @@ export default function Home() {
     );
   }
 
+  // Reader Mode
   if (rehearsalChar && script && viewMode === "reader") {
     return (
       <ScriptReader
@@ -260,6 +264,7 @@ export default function Home() {
     );
   }
 
+  // Setup Mode
   if (rehearsalChar && script && viewMode === "setup") {
     return (
       <ScriptSetup
@@ -271,7 +276,8 @@ export default function Home() {
     );
   }
 
-  if (script) {
+  // Script Viewer (when script is loaded but not in a specific mode)
+  if (script && viewMode === "viewer") {
     return (
       <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
         <div className="flex gap-4 self-start">
