@@ -1,10 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { KeepAwake } from '@capacitor-community/keep-awake';
 
 export function useWakeLock() {
     const wakeLockRef = useRef<any>(null);
     const [isActive, setIsActive] = useState(false);
 
     const requestWakeLock = useCallback(async () => {
+        // Native (Capacitor)
+        if (Capacitor.isNativePlatform()) {
+            try {
+                await KeepAwake.keepAwake();
+                setIsActive(true);
+                return;
+            } catch (err) {
+                console.error('[WakeLock Native] Failed', err);
+            }
+        }
+
+        // Web Fallback
         if (!('wakeLock' in navigator)) {
             console.warn('[WakeLock] Screen Wake Lock API not supported');
             return;
@@ -13,11 +27,9 @@ export function useWakeLock() {
         try {
             wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
             setIsActive(true);
-            console.log('[WakeLock] Screen Wake Lock is active');
 
             wakeLockRef.current.addEventListener('release', () => {
                 setIsActive(false);
-                console.log('[WakeLock] Screen Wake Lock was released');
             });
         } catch (err: any) {
             console.error(`[WakeLock] ${err.name}, ${err.message}`);
@@ -25,14 +37,28 @@ export function useWakeLock() {
     }, []);
 
     const releaseWakeLock = useCallback(async () => {
+        // Native (Capacitor)
+        if (Capacitor.isNativePlatform()) {
+            try {
+                await KeepAwake.allowSleep();
+                setIsActive(false);
+            } catch (err) {
+                console.error('[WakeLock Native] Failed to release', err);
+            }
+            return;
+        }
+
+        // Web Fallback
         if (wakeLockRef.current) {
             await wakeLockRef.current.release();
             wakeLockRef.current = null;
         }
     }, []);
 
-    // Re-request wake lock when page becomes visible again
+    // Re-request wake lock when page becomes visible again (Web only)
     useEffect(() => {
+        if (Capacitor.isNativePlatform()) return;
+
         const handleVisibilityChange = async () => {
             if (wakeLockRef.current !== null && document.visibilityState === 'visible') {
                 await requestWakeLock();
