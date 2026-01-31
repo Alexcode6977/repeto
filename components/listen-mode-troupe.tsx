@@ -332,7 +332,7 @@ export function ListenModeTroupe({
                                     <Headphones className="w-3 h-3" />
                                     Configuration
                                 </label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     {[
                                         { id: "full", label: "Intégrale", sub: "Tout le texte", icon: Users },
                                         { id: "cue", label: "Réplique", sub: "Juste les cues", icon: MessageSquare },

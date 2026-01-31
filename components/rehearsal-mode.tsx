@@ -874,7 +874,7 @@ export function RehearsalMode({
                                     <ScanEye className="w-3 h-3" />
                                     Visibilité
                                 </label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     {[
                                         { id: "visible", label: "Visible", sub: "Texte complet", icon: Eye },
                                         { id: "hint", label: "Indices", sub: "1ers mots", icon: ScanEye },
@@ -917,7 +917,7 @@ export function RehearsalMode({
                                     <Mic className="w-3 h-3" />
                                     Mode
                                 </label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     {[
                                         { id: "full", label: "Intégrale", sub: "Tout le cast", icon: Users },
                                         { id: "cue", label: "Réplique", sub: "Juste avant", icon: MessageSquare },
