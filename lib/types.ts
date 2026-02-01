@@ -27,4 +27,5 @@ export interface ScriptMetadata {
     lineCount: number;
     is_public: boolean;
     is_owner: boolean;
+    hasVoiceConfig?: boolean;
 }
