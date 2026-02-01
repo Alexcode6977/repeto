@@ -8,6 +8,7 @@ import Link from "next/link";
 // We will create these next
 import { InteractiveScriptViewer } from "./interactive-script-viewer";
 import { AnnotatorGrid } from "./annotator-grid";
+import { MobileAnnotatorSheet } from "./mobile-annotator-sheet";
 
 interface AnnotatorClientProps {
     play: any;
@@ -27,6 +28,15 @@ export function AnnotatorClient({ play, troupeId, troupeMembers, guests }: Annot
 
     const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
     const [context, setContext] = useState<AnnotationContext>({ type: 'scene' });
+
+    // Mobile Sheet State
+    const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+    const [mobileContext, setMobileContext] = useState<AnnotationContext>({ type: 'scene' });
+
+    const handleMobileInteract = (ctx: AnnotationContext) => {
+        setMobileContext(ctx);
+        setIsMobileSheetOpen(true);
+    };
 
     const currentScene = scenes[currentSceneIdx];
 
@@ -137,11 +147,12 @@ export function AnnotatorClient({ play, troupeId, troupeMembers, guests }: Annot
                         currentSceneIdx={currentSceneIdx}
                         context={context}
                         setContext={setContext}
+                        onMobileInteract={handleMobileInteract}
                     />
                 </div>
 
-                {/* RIGHT: ACTORS & TOOLS */}
-                <div className="flex-1 md:flex-[0.4] min-w-0 bg-background">
+                {/* RIGHT: ACTORS & TOOLS (Desktop Only) */}
+                <div className="hidden md:block flex-1 md:flex-[0.4] min-w-0 bg-background">
                     <AnnotatorGrid
                         actorsInScene={actorsInScene}
                         playId={play.id}
@@ -153,6 +164,16 @@ export function AnnotatorClient({ play, troupeId, troupeMembers, guests }: Annot
                 </div>
 
             </div>
+
+            {/* Mobile Bottom Sheet */}
+            <MobileAnnotatorSheet
+                isOpen={isMobileSheetOpen}
+                onClose={() => setIsMobileSheetOpen(false)}
+                actorsInScene={actorsInScene}
+                playId={play.id}
+                globalSceneIndex={currentScene.index}
+                context={mobileContext}
+            />
 
             {/* BOTTOM NAV (Mobile mainly) */}
             <div className="md:hidden h-16 shrink-0 bg-background border-t border-border flex items-center justify-between px-4">
