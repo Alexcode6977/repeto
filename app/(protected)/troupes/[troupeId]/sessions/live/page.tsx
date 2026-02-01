@@ -67,39 +67,41 @@ export default async function LiveSessionsPage({
 
                         return (
                             <Card key={session.id} className="bg-card border-border hover:border-green-500/30 transition-all group overflow-hidden">
-                                <div className="flex items-center justify-between p-6">
-                                    <div className="flex items-center gap-6 flex-1 min-w-0">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-6 gap-4 md:gap-0">
+                                    <div className="flex items-center gap-4 md:gap-6 flex-1 min-w-0">
                                         {/* Date Block */}
-                                        <div className="text-center min-w-[70px] p-4 rounded-2xl bg-green-500/10 border border-green-500/20 group-hover:bg-green-500/20 transition-colors">
+                                        <div className="text-center min-w-[60px] md:min-w-[70px] p-2 md:p-4 rounded-2xl bg-green-500/10 border border-green-500/20 group-hover:bg-green-500/20 transition-colors">
                                             <p className="text-[10px] uppercase font-black text-muted-foreground leading-none mb-1">
                                                 {date.toLocaleDateString('fr-FR', { month: 'short' })}
                                             </p>
-                                            <p className="text-3xl font-black text-foreground leading-none">
+                                            <p className="text-2xl md:text-3xl font-black text-foreground leading-none">
                                                 {date.getDate()}
                                             </p>
                                         </div>
 
                                         <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-3 mb-2">
-                                                <h3 className="font-bold text-foreground text-xl group-hover:text-green-500 transition-colors truncate">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1 md:mb-2">
+                                                <h3 className="font-bold text-foreground text-lg md:text-xl group-hover:text-green-500 transition-colors truncate">
                                                     {session.title || "Répétition"}
                                                 </h3>
                                                 <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[10px] px-2 py-0.5 shrink-0">
                                                     {sceneCount} scène{sceneCount > 1 ? 's' : ''}
                                                 </Badge>
                                             </div>
-                                            <p className="text-sm font-medium text-muted-foreground flex items-center gap-2 truncate">
+                                            <p className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-2 truncate">
                                                 <Calendar className="w-3 h-3 shrink-0" />
                                                 {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} • {session.plays?.title || "Pièce non définie"}
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 ml-4">
-                                        <PersonalPrepButton sessionId={session.id} />
+                                    <div className="flex items-center gap-2 mt-2 md:mt-0 md:ml-4 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 no-scrollbar">
+                                        <div className="flex-1 md:flex-none">
+                                            <PersonalPrepButton sessionId={session.id} />
+                                        </div>
 
                                         <Button asChild size="lg" className={cn(
-                                            "rounded-xl font-black text-xs uppercase tracking-widest px-6 h-12 shadow-lg transition-all active:scale-95",
+                                            "rounded-xl font-black text-xs uppercase tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-lg transition-all active:scale-95 whitespace-nowrap",
                                             (canManageTroupe(troupe?.my_roles) || canDirectTroupe(troupe?.my_roles))
                                                 ? "bg-green-500 hover:bg-green-600 text-foreground shadow-green-500/20"
                                                 : "bg-secondary hover:bg-secondary/80 text-secondary-foreground shadow-secondary/20"

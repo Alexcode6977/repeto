@@ -8,7 +8,9 @@ import {
     Calendar,
     BookOpen,
     Timer,
-    Settings
+    Settings,
+    Users,
+    ClipboardList
 } from "lucide-react";
 import { useHaptic } from "@/lib/hooks/use-haptic";
 
@@ -44,13 +46,23 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
         });
     }
 
-    // 3. Séances (MES only)
+    // 3. Prép. Séance (MES only)
     if (canDirectTroupe(roles)) {
         navItems.push({
             label: "Prép. Séance",
             href: `/troupes/${troupeId}/sessions`,
             icon: Timer,
-            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`) && !pathname.includes('/live')
+        });
+    }
+
+    // 4. Séance Live (Member or MES)
+    if (canAccessArtisticContent(roles)) {
+        navItems.push({
+            label: "Séance Live",
+            href: `/troupes/${troupeId}/sessions/live`,
+            icon: Users, // Using Users icon to match desktop
+            active: pathname.includes('/live')
         });
     }
 

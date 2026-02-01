@@ -1,5 +1,5 @@
 import { ScriptMetadata } from "@/lib/types";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScriptCard } from "./script-card";
 import { ScriptRow } from "./script-row";
 import { FileText } from "lucide-react";
