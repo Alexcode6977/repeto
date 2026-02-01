@@ -7,6 +7,7 @@ import { SingleMask, TripleMask } from "@/components/icons/masks";
 import { PLANS } from "@/lib/stripe";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { NativeRedirect } from "@/components/native-redirect";
 
 export default function LandingPage() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,6 +52,7 @@ export default function LandingPage() {
 
     return (
         <div className="dark bg-[#050508] text-foreground min-h-screen flex flex-col font-sans selection:bg-primary/30 overflow-x-hidden">
+            <NativeRedirect />
 
             {/* Ambiance Cinématique - Dégradé Bleu Violet */}
             <div className="fixed inset-0 z-0 pointer-events-none">

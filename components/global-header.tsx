@@ -26,7 +26,7 @@ export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) 
     }
 
     return (
-        <header className="w-full p-6 flex items-center justify-between z-50">
+        <header className="fixed top-0 left-0 right-0 w-full p-4 md:p-6 flex items-center justify-between z-[100] backdrop-blur-xl bg-background/60 border-b border-white/5 transition-all duration-300">
             <Link href="/dashboard" className="flex items-center gap-2 group">
                 {/* Small Logo */}
                 <div className="w-10 h-10 rounded-xl bg-secondary/20 border border-border flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">

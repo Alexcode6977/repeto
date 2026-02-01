@@ -27,6 +27,7 @@ import { DashboardHeader } from "./components/dashboard-header";
 import { ScriptGrid } from "./components/script-grid";
 import { ImportWizard } from "./components/import-wizard";
 import { ScriptSettingsModal } from "./components/script-settings-modal";
+import { StoriesFooter } from "./components/stories-footer";
 
 // Lazy load heavy components
 const RehearsalMode = dynamic(() => import("@/components/rehearsal-mode").then(mod => ({ default: mod.RehearsalMode })), {
@@ -66,6 +67,9 @@ export default function Home() {
   const [script, setScript] = useState<ParsedScript | null>(null);
   const [selectedScriptMeta, setSelectedScriptMeta] = useState<{ id: string, isPublic: boolean } | null>(null);
 
+  // Dashboard Active Script Index (Sync between Carousel and Footer)
+  const [activeIndex, setActiveIndex] = useState<number>(0);
+
   // Session Settings
   const [rehearsalChar, setRehearsalChar] = useState<string | null>(null);
   const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
@@ -77,6 +81,9 @@ export default function Home() {
 
   // Settings Modal State
   const [settingsScript, setSettingsScript] = useState<{ id: string; title: string; characters: string[] } | null>(null);
+
+  // Dashboard Layout Mode (Grid vs List)
+  const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
 
   const router = useRouter();
 
@@ -306,68 +313,86 @@ export default function Home() {
     );
   }
 
-  // --- MAIN DASHBOARD ---
+  // Dashboard Active Script (Scroll Sync)
+
+
 
   return (
-    <div className="max-w-7xl mx-auto p-6 md:p-12 pb-32 animate-in fade-in zoom-in duration-500 relative min-h-screen">
+    <div className="max-w-7xl mx-auto min-h-screen relative pt-24 pb-40 md:pb-12">
 
-      {/* 1. HEADER */}
-      <DashboardHeader
-        userName={userName}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        showMobileSearch={showMobileSearch}
-        setShowMobileSearch={setShowMobileSearch}
-        onLogout={handleLogout}
-        onImportClick={() => setShowImportGuide(true)}
-        isPending={false} // Global pending state if needed
-      />
+      {/* 1. DASHBOARD HEADER (In flow) */}
+      <div className="px-6 md:px-12 mb-6">
+        <DashboardHeader
+          userName={userName}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          showMobileSearch={showMobileSearch}
+          setShowMobileSearch={setShowMobileSearch}
+          onLogout={handleLogout}
+          onImportClick={() => setShowImportGuide(true)}
+          isPending={false}
+          layoutMode={layoutMode}
+          setLayoutMode={setLayoutMode}
+        />
+      </div>
 
+      {/* 2. CONTENT */}
+      <div className="px-6 md:px-12 animate-in fade-in zoom-in duration-500">
+        {/* Error */}
+        {error && (
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 mb-6 animate-in slide-in-from-top-2">
+            <AlertCircle className="h-5 w-5" />
+            {error}
+          </div>
+        )}
 
+        {/* Script Grid/Carousel */}
+        <ScriptGrid
+          scripts={scriptsList}
+          isLoading={isLoading}
+          searchQuery={searchQuery}
+          userEmail={userEmail}
+          onLoad={handleLoadScript}
+          onDelete={handleDeleteScript}
+          onRename={handleRenameScript}
+          onTogglePublic={handleTogglePublic}
+          onSettings={async (s) => {
+            const fullScript = await getScriptById(s.id);
+            if (fullScript) {
+              setSettingsScript({
+                id: s.id,
+                title: fullScript.title,
+                characters: fullScript.characters || [],
+              });
+            }
+          }}
+          onImport={() => setShowImportGuide(true)}
+          layoutMode={layoutMode}
+          activeIndex={activeIndex}
+          onIndexChange={setActiveIndex}
+        />
 
-      {/* 3. ERROR (Global) */}
-      {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 animate-in slide-in-from-top-2 mx-auto max-w-2xl mb-8">
-          <AlertCircle className="h-5 w-5" />
-          {error}
-        </div>
+        {/* Import Wizard Overlay */}
+        <ImportWizard
+          showImportGuide={showImportGuide}
+          setShowImportGuide={setShowImportGuide}
+          userTier={userTier}
+          userEmail={userEmail}
+          onImportComplete={refreshScripts}
+          onError={setError}
+        />
+      </div>
+
+      {/* 3. STORIES FOOTER (Fixed, handled in component) */}
+      {layoutMode === "grid" && (
+        <StoriesFooter
+          scripts={scriptsList}
+          activeIndex={activeIndex}
+          onIndexChange={setActiveIndex}
+        />
       )}
 
-      {/* 4. GRID */}
-      <ScriptGrid
-        scripts={scriptsList}
-        isLoading={isLoading}
-        searchQuery={searchQuery}
-        userEmail={userEmail}
-        onLoad={handleLoadScript}
-        onDelete={handleDeleteScript}
-        onRename={handleRenameScript}
-        onTogglePublic={handleTogglePublic}
-        onSettings={async (s) => {
-          // Load full script to get characters
-          const fullScript = await getScriptById(s.id);
-          if (fullScript) {
-            setSettingsScript({
-              id: s.id,
-              title: fullScript.title,
-              characters: fullScript.characters || [],
-            });
-          }
-        }}
-        onImport={() => setShowImportGuide(true)}
-      />
-
-      {/* 5. IMPORT WIZARD (Overlay) */}
-      <ImportWizard
-        showImportGuide={showImportGuide}
-        setShowImportGuide={setShowImportGuide}
-        userTier={userTier}
-        userEmail={userEmail}
-        onImportComplete={refreshScripts}
-        onError={setError}
-      />
-
-      {/* 6. SCRIPT SETTINGS MODAL */}
+      {/* Modals */}
       {settingsScript && (
         <ScriptSettingsModal
           scriptId={settingsScript.id}

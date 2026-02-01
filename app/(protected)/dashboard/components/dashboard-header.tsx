@@ -1,7 +1,6 @@
-"use client";
-
 import { Button } from "@/components/ui/button";
-import { Search, X, LogOut, Loader2, Plus } from "lucide-react";
+import { Search, X, LogOut, Loader2, Plus, LayoutGrid, List } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface DashboardHeaderProps {
     userName: string;
@@ -12,6 +11,8 @@ interface DashboardHeaderProps {
     onLogout: () => void;
     onImportClick: () => void;
     isPending: boolean;
+    layoutMode: "grid" | "list";
+    setLayoutMode: (mode: "grid" | "list") => void;
 }
 
 export function DashboardHeader({
@@ -23,9 +24,11 @@ export function DashboardHeader({
     onLogout,
     onImportClick,
     isPending,
+    layoutMode,
+    setLayoutMode,
 }: DashboardHeaderProps) {
     return (
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 mb-8 md:mb-12 pt-4 md:pt-0">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0 mt-4 md:mt-0">
             {/* Mobile Header: Title OR Search Bar */}
             <div className="w-full flex items-center justify-between md:hidden h-14 relative">
                 {showMobileSearch ? (
@@ -55,44 +58,57 @@ export function DashboardHeader({
                     </div>
                 ) : (
                     <>
-                        <div className="text-left">
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground mb-1">
-                                Bonjour,{" "}
+                        <div className="text-left flex flex-col justify-center">
+                            <h1 className="text-xl font-bold tracking-tight text-foreground">
                                 <span className="text-primary">{userName || "Artiste"}</span>
                             </h1>
-                            <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">
+                            <p className="text-[10px] text-muted-foreground font-medium tracking-wide uppercase">
                                 Prêt à répéter ?
                             </p>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                            {/* Layout Toggle on Mobile */}
+                            <div className="bg-secondary/50 p-1 rounded-xl flex items-center gap-1 mr-1">
+                                <button
+                                    onClick={() => setLayoutMode("grid")}
+                                    className={cn(
+                                        "p-1.5 rounded-lg transition-all",
+                                        layoutMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
+                                    )}
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setLayoutMode("list")}
+                                    className={cn(
+                                        "p-1.5 rounded-lg transition-all",
+                                        layoutMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
+                                    )}
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                            </div>
+
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-foreground hover:bg-muted rounded-full w-10 h-10"
+                                className="text-foreground hover:bg-muted rounded-full w-9 h-9"
                                 onClick={() => setShowMobileSearch(true)}
                             >
-                                <Search className="w-6 h-6" />
+                                <Search className="w-5 h-5" />
                             </Button>
                             <Button
                                 size="icon"
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-10 h-10 shadow-lg shadow-primary/20"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-9 h-9 shadow-lg shadow-primary/20"
                                 onClick={onImportClick}
                                 disabled={isPending}
                             >
                                 {isPending ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
-                                    <Plus className="w-5 h-5" />
+                                    <Plus className="w-4 h-4" />
                                 )}
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                onClick={onLogout}
-                                size="icon"
-                                className="text-muted-foreground hover:text-red-400 rounded-full w-10 h-10"
-                            >
-                                <LogOut className="w-5 h-5" />
                             </Button>
                         </div>
                     </>
@@ -112,6 +128,28 @@ export function DashboardHeader({
                 </div>
 
                 <div className="flex items-center gap-4">
+                    {/* Layout Toggle Desktop */}
+                    <div className="bg-secondary/30 p-1 rounded-xl flex items-center gap-1">
+                        <button
+                            onClick={() => setLayoutMode("grid")}
+                            className={cn(
+                                "p-2 rounded-lg transition-all",
+                                layoutMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <LayoutGrid className="w-5 h-5" />
+                        </button>
+                        <button
+                            onClick={() => setLayoutMode("list")}
+                            className={cn(
+                                "p-2 rounded-lg transition-all",
+                                layoutMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                            )}
+                        >
+                            <List className="w-5 h-5" />
+                        </button>
+                    </div>
+
                     {/* Desktop Search */}
                     <div className="relative w-80 group transition-all duration-300 focus-within:w-96">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-hover:text-primary group-focus-within:text-primary transition-colors" />

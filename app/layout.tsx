@@ -4,6 +4,7 @@ import "./globals.css";
 import { CustomCursor } from "@/components/custom-cursor";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
+import { AuthHandler } from "@/components/auth-handler";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -37,6 +38,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { MobileStatusBar } from "@/components/mobile-status-bar";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -51,6 +54,8 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <MobileStatusBar />
+          <AuthHandler />
           <CustomCursor />
           {children}
           <Toaster />

@@ -148,7 +148,7 @@ export default function ProfilePage() {
     const displayName = firstName || user?.email?.split('@')[0] || "Artiste";
 
     return (
-        <div className="w-full max-w-4xl mx-auto space-y-6 md:space-y-8 px-4 md:px-0 animate-in fade-in slide-in-from-bottom-4 pb-20">
+        <div className="w-full max-w-4xl mx-auto pt-24 md:pt-32 space-y-6 md:space-y-8 px-4 md:px-0 animate-in fade-in slide-in-from-bottom-4 pb-20">
 
             {/* Success Message */}
             {showSuccessMessage && (

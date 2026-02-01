@@ -3,6 +3,7 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AuthSubmitButton } from "@/components/auth-submit-button";
 
 export default async function LoginPage({
     searchParams,
@@ -100,18 +101,10 @@ export default async function LoginPage({
 
                     {/* Action Button embedded in form flow or purely sticky? 
                         Keeping it here for now but ensuring it's easily reachable */}
-                    <button
+                    <AuthSubmitButton
                         formAction={login}
-                        className="w-full bg-gradient-to-r from-primary to-emerald-600 hover:from-primary/90 hover:to-emerald-600/90 
-                            text-white font-bold text-base py-3.5 rounded-xl 
-                            transition-all duration-300 
-                            shadow-lg shadow-primary/20
-                            active:scale-[0.98] 
-                            flex items-center justify-center gap-2 mt-4"
-                    >
-                        Se connecter
-                        <ArrowRight className="h-4 w-4" />
-                    </button>
+                        text="Se connecter"
+                    />
                 </form>
             </div>
 

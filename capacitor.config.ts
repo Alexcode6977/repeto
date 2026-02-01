@@ -7,6 +7,24 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://repeto-seven.vercel.app/',
     cleartext: true
+  },
+  plugins: {
+    StatusBar: {
+      style: 'DARK',
+      overlaysWebView: true,
+    },
+    Keyboard: {
+      resize: 'none',
+      style: 'DARK',
+      resizeOnFullScreen: true,
+    },
+    SplashScreen: {
+      launchShowDuration: 2000,
+      launchAutoHide: true,
+      backgroundColor: "#050508",
+      androidScaleType: "CENTER_CROP",
+      showSpinner: false,
+    }
   }
 };
 
