@@ -25,6 +25,11 @@ interface ScriptCardProps {
     onDelete: (id: string) => Promise<void>;
     onTogglePublic: (script: ScriptMetadata) => Promise<void>;
     onSettings: (script: ScriptMetadata) => void;
+    isAdmin?: boolean;
+    onRenameSubmit?: (e: React.FormEvent, id: string) => void;
+    renamingScriptId?: string | null;
+    renamingScriptTitle?: string;
+    setRenamingScriptTitle?: (title: string) => void;
 }
 
 export function ScriptCard({
