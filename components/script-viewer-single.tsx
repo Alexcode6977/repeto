@@ -53,7 +53,7 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
     const isSelectionRequired = !selectedChar;
 
     return (
-        <div className="w-full max-w-lg mx-auto py-6 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-40 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div className="text-center mb-8">
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mb-2">

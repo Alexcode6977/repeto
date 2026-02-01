@@ -7,8 +7,9 @@ import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { getVoiceConfig, determineSourceType, SourceType, VoiceConfig } from "@/lib/actions/voice-cache";
 import { Button } from "./ui/button";
-import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, RotateCcw } from "lucide-react";
+import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, RotateCcw, ArrowLeft, MessageSquare, Zap, Users, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Card } from "./ui/card";
 import { BrowserVoiceConfig } from "./browser-voice-config";
 
 interface ListenModeProps {
@@ -61,6 +62,15 @@ export function ListenMode({
             : [];
         return [...new Set([...skipCharacters, ...didascalieChars])];
     }, [skipCharacters, hasDidascalies, skipDidascalies, script.characters]);
+
+    // Quick Start Logic (Moved to top level)
+    const quickStartSettings = useMemo(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(`souffleur_listen_settings_${playId || scriptId}`);
+            return saved ? JSON.parse(saved) : null;
+        }
+        return null;
+    }, [playId, scriptId]);
 
     // Fetch User Capabilities on Mount
     useEffect(() => {
@@ -215,6 +225,29 @@ export function ListenMode({
         start();
     };
 
+    const startQuick = () => {
+        if (quickStartSettings) {
+            setListenMode(quickStartSettings.listenMode);
+            setTtsProvider(quickStartSettings.ttsProvider);
+            setAnnounceCharacter(quickStartSettings.announceCharacter);
+            setStartLineIndex(quickStartSettings.startLineIndex || 0);
+            handleStart();
+        }
+    };
+
+    const handleStartWithSave = () => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(`souffleur_listen_settings_${playId || scriptId}`, JSON.stringify({
+                listenMode,
+                ttsProvider,
+                announceCharacter,
+                startLineIndex,
+                timestamp: Date.now()
+            }));
+        }
+        handleStart();
+    };
+
     const handleExit = () => {
         stop();
         releaseWakeLock();
@@ -240,293 +273,236 @@ export function ListenMode({
     // === SETUP SCREEN ===
     if (!hasStarted) {
         return (
-            <div className="flex flex-col lg:flex-row min-h-[100dvh] w-full max-w-7xl mx-auto animate-in fade-in duration-500 bg-background overflow-y-auto">
+            <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
+                <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative w-full">
+                    {/* Background Gradient Blobs (Teal/Cyan) */}
+                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+                    <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                {/* LEFT PANEL - Preview (Hidden on mobile, shown on desktop left) */}
-                <div className="hidden lg:flex lg:w-[45%] flex-col items-center justify-start pt-16 p-8 border-r border-border">
-                    <div className="text-center space-y-4 mb-8">
-                        <div className="relative inline-block">
-                            <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full animate-pulse-glow" />
-                            <Headphones className="relative w-20 h-20 text-cyan-400 mx-auto" />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-foreground tracking-tight">Mode Écoute</h2>
-                            <p className="text-muted-foreground text-sm">
-                                Vous écoutez <span className="text-cyan-400 font-bold">{userCharacters.join(", ")}</span>
-                            </p>
-                        </div>
-                    </div>
+                    <div className="p-6 md:p-8 space-y-8 relative z-10">
+                        {/* Header */}
+                        <div className="space-y-6">
+                            <button
+                                onClick={onExit}
+                                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider group"
+                            >
+                                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                                Retour
+                            </button>
 
-                    {/* Mode indicator */}
-                    <div className="w-full max-w-md space-y-4">
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl">
-                            <div className="text-center space-y-2">
-                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Mode sélectionné</span>
-                                <p className="text-lg font-bold text-foreground">
-                                    {listenMode === "full" ? "📖 Intégrale" : listenMode === "cue" ? "💬 Réplique" : "⚡ Solo"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                    {listenMode === "full"
-                                        ? "Toutes les répliques seront lues"
-                                        : listenMode === "cue"
-                                            ? "Seules les répliques avant les vôtres"
-                                            : "Seulement vos répliques"}
-                                </p>
+                            <div className="space-y-2">
+                                <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-teal-300 via-teal-500 to-cyan-500 drop-shadow-sm flex items-center gap-3">
+                                    <Headphones className="w-8 h-8 md:w-10 md:h-10 text-teal-500" />
+                                    Mode Écoute
+                                </h2>
+                                {/* Quick Start Button */}
+                                {quickStartSettings && (
+                                    <button
+                                        onClick={startQuick}
+                                        className="mt-2 py-2 px-3 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 text-[10px] font-bold uppercase tracking-wider hover:bg-teal-500/20 flex items-center gap-2 transition-all w-fit"
+                                    >
+                                        <span>⚡</span> Reprendre (derniers réglages)
+                                    </button>
+                                )}
                             </div>
                         </div>
 
-                        <div className="flex justify-center gap-4 text-[10px] text-muted-foreground">
-                            <span className={cn("transition-colors", announceCharacter && "text-cyan-400 font-bold")}>
-                                📢 {announceCharacter ? "Annonce activée" : "Sans annonce"}
-                            </span>
-                            <span className={cn("transition-colors", ttsProvider === "openai" && "text-emerald-400 font-bold")}>
-                                🎙️ {ttsProvider === "openai" ? "Voix Premium" : "Voix Standard"}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                        {/* Settings Sections */}
+                        <div className="space-y-8">
 
-                {/* RIGHT PANEL - Settings (Full width on mobile) */}
-                <div className="lg:w-[55%] flex flex-col items-center justify-center p-4 pt-8 pb-12 lg:p-8 lg:py-10 overflow-y-auto">
-                    {/* Start Button */}
-                    <div className="w-full mb-6 flex flex-col items-center">
-                        <Button
-                            size="lg"
-                            onClick={handleStart}
-                            className="text-lg md:text-xl font-black py-6 md:py-7 px-8 md:px-12 rounded-2xl bg-gradient-to-r from-cyan-500 via-cyan-600 to-teal-600 text-foreground hover:scale-[1.02] transition-all active:scale-95 shadow-[0_0_50px_rgba(6,182,212,0.5)] animate-pulse-subtle group"
-                        >
-                            <Headphones className="mr-3 h-7 w-7 group-hover:scale-110 transition-transform" />
-                            🎧 Commencer l'écoute
-                        </Button>
-                        <p className="text-center text-[10px] text-muted-foreground mt-2">Pas de micro nécessaire</p>
-                    </div>
-
-                    {/* Settings Cards */}
-                    <div className="space-y-6 max-w-md mx-auto w-full">
-
-                        {/* Scene Selection */}
-                        {script.scenes && script.scenes.length > 0 && (
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎬 Point de départ</label>
+                            {/* 0. DEPART */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Play className="w-3 h-3" />
+                                    Départ
+                                </label>
                                 <select
-                                    className="w-full bg-background/50 border border-border rounded-xl p-3 text-foreground focus:outline-none focus:ring-2 focus:ring-cyan-500/50 appearance-none cursor-pointer"
-                                    onChange={(e) => setStartLineIndex(parseInt(e.target.value))}
                                     value={startLineIndex}
+                                    onChange={(e) => setStartLineIndex(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none cursor-pointer hover:bg-white/10 transition-colors"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
                                 >
-                                    {(!script.scenes?.[0] || script.scenes[0].index > 0) && (
-                                        <option value={0}>Début de la pièce</option>
-                                    )}
-                                    {script.scenes.map((scene) => (
-                                        <option key={scene.index} value={scene.index}>{scene.title}</option>
+                                    <option value={0} className="bg-zinc-900">Début du script</option>
+                                    {script.scenes?.map((scene) => (
+                                        <option key={scene.index} value={scene.index} className="bg-zinc-900">
+                                            {scene.title}
+                                        </option>
                                     ))}
                                 </select>
                             </div>
-                        )}
 
-                        {/* Listen Mode Selection */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 block">🎧 Mode d'écoute</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[
-                                    { id: "full", label: "Intégrale", icon: "📖", desc: "Tout le texte" },
-                                    { id: "cue", label: "Réplique", icon: "💬", desc: "Avant vos lignes" },
-                                    { id: "check", label: "Solo", icon: "⚡", desc: "Vos lignes seules" },
-                                ].map(m => (
-                                    <button
-                                        key={m.id}
-                                        onClick={() => setListenMode(m.id as ListenMode)}
-                                        className={cn(
-                                            "p-3 rounded-xl text-center transition-all duration-300 touch-manipulation border flex flex-col items-center gap-1",
-                                            listenMode === m.id
-                                                ? "bg-cyan-500/20 border-cyan-500/50 shadow-lg shadow-cyan-500/10"
-                                                : "bg-card border-border hover:bg-white/10 active:scale-95"
-                                        )}
-                                    >
-                                        <span className="text-lg">{m.icon}</span>
-                                        <span className={cn("text-xs font-bold", listenMode === m.id ? "text-foreground" : "text-muted-foreground")}>{m.label}</span>
-                                        <span className="text-[8px] text-muted-foreground leading-tight">{m.desc}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Voice Provider Selection - Governance Rules */}
-                        {(() => {
-                            const isTroupeContext = !!troupeId;
-                            const isLibraryScript = isPublicScript;
-                            const isUserScript = !isPublicScript && !troupeId;
-
-                            // TROUPE MODE: No voice config shown (managed in CastingManager)
-                            if (isTroupeContext) {
-                                return (
-                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
-                                        <div className="py-3 rounded-xl text-xs font-medium bg-muted/30 border border-border text-muted-foreground text-center">
-                                            Voix gérées par l'admin de la troupe
-                                        </div>
-                                    </div>
-                                );
-                            }
-
-                            // SOLO + LIBRARY + PRO: Read-only AI voices (admin pre-assigned)
-                            if (isLibraryScript && isPremiumUnlocked) {
-                                return (
-                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">🎙️ Voix de lecture</label>
-                                        <div className="py-3 rounded-xl text-xs font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-center flex items-center justify-center gap-2">
-                                            <Sparkles className="w-3 h-3" />
-                                            Voix Premium officielles
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground text-center mt-2">
-                                            Attribuées par l'admin Repeto
-                                        </p>
-                                    </div>
-                                );
-                            }
-
-                            // SOLO + LIBRARY + FREE: Browser voice config
-                            if (isLibraryScript && !isPremiumUnlocked) {
-                                return (
-                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-3">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
-                                        <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
-                                            Voix Standard
-                                        </div>
-                                        <BrowserVoiceConfig
-                                            characters={script.characters}
-                                            voices={voices}
-                                            assignments={voiceAssignments}
-                                            onAssign={setVoiceForRole}
-                                        />
-                                        <a
-                                            href="/profile"
-                                            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
-                                        >
-                                            <Sparkles className="w-3 h-3" />
-                                            Passez à Pro pour des voix Premium
-                                        </a>
-                                    </div>
-                                );
-                            }
-
-                            // SOLO + USER SCRIPT + PRO: AI voice selector (free choice)
-                            if (isUserScript && isPremiumUnlocked) {
-                                return (
-                                    <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-4">
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
-                                        <div className="grid grid-cols-2 gap-2">
+                            {/* 1. CONFIGURATION (MODE) */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Headphones className="w-3 h-3" />
+                                    Configuration
+                                </label>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {[
+                                        { id: "full", label: "Intégrale", sub: "Tout le texte", icon: Users },
+                                        { id: "cue", label: "Réplique", sub: "Juste les cues", icon: MessageSquare },
+                                        { id: "check", label: "Solo", sub: "Mes lignes", icon: Zap },
+                                    ].map((m) => {
+                                        const isActive = listenMode === m.id;
+                                        const Icon = m.icon;
+                                        return (
                                             <button
-                                                onClick={() => setTtsProvider("browser")}
+                                                key={m.id}
+                                                onClick={() => setListenMode(m.id as any)}
                                                 className={cn(
-                                                    "py-3 rounded-xl text-xs font-bold transition-all border",
-                                                    ttsProvider === "browser"
-                                                        ? "bg-muted/30 border-border text-foreground"
-                                                        : "bg-transparent border-border text-muted-foreground hover:bg-card"
+                                                    "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
+                                                    isActive
+                                                        ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
+                                                        : "bg-white/5 border-transparent hover:bg-white/10"
                                                 )}
                                             >
-                                                Standard
+                                                <div className={cn(
+                                                    "w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1",
+                                                    isActive ? "bg-teal-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                )}>
+                                                    <Icon className="w-3 h-3" />
+                                                </div>
+                                                <div>
+                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                        {m.label}
+                                                    </div>
+                                                </div>
+                                                {isActive && <Check className="w-3 h-3 text-teal-400 absolute top-3 right-3" />}
                                             </button>
-                                            <button
-                                                onClick={() => setTtsProvider("openai")}
-                                                className={cn(
-                                                    "py-3 rounded-xl text-xs font-bold transition-all border flex items-center justify-center gap-2",
-                                                    ttsProvider === "openai"
-                                                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-400"
-                                                        : "bg-transparent border-border text-muted-foreground hover:bg-card"
-                                                )}
-                                            >
-                                                <Sparkles className="w-3 h-3" />
-                                                Neural AI
-                                            </button>
-                                        </div>
-                                        {ttsProvider === "browser" && (
-                                            <BrowserVoiceConfig
-                                                characters={script.characters}
-                                                voices={voices}
-                                                assignments={voiceAssignments}
-                                                onAssign={setVoiceForRole}
-                                            />
-                                        )}
-                                        {/* TODO: Add AIVoiceConfig for openai provider if needed */}
-                                    </div>
-                                );
-                            }
-
-                            // SOLO + USER SCRIPT + FREE: Browser voice config only
-                            return (
-                                <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg space-y-3">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block">🎙️ Voix de lecture</label>
-                                    <div className="py-3 rounded-xl text-xs font-bold bg-muted/30 border border-border text-foreground text-center">
-                                        Voix Standard
-                                    </div>
-                                    <BrowserVoiceConfig
-                                        characters={script.characters}
-                                        voices={voices}
-                                        assignments={voiceAssignments}
-                                        onAssign={setVoiceForRole}
-                                    />
-                                    <a
-                                        href="/profile"
-                                        className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-[11px] font-medium hover:bg-primary/20 transition-colors"
-                                    >
-                                        <Sparkles className="w-3 h-3" />
-                                        Passez à Pro pour des voix Premium
-                                    </a>
+                                        );
+                                    })}
                                 </div>
-                            );
-                        })()}
-
-                        {/* Announce Character Toggle */}
-                        <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">📢 Annonce des personnages</label>
-                                    <p className="text-[10px] text-muted-foreground mt-1">Dire le nom avant chaque réplique</p>
-                                </div>
-                                <button
-                                    onClick={() => setAnnounceCharacter(!announceCharacter)}
-                                    className={cn(
-                                        "relative w-14 h-7 rounded-full transition-colors shrink-0",
-                                        announceCharacter ? "bg-cyan-500" : "bg-muted"
-                                    )}
-                                >
-                                    <span className={cn(
-                                        "absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow",
-                                        announceCharacter ? "left-8" : "left-1"
-                                    )} />
-                                </button>
                             </div>
+
+                            {/* 2. OPTIONS (VOIX & NOMS) */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Sparkles className="w-3 h-3" />
+                                    Options
+                                </label>
+
+                                {(() => {
+                                    const isTroupeContext = !!troupeId;
+                                    const isLibraryScript = isPublicScript;
+                                    const isUserScript = !isPublicScript && !troupeId;
+
+                                    return (
+                                        <div className="space-y-3">
+                                            {/* Top Row: Announce Names + (Voice Toggle if applicable) */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {/* Announce Names Toggle - Always visible */}
+                                                <button
+                                                    onClick={() => setAnnounceCharacter(!announceCharacter)}
+                                                    className={cn(
+                                                        "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
+                                                        announceCharacter
+                                                            ? "bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+                                                            : "bg-white/5 border-transparent hover:bg-white/10"
+                                                    )}
+                                                >
+                                                    <div className={cn(
+                                                        "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                                        announceCharacter ? "bg-indigo-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                    )}>
+                                                        <span className="text-xs">📢</span>
+                                                    </div>
+                                                    <div>
+                                                        <div className={cn("text-xs font-bold uppercase tracking-wide", announceCharacter ? "text-indigo-400" : "text-muted-foreground")}>
+                                                            Noms
+                                                        </div>
+                                                        <div className="text-[9px] text-muted-foreground mt-0.5">
+                                                            {announceCharacter ? "Annoncés" : "Masqués"}
+                                                        </div>
+                                                    </div>
+                                                    {announceCharacter && <Check className="w-4 h-4 text-indigo-400 absolute top-3 right-3" />}
+                                                </button>
+
+                                                {/* Voice Toggle - Only if User Script + Premium */}
+                                                {isUserScript && isPremiumUnlocked && (
+                                                    <button
+                                                        onClick={() => setTtsProvider(prev => prev === 'openai' ? 'browser' : 'openai')}
+                                                        className={cn(
+                                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
+                                                            ttsProvider === "openai"
+                                                                ? "bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                                                                : "bg-white/5 border-transparent hover:bg-white/10"
+                                                        )}
+                                                    >
+                                                        <div className={cn(
+                                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                                            ttsProvider === "openai" ? "bg-emerald-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                        )}>
+                                                            {ttsProvider === "openai" ? <Sparkles className="w-3 h-3" /> : <Headphones className="w-3 h-3" />}
+                                                        </div>
+                                                        <div>
+                                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "openai" ? "text-emerald-400" : "text-muted-foreground")}>
+                                                                {ttsProvider === "openai" ? "AI Neural" : "Standard"}
+                                                            </div>
+                                                            <div className="text-[9px] text-muted-foreground mt-0.5">
+                                                                {ttsProvider === "openai" ? "Haute qualité" : "Voix système"}
+                                                            </div>
+                                                        </div>
+                                                        {ttsProvider === "openai" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Voice Configuration / Status Area */}
+                                            <div className="bg-white/5 border border-white/10 rounded-xl p-3">
+                                                {isTroupeContext ? (
+                                                    <div className="text-center text-xs text-muted-foreground py-2">
+                                                        Voix gérées par l'admin de la troupe
+                                                    </div>
+                                                ) : isLibraryScript && isPremiumUnlocked ? (
+                                                    <div className="flex items-center justify-center gap-2 py-2 text-emerald-400 text-xs font-medium">
+                                                        <Sparkles className="w-3 h-3" />
+                                                        Voix Premium officielles activées
+                                                    </div>
+                                                ) : (
+                                                    // Standard or User Script Config
+                                                    <div>
+                                                        {(isLibraryScript && !isPremiumUnlocked) && (
+                                                            <div className="text-[10px] text-muted-foreground text-center mb-2">
+                                                                Voix Standard (Passez à Pro pour le Premium)
+                                                            </div>
+                                                        )}
+                                                        {/* Browser Voice Config - Render if using Browser Provider */}
+                                                        {ttsProvider === "browser" && (
+                                                            <BrowserVoiceConfig
+                                                                characters={script.characters}
+                                                                voices={voices}
+                                                                assignments={voiceAssignments}
+                                                                onAssign={setVoiceForRole}
+                                                            />
+                                                        )}
+                                                        {/* Upsell for Free Users on User Script */}
+                                                        {isUserScript && !isPremiumUnlocked && (
+                                                            <a href="/profile" className="block text-center text-[10px] text-teal-400 hover:underline mt-2">
+                                                                Débloquez les voix IA Neural
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
                         </div>
 
-                        {/* Didascalies Toggle - Only show if script has didascalies */}
-                        {hasDidascalies && (
-                            <div className="bg-card backdrop-blur-xl border border-border rounded-2xl p-4 md:p-5 shadow-lg">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">📋 Lire les didascalies</label>
-                                        <p className="text-[10px] text-muted-foreground mt-1">Inclure les indications scéniques</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setSkipDidascalies(!skipDidascalies)}
-                                        className={cn(
-                                            "relative w-14 h-7 rounded-full transition-colors shrink-0",
-                                            !skipDidascalies ? "bg-cyan-500" : "bg-muted"
-                                        )}
-                                    >
-                                        <span className={cn(
-                                            "absolute top-1 w-5 h-5 rounded-full bg-white transition-all shadow",
-                                            !skipDidascalies ? "left-8" : "left-1"
-                                        )} />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        {/* Action Button */}
+                        <div className="pt-4">
+                            <button
+                                onClick={handleStartWithSave}
+                                className="w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <span className="font-bold text-sm tracking-wider uppercase">Lancer l'écoute</span>
+                                <Headphones className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
+                            </button>
+                        </div>
                     </div>
-
-                    <button onClick={onExit} className="w-full max-w-md mx-auto text-sm font-medium text-muted-foreground hover:text-foreground transition-colors text-center py-2 mt-6">
-                        Retour au menu
-                    </button>
-                </div>
+                </Card>
             </div>
         );
     }

@@ -36,7 +36,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
     });
 
     return (
-        <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700">
+        <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-20 animate-in fade-in slide-in-from-bottom-6 duration-700">
             <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative">
                 {/* Background Gradient Blobs */}
                 <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />

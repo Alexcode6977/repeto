@@ -31,7 +31,7 @@ export default function JoinTroupePage() {
     };
 
     return (
-        <div className="container max-w-md mx-auto py-12">
+        <div className="container max-w-md mx-auto pt-24 md:pt-32 pb-12">
             <Link href="/troupes" className="flex items-center text-sm text-muted-foreground mb-6 hover:text-foreground">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Retour aux troupes
