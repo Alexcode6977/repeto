@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, MessageSquare, StickyNote, Pencil, X, Save, Lock } from "lucide-react";
+import { Trash2, MessageSquare, StickyNote, Pencil, X, Save, Lock, CheckCircle } from "lucide-react";
 import { deleteRawNote, updateRawNote } from "@/lib/actions/session";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
@@ -73,6 +73,35 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
         onProcess(note.id, actionType, selectedTargets);
         setActionType(null);
     };
+
+    // Find target names if processed
+    const targetNames = note.processedTargets
+        ? sceneCharacters.filter(c => note.processedTargets.includes(c.id)).map(c => c.name).join(", ")
+        : "";
+
+    if (note.processed) {
+        return (
+            <Card className="group border-green-500 bg-green-500/10 transition-colors relative">
+                <div className="p-4 flex flex-col gap-2">
+                    <div className="flex justify-between items-start">
+                        <div className="text-xs font-bold text-green-700 uppercase tracking-wider">
+                            {note.processedType === 'indication' ? 'Indication' : 'Feedback'} prêt à être envoyé
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-green-700 hover:text-green-800 hover:bg-green-500/20" onClick={() => onDelete(note.id)}>
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
+
+                    <p className="text-foreground text-lg whitespace-pre-wrap opacity-80">{note.text}</p>
+
+                    <div className="mt-2 flex items-center gap-2 text-sm text-green-800 font-medium">
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Pour : {targetNames}</span>
+                    </div>
+                </div>
+            </Card>
+        );
+    }
 
     return (
         <>

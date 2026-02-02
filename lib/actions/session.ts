@@ -322,7 +322,8 @@ export async function submitSessionFeedback(
     characterId: string,
     text: string,
     actorId?: string,
-    guestId?: string
+    guestId?: string,
+    status: 'pending' | 'published' = 'published'
 ) {
     const supabase = await createClient();
 
@@ -333,12 +334,32 @@ export async function submitSessionFeedback(
             character_id: characterId,
             actor_id: actorId,
             guest_id: guestId,
-            text
+            text,
+            status
         });
 
     if (error) {
         console.error('Error submiting feedback:', error);
         throw new Error('Failed to submit feedback');
+    }
+    revalidatePath(`/troupes`);
+}
+
+/**
+ * Publish all pending feedbacks for a session
+ */
+export async function publishSessionFeedbacks(eventId: string) {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from('rehearsal_feedbacks')
+        .update({ status: 'published' })
+        .eq('event_id', eventId)
+        .eq('status', 'pending');
+
+    if (error) {
+        console.error('Error publishing feedbacks:', error);
+        throw new Error('Failed to publish feedbacks');
     }
     revalidatePath(`/troupes`);
 }
@@ -363,6 +384,7 @@ export async function getMyFeedbacks(troupeId: string) {
             play_characters(name)
         `)
         .eq('actor_id', user.id)
+        .eq('status', 'published') // Only show published feedbacks
         .order('created_at', { ascending: false });
 
     if (error) {

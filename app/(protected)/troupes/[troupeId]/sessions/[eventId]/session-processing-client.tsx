@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
-import { updateSessionStatus, deleteRawNote, submitSessionFeedback } from "@/lib/actions/session"; // Added helpers
+import { updateSessionStatus, deleteRawNote, submitSessionFeedback, publishSessionFeedbacks } from "@/lib/actions/session"; // Added helpers
 import { useRouter } from "next/navigation";
 import { SessionPlanStructure } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,7 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
     const handleValidateSession = async () => {
         setIsSubmitting(true);
         try {
+            await publishSessionFeedbacks(sessionData.id);
             await updateSessionStatus(sessionData.id, 'validated');
             router.refresh();
         } catch (e) {
@@ -79,12 +80,17 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
             if (!note) return;
 
             await Promise.all(targets.map(charId =>
-                submitSessionFeedback(sessionData.id, charId, `${type === 'indication' ? '[INDICATION] ' : ''}${note.text}`)
+                submitSessionFeedback(sessionData.id, charId, `${type === 'indication' ? '[INDICATION] ' : ''}${note.text}`, undefined, undefined, 'pending')
             ));
 
             // 2. Delete the raw note (it's processed)
             await deleteRawNote(id);
-            handleDeleteNote(id);
+            // Don't remove from UI, mark as processed
+            setNotes(prev => prev.map(n =>
+                n.id === id
+                    ? { ...n, processed: true, processedType: type, processedTargets: targets }
+                    : n
+            ));
         } catch (e) {
             console.error("Error processing note:", e);
             alert("Erreur lors du traitement de la note");
