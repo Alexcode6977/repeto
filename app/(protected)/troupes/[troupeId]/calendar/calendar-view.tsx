@@ -17,6 +17,7 @@ interface CalendarViewProps {
     userId: string;
     members: any[];
     isAdmin: boolean;
+    onDayClick?: (date: Date) => void;
 }
 
 // Event type colors
@@ -27,7 +28,7 @@ const EVENT_COLORS: Record<string, string> = {
     other: "bg-yellow-500"
 };
 
-export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, members, isAdmin }: CalendarViewProps) {
+export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, members, isAdmin, onDayClick }: CalendarViewProps) {
     const router = useRouter();
     const pathname = usePathname();
     const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
@@ -81,7 +82,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
     };
 
     // Handle day click on mobile
-    const handleDayClick = (day: number, events: any[]) => {
+    const handleMobileDayClick = (day: number, events: any[]) => {
         const date = new Date(currentYear, currentMonth, day);
         setSelectedDay({ date, events });
     };
@@ -184,12 +185,14 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                                             ? 'border-primary/30'
                                             : 'border-transparent md:border-border'
                                         }
-                                        md:cursor-default cursor-pointer active:scale-[0.98] md:active:scale-100 transition-all
+                                        ${onDayClick ? 'cursor-pointer hover:bg-muted/30' : 'md:cursor-default cursor-pointer'} 
+                                        active:scale-[0.98] md:active:scale-100 transition-all
                                     `}
                                     onClick={() => {
-                                        // Mobile only - open day view
                                         if (window.innerWidth < 768) {
-                                            handleDayClick(day, dayEvents);
+                                            handleMobileDayClick(day, dayEvents);
+                                        } else if (onDayClick) {
+                                            onDayClick(new Date(currentYear, currentMonth, day));
                                         }
                                     }}
                                 >
@@ -244,7 +247,10 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                                             return (
                                                 <div
                                                     key={e.id}
-                                                    onClick={() => setSelectedEvent(e)}
+                                                    onClick={(ev) => {
+                                                        ev.stopPropagation(); // Stop propagation to day click
+                                                        setSelectedEvent(e);
+                                                    }}
                                                     className={`
                                                         text-xs p-1.5 rounded bg-muted hover:bg-muted/80 
                                                         border-l-2 ${EVENT_COLORS[e.event_type] ? `border-l-${e.event_type === 'rehearsal' ? 'purple' : e.event_type === 'performance' ? 'blue' : e.event_type === 'meeting' ? 'green' : 'yellow'}-500` : 'border-l-primary'} 
@@ -269,7 +275,10 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                                         {dayEvents.length > 2 && (
                                             <div
                                                 className="text-[10px] text-muted-foreground text-center cursor-pointer hover:text-foreground"
-                                                onClick={() => setSelectedEvent(dayEvents[0])}
+                                                onClick={(ev) => {
+                                                    ev.stopPropagation();
+                                                    setSelectedEvent(dayEvents[0])
+                                                }}
                                             >
                                                 +{dayEvents.length - 2} autres
                                             </div>

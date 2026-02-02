@@ -119,26 +119,40 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
     }, [script.lines, settings.mode, userCharacters, skipCharacters]);
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background text-foreground font-sans overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground font-sans overflow-hidden">
             {/* Header */}
-            <div className="flex-none px-4 pt-8 pb-4 border-b border-border bg-background/80 flex items-center justify-between">
+            <div className="flex-none px-4 pt-4 pb-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-[110] flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-muted rounded-full text-foreground">
+                    <Button variant="ghost" size="icon" onClick={onExit} className="hover:bg-accent hover:text-accent-foreground rounded-full h-10 w-10">
                         <ArrowLeft className="w-5 h-5" />
+                        <span className="sr-only">Retour</span>
                     </Button>
-                    <div>
-                        <h2 className="text-lg font-bold leading-tight line-clamp-1 text-foreground">{script.title || "Lecture"}</h2>
-                        <p className="text-xs text-muted-foreground">Rôles : <span className="text-yellow-600 dark:text-yellow-400 font-bold">{userCharacters.join(", ")}</span></p>
+                    <div className="flex flex-col">
+                        <h2 className="text-lg font-bold leading-tight line-clamp-1">{script.title || "Lecture"}</h2>
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                            Rôles : <span className="text-primary font-bold">{userCharacters.join(", ")}</span>
+                        </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                     <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneAtIndex)}
-                        className="bg-card hover:bg-muted border border-border rounded-xl flex items-center gap-2 text-xs font-bold py-2 h-auto"
+                        className="gap-2 hidden sm:flex"
                     >
                         <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline">Exporter PDF</span>
+                        Exporter PDF
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneAtIndex)}
+                        className="sm:hidden"
+                    >
+                        <Download className="w-5 h-5" />
+                        <span className="sr-only">PDF</span>
                     </Button>
                 </div>
             </div>

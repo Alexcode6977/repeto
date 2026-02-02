@@ -57,14 +57,14 @@ export async function getTroupeSessions(troupeId: string) {
     }
 
     // Members see:
-    // a) Sessions with NO plan (Events, e.g. generic rehearsal)
-    // b) Sessions with a plan that is 'published'
+    // a) Sessions with NO plan (Generic events) - assumed visible
+    // b) Sessions with a plan that is 'upcoming', 'processing' (maybe restricted), 'validated'
     return data.filter((event: any) => {
-        // Fix: session_plans might be array or object (single)
         const plan = Array.isArray(event.session_plans) ? event.session_plans[0] : event.session_plans;
 
         if (!plan) return true; // No plan = Visible (Generic event)
-        return plan.status === 'published';
+        // Members typically see upcoming and validated. Processing might be visible as "pending"
+        return ['upcoming', 'processing', 'validated'].includes(plan.status);
     });
 }
 
@@ -74,7 +74,7 @@ export async function getTroupeSessions(troupeId: string) {
 export async function getSessionDetails(eventId: string) {
     const supabase = await createClient();
 
-    // 1. Fetch Event to get troupe_id
+    // 1. Fetch Event
     const { data: event, error: eventError } = await supabase
         .from('events')
         .select('*')
@@ -98,7 +98,7 @@ export async function getSessionDetails(eventId: string) {
                 *,
                 scene_characters(character_id)
             )
-                `)
+        `)
         .eq('troupe_id', event.troupe_id);
 
     if (playsError) {
@@ -112,11 +112,11 @@ export async function getSessionDetails(eventId: string) {
         .select(`
             event_attendance(
                 *,
-                    profiles(first_name, email),
-                    troupe_guests(id, name)
-                ),
+                profiles(first_name, email),
+                troupe_guests(id, name)
+            ),
             session_plans(*)
-                `)
+        `)
         .eq('id', eventId)
         .single();
 
@@ -126,16 +126,19 @@ export async function getSessionDetails(eventId: string) {
     }
 
 
-    // 4. Fetch line counts for each play
-    const playsWithStats = await Promise.all(allPlays.map(async (p) => {
-        const { data: lineCounts } = await supabase.rpc('get_line_counts', {
-            p_play_id: p.id
-        });
-        return {
-            ...p,
-            lineStats: lineCounts || []
-        };
-    }));
+    // 4. Calculate line counts (Server-side instead of RPC)
+    const playsWithStats = allPlays.map((p: any) => {
+        try {
+            const lineCounts = calculateLineStats(p);
+            return {
+                ...p,
+                lineStats: lineCounts
+            };
+        } catch (e) {
+            console.error(`Error calculating stats for play ${p.title}:`, e);
+            return { ...p, lineStats: [] };
+        }
+    });
 
     return {
         ...event,
@@ -147,16 +150,21 @@ export async function getSessionDetails(eventId: string) {
 
 /**
  * Save or update a session plan.
- * selectedScenes: Array of { scene_id: string, objective: string }
+ */
+/**
+ * Save or update a session plan.
  */
 export async function saveSessionPlan(
     eventId: string,
     selectedScenes: any[],
     notes: string = "",
-    status: 'draft' | 'published' = 'draft'
+    status: 'preparation' | 'upcoming' | 'processing' | 'validated' = 'preparation',
+    planStructure?: any,
+    title?: string
 ) {
     const supabase = await createClient();
 
+    // Deduplicate scenes (Keep for backward compatibility / indexing)
     const uniqueScenesMap = new Map();
     selectedScenes.forEach((scene: any) => {
         const id = typeof scene === 'string' ? scene : scene.id;
@@ -174,54 +182,140 @@ export async function saveSessionPlan(
         updated_at: new Date().toISOString()
     };
 
-    if (status === 'published') {
+    if (planStructure) {
+        updateData.plan_structure = planStructure;
+    }
+
+    if (status === 'upcoming') {
         updateData.published_at = new Date().toISOString();
     }
 
-    const { error } = await supabase
+    // Update Session Plan
+    const { error: planError } = await supabase
         .from('session_plans')
         .upsert(updateData);
 
-    if (error) {
-        console.error('Error saving session plan:', error);
+    if (planError) {
+        console.error('Error saving session plan:', planError);
         throw new Error('Failed to save session plan');
     }
 
-    revalidatePath(`/ troupes`);
+    // Update Event Title if provided
+    if (title) {
+        const { error: eventError } = await supabase
+            .from('events')
+            .update({ title: title })
+            .eq('id', eventId);
+
+        if (eventError) {
+            console.error('Error updating event title:', eventError);
+            // Don't throw here to avoid blocking plan save, but maybe we should?
+            // Let's log it. User will see old title but plan saved.
+        }
+    }
+
+    revalidatePath(`/troupes`);
 }
 
-export async function publishSession(eventId: string) {
+/**
+ * Update session status (Generic)
+ */
+export async function updateSessionStatus(eventId: string, status: 'preparation' | 'upcoming' | 'processing' | 'validated') {
     const supabase = await createClient();
-
-    // Check if plan exists
-    const { data: plan } = await supabase
-        .from('session_plans')
-        .select('*')
-        .eq('event_id', eventId)
-        .single();
-
-    if (!plan) {
-        throw new Error("No plan to publish. Save a draft first.");
-    }
 
     const { error } = await supabase
         .from('session_plans')
         .update({
-            status: 'published',
-            published_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            status: status,
+            updated_at: new Date().toISOString(),
+            ...(status === 'upcoming' ? { published_at: new Date().toISOString() } : {})
         })
         .eq('event_id', eventId);
 
     if (error) {
-        throw new Error('Failed to publish session');
+        console.error("Error updating session status:", error);
+        throw new Error('Failed to update session status');
     }
 
-    revalidatePath(`/ troupes`);
+    revalidatePath(`/troupes`);
 }
 
 /**
- * Submit feedback for an actor during a session.
+ * Create a RAW note during Live Session
+ */
+export async function saveRawNote(
+    eventId: string,
+    playId: string,
+    sceneIndex: number,
+    text: string,
+    lineIndex?: number
+) {
+    const supabase = await createClient();
+
+    const { error } = await supabase
+        .from('session_raw_notes')
+        .insert({
+            event_id: eventId,
+            play_id: playId,
+            scene_index: sceneIndex,
+            line_index: lineIndex,
+            text: text
+        });
+
+    if (error) {
+        console.error('Error saving raw note:', error);
+        throw new Error('Failed to save raw note');
+    }
+}
+
+/**
+ * Get RAW notes for a session
+ */
+export async function getRawNotes(eventId: string) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('session_raw_notes')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching raw notes:', error);
+        return [];
+    }
+    return data;
+}
+
+export async function updateRawNote(noteId: string, text: string) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('session_raw_notes')
+        .update({ text })
+        .eq('id', noteId);
+
+    if (error) {
+        console.error('Error updating raw note:', error);
+        throw new Error('Failed to update raw note');
+    }
+}
+
+export async function deleteRawNote(noteId: string) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('session_raw_notes')
+        .delete()
+        .eq('id', noteId);
+
+    if (error) {
+        console.error('Error deleting raw note:', error);
+        throw new Error('Failed to delete raw note');
+    }
+}
+
+
+/**
+ * Submit feedback for an actor (Existing - kept for compatibility/extensions)
  */
 export async function submitSessionFeedback(
     eventId: string,
@@ -246,9 +340,7 @@ export async function submitSessionFeedback(
         console.error('Error submiting feedback:', error);
         throw new Error('Failed to submit feedback');
     }
-
-    // No revalidate needed for live feedback usually, but let's be safe
-    revalidatePath(`/ troupes`);
+    revalidatePath(`/troupes`);
 }
 
 /**
@@ -269,7 +361,7 @@ export async function getMyFeedbacks(troupeId: string) {
                 session_plans(selected_scenes)
             ),
             play_characters(name)
-                `)
+        `)
         .eq('actor_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -287,12 +379,13 @@ export async function getMyFeedbacks(troupeId: string) {
 export async function getLastFeedbacksForCharacters(characterIds: string[]) {
     const supabase = await createClient();
 
+    // ... (Use existing logic or optimize)
     const { data, error } = await supabase
         .from('rehearsal_feedbacks')
         .select(`
             *,
             events(title, start_time)
-                `)
+        `)
         .in('character_id', characterIds)
         .order('created_at', { ascending: false });
 
@@ -301,7 +394,6 @@ export async function getLastFeedbacksForCharacters(characterIds: string[]) {
         return {};
     }
 
-    // Group by character_id and pick the first one (most recent)
     const latest: Record<string, any> = {};
     data.forEach(f => {
         if (!latest[f.character_id]) {
@@ -419,4 +511,88 @@ export async function getUserPreparationDetails(sessionId: string) {
 
     console.log("RPC Data received:", data.length, "groups");
     return data;
+}
+
+/**
+ * Helper: Normalize name for matching
+ */
+function normalizeName(name: string): string {
+    return name
+        .toUpperCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9 ]/g, "")
+        .trim();
+}
+
+/**
+ * Helper: Calculate Line Stats from Script Content
+ * Alternative to the missing 'get_line_counts' RPC
+ */
+function calculateLineStats(play: any) {
+    if (!play.script_content || !play.play_scenes || !play.play_characters) {
+        return [];
+    }
+
+    const script = play.script_content;
+    const lines = script.lines || [];
+    const dbScenes = play.play_scenes; // Assumed sorted/complete
+    const dbCharacters = play.play_characters;
+
+    // 1. Prepare Maps
+    const charMap = new Map<string, string>(); // Normalized Name -> UUID
+    dbCharacters.forEach((c: any) => {
+        charMap.set(normalizeName(c.name), c.id);
+    });
+
+    // 2. Prepare Scenes (Match by order or title)
+    // We assume dbScenes are in correct order (order_index) or creation order
+    const sortedDbScenes = [...dbScenes].sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
+
+    // We need to match script scenes to DB scenes.
+    // The script lines flow linearly. We'll track the "current" DB scene index.
+    let currentDbSceneIndex = -1;
+    let currentSceneId: string | null = null;
+
+    // Stats: Key = "sceneId|charId" -> count
+    const statsMap = new Map<string, number>();
+
+    lines.forEach((line: any) => {
+        if (line.type === 'scene_heading') {
+            // Advance scene
+            currentDbSceneIndex++;
+            if (currentDbSceneIndex < sortedDbScenes.length) {
+                currentSceneId = sortedDbScenes[currentDbSceneIndex].id;
+            } else {
+                currentSceneId = null; // Out of bounds of known scenes
+            }
+        } else if (line.type === 'dialogue') {
+            if (currentSceneId) {
+                const normChar = normalizeName(line.character);
+                const charId = charMap.get(normChar);
+
+                // Try fuzzy match or partial if not strict?
+                // For now, strict normalized match. 
+                // Parsing usually produces consistent names.
+
+                if (charId) {
+                    const key = `${currentSceneId}|${charId}`;
+                    statsMap.set(key, (statsMap.get(key) || 0) + 1);
+                }
+            }
+        }
+    });
+
+    // 3. Format result
+    const result: any[] = [];
+    statsMap.forEach((count, key) => {
+        const [scene_id, character_id] = key.split('|');
+        result.push({
+            scene_id,
+            character_id,
+            line_count: count
+        });
+    });
+
+    return result;
 }

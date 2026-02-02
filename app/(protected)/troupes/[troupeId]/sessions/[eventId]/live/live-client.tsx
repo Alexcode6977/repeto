@@ -3,87 +3,66 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
 import { LiveScriptViewer } from "./live-script-viewer";
-import { LiveActorGrid } from "./live-actor-grid";
+import { LiveNotesList } from "./live-notes-list";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { updateSessionStatus } from "@/lib/actions/session";
+import { useRouter } from "next/navigation";
 
-interface LiveSessionClientProps {
+interface LiveClientProps {
     sessionData: any;
-    troupeId: string;
-    currentUser: { id: string; name: string };
+    scenes: any[];
     isReadOnly?: boolean;
 }
 
-export function LiveSessionClient({ sessionData, troupeId, currentUser, isReadOnly = false }: LiveSessionClientProps) {
-    // 1. Data Preparation
-    const scenes = useMemo(() => {
-        if (!sessionData.session_plans?.selected_scenes) return [];
-        return sessionData.session_plans.selected_scenes.map((s: any) => {
-            // Normalize ID
-            const sId = typeof s === 'string' ? s : s.id;
-
-            // Find full scene details from plays
-            for (const play of sessionData.plays || []) {
-                const found = play.play_scenes.find((ps: any) => ps.id === sId);
-                if (found) return { ...found, playTitle: play.title, playId: play.id, playCharacters: play.play_characters };
-            }
-            return null;
-        }).filter(Boolean);
-    }, [sessionData]);
-
+export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClientProps) {
+    const router = useRouter();
     const [currentSceneIdx, setCurrentSceneIdx] = useState(0);
 
-    // Safety check
-    if (scenes.length === 0) return <div className="p-8 text-center text-muted-foreground">Aucune scène au programme.</div>;
+    // Completion State
+    const [isFinishing, setIsFinishing] = useState(false);
+    const [showFinishDialog, setShowFinishDialog] = useState(false);
+    const [finalNotes, setFinalNotes] = useState("");
 
     const currentScene = scenes[currentSceneIdx];
 
-    // Get Actors in Current Scene
-    const actorsInScene = useMemo(() => {
-        if (!currentScene) return [];
-        const actors = new Map<string, { id: string; name: string; characterName: string; avatar?: string }>();
-
-        // Iterate characters in scene
-        currentScene.scene_characters?.forEach((sc: any) => {
-            const charDef = currentScene.playCharacters?.find((pc: any) => pc.id === sc.character_id);
-            if (charDef) {
-                const actorId = charDef.actor_id || charDef.guest_id;
-
-                if (actorId) {
-                    const existing = actors.get(actorId);
-                    if (existing) {
-                        existing.characterName += ` & ${charDef.name}`;
-                    } else {
-                        actors.set(actorId, {
-                            id: actorId,
-                            name: "Acteur", // Placeholder name
-                            characterName: charDef.name
-                        });
-                    }
-                } else {
-                    // Empty Role
-                    actors.set(`unassigned-${charDef.id}`, {
-                        id: `unassigned-${charDef.id}`,
-                        name: "?",
-                        characterName: charDef.name + " (Non distribué)"
-                    });
-                }
-            }
-        });
-        return Array.from(actors.values());
-    }, [currentScene]);
-
     const handleSceneChange = (dir: 'next' | 'prev') => {
-        if (dir === 'next' && currentSceneIdx < scenes.length - 1) setCurrentSceneIdx(c => c + 1);
+        if (dir === 'next') {
+            if (currentSceneIdx < scenes.length - 1) {
+                setCurrentSceneIdx(c => c + 1);
+            } else {
+                // Last scene -> Open Finish Dialog
+                setShowFinishDialog(true);
+            }
+        }
         if (dir === 'prev' && currentSceneIdx > 0) setCurrentSceneIdx(c => c - 1);
     };
 
+    const handleFinishSession = async () => {
+        setIsFinishing(true);
+        try {
+            // Here we could save the finalNotes to a specific field if needed, 
+            // maybe append to general_notes or a new 'debrief_notes' field.
+            // For now, we'll just update status.
+            // Ideally we'd have a 'saveSessionDebrief' action, but let's stick to updateSessionStatus for now + maybe redirect logic.
+
+            // NOTE: If user wants to save the final message, we need an action for it. 
+            // I'll assume for now we just close the session, or maybe save it as a "Conclusion" raw note?
+            // Let's just finish the session for now as requested by "Update status to processing".
+
+            await updateSessionStatus(sessionData.id, 'processing');
+            router.push(`/troupes/${sessionData.troupe_id}/sessions/${sessionData.id}`);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsFinishing(false);
+        }
+    };
+
     // Find global scene index (index in the source play's script)
-    // We need this for injection. 
-    // Wait, LiveScriptViewer does it internally by title. 
-    // LiveActorGrid also needs it for "Scene Direction".
-    // Let's pass it. Since scenes in `scenes` array might come from different plays, 
-    // we need to find the specific play for currentScene.
     const globalSceneIndex = useMemo(() => {
         if (!currentScene || !sessionData.plays) return -1;
         const play = sessionData.plays.find((p: any) => p.id === currentScene.playId);
@@ -92,6 +71,8 @@ export function LiveSessionClient({ sessionData, troupeId, currentUser, isReadOn
         // Find index in script.scenes by matching title (safest link we have)
         return play.script_content.scenes.findIndex((s: any) => s.title === currentScene.title);
     }, [currentScene, sessionData.plays]);
+
+    if (scenes.length === 0) return <div className="p-8 text-center text-muted-foreground">Aucune scène au programme.</div>;
 
     return (
         <div className="flex flex-col h-[calc(100vh-theme(spacing.20))] bg-background overflow-hidden relative">
@@ -121,8 +102,8 @@ export function LiveSessionClient({ sessionData, troupeId, currentUser, isReadOn
             {/* B. SPLIT VIEW MAIN CONTENT */}
             <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
 
-                {/* LEFT: SCRIPT (60%) */}
-                <div className="flex-1 md:flex-[0.6] min-w-0 border-r border-border/10 bg-black/20">
+                {/* LEFT: SCRIPT (75%) */}
+                <div className="flex-1 md:flex-[0.75] min-w-0 border-r border-border/10 bg-black/20">
                     <LiveScriptViewer
                         sessionData={sessionData}
                         currentSceneIdx={currentSceneIdx}
@@ -131,15 +112,19 @@ export function LiveSessionClient({ sessionData, troupeId, currentUser, isReadOn
                     />
                 </div>
 
-                {/* RIGHT: ACTORS (40%) */}
-                <div className="flex-1 md:flex-[0.4] min-w-0 bg-background">
-                    <LiveActorGrid
-                        actorsInScene={actorsInScene}
-                        sessionData={sessionData}
-                        currentScene={currentScene}
-                        globalSceneIndex={globalSceneIndex}
-                        isReadOnly={isReadOnly}
-                    />
+                {/* RIGHT: ACTORS/NOTES (25%) */}
+                <div className="flex-1 md:flex-[0.25] min-w-0 bg-background flex flex-col border-l border-border/10">
+
+                    {/* Header */}
+                    <div className="flex items-center border-b border-border/50 bg-muted/20 px-4 h-12">
+                        <span className="text-[10px] uppercase font-black tracking-widest text-primary flex items-center gap-2">
+                            Flux de Notes
+                        </span>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden relative">
+                        <LiveNotesList eventId={sessionData.id} />
+                    </div>
                 </div>
 
             </div>
@@ -147,11 +132,11 @@ export function LiveSessionClient({ sessionData, troupeId, currentUser, isReadOn
             {/* C. BOTTOM NAVIGATION CONTROLS */}
             <div className="h-20 shrink-0 bg-background/80 backdrop-blur-xl border-t border-border flex items-center justify-between px-6 pb-4">
                 <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
                     onClick={() => handleSceneChange('prev')}
                     disabled={currentSceneIdx === 0}
-                    className="h-12 w-12 rounded-full hover:bg-muted"
+                    className="h-12 w-12 rounded-full border-muted-foreground/20 hover:bg-muted"
                 >
                     <ChevronLeft className="w-6 h-6" />
                 </Button>
@@ -164,16 +149,50 @@ export function LiveSessionClient({ sessionData, troupeId, currentUser, isReadOn
                 </div>
 
                 <Button
-                    variant="ghost"
-                    size="icon"
+                    size={currentSceneIdx === scenes.length - 1 ? "lg" : "icon"}
                     onClick={() => handleSceneChange('next')}
-                    disabled={currentSceneIdx === scenes.length - 1}
-                    className="h-12 w-12 rounded-full hover:bg-muted"
+                    className={cn(
+                        "rounded-full transition-all shadow-lg",
+                        currentSceneIdx === scenes.length - 1
+                            ? "h-12 px-6 bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "h-12 w-12 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
+                    )}
                 >
-                    <ChevronRight className="w-6 h-6" />
+                    {currentSceneIdx === scenes.length - 1 ? (
+                        <span className="flex items-center gap-2 font-bold">Terminer <CheckCircle2 className="w-4 h-4" /></span>
+                    ) : (
+                        <ChevronRight className="w-6 h-6" />
+                    )}
                 </Button>
             </div>
+
+            {/* FINISH DIALOG */}
+            <Dialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Fin de la Séance</DialogTitle>
+                        <DialogDescription>
+                            Vous allez clôturer cette séance et passer au traitement des notes.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Message de fin (Optionnel)</Label>
+                            <Textarea
+                                placeholder="Un dernier mot pour l'équipe ou une note globale..."
+                                value={finalNotes}
+                                onChange={(e) => setFinalNotes(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowFinishDialog(false)}>Annuler</Button>
+                        <Button onClick={handleFinishSession} disabled={isFinishing}>
+                            {isFinishing ? "Clôture..." : "Enregistrer et Clôturer"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
-

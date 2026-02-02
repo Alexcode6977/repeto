@@ -6,8 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Mic, Send, X, Sparkles, MessageSquare, StickyNote } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { submitSessionFeedback } from '@/lib/actions/session';
-import { injectDirectorNote } from '@/lib/actions/director';
+import { submitSessionFeedback, saveRawNote } from '@/lib/actions/session';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface LiveActorGridProps {
@@ -47,15 +46,13 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
                     await submitSessionFeedback(sessionData.id, starChar.id, feedbackText, selectedActorId);
                 }
             } else {
-                // Persistent Director Note (Script Injection)
-                // We inject it at the start of the scene (globalSceneIndex)
-                // Format: [À LUCIEN] ...
-                const prefix = starChar ? `[À ${starChar.name.toUpperCase()}] ` : "";
-                await injectDirectorNote(
+                // Persistent Raw Note (Direction) - Formerly saved to script, now saved as Raw Note
+                const prefix = starChar ? `[${starChar.name}] ` : "";
+                await saveRawNote(
+                    sessionData.id,
                     currentScene.playId,
                     globalSceneIndex,
-                    prefix + feedbackText,
-                    undefined // Start of scene
+                    prefix + feedbackText
                 );
             }
 

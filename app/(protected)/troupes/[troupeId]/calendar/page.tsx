@@ -1,10 +1,8 @@
 import { getTroupeEvents } from "@/lib/actions/calendar";
 import { getTroupeDetails, getTroupeMembers, getTroupeGuests } from "@/lib/actions/troupe";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
-import { AddEventModal } from "./add-event-modal";
-import { CalendarView } from "./calendar-view";
 import { CalendarUpcomingList } from "./calendar-upcoming-list";
+import { CalendarClient } from "./calendar-client";
 import { canManageCalendar } from "@/lib/utils/roles";
 
 export default async function CalendarPage({
@@ -60,27 +58,14 @@ export default async function CalendarPage({
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Calendrier</h1>
-                    <p className="hidden md:block text-muted-foreground">
-                        Répétitions et événements de la troupe.
-                    </p>
-                </div>
-                {canManage && (
-                    <AddEventModal troupeId={troupeId} />
-                )}
-            </div>
-
-            {/* Calendar Grid View */}
-            <CalendarView
+            <CalendarClient
                 currentMonth={currentMonth}
                 currentYear={currentYear}
                 eventsByDate={eventsByDate}
                 userId={user?.id || ''}
                 members={allMembers}
                 isAdmin={canManage}
+                troupeId={troupeId}
             />
 
             {/* Upcoming Events List - Both mobile agenda and desktop cards */}

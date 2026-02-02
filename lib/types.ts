@@ -29,3 +29,29 @@ export interface ScriptMetadata {
     is_owner: boolean;
     hasVoiceConfig?: boolean;
 }
+
+export type SessionStatus = 'preparation' | 'upcoming' | 'processing' | 'validated';
+
+export interface SessionRawNote {
+    id: string;
+    event_id: string;
+    play_id: string;
+    scene_index: number;
+    line_index?: number;
+    text: string;
+    created_at: string;
+    created_by?: string;
+}
+
+export interface SessionSegment {
+    playId: string;
+    playTitle: string;
+    segmentNote: string;
+    characterNotes: Record<string, string>; // characterId -> note
+    scenes: any[]; // The selected scenes
+}
+
+export interface SessionPlanStructure {
+    objective: string;
+    segments: SessionSegment[];
+}

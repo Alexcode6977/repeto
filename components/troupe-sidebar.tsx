@@ -49,18 +49,10 @@ export function TroupeSidebar({ troupeId, roles }: TroupeSidebarProps) {
             visible: canAccessArtisticContent(roles)
         },
         {
-            label: "Préparation Séance",
+            label: "Séances",
             href: `/troupes/${troupeId}/sessions`,
             icon: ClipboardList,
-            active: pathname.startsWith(`/troupes/${troupeId}/sessions`) && !pathname.includes('/live'),
-            // Visibility: Director only
-            visible: canDirectTroupe(roles)
-        },
-        {
-            label: "Séance Live",
-            href: `/troupes/${troupeId}/sessions/live`,
-            icon: Users,
-            active: pathname === `/troupes/${troupeId}/sessions/live` || pathname.includes('/live'),
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`),
             // Visibility: Artistic content (Member or MES)
             visible: canAccessArtisticContent(roles)
         }
@@ -69,20 +61,7 @@ export function TroupeSidebar({ troupeId, roles }: TroupeSidebarProps) {
     // Filter items based on permissions
     const visibleNavItems = navItems.filter(item => item.visible);
 
-    // Detect if we are in the sessions area
-    const isInSessions = pathname.startsWith(`/troupes/${troupeId}/sessions`);
-    const sessionMatch = pathname.match(new RegExp(`/troupes/[^/]+/sessions/([^/]+)`));
-    const rawEventId = sessionMatch ? sessionMatch[1] : null;
-    const eventId = (rawEventId && !['my-feedbacks', 'new'].includes(rawEventId)) ? rawEventId : null;
-    const isLive = pathname.endsWith('/live');
 
-    // Update Séance Live href dynamically based on selected session
-    const navItemsWithLiveHref = visibleNavItems.map(item => {
-        if (item.label === "Séance Live" && eventId) {
-            return { ...item, href: `/troupes/${troupeId}/sessions/${eventId}/live` };
-        }
-        return item;
-    });
 
     return (
         <aside className="w-64 h-screen fixed left-0 top-0 border-r border-border/50 bg-background/60 backdrop-blur-2xl z-50 flex flex-col pt-24">
@@ -97,7 +76,7 @@ export function TroupeSidebar({ troupeId, roles }: TroupeSidebarProps) {
             </div>
 
             <nav className="flex-1 px-4 space-y-1">
-                {navItemsWithLiveHref.map((item) => (
+                {visibleNavItems.map((item) => (
                     <div key={item.label} className="space-y-1">
                         <Link
                             href={item.href}

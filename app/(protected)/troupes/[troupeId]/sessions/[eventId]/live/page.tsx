@@ -36,16 +36,28 @@ export default async function LiveSessionPage({
         username = profile?.first_name || profile?.email || "Utilisateur";
     }
 
+    // Extract scenes from plan
+    const plan = sessionData.session_plans?.[0] || sessionData.session_plans;
+    let scenes: any[] = [];
+
+    if (plan?.plan_structure?.segments) {
+        // Flatten segments into a single scenes array for the live player
+        scenes = plan.plan_structure.segments.flatMap((seg: any) => seg.scenes.map((s: any) => ({
+            ...s,
+            playId: seg.playId,
+            playTitle: seg.playTitle // Optional context
+        })));
+    } else if (plan?.selected_scenes) {
+        // Legacy
+        scenes = plan.selected_scenes;
+    }
+
     return (
         <div className="h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] -mx-4 -my-4 md:mx-0 md:my-0 overflow-hidden bg-background">
             <LiveSessionClient
                 sessionData={sessionData}
-                troupeId={troupeId}
+                scenes={scenes}
                 isReadOnly={isReadOnly}
-                currentUser={{
-                    id: user?.id || "guest",
-                    name: username
-                }}
             />
         </div>
     );

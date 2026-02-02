@@ -3,7 +3,8 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, HelpCircle, Loader2 } from "lucide-react";
+import { Check, X, HelpCircle, Loader2, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { updateAttendance } from "@/lib/actions/calendar";
 import { cn } from "@/lib/utils";
@@ -59,9 +60,16 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin, cu
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
                 <DialogHeader>
-                    <DialogTitle className="text-xl flex items-center gap-2">
-                        {event.title}
-                        {event.type === 'rehearsal' && <Badge variant="outline">Répétition</Badge>}
+                    <DialogTitle className="text-xl flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                            {event.title}
+                            {event.type === 'rehearsal' && <Badge variant="outline">Répétition</Badge>}
+                        </div>
+                        <Link href={`/troupes/${event.troupe_id}/sessions/${event.id}`}>
+                            <Badge className="cursor-pointer hover:bg-primary/90 flex items-center gap-1">
+                                Voir la séance <ExternalLink className="w-3 h-3" />
+                            </Badge>
+                        </Link>
                     </DialogTitle>
                     <DialogDescription>
                         {new Date(event.start_time).toLocaleDateString()} • {new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

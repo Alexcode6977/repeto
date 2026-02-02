@@ -11,17 +11,41 @@ import { Plus, Loader2 } from "lucide-react";
 
 interface AddEventModalProps {
     troupeId: string;
+    isOpen?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    defaultDate?: Date | null;
 }
 
-export function AddEventModal({ troupeId }: { troupeId: string }) {
-    const [open, setOpen] = useState(false);
+export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: AddEventModalProps) {
+    const [internalOpen, setInternalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Controlled vs Uncontrolled state
+    const isControlled = isOpen !== undefined && onOpenChange !== undefined;
+    const open = isControlled ? isOpen : internalOpen;
+    const setOpen = isControlled ? onOpenChange : setInternalOpen;
 
     const [title, setTitle] = useState("");
     const [date, setDate] = useState("");
     const [startTime, setStartTime] = useState("18:00");
     const [endTime, setEndTime] = useState("20:00");
     const [recurrence, setRecurrence] = useState<"none" | "weekly">("none");
+
+    const [hasInitialized, setHasInitialized] = useState(false);
+
+    // Sync defaultDate when opening
+    if (open && defaultDate && !hasInitialized) {
+        const yyyy = defaultDate.getFullYear();
+        const mm = String(defaultDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(defaultDate.getDate()).padStart(2, '0');
+        setDate(`${yyyy}-${mm}-${dd}`);
+        setHasInitialized(true);
+    }
+
+    // Reset initialization when closing
+    if (!open && hasInitialized) {
+        setHasInitialized(false);
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -44,7 +68,8 @@ export function AddEventModal({ troupeId }: { troupeId: string }) {
             setOpen(false);
             // Reset form
             setTitle("");
-            setDate("");
+            // Keep date if it was set via click, but maybe reset if we want fresh start next time? 
+            // Better to keep user flow simple.
         } catch (error) {
             console.error(error);
             alert("Erreur lors de la création de l'événement.");
@@ -55,12 +80,26 @@ export function AddEventModal({ troupeId }: { troupeId: string }) {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Ajouter un événement
-                </Button>
-            </DialogTrigger>
+            {/* Only show trigger if we are NOT controlled (or if we want the button to always be there?) 
+                Actually the original usage wants the button. 
+                But for the cell click, we don't have a button trigger.
+                So if controlled, we don't render Trigger unless we wrap it?
+                Let's simplify: passing a `children` trigger or rendering it if not controlled?
+                The previous usage was <AddEventModal troupeId="..."/> which rendered a button.
+                So we should keep rendering the button if it's "stand-alone".
+                BUT the parent will want to render the button to open it. 
+                So let's move the Button OUT of this component if controlled, OR expose a render prop?
+                
+                Simpler: Always render Dialog. If `!isControlled`, render Trigger. 
+             */}
+            {!isControlled && (
+                <DialogTrigger asChild>
+                    <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Ajouter un événement
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>Nouvel événement</DialogTitle>
