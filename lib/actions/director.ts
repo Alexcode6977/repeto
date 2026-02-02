@@ -17,7 +17,8 @@ export async function injectDirectorNote(
     sceneIndex: number,
     text: string,
     targetLineIndex?: number,
-    authorName: string = 'Metteur en Scène'
+    targetNames: string[] = [],
+    isTechnical: boolean = false
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -39,13 +40,23 @@ export async function injectDirectorNote(
     const script = play.script_content as ParsedScript;
 
     // 3. Create the new Line
-    // We generate a pseudo-random ID for the line based on timestamp
+    let formattedText = "";
+    if (isTechnical) {
+        // Format: [Régie Son, Régie Lumière] Text
+        const techStr = targetNames.length > 0 ? `[${targetNames.join(', ')}] ` : '';
+        formattedText = `${techStr}${text}`;
+    } else {
+        // Format: [Metteur en scène] [Targets] Text
+        const targetsStr = targetNames.length > 0 ? ` [${targetNames.join(', ')}]` : '';
+        formattedText = `[Metteur en scène]${targetsStr} ${text}`;
+    }
+
     const newLineId = `director-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newLine: ScriptLine = {
         id: newLineId,
         type: 'stage_direction',
-        character: authorName, // Use the provided author name (e.g. "Régie Son")
-        text: `[NOTE] ${text}` // Prefix or specific formatting can be handled in UI too
+        character: isTechnical ? (targetNames[0] || 'Technique') : 'Metteur en Scène',
+        text: formattedText
     };
 
     // 4. Determine Insertion Point
@@ -56,12 +67,8 @@ export async function injectDirectorNote(
         insertionIndex = targetLineIndex;
     } else {
         // Global Scene Note: Insert right after scene start
-        // Find the start index of the scene
         const scene = script.scenes[sceneIndex];
         if (!scene) throw new Error('Scene not found');
-
-        // The scene starts at scene.index. 
-        // We want to insert it there effectively, shifting everything down.
         insertionIndex = scene.index;
     }
 

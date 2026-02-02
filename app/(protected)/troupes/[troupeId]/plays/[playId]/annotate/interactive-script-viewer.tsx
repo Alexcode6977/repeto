@@ -15,9 +15,9 @@ interface InteractiveScriptViewerProps {
     onMobileInteract?: (ctx: AnnotationContext) => void;
 }
 
-export function InteractiveScriptViewer({ script, currentSceneIdx, context, setContext, onMobileInteract }: InteractiveScriptViewerProps) {
+export function InteractiveScriptViewer({ script, currentSceneIdx, context, setContext }: InteractiveScriptViewerProps) {
 
-    // Filter lines for the current scene (Same logic as LiveScriptViewer)
+    // Filter lines for the current scene
     const sceneLines = useMemo(() => {
         if (!script || !script.scenes[currentSceneIdx]) return [];
 
@@ -26,7 +26,6 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
         const nextScene = script.scenes[currentSceneIdx + 1];
         const endLine = nextScene ? nextScene.index : script.lines.length;
 
-        // Return lines with their ABSOLUTE index in the script
         return script.lines.slice(startLine, endLine).map((line, relativeIdx) => ({
             ...line,
             absoluteIndex: startLine + relativeIdx
@@ -35,129 +34,93 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
     }, [script, currentSceneIdx]);
 
     return (
-        <div className="flex flex-col h-full bg-card/50 border-r border-border/50 relative">
+        <div className="flex flex-col h-full bg-card/50 relative overflow-hidden">
 
             {/* Header / Global Scene Context Indicator */}
             <div
                 className={cn(
-                    "p-6 border-b border-border/50 backdrop-blur-sm sticky top-0 z-20 cursor-pointer transition-colors",
-                    context.type === 'scene' ? "bg-amber-500/10 border-b-amber-500/30" : "bg-background/50 hover:bg-background/80"
+                    "p-6 border-b border-white/5 backdrop-blur-sm sticky top-0 z-20 cursor-pointer transition-all",
+                    context.type === 'scene' && context.index === currentSceneIdx
+                        ? "bg-amber-500/10 border-amber-500/30"
+                        : "bg-background/80 hover:bg-background"
                 )}
-                onClick={() => setContext({ type: 'scene' })}
+                onClick={() => setContext({
+                    type: 'scene',
+                    title: script.scenes[currentSceneIdx]?.title || "Scène",
+                    index: currentSceneIdx
+                })}
             >
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h2 className={cn(
-                            "text-xl font-black uppercase tracking-tight transition-colors",
-                            context.type === 'scene' ? "text-amber-500" : "text-foreground"
+                <div>
+                    <h2 className={cn(
+                        "text-xl font-black uppercase tracking-tight transition-colors",
+                        context.type === 'scene' && context.index === currentSceneIdx ? "text-amber-400" : "text-foreground"
+                    )}>
+                        {script.scenes[currentSceneIdx]?.title || "Scène"}
+                    </h2>
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className={cn(
+                            "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border transition-all",
+                            context.type === 'scene' && context.index === currentSceneIdx
+                                ? "bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/20"
+                                : "bg-muted/50 text-muted-foreground border-white/5"
                         )}>
-                            {script.scenes[currentSceneIdx]?.title || "Scène"}
-                        </h2>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className={cn(
-                                "text-xs font-bold px-2 py-0.5 rounded-full border",
-                                context.type === 'scene'
-                                    ? "bg-amber-500 text-black border-amber-500"
-                                    : "bg-muted text-muted-foreground border-transparent"
-                            )}>
-                                {context.type === 'scene' ? "Cible Actuelle" : "Cliquer pour cibler la scène entière"}
-                            </span>
-                        </div>
+                            {context.type === 'scene' && context.index === currentSceneIdx ? "Cible Sélectionnée" : "Cliquer pour cibler la scène"}
+                        </span>
                     </div>
                 </div>
             </div>
 
             {/* Script Viewer */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-6 md:space-y-6">
-
-                {/* Mobile: Global Scene Trigger */}
-                <div
-                    className="md:hidden flex items-center justify-center py-4 -mt-2"
-                    onClick={() => onMobileInteract && onMobileInteract({ type: 'scene' })}
-                >
-                    <Button variant="outline" size="sm" className="rounded-full text-xs border-dashed border-white/20 text-muted-foreground gap-2">
-                        <Plus className="w-3 h-3" />
-                        Note de Scène (Début)
-                    </Button>
-                </div>
-
+            <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-4">
                 {sceneLines.map((line, idx) => {
                     const isDirection = line.type === 'stage_direction';
-                    const isDirectorNote = isDirection && line.character === 'Metteur en Scène';
+                    const isDirectorNote = isDirection && line.text.includes('[Metteur en scène]');
 
                     const isSelected = context.type === 'line' && context.lineIndex === line.absoluteIndex;
 
                     return (
                         <div key={`${line.id}-${idx}`} className="relative">
-
-                            {/* Mobile: Inter-line Trigger (Before Line) */}
-                            {idx > 0 && (
-                                <div className="md:hidden h-4 -my-2 flex items-center justify-center opacity-0 hover:opacity-100 active:opacity-100 transition-opacity z-10 group">
-                                    <div
-                                        className="w-8 h-8 rounded-full bg-amber-500/20 backdrop-blur border border-amber-500/50 flex items-center justify-center cursor-pointer shadow-lg scale-75 group-hover:scale-100 transition-transform"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onMobileInteract && onMobileInteract({ type: 'inter-line', afterLineIndex: sceneLines[idx - 1].absoluteIndex });
-                                        }}
-                                    >
-                                        <Plus className="w-4 h-4 text-amber-500" />
-                                    </div>
-                                </div>
-                            )}
-
                             <div
                                 className={cn(
                                     "group relative rounded-xl transition-all duration-200 cursor-pointer border-2",
                                     isSelected
-                                        ? "bg-amber-500/5 border-amber-500/50 shadow-[0_0_30px_-10px_rgba(245,158,11,0.3)] pl-6 pr-4 py-4"
-                                        : "border-transparent hover:bg-muted/30 px-4 py-3 md:py-1"
+                                        ? "bg-amber-500/5 border-amber-500/30 shadow-[0_0_30px_-10px_rgba(245,158,11,0.2)] px-6 py-4"
+                                        : "border-transparent hover:bg-white/5 px-6 py-3"
                                 )}
                                 onClick={() => {
-                                    // Mobile: Open Sheet immediately
-                                    if (onMobileInteract) {
-                                        onMobileInteract({
-                                            type: 'line',
-                                            lineIndex: line.absoluteIndex,
-                                            lineContent: line.text,
-                                            character: line.character
-                                        });
-                                        return;
-                                    }
-
-                                    // Desktop: Toggle selection
                                     if (isSelected) {
-                                        setContext({ type: 'scene' });
+                                        setContext({ type: 'none' });
                                     } else {
                                         setContext({
                                             type: 'line',
                                             lineIndex: line.absoluteIndex,
                                             lineContent: line.text,
-                                            character: line.character
+                                            character: line.character,
+                                            sceneIndex: currentSceneIdx
                                         });
                                     }
                                 }}
                             >
                                 {/* Selection Indicator */}
-                                {isSelected && !onMobileInteract && (
+                                {isSelected && (
                                     <div className="absolute left-2 top-1/2 -translate-y-1/2 text-amber-500">
-                                        <Quote className="w-3 h-3 fill-current" />
+                                        <Plus className="w-3 h-3" />
                                     </div>
                                 )}
 
                                 {/* Line Content */}
                                 <div className={cn(
                                     "transition-all",
-                                    isDirectorNote ? "bg-purple-500/10 border-l-4 border-purple-500 p-3 rounded-r-lg" :
-                                        // Standard Direction
-                                        isDirection ? "italic text-muted-foreground" : ""
+                                    isDirectorNote ? "bg-purple-500/10 border-l-4 border-purple-500/50 p-4 rounded-r-lg" :
+                                        isDirection ? "italic text-muted-foreground/80 pl-4 border-l border-white/10" : ""
                                 )}>
                                     {isDirectorNote ? (
                                         <div className="flex flex-col gap-1">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 opacity-70">
                                                 Note Metteur en Scène
                                             </span>
-                                            <p className="font-medium text-purple-100 text-sm">
-                                                {line.text.replace('[NOTE] ', '')}
+                                            <p className="font-medium text-purple-50 text-sm leading-relaxed">
+                                                {line.text}
                                             </p>
                                         </div>
                                     ) : (
@@ -165,21 +128,17 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
                                             {line.type === 'dialogue' && (
                                                 <div className="flex items-center justify-between mb-1">
                                                     <p className={cn(
-                                                        "text-xs font-bold uppercase tracking-widest transition-colors",
-                                                        isSelected ? "text-amber-500" : "text-muted-foreground"
+                                                        "text-[10px] font-black uppercase tracking-[0.2em] transition-colors",
+                                                        isSelected ? "text-amber-400" : "text-muted-foreground/60"
                                                     )}>
                                                         {line.character}
                                                     </p>
-                                                    {/* Mobile: Specific Line Action Indicator (Visual only, whole card clickable) */}
-                                                    <div className="md:hidden opacity-30 group-hover:opacity-100 transition-opacity">
-                                                        <Plus className="w-4 h-4 text-muted-foreground" />
-                                                    </div>
                                                 </div>
                                             )}
                                             <p className={cn(
-                                                "leading-relaxed font-serif",
-                                                line.type === 'dialogue' ? "text-lg text-foreground" : "text-sm",
-                                                isSelected && line.type === 'dialogue' && "font-medium"
+                                                "leading-relaxed",
+                                                line.type === 'dialogue' ? "font-serif text-lg text-foreground/90" : "text-xs",
+                                                isSelected && line.type === 'dialogue' && "text-white"
                                             )}>
                                                 {line.text}
                                             </p>
@@ -194,8 +153,6 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
                 {/* Space at bottom */}
                 <div className="h-32" />
             </div>
-
-            {/* Desktop: Hover '+' for quick inter-line addition (Optional / Future) */}
         </div>
     );
 }
