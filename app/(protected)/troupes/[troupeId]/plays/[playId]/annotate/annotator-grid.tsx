@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Send, StickyNote, Lightbulb, Hammer, Sun, Volume2, Users, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { injectDirectorNote } from '@/lib/actions/director';
-import { AnnotationContext } from './annotator-client';
+import { AnnotationContext } from '@/lib/types';
 
 interface AnnotatorGridProps {
     actorsInScene: any[]; // Actors present in the scene
