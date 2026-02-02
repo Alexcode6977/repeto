@@ -20,17 +20,19 @@ interface ScriptViewerProps {
     script: ParsedScript;
     onConfirm: (characters: string[], mode: 'reader' | 'rehearsal' | 'listen') => void;
     forcedMode?: 'reader' | 'rehearsal' | 'listen';
+    privateNotes?: any[];
 }
 
-export function ScriptViewer({ script, onConfirm, forcedMode }: ScriptViewerProps) {
+export const PRIVATE_NOTE_CHAR = "[Note Perso]";
+
+export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] }: ScriptViewerProps) {
     const [selectedChars, setSelectedChars] = useState<string[]>([]);
 
     // Generic Character Filtering - Updated with extended roles
     const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off", "poursuite", "lumière", "son", "indication"];
-    const isTechnical = (char: string) => technicalKeywords.some(k => char.toLowerCase().includes(k));
+    const isTechnical = (char: string) => technicalKeywords.some(k => char.toLowerCase().includes(k)) || char === PRIVATE_NOTE_CHAR;
 
-    // Derive all characters from lines to ensure we catch those missing from metadata (like Poursuite)
-    // But EXCLUDE structural elements like "SCENE", "ACTE" or explicit scene headings
+    // Derive all characters from lines
     const structuralBlacklist = ["scene", "acte", "act"];
 
     const allLinesCharacters = new Set(
@@ -43,7 +45,14 @@ export function ScriptViewer({ script, onConfirm, forcedMode }: ScriptViewerProp
             .map(l => l.character)
             .filter(Boolean)
     );
-    const allCharacters = Array.from(new Set([...script.characters, ...Array.from(allLinesCharacters)]));
+
+    // Inject PRIVATE_NOTE_CHAR if we have actual private notes
+    const hasPrivateNotes = privateNotes && privateNotes.length > 0;
+    const baseCharacters = Array.from(new Set([...script.characters, ...Array.from(allLinesCharacters)]));
+
+    const allCharacters = hasPrivateNotes
+        ? [...baseCharacters, PRIVATE_NOTE_CHAR]
+        : baseCharacters;
 
     const mainCharacters = allCharacters.filter(c => !isTechnical(c));
     const technicalCharacters = allCharacters.filter(c => isTechnical(c));

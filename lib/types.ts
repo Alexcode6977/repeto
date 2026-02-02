@@ -55,3 +55,9 @@ export interface SessionPlanStructure {
     objective: string;
     segments: SessionSegment[];
 }
+
+export type AnnotationContext =
+    | { type: 'none' }
+    | { type: 'act', title: string, index: number }
+    | { type: 'scene', title: string, index: number }
+    | { type: 'line', lineIndex: number, lineContent: string, character: string, sceneIndex: number };

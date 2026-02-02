@@ -1,11 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { ParsedScript } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Quote, Plus } from 'lucide-react';
+import { Quote, Plus, StickyNote } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { AnnotationContext } from './annotator-client';
+import { AnnotationContext, ParsedScript } from '@/lib/types';
 
 interface InteractiveScriptViewerProps {
     script: ParsedScript;
@@ -13,16 +12,17 @@ interface InteractiveScriptViewerProps {
     context: AnnotationContext;
     setContext: (ctx: AnnotationContext) => void;
     onMobileInteract?: (ctx: AnnotationContext) => void;
+    privateNotes?: any[]; // Array of private notes
 }
 
-export function InteractiveScriptViewer({ script, currentSceneIdx, context, setContext }: InteractiveScriptViewerProps) {
+export function InteractiveScriptViewer({ script, currentSceneIdx, context, setContext, privateNotes = [] }: InteractiveScriptViewerProps) {
 
     // Filter lines for the current scene
     const sceneLines = useMemo(() => {
-        if (!script || !script.scenes[currentSceneIdx]) return [];
+        if (!script?.scenes?.[currentSceneIdx]) return [];
 
         const currentScene = script.scenes[currentSceneIdx];
-        const startLine = currentScene.index;
+        const startLine = currentScene.index; // Start index in the lines array
         const nextScene = script.scenes[currentSceneIdx + 1];
         const endLine = nextScene ? nextScene.index : script.lines.length;
 
@@ -30,8 +30,10 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
             ...line,
             absoluteIndex: startLine + relativeIdx
         }));
-
     }, [script, currentSceneIdx]);
+
+    // Find scene note
+    const sceneNote = privateNotes.find(n => n.scene_index === currentSceneIdx && n.line_index === null);
 
     return (
         <div className="flex flex-col h-full bg-card/50 relative overflow-hidden">
@@ -50,36 +52,57 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
                     index: currentSceneIdx
                 })}
             >
-                <div>
-                    <h2 className={cn(
-                        "text-xl font-black uppercase tracking-tight transition-colors",
-                        context.type === 'scene' && context.index === currentSceneIdx ? "text-amber-400" : "text-foreground"
-                    )}>
-                        {script.scenes[currentSceneIdx]?.title || "Scène"}
-                    </h2>
-                    <div className="flex items-center gap-2 mt-2">
-                        <span className={cn(
-                            "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border transition-all",
-                            context.type === 'scene' && context.index === currentSceneIdx
-                                ? "bg-amber-500 text-black border-amber-500 shadow-lg shadow-amber-500/20"
-                                : "bg-muted/50 text-muted-foreground border-white/5"
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className={cn(
+                            "text-xl font-black uppercase tracking-tight transition-colors",
+                            context.type === 'scene' && context.index === currentSceneIdx ? "text-amber-500" : "text-amber-500/80"
                         )}>
-                            {context.type === 'scene' && context.index === currentSceneIdx ? "Cible Sélectionnée" : "Cliquer pour cibler la scène"}
-                        </span>
+                            {script.scenes[currentSceneIdx]?.title || "Scène"}
+                        </h2>
+                        <div className="flex items-center gap-2 mt-1">
+                            {context.type === 'scene' && context.index === currentSceneIdx && (
+                                <span className="bg-amber-500 text-black text-[10px] font-bold px-2 py-0.5 rounded-full animate-in fade-in zoom-in">
+                                    CIBLE SÉLECTIONNÉE
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
+
+                {/* Private Scene Note Display */}
+                {sceneNote && (
+                    <div className="mt-4 p-3 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-200 text-sm italic relative group">
+                        <div className="absolute -top-2 -right-2 bg-blue-500 text-black p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                            <StickyNote className="w-3 h-3" />
+                        </div>
+                        <span className="font-bold not-italic mr-2 text-blue-400">[Note Perso]</span>
+                        {sceneNote.text}
+                    </div>
+                )}
             </div>
 
             {/* Script Viewer */}
             <div className="flex-1 overflow-y-auto p-4 md:p-10 space-y-4">
                 {sceneLines.map((line, idx) => {
                     const isDirection = line.type === 'stage_direction';
-                    const isDirectorNote = isDirection && line.text.includes('[Metteur en scène]');
+                    const isDirectorNote = isDirection && (line.text.includes('[Metteur en scène]') || line.text.includes('[Régie ')); // Updated logic
 
                     const isSelected = context.type === 'line' && context.lineIndex === line.absoluteIndex;
 
+                    // Private Line Note
+                    const lineNote = privateNotes.find(n => n.line_index === line.absoluteIndex);
+
                     return (
                         <div key={`${line.id}-${idx}`} className="relative">
+                            {/* Private Note Display (Line Level) */}
+                            {lineNote && (
+                                <div className="mt-2 ml-6 p-2 rounded border border-blue-500/20 bg-blue-500/5 text-blue-300 text-xs flex gap-2 items-start animate-in slide-in-from-top-1">
+                                    <StickyNote className="w-3 h-3 mt-0.5 shrink-0 text-blue-400" />
+                                    <span><span className="font-bold text-blue-400">[Note Perso]</span> {lineNote.text}</span>
+                                </div>
+                            )}
+
                             <div
                                 className={cn(
                                     "group relative rounded-xl transition-all duration-200 cursor-pointer border-2",

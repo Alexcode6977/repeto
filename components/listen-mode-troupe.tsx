@@ -7,9 +7,10 @@ import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { getVoiceConfig, determineSourceType, VoiceConfig } from "@/lib/actions/voice-cache";
 import { Button } from "./ui/button";
-import { Play, Pause, SkipForward, SkipBack, X, Sparkles, Headphones, RotateCcw, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, Check, Lock } from "lucide-react";
+import { Play, Pause, SkipForward, SkipBack, X, Sparkles, Headphones, RotateCcw, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, Check, Lock, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
+import { PRIVATE_NOTE_CHAR } from "./script-viewer";
 
 interface ListenModeTroupeProps {
     script: ParsedScript;
@@ -18,6 +19,7 @@ interface ListenModeTroupeProps {
     playId: string;
     troupeId: string;
     skipCharacters?: string[];
+    privateNotes?: any[];
 }
 
 export function ListenModeTroupe({
@@ -26,7 +28,8 @@ export function ListenModeTroupe({
     onExit,
     playId,
     troupeId,
-    skipCharacters = []
+    skipCharacters = [],
+    privateNotes = []
 }: ListenModeTroupeProps) {
     // Configuration state
     const [listenMode, setListenMode] = useState<ListenMode>("full");
@@ -517,6 +520,24 @@ export function ListenModeTroupe({
                                             : "opacity-40 scale-95 blur-[0.5px]"
                                 )}
                             >
+                                {/* Private Note Display */}
+                                {userCharacters.includes(PRIVATE_NOTE_CHAR) && (() => {
+                                    const note = privateNotes?.find(n => n.line_index === index);
+                                    if (!note) return null;
+                                    return (
+                                        <div className={cn(
+                                            "mb-4 p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-300 text-xs flex gap-2 items-start animate-in slide-in-from-top-2",
+                                            isActive ? "opacity-100" : "opacity-60"
+                                        )}>
+                                            <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
+                                            <div className="leading-relaxed">
+                                                <span className="font-bold text-blue-400 uppercase tracking-wider block text-[10px] mb-1">Note Personnelle</span>
+                                                {note.text}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+
                                 <p className={cn(
                                     "text-xs font-bold uppercase tracking-widest mb-3",
                                     isActive ? "text-foreground" : "text-muted-foreground"

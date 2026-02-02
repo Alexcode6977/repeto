@@ -10,7 +10,7 @@ import { getVoiceConfig, createVoiceConfig, VoiceConfig, determineSourceType, So
 import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users } from "lucide-react";
+import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +18,7 @@ import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 import { BrowserVoiceConfig } from "./browser-voice-config";
 import { saveSessionStats, saveLineErrors, LineErrorData } from "@/app/actions/stats"; // Stats Actions
+import { PRIVATE_NOTE_CHAR } from "./script-viewer";
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -97,6 +98,7 @@ interface RehearsalModeProps {
     partnerCharacters?: string[];
     isVisio?: boolean;
     autoStart?: boolean;
+    privateNotes?: any[];
 }
 
 export function RehearsalMode({
@@ -112,7 +114,8 @@ export function RehearsalMode({
     initialIgnoredCharacters = [],
     partnerCharacters = [],
     isVisio = false,
-    autoStart = false
+    autoStart = false,
+    privateNotes = []
 }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
@@ -1156,6 +1159,24 @@ export function RehearsalMode({
                                             : "opacity-40 scale-95 blur-[0.5px]"
                                     )}
                                 >
+                                    {/* Private Note Display */}
+                                    {userCharacters.includes(PRIVATE_NOTE_CHAR) && (() => {
+                                        const note = privateNotes?.find(n => n.line_index === index);
+                                        if (!note) return null;
+                                        return (
+                                            <div className={cn(
+                                                "mb-4 p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-300 text-xs flex gap-2 items-start animate-in slide-in-from-top-2",
+                                                isActive ? "opacity-100" : "opacity-60"
+                                            )}>
+                                                <StickyNote className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
+                                                <div className="leading-relaxed">
+                                                    <span className="font-bold text-blue-400 uppercase tracking-wider block text-[10px] mb-1">Note Personnelle</span>
+                                                    {note.text}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
                                     <p className={cn(
                                         "text-xs font-bold uppercase tracking-widest mb-3",
                                         isActive ? "text-foreground" : "text-muted-foreground"

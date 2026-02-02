@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import { ScriptSettings } from "./script-setup";
 import { exportToPdf } from "@/lib/pdf-export";
 
+import { StickyNote } from "lucide-react";
+import { PRIVATE_NOTE_CHAR } from "./script-viewer";
+
 interface ScriptReaderProps {
     script: ParsedScript;
     userCharacters: string[];
@@ -16,15 +19,18 @@ interface ScriptReaderProps {
     playId?: string;
     userId?: string;
     skipCharacters?: string[];
+    privateNotes?: any[];
 }
 
-export function ScriptReader({ script, userCharacters, onExit, settings, skipCharacters = [] }: ScriptReaderProps) {
+export function ScriptReader({ script, userCharacters, onExit, settings, skipCharacters = [], privateNotes = [] }: ScriptReaderProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const lineRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
     const [highlightStyle, setHighlightStyle] = useState<"box" | "text">("box");
 
-    // Helper to check if user is in this line's character
+    // Check if private notes are enabled
+    const showPrivateNotes = userCharacters.includes(PRIVATE_NOTE_CHAR);
+
     const isUserLine = (lineChar: string) => {
         if (!lineChar || !userCharacters || userCharacters.length === 0) return false;
 
@@ -194,6 +200,11 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                 const lineNumber = userLineNumbers.get(line.id);
                                 const sceneTitle = sceneAtIndex.get((line as any).originalIndex);
 
+                                // Private Note Logic
+                                const note = showPrivateNotes && privateNotes.length > 0
+                                    ? privateNotes.find(n => n.line_index === (line as any).originalIndex)
+                                    : null;
+
                                 return (
                                     <div key={line.id}>
                                         {sceneTitle && (
@@ -201,6 +212,14 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                                 <div className="bg-primary/20 text-primary text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wider">
                                                     {sceneTitle}
                                                 </div>
+                                            </div>
+                                        )}
+
+                                        {/* Private Note Display */}
+                                        {note && (
+                                            <div className="mb-2 ml-14 p-2 rounded border border-blue-500/20 bg-blue-500/5 text-blue-300 text-xs flex gap-2 items-start animate-in slide-in-from-top-1 w-fit max-w-xl">
+                                                <StickyNote className="w-3 h-3 mt-0.5 shrink-0 text-blue-400" />
+                                                <span><span className="font-bold text-blue-400">[Note Perso]</span> {note.text}</span>
                                             </div>
                                         )}
 

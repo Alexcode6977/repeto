@@ -13,7 +13,7 @@ import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/ca
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { FileText, Calendar, Play, BookOpen, Mic, Headphones, Info, Users, Settings, Video, PenTool } from "lucide-react";
+import { ArrowLeft, BookOpen, Calendar, ChevronRight, Mic2, Play, Settings, Users, Video, Wand2, Headphones, NotebookPen, Info, PenTool } from 'lucide-react';
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -32,9 +32,10 @@ interface PlayDashboardClientProps {
     guests: any[];
     isAdmin: boolean;
     initialVoiceConfigs: VoiceConfig[] | null;
+    privateNotes: any[];
 }
 
-export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin, initialVoiceConfigs }: PlayDashboardClientProps) {
+export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin, initialVoiceConfigs, privateNotes }: PlayDashboardClientProps) {
     const router = useRouter();
     const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "setup" | "reader" | "rehearsal" | "listen">("dashboard");
     const [rehearsalChars, setRehearsalChars] = useState<string[] | null>(null);
@@ -106,6 +107,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 playId={play.id}
                 troupeId={troupeId}
                 skipCharacters={technicalRoleNames}
+                privateNotes={privateNotes}
             />
         );
     }
@@ -120,6 +122,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 playId={play.id}
                 troupeId={troupeId}
                 initialIgnoredCharacters={technicalRoleNames}
+                privateNotes={privateNotes}
             />
         );
     }
@@ -134,6 +137,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 playId={play.id}
                 userId={userId}
                 skipCharacters={technicalRoleNames}
+                privateNotes={privateNotes}
             />
         );
     }
@@ -177,6 +181,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         }
                     }}
                     forcedMode={intendedMode}
+                    privateNotes={privateNotes}
                 />
             </div>
         );
@@ -380,10 +385,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
 
                 {/* ÉCOUTER - Common */}
                 <Card
-                    className={cn(
-                        "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
-                        "bg-teal-500/10 hover:bg-teal-500/20"
-                    )}
+                    className="border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl bg-teal-500/10 hover:bg-teal-500/20"
                     onClick={() => {
                         if (rehearsalChars && rehearsalChars.length > 0) {
                             // Already selected -> Go directly to Listen
@@ -454,6 +456,23 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                                 <p className="text-[10px] text-violet-400/60 uppercase font-bold tracking-wider">Visio</p>
                             </div>
                         </Card>
+
+                        {/* MES NOTES - Member Only */}
+                        <Card
+                            className="border-0 bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
+                            onClick={() => {
+                                trigger('medium');
+                                router.push(`/troupes/${troupeId}/plays/${play.id}/private-annotate`);
+                            }}
+                        >
+                            <div className="w-14 h-14 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                <NotebookPen className="w-7 h-7" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-blue-400 text-lg">Mes Notes</h3>
+                                <p className="text-[10px] text-blue-400/60 uppercase font-bold tracking-wider">Privé</p>
+                            </div>
+                        </Card>
                     </>
                 ) : (
                     <>
@@ -483,54 +502,56 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
             </div>
 
             {/* VIDEO OVERLAY - PERSISTENT */}
-            {videoEnabled && videoToken && (
-                <div className={cn(
-                    "fixed z-[100] transition-all duration-300 shadow-2xl rounded-2xl overflow-hidden border-2 border-violet-500/50 bg-black",
-                    // Simplified styling: Fixed bottom-right corner for now, could be draggable later
-                    "bottom-4 right-4 w-[320px] h-[240px] md:w-[400px] md:h-[300px]"
-                )}>
-                    <div className="absolute top-2 right-2 z-20 flex gap-2">
-                        {/* Collapse/Expand could go here */}
-                        <Button
-                            size="icon"
-                            variant="secondary"
-                            className="h-6 w-6 rounded-full bg-black/50 hover:bg-black/80 text-white"
-                            onClick={() => setVideoEnabled(false)}
+            {
+                videoEnabled && videoToken && (
+                    <div className={cn(
+                        "fixed z-[100] transition-all duration-300 shadow-2xl rounded-2xl overflow-hidden border-2 border-violet-500/50 bg-black",
+                        // Simplified styling: Fixed bottom-right corner for now, could be draggable later
+                        "bottom-4 right-4 w-[320px] h-[240px] md:w-[400px] md:h-[300px]"
+                    )}>
+                        <div className="absolute top-2 right-2 z-20 flex gap-2">
+                            {/* Collapse/Expand could go here */}
+                            <Button
+                                size="icon"
+                                variant="secondary"
+                                className="h-6 w-6 rounded-full bg-black/50 hover:bg-black/80 text-white"
+                                onClick={() => setVideoEnabled(false)}
+                            >
+                                <span className="sr-only">Fermer</span>
+                                ×
+                            </Button>
+                        </div>
+
+                        <LiveKitRoom
+                            video={true}
+                            audio={true}
+                            token={videoToken}
+                            serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
+                            data-lk-theme="default"
+                            style={{ height: '100%', width: '100%' }}
+                            onDisconnected={() => setVideoEnabled(false)}
                         >
-                            <span className="sr-only">Fermer</span>
-                            ×
-                        </Button>
-                    </div>
+                            <VideoConference />
+                            <RoomAudioRenderer />
+                        </LiveKitRoom>
 
-                    <LiveKitRoom
-                        video={true}
-                        audio={true}
-                        token={videoToken}
-                        serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
-                        data-lk-theme="default"
-                        style={{ height: '100%', width: '100%' }}
-                        onDisconnected={() => setVideoEnabled(false)}
-                    >
-                        <VideoConference />
-                        <RoomAudioRenderer />
-                    </LiveKitRoom>
-
-                    {/* Invite Link Helper */}
-                    <div className="absolute bottom-2 left-2 z-20 bg-black/60 px-2 py-1 rounded-md text-[10px] text-white backdrop-blur-md flex gap-2 items-center cursor-pointer hover:bg-black/80"
-                        onClick={() => {
-                            const url = `${window.location.origin}/invite/${videoRoom}`;
-                            // We probably need a better invite link that redirects to this page and opens video
-                            // For now, let's just copy the current URL + param
-                            navigator.clipboard.writeText(window.location.href);
-                            alert("Lien de la page copié ! Partagez-le à votre partenaire.");
-                        }}
-                    >
-                        <Users className="w-3 h-3" />
-                        <span>Inviter</span>
+                        {/* Invite Link Helper */}
+                        <div className="absolute bottom-2 left-2 z-20 bg-black/60 px-2 py-1 rounded-md text-[10px] text-white backdrop-blur-md flex gap-2 items-center cursor-pointer hover:bg-black/80"
+                            onClick={() => {
+                                const url = `${window.location.origin}/invite/${videoRoom}`;
+                                // We probably need a better invite link that redirects to this page and opens video
+                                // For now, let's just copy the current URL + param
+                                navigator.clipboard.writeText(window.location.href);
+                                alert("Lien de la page copié ! Partagez-le à votre partenaire.");
+                            }}
+                        >
+                            <Users className="w-3 h-3" />
+                            <span>Inviter</span>
+                        </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
 

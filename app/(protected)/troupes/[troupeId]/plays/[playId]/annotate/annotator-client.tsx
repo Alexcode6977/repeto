@@ -14,6 +14,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { AnnotationContext } from "@/lib/types";
 
 interface AnnotatorClientProps {
     play: any;
@@ -22,11 +23,6 @@ interface AnnotatorClientProps {
     guests: any[];
 }
 
-export type AnnotationContext =
-    | { type: 'none' }
-    | { type: 'act', title: string, index: number }
-    | { type: 'scene', title: string, index: number }
-    | { type: 'line', lineIndex: number, lineContent: string, character: string, sceneIndex: number };
 
 export function AnnotatorClient({ play, troupeId, troupeMembers, guests }: AnnotatorClientProps) {
     const script = play.script_content;

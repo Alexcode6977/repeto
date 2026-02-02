@@ -4,6 +4,7 @@ import { canManageContent } from "@/lib/utils/roles";
 import { createClient } from "@/lib/supabase/server";
 import { PlayDashboardClient } from "./play-dashboard-client";
 import { getVoiceConfig } from "@/lib/actions/voice-cache";
+import { getPrivateNotes } from "@/lib/actions/private-notes";
 
 export default async function PlayDashboardPage({
     params
@@ -33,6 +34,9 @@ export default async function PlayDashboardPage({
     // Fetch voice configs
     const initialVoiceConfigs = await getVoiceConfig('troupe_play', playId);
 
+    // Fetch private notes (Actor Personal Notes)
+    const privateNotes = await getPrivateNotes(playId);
+
     return (
         <PlayDashboardClient
             play={play}
@@ -41,6 +45,7 @@ export default async function PlayDashboardPage({
             guests={guests}
             isAdmin={canManage}
             initialVoiceConfigs={initialVoiceConfigs}
+            privateNotes={privateNotes}
         />
     );
 }
