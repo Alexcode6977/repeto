@@ -212,6 +212,7 @@ export function PlayDashboardClient({
 
     // Derived lists for display
     const myCharacterObjs = play.play_characters?.filter((c: any) => c.actor_id === userId) || [];
+    const myCharacterNames = myCharacterObjs.map((c: any) => c.character_name || c.name);
     // Exclude technical roles from the "Available/Other" list
     const otherCharacters = play.play_characters?.filter((c: any) => c.actor_id !== userId && !isTechnical(c.character_name)) || [];
     const allCharacters = [...myCharacterObjs, ...otherCharacters];
@@ -304,17 +305,17 @@ export function PlayDashboardClient({
                 </div>
             </div>
 
-            {/* 2. Mon Personnage (for members with assigned character) */}
-            {isMember && myCharacters.length > 0 && (
+            {/* 2. Mon Personnage (for ANYONE with assigned character) */}
+            {myCharacterNames.length > 0 && (
                 <Link href={`/troupes/${troupeId}/plays/${play.id}/my-character`} className="block shrink-0">
                     <Card className="p-4 bg-primary/10 hover:bg-primary/20 border-primary/20 rounded-3xl cursor-pointer transition-all active:scale-98">
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-primary/30">
-                                {(myCharacters[0] || "").substring(0, 2).toUpperCase()}
+                                {(myCharacterNames[0] || "").substring(0, 2).toUpperCase()}
                             </div>
                             <div className="flex-1">
                                 <p className="text-[10px] text-primary/60 uppercase font-bold tracking-wider">Mon Personnage</p>
-                                <h3 className="text-lg font-bold text-primary">{myCharacters[0]}</h3>
+                                <h3 className="text-lg font-bold text-primary">{myCharacterNames[0]}</h3>
                                 <p className="text-xs text-muted-foreground">Feedbacks, stats, enregistrement...</p>
                             </div>
                             <div className="text-primary/40">→</div>
