@@ -63,52 +63,110 @@ export async function deleteAccount(): Promise<{ success: boolean; error?: strin
     }
 
     const userId = user.id;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!serviceRoleKey) {
+        console.error("SUPABASE_SERVICE_ROLE_KEY not configured");
+        return { success: false, error: "Configuration serveur manquante" };
+    }
+
+    const adminClient = createAdminClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    });
 
     try {
-        // Delete user data from all related tables in correct order (respecting foreign keys)
+        console.log(`[DELETE_ACCOUNT] Starting deletion for user ${userId}`);
+
+        // 0. Delete Troupes created by user
+        console.log(`[DELETE_ACCOUNT] Deleting owned troupes...`);
+        const { error: troupesError, count: troupesCount } = await adminClient
+            .from("troupes")
+            .delete()
+            .eq("created_by", userId);
+
+        if (troupesError) {
+            console.error("[DELETE_ACCOUNT] Error deleting troupes:", troupesError);
+            throw new Error(`Failed to delete troupes: ${troupesError.message}`);
+        }
+        console.log(`[DELETE_ACCOUNT] Deleted ${troupesCount} owned troupes.`);
+
+
         // 1. Delete feedbacks
-        await supabase.from("feedbacks").delete().eq("user_id", userId);
+        console.log(`[DELETE_ACCOUNT] Deleting feedbacks...`);
+        const { error: feedbackError } = await adminClient.from("feedbacks").delete().eq("user_id", userId);
+        if (feedbackError) console.error("[DELETE_ACCOUNT] Error deleting feedbacks:", feedbackError);
 
-        // 2. Delete recordings
-        await supabase.from("recordings").delete().eq("user_id", userId);
+        // 1.5 Delete Storage Files (Recordings)
+        console.log(`[DELETE_ACCOUNT] Cleaning up storage files...`);
+        try {
+            // "play-recordings" bucket uses userId as root folder: userId/filename
+            const { data: fileList, error: listError } = await adminClient
+                .storage
+                .from('play-recordings')
+                .list(userId);
 
-        // 3. Delete bookmarks
-        await supabase.from("bookmarks").delete().eq("user_id", userId);
+            if (fileList && fileList.length > 0) {
+                const filesToDelete = fileList.map(f => `${userId}/${f.name}`);
+                console.log(`[DELETE_ACCOUNT] Found ${filesToDelete.length} files in 'play-recordings' for user.`);
 
-        // 4. Delete troupe members entries
-        await supabase.from("troupe_members").delete().eq("user_id", userId);
+                const { error: removeError } = await adminClient
+                    .storage
+                    .from('play-recordings')
+                    .remove(filesToDelete);
 
-        // 5. Delete calendar attendance entries
-        await supabase.from("calendar_attendance").delete().eq("user_id", userId);
-
-        // 6. Delete user plays (personal copies)
-        await supabase.from("user_plays").delete().eq("user_id", userId);
-
-        // 7. Delete profile (should cascade, but explicit for safety)
-        await supabase.from("profiles").delete().eq("id", userId);
-
-        // 8. Delete auth user using admin client (requires service role key)
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-        if (!serviceRoleKey) {
-            console.error("SUPABASE_SERVICE_ROLE_KEY not configured");
-            return { success: false, error: "Configuration serveur manquante" };
+                if (removeError) console.error("[DELETE_ACCOUNT] Error removing storage files:", removeError);
+            } else if (listError) {
+                console.error("[DELETE_ACCOUNT] Error listing storage files:", listError);
+            }
+        } catch (storageCatch) {
+            console.error("[DELETE_ACCOUNT] Storage cleanup failed:", storageCatch);
         }
 
-        const adminClient = createAdminClient(supabaseUrl, serviceRoleKey, {
-            auth: {
-                autoRefreshToken: false,
-                persistSession: false,
-            },
-        });
+        // 2. Delete recordings
+        console.log(`[DELETE_ACCOUNT] Deleting recordings...`);
 
+        const { error: recordingsError } = await adminClient.from("recordings").delete().eq("user_id", userId);
+        if (recordingsError) console.error("[DELETE_ACCOUNT] Error deleting recordings:", recordingsError);
+
+        // 3. Delete bookmarks
+        console.log(`[DELETE_ACCOUNT] Deleting bookmarks...`);
+        await adminClient.from("bookmarks").delete().eq("user_id", userId);
+
+        // 4. Delete troupe members entries
+        console.log(`[DELETE_ACCOUNT] Deleting troupe memberships...`);
+        await adminClient.from("troupe_members").delete().eq("user_id", userId);
+
+        // 5. Delete calendar attendance
+        console.log(`[DELETE_ACCOUNT] Deleting calendar attendance...`);
+        await adminClient.from("calendar_attendance").delete().eq("user_id", userId);
+
+        // 6. Delete user plays
+        console.log(`[DELETE_ACCOUNT] Deleting user plays...`);
+        await adminClient.from("user_plays").delete().eq("user_id", userId);
+
+        // 7. Delete profile
+        console.log(`[DELETE_ACCOUNT] Deleting profile...`);
+        const { error: profileError } = await adminClient.from("profiles").delete().eq("id", userId);
+        if (profileError) {
+            console.error("[DELETE_ACCOUNT] Error deleting profile:", profileError);
+            // If profile isn't deleted, auth deletion will definitely fail if profile > auth FK exists (usually cascade tho)
+        }
+
+        // 8. Delete auth user
+        console.log(`[DELETE_ACCOUNT] Deleting auth user...`);
         const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(userId);
 
         if (deleteAuthError) {
-            console.error("Error deleting auth user:", deleteAuthError);
-            return { success: false, error: "Erreur lors de la suppression du compte d'authentification" };
+            console.error("[DELETE_ACCOUNT] Error deleting auth user:", deleteAuthError);
+            return { success: false, error: "Erreur lors de la suppression du compte d'authentification: " + deleteAuthError.message };
         }
+
+        console.log(`[DELETE_ACCOUNT] Successfully deleted user ${userId}`);
+
 
         // Sign out the user (session will be invalidated anyway after user deletion)
         await supabase.auth.signOut();

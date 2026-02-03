@@ -41,11 +41,24 @@ export function SubscriptionCard({
     const isPastDue = status === 'past_due';
     const isCanceledButActive = isActive && cancelAtPeriodEnd;
 
+    // Default trial duration in days if not specified by backend
+    const TRIAL_DURATION_DAYS = 14;
+
     // Calculate days remaining in trial
     const getDaysRemaining = () => {
         if (!isTrialing) return null;
-        // Fallback to endDate if trialEndDate is not provided (depend on backend consistency)
-        const targetDate = trialEndDate ? new Date(trialEndDate) : (endDate ? new Date(endDate) : null);
+
+        let targetDate: Date | null = null;
+
+        if (trialEndDate) {
+            targetDate = new Date(trialEndDate);
+        } else if (endDate) {
+            targetDate = new Date(endDate);
+        } else if (trialStartDate) {
+            // Fallback: Calculate from start date + default duration
+            const startDate = new Date(trialStartDate);
+            targetDate = new Date(startDate.getTime() + (TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000));
+        }
 
         if (!targetDate) return null;
 
@@ -158,13 +171,13 @@ export function SubscriptionCard({
             {/* Trial Info Block */}
             {isTrialing && (
                 <div className="mb-4 space-y-3">
-                    <div className="p-4 rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20">
+                    <div className="p-4 rounded-lg bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 shadow-sm">
                         <div className="flex items-start gap-3">
-                            <Sparkles className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
+                            <Sparkles className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                             <div className="flex-1 space-y-2">
                                 <div>
-                                    <p className="font-semibold text-sm mb-1">Essai gratuit actif</p>
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="font-bold text-sm mb-1 text-red-500">Essai gratuit actif</p>
+                                    <p className="text-sm font-medium text-red-400">
                                         {daysRemaining !== null
                                             ? (daysRemaining > 0
                                                 ? `${daysRemaining} jour${daysRemaining > 1 ? 's' : ''} restant${daysRemaining > 1 ? 's' : ''}`
@@ -174,7 +187,7 @@ export function SubscriptionCard({
                                     </p>
                                 </div>
                                 {trialStartDate && (
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground/80 pt-2 border-t border-violet-500/10">
+                                    <div className="flex items-center gap-2 text-xs text-red-400/80 pt-2 border-t border-red-500/10">
                                         <Calendar className="w-3 h-3" />
                                         Début : {new Date(trialStartDate).toLocaleDateString('fr-FR')}
                                     </div>

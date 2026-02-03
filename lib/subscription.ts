@@ -52,18 +52,33 @@ export async function getEffectiveTier(
 ): Promise<SubscriptionTier> {
     const supabase = await createClient();
 
-    // Get user's own subscription
+    // Get user's own subscription and creation date
     const { data: profile } = await supabase
         .from('profiles')
-        .select('subscription_tier, subscription_status')
+        .select('subscription_tier, subscription_status, created_at')
         .eq('id', userId)
         .single();
 
     if (!profile) return 'free';
 
     // If user has active solo_pro or troupe subscription
-    if (profile.subscription_tier !== 'free' && profile.subscription_status === 'active') {
+    if (profile.subscription_tier !== 'free' && ['active', 'trialing'].includes(profile.subscription_status)) {
         return profile.subscription_tier as SubscriptionTier;
+    }
+
+    // NEW: Check for 14-day automatic free trial
+    // We use the profile creation date (which usually matches auth creation date)
+    // If profile.created_at is missing (old accounts), we assume no trial.
+    if (profile.created_at) {
+        const createdAt = new Date(profile.created_at);
+        const now = new Date();
+        const diffTime = now.getTime() - createdAt.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+
+        // If account is less than 14 days old, grant solo_pro features
+        if (diffDays < 14) {
+            return 'solo_pro';
+        }
     }
 
     // Check if user is in a troupe with active subscription
@@ -75,7 +90,7 @@ export async function getEffectiveTier(
             .eq('id', troupeId)
             .single();
 
-        if (troupe?.subscription_status === 'active') {
+        if (troupe?.subscription_status === 'active' || troupe?.subscription_status === 'trialing') {
             return 'troupe';
         }
     } else {
@@ -85,7 +100,7 @@ export async function getEffectiveTier(
             .select('troupe_id, troupes(subscription_status)')
             .eq('user_id', userId);
 
-        if (memberships?.some((m: any) => m.troupes?.subscription_status === 'active')) {
+        if (memberships?.some((m: any) => ['active', 'trialing'].includes(m.troupes?.subscription_status))) {
             return 'troupe';
         }
     }
