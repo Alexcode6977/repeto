@@ -428,7 +428,24 @@ export function PlayDashboardClient({
                     </div>
                 </Card>
 
-
+                {/* Director Tools (Annoter) */}
+                {isDirector && (
+                    <Card
+                        className="border-0 bg-purple-500/10 hover:bg-purple-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
+                        onClick={() => {
+                            trigger('medium');
+                            router.push(`/troupes/${troupeId}/plays/${play.id}/annotate`);
+                        }}
+                    >
+                        <div className="w-14 h-14 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-400">
+                            <PenTool className="w-7 h-7" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-purple-400 text-lg">Annoter</h3>
+                            <p className="text-[10px] text-purple-400/60 uppercase font-bold tracking-wider">Mise en scène</p>
+                        </div>
+                    </Card>
+                )}
 
                 {/* Member Tools (Répéter, Visio, Notes) */}
                 {isMember && (

@@ -470,12 +470,14 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                 return;
             }
 
-            // Preload next line
-            const nextIdx = currentLineIndex + 1;
-            if (nextIdx < script.lines.length) {
-                const nextLine = script.lines[nextIdx];
-                if (!isUserLine(nextLine.character)) {
-                    preloadLine(nextLine.text, nextLine.character);
+            // Preload next 3 lines for smoother playback (buffer)
+            for (let i = 1; i <= 3; i++) {
+                const nextIdx = currentLineIndex + i;
+                if (nextIdx < script.lines.length) {
+                    const nextLine = script.lines[nextIdx];
+                    if (!isUserLine(nextLine.character)) {
+                        preloadLine(nextLine.text, nextLine.character);
+                    }
                 }
             }
 
