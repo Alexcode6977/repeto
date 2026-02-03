@@ -25,20 +25,33 @@ import "@livekit/components-styles";
 import { DownloadButton } from "@/components/offline/download-button";
 import { useRouter, useSearchParams } from "next/navigation";
 
-interface PlayDashboardClientProps {
+interface PlayDashboardProps {
     play: any;
     troupeId: string;
     troupeMembers: any[];
     guests: any[];
     isAdmin: boolean;
+    isDirector: boolean;
+    isMember?: boolean;
     initialVoiceConfigs: VoiceConfig[] | null;
     privateNotes: any[];
 }
 
-export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isAdmin, initialVoiceConfigs, privateNotes }: PlayDashboardClientProps) {
+export function PlayDashboardClient({
+    play,
+    troupeId,
+    troupeMembers,
+    guests,
+    isAdmin,
+    isDirector,
+    isMember = false,
+    initialVoiceConfigs,
+    privateNotes
+}: PlayDashboardProps) {
     const router = useRouter();
-    const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "setup" | "reader" | "rehearsal" | "listen">("dashboard");
-    const [rehearsalChars, setRehearsalChars] = useState<string[] | null>(null);
+    const [viewMode, setViewMode] = useState<"dashboard" | "viewer" | "rehearsal" | "listen" | "setup" | "reader">("dashboard");
+    const [myCharacters, setMyCharacters] = useState<string[]>([]);
+    const [rehearsalChars, setRehearsalChars] = useState<string[] | null>([]);
     const [sessionSettings, setSessionSettings] = useState<ScriptSettings>({
         visibility: "visible",
         mode: "full"
@@ -197,10 +210,11 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
     const lineCount = script?.lines?.filter((l: any) => l.type === 'dialogue').length || 0;
     const estimatedDuration = Math.round(lineCount * 0.5);
 
-    const myCharacters = play.play_characters?.filter((c: any) => c.actor_id === userId) || [];
+    // Derived lists for display
+    const myCharacterObjs = play.play_characters?.filter((c: any) => c.actor_id === userId) || [];
     // Exclude technical roles from the "Available/Other" list
-    const otherCharacters = play.play_characters?.filter((c: any) => c.actor_id !== userId && !isTechnical(c.character_name) && !isTechnical(c.name)) || [];
-    const allCharacters = [...myCharacters, ...otherCharacters];
+    const otherCharacters = play.play_characters?.filter((c: any) => c.actor_id !== userId && !isTechnical(c.character_name)) || [];
+    const allCharacters = [...myCharacterObjs, ...otherCharacters];
 
     // Helper to start standard modes
     const startMode = (mode: "reader" | "rehearsal" | "listen") => {
@@ -261,44 +275,46 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         </DialogContent>
                     </Dialog>
 
-                    {/* Casting/Settings Dialog */}
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-secondary/20 border-0">
-                                <Settings className="w-5 h-5 text-muted-foreground" />
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="w-[95%] max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl bg-black/95 border-white/10">
-                            <DialogHeader>
-                                <DialogTitle>Distribution</DialogTitle>
-                            </DialogHeader>
-                            <div className="py-2">
-                                <CastingManager
-                                    playId={play.id}
-                                    troupeId={troupeId}
-                                    characters={play.play_characters}
-                                    troupeMembers={troupeMembers}
-                                    guests={guests}
-                                    isAdmin={isAdmin}
-                                    initialVoiceConfigs={initialVoiceConfigs}
-                                />
-                            </div>
-                        </DialogContent>
-                    </Dialog>
+                    {/* Casting/Settings Dialog - Admin Feature */}
+                    {isDirector && (
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-10 w-10 rounded-full bg-secondary/20 border-0">
+                                    <Settings className="w-5 h-5 text-muted-foreground" />
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="w-[95%] max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl bg-black/95 border-white/10">
+                                <DialogHeader>
+                                    <DialogTitle>Distribution</DialogTitle>
+                                </DialogHeader>
+                                <div className="py-2">
+                                    <CastingManager
+                                        playId={play.id}
+                                        troupeId={troupeId}
+                                        characters={play.play_characters}
+                                        troupeMembers={troupeMembers}
+                                        guests={guests}
+                                        isAdmin={isDirector}
+                                        initialVoiceConfigs={initialVoiceConfigs}
+                                    />
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    )}
                 </div>
             </div>
 
-            {/* 2. Mon Personnage (for non-admins with assigned character) */}
-            {!isAdmin && myCharacters.length > 0 && (
+            {/* 2. Mon Personnage (for members with assigned character) */}
+            {isMember && myCharacters.length > 0 && (
                 <Link href={`/troupes/${troupeId}/plays/${play.id}/my-character`} className="block shrink-0">
                     <Card className="p-4 bg-primary/10 hover:bg-primary/20 border-primary/20 rounded-3xl cursor-pointer transition-all active:scale-98">
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold shadow-lg shadow-primary/30">
-                                {myCharacters[0].name.substring(0, 2).toUpperCase()}
+                                {(myCharacters[0] || "").substring(0, 2).toUpperCase()}
                             </div>
                             <div className="flex-1">
                                 <p className="text-[10px] text-primary/60 uppercase font-bold tracking-wider">Mon Personnage</p>
-                                <h3 className="text-lg font-bold text-primary">{myCharacters[0].name}</h3>
+                                <h3 className="text-lg font-bold text-primary">{myCharacters[0]}</h3>
                                 <p className="text-xs text-muted-foreground">Feedbacks, stats, enregistrement...</p>
                             </div>
                             <div className="text-primary/40">→</div>
@@ -412,9 +428,12 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                     </div>
                 </Card>
 
-                {!isAdmin ? (
+
+
+                {/* Member Tools (Répéter, Visio, Notes) */}
+                {isMember && (
                     <>
-                        {/* RÉPÉTER - Member Only */}
+                        {/* RÉPÉTER */}
                         <Card
                             className={cn(
                                 "border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
@@ -422,10 +441,8 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                             )}
                             onClick={() => {
                                 if (rehearsalChars && rehearsalChars.length > 0) {
-                                    // Already selected -> Go directly to Rehearsal
                                     setViewMode("rehearsal");
                                 } else {
-                                    // Not selected -> Go to Selection (Forced: Rehearsal)
                                     startMode("rehearsal");
                                 }
                                 trigger('medium');
@@ -443,7 +460,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                             </div>
                         </Card>
 
-                        {/* À DISTANCE (VISIO) - Member Only */}
+                        {/* À DISTANCE (VISIO) */}
                         <Card
                             className="border-0 bg-violet-500/10 hover:bg-violet-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
                             onClick={() => {
@@ -460,7 +477,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                             </div>
                         </Card>
 
-                        {/* MES NOTES - Member Only */}
+                        {/* MES NOTES */}
                         <Card
                             className="border-0 bg-blue-500/10 hover:bg-blue-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
                             onClick={() => {
@@ -476,29 +493,6 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                                 <p className="text-[10px] text-blue-400/60 uppercase font-bold tracking-wider">Privé</p>
                             </div>
                         </Card>
-                    </>
-                ) : (
-                    <>
-                        {/* ANNOTER - Director Only */}
-                        <Card
-                            className="border-0 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl"
-                            onClick={() => {
-                                trigger('medium');
-                                router.push(`/troupes/${troupeId}/plays/${play.id}/annotate`);
-                            }}
-                        >
-                            <div className="w-14 h-14 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
-                                <PenTool className="w-7 h-7" />
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-amber-400 text-lg">Annoter</h3>
-                                <p className="text-[10px] text-amber-400/60 uppercase font-bold tracking-wider">Notes & Mise en scène</p>
-                            </div>
-                        </Card>
-
-                        {/* Placeholder/Empty slot to keep grid balanced if needed, or let grid handle it */}
-                        {/* Since user asked for "Lire, Écouter, Annoter" -> that's 3 items. */}
-                        {/* Grid is 2 cols. 3 items will leave 1 empty space. That's fine. */}
                     </>
                 )}
 
