@@ -12,9 +12,10 @@ interface PlayStatsDialogProps {
     playTitle: string;
     isOpen: boolean;
     onOpenChange: (open: boolean) => void;
+    showFullStatsLink?: boolean;
 }
 
-export function PlayStatsDialog({ playId, playTitle, isOpen, onOpenChange }: PlayStatsDialogProps) {
+export function PlayStatsDialog({ playId, playTitle, isOpen, onOpenChange, showFullStatsLink = false }: PlayStatsDialogProps) {
     const [stats, setStats] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -127,6 +128,18 @@ export function PlayStatsDialog({ playId, playTitle, isOpen, onOpenChange }: Pla
                                 </CardContent>
                             </Card>
                         </div>
+
+                        {showFullStatsLink && (
+                            <div className="flex justify-center mt-4 pt-4 border-t border-border">
+                                <a
+                                    href={`/stats?playId=${playId}`}
+                                    className="text-sm text-primary hover:underline flex items-center gap-2 cursor-pointer"
+                                >
+                                    <TrendingUp className="w-4 h-4" />
+                                    Voir les statistiques complètes
+                                </a>
+                            </div>
+                        )}
 
                     </div>
                 ) : (

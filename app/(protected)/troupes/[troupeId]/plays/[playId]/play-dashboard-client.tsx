@@ -43,6 +43,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
         visibility: "visible",
         mode: "full"
     });
+    const [ignoredChars, setIgnoredChars] = useState<string[]>([]);
     const [isMounted, setIsMounted] = useState(false);
     const [userId, setUserId] = useState<string>("");
     const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal" | "listen">("reader");
@@ -121,7 +122,7 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                 initialSettings={sessionSettings}
                 playId={play.id}
                 troupeId={troupeId}
-                initialIgnoredCharacters={technicalRoleNames}
+                initialIgnoredCharacters={ignoredChars.length > 0 ? ignoredChars : technicalRoleNames}
                 privateNotes={privateNotes}
             />
         );
@@ -168,10 +169,12 @@ export function PlayDashboardClient({ play, troupeId, troupeMembers, guests, isA
                         ← Retour
                     </Button>
                 </div>
+
                 <ScriptViewer
                     script={play.script_content as ParsedScript}
-                    onConfirm={(chars, mode) => {
+                    onConfirm={(chars, mode, ignored) => {
                         setRehearsalChars(chars);
+                        if (ignored) setIgnoredChars(ignored);
                         if (mode === 'rehearsal') {
                             setViewMode("rehearsal");
                         } else if (mode === 'listen') {

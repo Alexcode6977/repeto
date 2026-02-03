@@ -79,9 +79,16 @@ export async function signup(formData: FormData) {
             : "http://localhost:3000";
 
     const firstName = formData.get("firstName") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (password !== confirmPassword) {
+        redirect("/signup?error=" + encodeURIComponent("Les mots de passe ne correspondent pas."));
+    }
+
     const data = {
         email: formData.get("email") as string,
-        password: formData.get("password") as string,
+        password: password,
     };
 
     const { data: signUpData, error } = await supabase.auth.signUp({

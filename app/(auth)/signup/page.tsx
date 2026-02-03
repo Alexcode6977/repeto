@@ -1,9 +1,7 @@
-import { signup } from "../actions";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { SignupForm } from "./signup-form";
 import Link from "next/link";
-import { PasswordInput } from "@/components/password-input";
+import { Sparkles } from "lucide-react";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
-import { AuthSubmitButton } from "@/components/auth-submit-button";
 
 export default async function SignupPage({
     searchParams,
@@ -38,17 +36,6 @@ export default async function SignupPage({
             {/* FORM SECTION (Middle ~60-70%) */}
             <div className="w-full max-w-sm flex-1 flex flex-col justify-center relative z-10 gap-4">
 
-                {/* Messages Area */}
-                {(message || error) && (
-                    <div className={message ?
-                        "p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium text-center" :
-                        "p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-red-400 text-sm font-medium text-center"
-                    }>
-                        {message && <Sparkles className="w-4 h-4 inline-block mr-2 mb-0.5" />}
-                        {message || error}
-                    </div>
-                )}
-
                 <div className="space-y-4">
                     <GoogleSignInButton label="S'inscrire avec Google" />
 
@@ -62,59 +49,7 @@ export default async function SignupPage({
                     </div>
                 </div>
 
-                <form className="space-y-3 w-full">
-                    <div className="space-y-1">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="firstName">
-                            Prénom
-                        </label>
-                        <input
-                            id="firstName"
-                            name="firstName"
-                            type="text"
-                            required
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-base text-white 
-                                focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white/10
-                                placeholder:text-muted-foreground/50 font-medium transition-all"
-                            placeholder="Jean"
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
-                            Email
-                        </label>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            required
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-base text-white 
-                                focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white/10
-                                placeholder:text-muted-foreground/50 font-medium transition-all"
-                            placeholder="nom@exemple.com"
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
-                            Mot de passe
-                        </label>
-                        <PasswordInput
-                            id="password"
-                            name="password"
-                            required
-                            minLength={6}
-                            placeholder="••••••••"
-                            className="bg-white/5 border-white/10 rounded-xl px-4 py-3 text-base"
-                        />
-                        <p className="text-[10px] text-muted-foreground pl-1">
-                            Min. 6 caractères.
-                        </p>
-                    </div>
-
-                    <AuthSubmitButton
-                        formAction={signup}
-                        text="Créer mon compte"
-                    />
-                </form>
+                <SignupForm message={message} error={error} />
             </div>
 
             {/* FOOTER SECTION (Bottom ~10%) */}

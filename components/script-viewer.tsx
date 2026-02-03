@@ -18,7 +18,7 @@ import { BookOpen, Play, Headphones, Check, UserCircle, ChevronDown, X, Users } 
 
 interface ScriptViewerProps {
     script: ParsedScript;
-    onConfirm: (characters: string[], mode: 'reader' | 'rehearsal' | 'listen') => void;
+    onConfirm: (characters: string[], mode: 'reader' | 'rehearsal' | 'listen', ignoredCharacters?: string[]) => void;
     forcedMode?: 'reader' | 'rehearsal' | 'listen';
     privateNotes?: any[];
 }
@@ -84,6 +84,16 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
 
     const selectAll = () => setSelectedChars(script.characters);
     const deselectAll = () => setSelectedChars([]);
+
+    // Helper to calculate confirmed characters
+    const confirmSelection = (mode: 'reader' | 'rehearsal' | 'listen') => {
+        // Separate User (Actor) from Context (Technical)
+        const userActs = selectedChars.filter(c => !isTechnical(c));
+        const allTechnicalChars = technicalCharacters;
+        const unselectedTechnical = allTechnicalChars.filter(c => !selectedChars.includes(c));
+
+        onConfirm(userActs, mode, unselectedTechnical);
+    };
 
     // --- PREMIUM READER MODE RENDER ---
     if (forcedMode === 'reader') {
@@ -162,7 +172,7 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
 
                         {/* Button */}
                         <button
-                            onClick={() => onConfirm(selectedChars, forcedMode)}
+                            onClick={() => confirmSelection(forcedMode)}
                             disabled={selectedChars.length === 0}
                             className={cn(
                                 "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg",
@@ -318,7 +328,7 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
 
                         {/* Button */}
                         <button
-                            onClick={() => onConfirm(selectedChars, forcedMode)}
+                            onClick={() => confirmSelection(forcedMode)}
                             disabled={selectedChars.length === 0}
                             className={cn(
                                 "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg mt-2",
@@ -335,6 +345,7 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
             </div>
         );
     }
+
     // --- STANDARD RENDER (Troupe Dashboard / Listen / Rehearsal defaults) ---
     return (
         <div className="space-y-12 w-full max-w-2xl py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -491,7 +502,7 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
                             // Dual Button Mode - Side by Side Sticky
                             <div className="grid grid-cols-2 gap-3 w-full max-w-sm">
                                 <button
-                                    onClick={() => onConfirm(selectedChars, 'reader')}
+                                    onClick={() => confirmSelection('reader')}
                                     className="flex flex-col items-center justify-center gap-1 p-3 bg-card/80 backdrop-blur-md border border-border rounded-2xl hover:bg-white/10 transition-all active:scale-95"
                                 >
                                     <BookOpen className="w-6 h-6 text-yellow-500" />
@@ -499,7 +510,7 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
                                 </button>
 
                                 <button
-                                    onClick={() => onConfirm(selectedChars, 'rehearsal')}
+                                    onClick={() => confirmSelection('rehearsal')}
                                     className="flex flex-col items-center justify-center gap-1 p-3 bg-primary text-primary-foreground rounded-2xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all active:scale-95"
                                 >
                                     <Play className="w-6 h-6 fill-current" />

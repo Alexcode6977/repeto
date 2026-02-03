@@ -22,6 +22,7 @@ interface ScriptRowProps {
     onRename: (id: string, currentTitle: string) => void;
     onTogglePublic: (script: ScriptMetadata) => void;
     onSettings: (script: ScriptMetadata) => void;
+    onShowStats?: (script: ScriptMetadata) => void;
 }
 
 export const ScriptRow = memo(function ScriptRow({
@@ -31,6 +32,7 @@ export const ScriptRow = memo(function ScriptRow({
     onRename,
     onTogglePublic,
     onSettings,
+    onShowStats,
 }: ScriptRowProps) {
     return (
         <div
@@ -72,6 +74,9 @@ export const ScriptRow = memo(function ScriptRow({
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onSettings(s)}>
                             Personnages
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onShowStats?.(s)}>
+                            Statistiques
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onTogglePublic(s)} disabled={!s.is_owner}>
                             {s.is_public ? "Rendre Privé" : "Rendre Public"}

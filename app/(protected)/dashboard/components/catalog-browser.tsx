@@ -106,8 +106,8 @@ export function CatalogBrowser({ onClose, onImportComplete, onError }: CatalogBr
                                 key={option.key}
                                 onClick={() => setSortBy(option.key as typeof sortBy)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${sortBy === option.key
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted/50 text-muted-foreground hover:bg-muted"
                                     }`}
                             >
                                 {option.label}
@@ -153,8 +153,8 @@ export function CatalogBrowser({ onClose, onImportComplete, onError }: CatalogBr
                                         onClick={() => handleImport(script)}
                                         disabled={isImporting || isImported}
                                         className={`shrink-0 rounded-xl ${isImported
-                                                ? "bg-green-500/20 text-green-400 border-green-500/30"
-                                                : ""
+                                            ? "bg-green-500/20 text-green-400 border-green-500/30"
+                                            : ""
                                             }`}
                                         variant={isImported ? "outline" : "default"}
                                     >
@@ -168,7 +168,7 @@ export function CatalogBrowser({ onClose, onImportComplete, onError }: CatalogBr
                                         ) : (
                                             <>
                                                 <Download className="w-4 h-4 mr-2" />
-                                                Importer
+                                                Ajouter à ma bibliothèque
                                             </>
                                         )}
                                     </Button>

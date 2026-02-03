@@ -287,16 +287,6 @@ export default function Home() {
   if (script && viewMode === "viewer") {
     return (
       <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
-        <div className="flex gap-4 self-start">
-          <UIButton
-            variant="ghost"
-            onClick={() => setScript(null)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            ← Retour
-          </UIButton>
-        </div>
-
         {error && (
           <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 animate-in slide-in-from-top-2 w-full max-w-2xl">
             <AlertCircle className="h-5 w-5" />
@@ -307,7 +297,11 @@ export default function Home() {
         {isLoadingDetail ? (
           <div className="flex justify-center py-20"><Loader2 className="w-10 h-10 animate-spin text-primary" /></div>
         ) : (
-          <ScriptViewerSingle script={script} onConfirm={handleConfirmSelection} />
+          <ScriptViewerSingle
+            script={script}
+            onConfirm={handleConfirmSelection}
+            onBack={() => setScript(null)}
+          />
         )}
       </div>
     );

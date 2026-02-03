@@ -222,9 +222,12 @@ export async function getPlayDetailedStats(scriptId: string) {
     // For a histogram, we might want "Session by Session performance" or stick to the simple breakdown.
     // Let's return the breakdown: Success 1st Try vs Retry Needed.
 
-    const successDistribution = [
+    const successDistribution = totalLinesRehearsed > 0 ? [
         { name: '1er Essai', value: firstTryRate, fill: '#22c55e' }, // Green
         { name: 'Plusieurs Essais', value: 100 - firstTryRate, fill: '#f59e0b' }, // Amber
+    ] : [
+        { name: '1er Essai', value: 0, fill: '#22c55e' },
+        { name: 'Plusieurs Essais', value: 0, fill: '#f59e0b' },
     ];
 
     return {

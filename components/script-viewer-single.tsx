@@ -2,9 +2,10 @@
 
 import { ParsedScript } from "@/lib/types";
 import { Button } from "./ui/button";
-import { BookOpen, Play, Headphones, Check, ChevronDown } from "lucide-react";
+import { BookOpen, Play, Headphones, Check, ChevronDown, ChevronLeft } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 import {
     Select,
     SelectContent,
@@ -16,13 +17,14 @@ import {
 interface ScriptViewerSingleProps {
     script: ParsedScript;
     onConfirm: (character: string, mode: 'reader' | 'rehearsal' | 'listen', ignoredCharacters?: string[]) => void;
+    onBack?: () => void;
 }
 
 /**
  * ScriptViewerSingle - Character selection for NORMAL mode (Dashboard)
  * Compact layout: everything visible on one screen without scrolling
  */
-export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProps) {
+export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSingleProps) {
     const [selectedChar, setSelectedChar] = useState<string>("");
 
     // Technical role detection
@@ -53,7 +55,20 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
     const isSelectionRequired = !selectedChar;
 
     return (
-        <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-40 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-40 px-4 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
+
+            {/* Back Button - Positioned below fixed header */}
+            <div className="absolute top-24 left-4 md:left-8 z-50">
+                <button
+                    onClick={onBack}
+                    className="p-2 rounded-xl bg-muted/20 hover:bg-muted/40 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2"
+                >
+                    <ChevronLeft className="w-5 h-5" />
+                    <span className="text-sm font-medium">Retour</span>
+                </button>
+            </div>
+
+
             {/* Header */}
             <div className="text-center mb-8">
                 <h2 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mb-2">
@@ -92,9 +107,6 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
                 {/* Technical Roles - Inline Compact */}
                 {technicalCharacters.length > 0 && (
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-muted-foreground/70 uppercase tracking-widest flex items-center gap-2">
-                            📋 Technique
-                        </label>
                         <div className="flex flex-wrap gap-2">
                             {technicalCharacters.map((char) => {
                                 const isIgnored = ignoredTechnical.includes(char);
@@ -207,6 +219,6 @@ export function ScriptViewerSingle({ script, onConfirm }: ScriptViewerSingleProp
                     </p>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

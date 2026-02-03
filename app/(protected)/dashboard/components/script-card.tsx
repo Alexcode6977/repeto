@@ -30,6 +30,7 @@ interface ScriptCardProps {
     renamingScriptId?: string | null;
     renamingScriptTitle?: string;
     setRenamingScriptTitle?: (title: string) => void;
+    onShowStats?: (script: ScriptMetadata) => void;
 }
 
 export function ScriptCard({
@@ -41,6 +42,7 @@ export function ScriptCard({
     onDelete,
     onTogglePublic,
     onSettings,
+    onShowStats,
 }: ScriptCardProps) {
     const [isRenaming, setIsRenaming] = useState(false);
     const [tempTitle, setTempTitle] = useState(script.title);
@@ -108,6 +110,11 @@ export function ScriptCard({
                         <DropdownMenuItem onClick={() => onSettings(script)}>
                             <Settings2 className="w-4 h-4 mr-2" />
                             Réglages
+                        </DropdownMenuItem>
+                        {/* Stats Mobile Item */}
+                        <DropdownMenuItem onClick={() => onShowStats?.(script)}>
+                            <BarChart2 className="w-4 h-4 mr-2" />
+                            Statistiques
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setIsRenaming(true)} disabled={!script.is_owner}>
                             <Pencil className="w-4 h-4 mr-2" />
@@ -211,16 +218,18 @@ export function ScriptCard({
                         <Settings2 className="w-4 h-4" />
                     </Button>
 
-                    <Link href={`/stats?playId=${script.id}`} onClick={(e) => e.stopPropagation()}>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="bg-white/10 hover:bg-blue-500/20 hover:text-blue-400 text-foreground rounded-xl"
-                            title="Voir les statistiques"
-                        >
-                            <BarChart2 className="w-4 h-4" />
-                        </Button>
-                    </Link>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="bg-white/10 hover:bg-blue-500/20 hover:text-blue-400 text-foreground rounded-xl"
+                        title="Voir les statistiques"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onShowStats?.(script);
+                        }}
+                    >
+                        <BarChart2 className="w-4 h-4" />
+                    </Button>
 
                     <div onClick={(e) => e.stopPropagation()}>
                         <DownloadButton scriptId={script.id} className="bg-white/10 hover:bg-white/20 text-white border-0 w-12 h-12" />

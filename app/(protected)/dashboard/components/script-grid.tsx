@@ -2,8 +2,9 @@ import { ScriptMetadata } from "@/lib/types";
 import { useEffect, useRef, useState } from "react";
 import { ScriptCard } from "./script-card";
 import { ScriptRow } from "./script-row";
-import { FileText } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PlayStatsDialog } from "@/components/play-stats-dialog";
 
 interface ScriptGridProps {
     scripts: ScriptMetadata[];
@@ -42,6 +43,7 @@ export function ScriptGrid({
 
     // State for "Real" index (Infinite List)
     const [realIndex, setRealIndex] = useState(0);
+    const [statsScript, setStatsScript] = useState<ScriptMetadata | null>(null);
 
     // Filtering Logic
     const normSearch = searchQuery.trim().toLowerCase();
@@ -177,12 +179,22 @@ export function ScriptGrid({
                             onRename={onRename}
                             onTogglePublic={onTogglePublic}
                             onSettings={onSettings}
+                            onShowStats={(script) => setStatsScript(script)}
                         />
                     ))
                 ) : (
                     <div className="py-12 text-center text-muted-foreground">
                         Aucun script trouvé.
                     </div>
+                )}
+                {statsScript && (
+                    <PlayStatsDialog
+                        playId={statsScript.id}
+                        playTitle={statsScript.title}
+                        isOpen={!!statsScript}
+                        onOpenChange={(open) => !open && setStatsScript(null)}
+                        showFullStatsLink
+                    />
                 )}
             </div>
         )
@@ -232,6 +244,7 @@ export function ScriptGrid({
                                     renamingScriptId={null}
                                     renamingScriptTitle=""
                                     setRenamingScriptTitle={() => { }}
+                                    onShowStats={(script) => setStatsScript(script)}
                                 />
                             </div>
                         );
@@ -268,6 +281,7 @@ export function ScriptGrid({
                                 renamingScriptId={null}
                                 renamingScriptTitle=""
                                 setRenamingScriptTitle={() => { }}
+                                onShowStats={(script) => setStatsScript(script)}
                             />
                         </div>
                     ))
@@ -277,6 +291,17 @@ export function ScriptGrid({
                     </div>
                 )}
             </div>
+
+            {/* Stats Dialog */}
+            {statsScript && (
+                <PlayStatsDialog
+                    playId={statsScript.id}
+                    playTitle={statsScript.title}
+                    isOpen={!!statsScript}
+                    onOpenChange={(open) => !open && setStatsScript(null)}
+                    showFullStatsLink
+                />
+            )}
         </>
     );
 }
@@ -294,14 +319,4 @@ function EmptyState({ onImport }: { onImport: () => void }) {
             <h3 className="text-xl font-bold text-foreground">Bibliothèque vide</h3>
         </div>
     );
-}
-
-// Helper for Plus icon
-function Plus({ className }: { className?: string }) {
-    return (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <path d="M5 12h14" />
-            <path d="M12 5v14" />
-        </svg>
-    )
 }
