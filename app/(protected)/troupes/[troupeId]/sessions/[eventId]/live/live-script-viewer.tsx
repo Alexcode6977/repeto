@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { ParsedScript } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,10 @@ interface LiveScriptViewerProps {
     currentSceneIdx: number;
     scenes: any[];
     isReadOnly?: boolean;
+    highlightedLineIndex?: number;
 }
 
-export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadOnly }: LiveScriptViewerProps) {
+export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadOnly, highlightedLineIndex }: LiveScriptViewerProps) {
     const currentScene = scenes[currentSceneIdx];
 
     // Find the relevant play for the current scene
@@ -52,6 +53,24 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
     const [noteText, setNoteText] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [openPopover, setOpenPopover] = useState(false);
+
+    // Line refs for scrolling
+    const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+    // Scroll to highlighted line when it changes
+    useEffect(() => {
+        if (highlightedLineIndex !== undefined) {
+            const element = lineRefs.current.get(highlightedLineIndex);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Add temporary highlight animation
+                element.classList.add('ring-2', 'ring-primary', 'ring-offset-2', 'ring-offset-background');
+                setTimeout(() => {
+                    element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2', 'ring-offset-background');
+                }, 2000);
+            }
+        }
+    }, [highlightedLineIndex]);
 
     // Dictation State
     const [isListening, setIsListening] = useState(false);
@@ -239,6 +258,9 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
                         >
                             <PopoverTrigger asChild>
                                 <div
+                                    ref={(el) => {
+                                        if (el) lineRefs.current.set(line.absoluteIndex, el);
+                                    }}
                                     className={cn(
                                         "relative py-2 px-4 rounded-lg transition-all cursor-pointer group",
                                         isDirectorNote ? "bg-purple-500/10 border-l-4 border-purple-500 my-4" :

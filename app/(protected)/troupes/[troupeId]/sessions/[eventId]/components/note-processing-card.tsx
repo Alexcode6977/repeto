@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, MessageSquare, StickyNote, Pencil, X, Save, Lock, CheckCircle } from "lucide-react";
+import { Trash2, MessageSquare, StickyNote, Pencil, X, Save, Lock, CheckCircle, Link2 } from "lucide-react";
 import { deleteRawNote, updateRawNote } from "@/lib/actions/session";
+import { upsertPrivateNote } from "@/lib/actions/private-notes";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 
@@ -14,9 +15,10 @@ interface NoteProcessingCardProps {
     onDelete: (id: string) => void;
     onUpdate: (id: string, text: string) => void;
     onProcess: (id: string, type: 'feedback' | 'indication', targetIds: string[]) => void;
+    onNavigateToLine?: (lineIndex: number) => void;
 }
 
-export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, onProcess }: NoteProcessingCardProps) {
+export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, onProcess, onNavigateToLine }: NoteProcessingCardProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(note.text);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -122,16 +124,28 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
                             )}
                         </div>
 
-                        {note.context && (
-                            <div className="bg-muted/50 rounded-lg p-2 mb-3 text-xs border border-border/50">
-                                {note.context.characterName && (
-                                    <span className="font-bold uppercase tracking-wider text-primary block mb-0.5 text-[10px]">
+                        {(note.context || note.line_index !== undefined) && (
+                            <div
+                                className="bg-primary/5 border-l-4 border-primary rounded-lg p-2 mb-3 text-xs cursor-pointer hover:bg-primary/10 transition-colors"
+                                onClick={() => note.line_index !== undefined && onNavigateToLine?.(note.line_index)}
+                            >
+                                <div className="flex items-center gap-1 text-primary mb-1">
+                                    <Link2 className="w-3 h-3" />
+                                    <span className="font-bold uppercase tracking-wider text-[10px]">
+                                        Liée à une réplique
+                                        {note.line_index !== undefined && ` (L.${note.line_index + 1})`}
+                                    </span>
+                                </div>
+                                {note.context?.characterName && (
+                                    <span className="font-bold text-foreground/80 block mb-0.5">
                                         {note.context.characterName}
                                     </span>
                                 )}
-                                <p className="italic text-muted-foreground font-serif leading-snug line-clamp-2">
-                                    "{note.context.lineText}"
-                                </p>
+                                {note.context?.lineText && (
+                                    <p className="italic text-muted-foreground font-serif leading-snug line-clamp-2">
+                                        "{note.context.lineText}"
+                                    </p>
+                                )}
                             </div>
                         )}
 
@@ -168,7 +182,33 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
 
                             <Separator className="hidden md:block my-1" />
 
-                            <Button size="sm" variant="ghost" className="justify-start gap-2 h-8 text-xs w-full md:w-auto text-blue-500 hover:text-blue-600 hover:bg-blue-50">
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="justify-start gap-2 h-8 text-xs w-full md:w-auto text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                                onClick={async () => {
+                                    setIsProcessing(true);
+                                    try {
+                                        if (note.play_id && note.scene_index !== undefined) {
+                                            await upsertPrivateNote(note.play_id, note.scene_index, note.text, note.line_index);
+                                            await onDelete(note.id); // Remove from list locally if desired, or just keep? Usually we process it.
+                                            // Let's assume we want to "Process" it into a private note, so we remove it from the list.
+                                            // We should also delete the raw note from DB. 
+                                            // The `onDelete` prop calls `deleteRawNote` inside parent or just updates state?
+                                            // `onDelete` passed from parent updates state. 
+                                            // But we also need to delete from DB.
+                                            // `handleDelete` in this component does both.
+                                            // So I should call the same logic as handleDelete but creating private note first.
+                                            await deleteRawNote(note.id);
+                                            onDelete(note.id);
+                                        }
+                                    } catch (e) {
+                                        console.error(e);
+                                    } finally {
+                                        setIsProcessing(false);
+                                    }
+                                }}
+                            >
                                 <Lock className="w-3 h-3" /> Carder (Note Perso)
                             </Button>
 

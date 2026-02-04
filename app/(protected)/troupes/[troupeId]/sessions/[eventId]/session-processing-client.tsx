@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { NoteProcessingCard } from "./components/note-processing-card";
 import { LiveScriptViewer } from "./live/live-script-viewer"; // Import generic viewer
 import Link from "next/link";
+import { injectDirectorNote } from "@/lib/actions/director";
 
 interface SessionProcessingClientProps {
     sessionData: any;
@@ -22,6 +23,7 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
     const [notes, setNotes] = useState(rawNotes);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedSceneIdx, setSelectedSceneIdx] = useState<number>(0);
+    const [highlightedLineIndex, setHighlightedLineIndex] = useState<number | undefined>(undefined);
 
     // Extract scenes from new structure or legacy flat list
     const plan = sessionData.session_plans?.[0] || sessionData.session_plans;
@@ -71,19 +73,56 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
         setNotes(prev => prev.filter(n => n.id !== id));
     };
 
+    const handleNavigateToLine = (lineIndex: number) => {
+        // Trigger a new value to force re-scroll even if same line
+        setHighlightedLineIndex(undefined);
+        setTimeout(() => setHighlightedLineIndex(lineIndex), 10);
+    };
+
     const handleUpdateNote = (id: string, text: string) => {
         setNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n));
     };
 
+
     const handleProcessNote = async (id: string, type: 'feedback' | 'indication', targets: string[]) => {
         try {
-            // 1. Create feedbacks for each target
             const note = notes.find(n => n.id === id);
             if (!note) return;
 
-            await Promise.all(targets.map(charId =>
-                submitSessionFeedback(sessionData.id, charId, `${type === 'indication' ? '[INDICATION] ' : ''}${note.text}`, undefined, undefined, 'pending')
-            ));
+            if (type === 'indication') {
+                // INJECT AS DIRECTOR NOTE IN SCRIPT
+                const targetNames = targets.map(tId => {
+                    const char = currentSceneCharacters.find((c: any) => c.id === tId);
+                    return char ? char.name : "Tous";
+                });
+
+                await injectDirectorNote(
+                    note.play_id,
+                    note.scene_index,
+                    note.text,
+                    note.line_index ?? undefined,
+                    targetNames,
+                    false // Not technical for now, or could depend on targets? Assuming director indications.
+                );
+
+            } else {
+                // CREATE FEEDBACKS
+                await Promise.all(targets.map(charId => {
+                    const char = currentSceneCharacters.find((c: any) => c.id === charId);
+                    // Use actor_id first, fallback to guest_id
+                    const actorId = char?.actor_id;
+                    const guestId = char?.guest_id;
+
+                    return submitSessionFeedback(
+                        sessionData.id,
+                        charId,
+                        note.text,
+                        actorId,
+                        guestId,
+                        'pending'
+                    );
+                }));
+            }
 
             // 2. Delete the raw note (it's processed)
             await deleteRawNote(id);
@@ -161,6 +200,7 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
                         currentSceneIdx={selectedSceneIdx}
                         scenes={flatScenes}
                         isReadOnly={true}
+                        highlightedLineIndex={highlightedLineIndex}
                     />
                 </div>
 
@@ -189,6 +229,7 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
                                     onDelete={handleDeleteNote}
                                     onUpdate={handleUpdateNote}
                                     onProcess={handleProcessNote}
+                                    onNavigateToLine={handleNavigateToLine}
                                 />
                             ))
                         )}

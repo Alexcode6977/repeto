@@ -369,12 +369,12 @@ export async function publishSessionFeedbacks(eventId: string) {
 /**
  * Get all feedback received by the current logged-in user.
  */
-export async function getMyFeedbacks(troupeId: string) {
+export async function getMyFeedbacks(eventId?: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('rehearsal_feedbacks')
         .select(`
             *,
@@ -386,8 +386,14 @@ export async function getMyFeedbacks(troupeId: string) {
             play_characters(name)
         `)
         .eq('actor_id', user.id)
-        .eq('status', 'published') // Only show published feedbacks
+        .eq('status', 'published')
         .order('created_at', { ascending: false });
+
+    if (eventId) {
+        query = query.eq('event_id', eventId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching feedbacks:', error);

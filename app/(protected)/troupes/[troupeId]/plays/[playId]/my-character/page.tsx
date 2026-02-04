@@ -53,6 +53,8 @@ export default async function MyCharacterPage({
             events(id, title, start_time)
         `)
         .eq('character_id', myCharacter.id)
+        .eq('actor_id', user.id) // Ensure feedback is for this actor (handle double casts)
+        .eq('status', 'published') // Only show validated feedbacks
         .order('created_at', { ascending: false });
 
     // Get unique events for filter dropdown
