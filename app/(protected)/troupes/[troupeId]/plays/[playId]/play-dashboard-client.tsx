@@ -60,7 +60,31 @@ export function PlayDashboardClient({
     const [isMounted, setIsMounted] = useState(false);
     const [userId, setUserId] = useState<string>("");
     const [intendedMode, setIntendedMode] = useState<"reader" | "rehearsal" | "listen">("reader");
-    // Filter characters
+
+    // Video State
+    const [videoEnabled, setVideoEnabled] = useState(false);
+    const [videoToken, setVideoToken] = useState<string | null>(null);
+    const [videoRoom, setVideoRoom] = useState<string>(`troupe_${troupeId}_play_${play.id}`);
+    const [isDraggable, setIsDraggable] = useState(true);
+
+    // Custom hooks must be called unconditionally
+    const { trigger } = useHaptic();
+
+    // Effects
+    useEffect(() => {
+        setIsMounted(true);
+        const getUserId = async () => {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setUserId(user.id);
+        };
+        getUserId();
+    }, []);
+
+    // Early return AFTER all hooks
+    if (!isMounted) return null;
+
+    // Filter characters - moved after early return since it's computed data
     const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off", "poursuite", "lumière", "son", "indication"];
     const isTechnical = (name: string) => name && technicalKeywords.some(k => name.toLowerCase().includes(k));
 
@@ -69,14 +93,6 @@ export function PlayDashboardClient({
         ?.filter((c: any) => isTechnical(c.character_name) || isTechnical(c.name))
         .map((c: any) => c.character_name || c.name)
         .filter(Boolean) || [];
-
-    const { trigger } = useHaptic();
-
-    // Video State
-    const [videoEnabled, setVideoEnabled] = useState(false);
-    const [videoToken, setVideoToken] = useState<string | null>(null);
-    const [videoRoom, setVideoRoom] = useState<string>(`troupe_${troupeId}_play_${play.id}`);
-    const [isDraggable, setIsDraggable] = useState(true);
 
     // Video Controls
     const startVideo = async () => {
@@ -99,17 +115,6 @@ export function PlayDashboardClient({
         }
     };
 
-    useEffect(() => {
-        setIsMounted(true);
-        const getUserId = async () => {
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) setUserId(user.id);
-        };
-        getUserId();
-    }, []);
-
-    if (!isMounted) return null;
 
     // View Switching Logic
     if (rehearsalChars && viewMode === "listen") {
@@ -127,6 +132,15 @@ export function PlayDashboardClient({
     }
 
     if (rehearsalChars && viewMode === "rehearsal") {
+        // Compute partner characters: all assigned non-technical characters except user's
+        const partnerChars = play.play_characters
+            ?.filter((c: any) =>
+                c.actor_id && // Assigned to someone
+                !isTechnical(c.character_name) && // Not technical
+                !rehearsalChars.includes(c.character_name) // Not the user's character
+            )
+            .map((c: any) => c.character_name) || [];
+
         return (
             <RehearsalMode
                 script={play.script_content as ParsedScript}
@@ -136,6 +150,7 @@ export function PlayDashboardClient({
                 playId={play.id}
                 troupeId={troupeId}
                 initialIgnoredCharacters={ignoredChars.length > 0 ? ignoredChars : technicalRoleNames}
+                partnerCharacters={partnerChars}
                 privateNotes={privateNotes}
             />
         );

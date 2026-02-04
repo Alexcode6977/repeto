@@ -220,6 +220,15 @@ export function ListenModeTroupe({
         onExit();
     };
 
+    // Quick Start Logic - MOVED BEFORE CONDITIONAL RENDER TO AVOID HOOKS VIOLATION
+    const quickStartSettings = useMemo(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(`souffleur_listen_settings_${playId}`);
+            return saved ? JSON.parse(saved) : null;
+        }
+        return null;
+    }, [playId]);
+
     // Current scene detection
     const currentScene = script.scenes?.find((scene, idx) => {
         const nextScene = script.scenes?.[idx + 1];
@@ -236,39 +245,31 @@ export function ListenModeTroupe({
         });
     };
 
+    const startQuick = () => {
+        if (quickStartSettings) {
+            setListenMode(quickStartSettings.listenMode);
+            setTtsProvider(quickStartSettings.ttsProvider);
+            setAnnounceCharacter(quickStartSettings.announceCharacter);
+            setStartLineIndex(quickStartSettings.startLineIndex || 0);
+            handleStart();
+        }
+    };
+
+    const handleStartWithSave = () => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(`souffleur_listen_settings_${playId}`, JSON.stringify({
+                listenMode,
+                ttsProvider,
+                announceCharacter,
+                startLineIndex,
+                timestamp: Date.now()
+            }));
+        }
+        handleStart();
+    };
+
     // === SETUP SCREEN ===
     if (!hasStarted) {
-        // Quick Start Logic
-        const quickStartSettings = useMemo(() => {
-            if (typeof window !== 'undefined') {
-                const saved = localStorage.getItem(`souffleur_listen_settings_${playId}`);
-                return saved ? JSON.parse(saved) : null;
-            }
-            return null;
-        }, [playId]);
-
-        const startQuick = () => {
-            if (quickStartSettings) {
-                setListenMode(quickStartSettings.listenMode);
-                setTtsProvider(quickStartSettings.ttsProvider);
-                setAnnounceCharacter(quickStartSettings.announceCharacter);
-                setStartLineIndex(quickStartSettings.startLineIndex || 0);
-                handleStart();
-            }
-        };
-
-        const handleStartWithSave = () => {
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(`souffleur_listen_settings_${playId}`, JSON.stringify({
-                    listenMode,
-                    ttsProvider,
-                    announceCharacter,
-                    startLineIndex,
-                    timestamp: Date.now()
-                }));
-            }
-            handleStart();
-        };
 
         return (
             <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center">
