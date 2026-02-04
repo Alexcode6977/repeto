@@ -116,12 +116,25 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
 
         setIsSubmitting(true);
         try {
+            // Find context if line target
+            let context = undefined;
+            if (noteTarget.type === 'line' && noteTarget.lineIndex !== undefined) {
+                const line = sceneLines.find(l => l.absoluteIndex === noteTarget.lineIndex);
+                if (line) {
+                    context = {
+                        lineText: line.text,
+                        characterName: line.character
+                    };
+                }
+            }
+
             await saveRawNote(
                 sessionData.id,
                 play.id,
                 globalSceneIndex,
                 noteText,
-                noteTarget.type === 'line' ? noteTarget.lineIndex : undefined
+                noteTarget.type === 'line' ? noteTarget.lineIndex : undefined,
+                context
             );
 
             setNoteText("");
@@ -277,6 +290,16 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
                                         </Button>
                                     </div>
                                     <div className="p-3 space-y-3">
+                                        <div className="bg-muted/50 rounded-lg p-2 text-xs border border-border/50 max-h-[100px] overflow-y-auto">
+                                            {line.character && (
+                                                <span className="font-bold uppercase tracking-wider text-primary block mb-1">
+                                                    {line.character}
+                                                </span>
+                                            )}
+                                            <p className="italic text-muted-foreground font-serif leading-snug">
+                                                "{line.text}"
+                                            </p>
+                                        </div>
                                         <Textarea
                                             placeholder="Note rapide..."
                                             className="border-0 bg-transparent focus-visible:ring-0 resize-none p-0 min-h-[80px] text-sm"

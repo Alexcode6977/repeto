@@ -122,6 +122,19 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
                             )}
                         </div>
 
+                        {note.context && (
+                            <div className="bg-muted/50 rounded-lg p-2 mb-3 text-xs border border-border/50">
+                                {note.context.characterName && (
+                                    <span className="font-bold uppercase tracking-wider text-primary block mb-0.5 text-[10px]">
+                                        {note.context.characterName}
+                                    </span>
+                                )}
+                                <p className="italic text-muted-foreground font-serif leading-snug line-clamp-2">
+                                    "{note.context.lineText}"
+                                </p>
+                            </div>
+                        )}
+
                         {isEditing ? (
                             <div className="space-y-2">
                                 <textarea

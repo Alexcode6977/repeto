@@ -248,7 +248,8 @@ export async function saveRawNote(
     playId: string,
     sceneIndex: number,
     text: string,
-    lineIndex?: number
+    lineIndex?: number,
+    context?: any
 ) {
     const supabase = await createClient();
 
@@ -259,7 +260,8 @@ export async function saveRawNote(
             play_id: playId,
             scene_index: sceneIndex,
             line_index: lineIndex,
-            text: text
+            text: text,
+            context: context
         });
 
     if (error) {

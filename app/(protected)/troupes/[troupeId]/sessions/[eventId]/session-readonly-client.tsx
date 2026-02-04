@@ -9,13 +9,18 @@ import { updateSessionStatus } from "@/lib/actions/session";
 import { useState } from "react";
 import { SessionPlanStructure, SessionSegment } from "@/lib/types";
 
+import { SessionComposition } from "./components/session-composition";
+import { createActorMap, calculateSessionWorkload } from "@/lib/utils/session-calculations";
+
 interface SessionReadOnlyClientProps {
     sessionData: any;
     troupeId: string;
     isDirector: boolean;
+    members: any[];
+    guests: any[];
 }
 
-export function SessionReadOnlyClient({ sessionData, troupeId, isDirector }: SessionReadOnlyClientProps) {
+export function SessionReadOnlyClient({ sessionData, troupeId, isDirector, members, guests }: SessionReadOnlyClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const plan = sessionData.session_plans?.[0] || sessionData.session_plans;
@@ -29,6 +34,22 @@ export function SessionReadOnlyClient({ sessionData, troupeId, isDirector }: Ses
     const legacyScenes = !structure && plan?.selected_scenes ? plan.selected_scenes : [];
 
     const attendance = sessionData.event_attendance || [];
+
+    // --- Detailed Presence & Workload Logic ---
+    const attendanceMap: Record<string, string> = {};
+    attendance.forEach((a: any) => {
+        const id = a.user_id || a.guest_id;
+        if (id) attendanceMap[id] = a.status;
+    });
+
+    const plays = sessionData.plays || [];
+
+    // 1. Actor Map
+    const actorMap = createActorMap(plays, members, guests);
+
+    // 2. Workload
+    const workload = calculateSessionWorkload(structure?.segments || [], plays, actorMap);
+
     const presentCount = attendance.filter((a: any) => a.status === 'present').length;
     const absentCount = attendance.filter((a: any) => a.status === 'absent').length;
     const unknownCount = attendance.filter((a: any) => !a.status || a.status === 'unknown').length;
@@ -77,9 +98,9 @@ export function SessionReadOnlyClient({ sessionData, troupeId, isDirector }: Ses
             </div>
 
             {/* Objective & Attendance Grid */}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
                 {/* Objective */}
-                <div className="md:col-span-2 space-y-2">
+                <div className="space-y-2">
                     <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
                         <MessageSquare className="w-3 h-3" /> Objectif de la séance
                     </h3>
@@ -91,33 +112,14 @@ export function SessionReadOnlyClient({ sessionData, troupeId, isDirector }: Ses
                 </div>
 
                 {/* Attendance Summary */}
+                {/* Attendance Summary - REPLACED WITH DETAILED COMPOSITION */}
                 <div className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                        <Users className="w-3 h-3" /> Présence
-                    </h3>
-                    <div className="bg-muted/10 border border-border/50 rounded-2xl p-6 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                                <span className="text-sm font-medium text-foreground">Présents</span>
-                            </div>
-                            <span className="text-lg font-bold text-green-500">{presentCount}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-                                <span className="text-sm font-medium text-foreground">Absents</span>
-                            </div>
-                            <span className="text-lg font-bold text-red-500">{absentCount}</span>
-                        </div>
-                        <div className="flex items-center justify-between opacity-50">
-                            <div className="flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-gray-500" />
-                                <span className="text-sm font-medium text-foreground">Inconnus</span>
-                            </div>
-                            <span className="text-lg font-bold text-muted-foreground">{unknownCount}</span>
-                        </div>
-                    </div>
+                    <SessionComposition
+                        members={members}
+                        guests={guests}
+                        attendance={attendanceMap}
+                        workload={workload}
+                    />
                 </div>
             </div>
 
@@ -149,6 +151,28 @@ export function SessionReadOnlyClient({ sessionData, troupeId, isDirector }: Ses
                                         </p>
                                     ) : (
                                         <p className="text-sm text-muted-foreground pl-[3.25rem] opacity-50">Aucune consigne spécifique.</p>
+                                    )}
+
+
+                                    {/* Character Notes / Remarks */}
+                                    {segment.characterNotes && Object.keys(segment.characterNotes).length > 0 && (
+                                        <div className="pl-[3.25rem] ml-4 mt-2 space-y-2">
+                                            {Object.entries(segment.characterNotes).map(([charId, note]) => {
+                                                const character = plays.find((p: any) => p.id === segment.playId)?.play_characters?.find((c: any) => c.id === charId);
+                                                const charName = character?.name || "Personnage inconnu";
+
+                                                // Find actor for this character
+                                                const actor = actorMap[charId];
+                                                const actorName = actor ? (actor.first_name || actor.name || "Inconnu") : "Non attribué";
+
+                                                return (
+                                                    <div key={charId} className="text-sm bg-yellow-500/10 text-yellow-600 border border-yellow-500/20 rounded-lg p-2 flex gap-2 items-start max-w-xl">
+                                                        <span className="font-bold whitespace-nowrap text-xs uppercase tracking-wider mt-0.5">{actorName} ({charName}):</span>
+                                                        <span className="italic">{note as string}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
                                     )}
                                 </div>
 

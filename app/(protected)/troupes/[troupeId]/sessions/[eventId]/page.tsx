@@ -47,7 +47,7 @@ export default async function SessionDetailsPage({
     const renderContent = () => {
         switch (status) {
             case 'upcoming':
-                return <SessionReadOnlyClient sessionData={sessionData} troupeId={troupeId} isDirector={isDirector} />;
+                return <SessionReadOnlyClient sessionData={sessionData} troupeId={troupeId} isDirector={isDirector} members={members} guests={guests} />;
             case 'processing':
                 return <SessionProcessingClient sessionData={sessionData} troupeId={troupeId} rawNotes={rawNotes || []} />;
             case 'validated':

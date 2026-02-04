@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { CheckCircle } from "lucide-react";
-import { updateSessionStatus, deleteRawNote, submitSessionFeedback, publishSessionFeedbacks } from "@/lib/actions/session"; // Added helpers
+import { CheckCircle, ArrowLeft } from "lucide-react";
+import { updateSessionStatus, deleteRawNote, submitSessionFeedback, publishSessionFeedbacks } from "@/lib/actions/session";
 import { useRouter } from "next/navigation";
 import { SessionPlanStructure } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { NoteProcessingCard } from "./components/note-processing-card";
+import { LiveScriptViewer } from "./live/live-script-viewer"; // Import generic viewer
+import Link from "next/link";
 
 interface SessionProcessingClientProps {
     sessionData: any;
@@ -27,7 +29,7 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
 
     // Flatten segments into a linear list of scenes for the sidebar (matching the "Live" linear flow)
     const flatScenes = structure
-        ? structure.segments.flatMap(seg => seg.scenes.map(s => ({ ...s, playTitle: seg.playTitle })))
+        ? structure.segments.flatMap(seg => seg.scenes.map(s => ({ ...s, playId: seg.playId, playTitle: seg.playTitle })))
         : (plan?.selected_scenes || []);
 
     const handleValidateSession = async () => {
@@ -97,74 +99,86 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
         }
     };
 
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-8rem)]">
-            {/* Left: Planning/Context (Selectable) */}
-            <div className="lg:col-span-4 bg-muted/10 rounded-3xl p-6 border border-border h-full overflow-y-auto">
-                <h2 className="text-xl font-bold mb-4">Déroulé de la séance</h2>
-                <div className="space-y-4">
-                    {flatScenes.map((scene: any, idx: number) => (
-                        <div
-                            key={idx}
-                            onClick={() => setSelectedSceneIdx(idx)}
-                            className={cn(
-                                "p-3 rounded-xl border cursor-pointer transition-all",
-                                selectedSceneIdx === idx
-                                    ? "bg-primary/10 border-primary shadow-md"
-                                    : "bg-card border-border hover:border-primary/50"
-                            )}
-                        >
-                            <div className="flex flex-col gap-1 mb-1">
-                                <div className="flex justify-between items-center">
-                                    <span className={cn(
-                                        "text-xs font-black uppercase",
-                                        selectedSceneIdx === idx ? "text-primary" : "text-muted-foreground"
-                                    )}>Scène {idx + 1}</span>
-                                </div>
-                                {scene.playTitle && (
-                                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest truncate">
-                                        {scene.playTitle}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="font-bold text-lg leading-tight">{scene.title}</div>
-                        </div>
-                    ))}
-                    {flatScenes.length === 0 && (
-                        <div className="text-muted-foreground text-sm italic">Aucune scène planifiée.</div>
-                    )}
-                </div>
-            </div>
+    if (flatScenes.length === 0) return <div className="p-8 text-center text-muted-foreground">Aucune scène à traiter.</div>;
 
-            {/* Right: Notes Processing */}
-            <div className="lg:col-span-8 flex flex-col h-full space-y-4">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-black">Traitement des notes</h1>
-                        <p className="text-sm text-muted-foreground">Triez, qualifiez ou supprimez vos notes prises en live.</p>
-                    </div>
-                    <Button onClick={handleValidateSession} disabled={isSubmitting} className="bg-green-600 hover:bg-green-700 text-white font-bold">
-                        <CheckCircle className="w-4 h-4 mr-2" />
+
+    return (
+        <div className="flex flex-col h-[calc(100vh-theme(spacing.20))] bg-background overflow-hidden relative">
+
+            {/* Header / Nav */}
+            <div className="h-14 shrink-0 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-4 z-20">
+                <div className="flex items-center gap-4">
+                    <Link
+                        href={`/troupes/${troupeId}/sessions`}
+                        className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 text-sm font-medium"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Retour aux séances
+                    </Link>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <Button
+                        size="sm"
+                        onClick={handleValidateSession}
+                        disabled={isSubmitting}
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold h-8 text-xs"
+                    >
+                        <CheckCircle className="w-3 h-3 mr-2" />
                         Valider la Séance
                     </Button>
                 </div>
+            </div>
 
-                <div className="flex-1 bg-card border border-border rounded-3xl overflow-hidden flex flex-col">
-                    <div className="p-4 border-b bg-muted/5 flex items-center justify-between">
-                        <h3 className="font-bold flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-primary" />
-                            Notes pour : {flatScenes[selectedSceneIdx]?.title || "Sélection inconnue"}
-                        </h3>
-                        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                            {filteredNotes.length} note{filteredNotes.length > 1 ? 's' : ''}
+            {/* Scene Navigation Bar (Horizontal) */}
+            <div className="h-12 shrink-0 border-b border-border/50 bg-muted/10 overflow-x-auto overflow-y-hidden no-scrollbar flex items-center px-4 gap-2">
+                {flatScenes.map((scene: any, idx: number) => {
+                    const isActive = idx === selectedSceneIdx;
+                    return (
+                        <button
+                            key={`${scene.id}-${idx}`}
+                            onClick={() => setSelectedSceneIdx(idx)}
+                            className={cn(
+                                "shrink-0 px-3 py-1 rounded-md text-xs font-bold transition-all whitespace-nowrap border flex flex-col items-start gap-0.5 min-w-[120px]",
+                                isActive
+                                    ? "bg-primary/10 border-primary text-primary"
+                                    : "bg-card border-border text-muted-foreground hover:border-primary/30"
+                            )}
+                        >
+                            <span className="text-[10px] uppercase opacity-70">Scène {idx + 1}</span>
+                            <span className="truncate max-w-[150px]">{scene.title}</span>
+                        </button>
+                    )
+                })}
+            </div>
+
+            {/* Split View Content */}
+            <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
+                {/* LEFT: SCRIPT (50%) */}
+                <div className="flex-1 md:flex-1 min-w-0 border-r border-border/10 bg-black/20 relative">
+                    <LiveScriptViewer
+                        sessionData={sessionData}
+                        currentSceneIdx={selectedSceneIdx}
+                        scenes={flatScenes}
+                        isReadOnly={true}
+                    />
+                </div>
+
+                {/* RIGHT: NOTES (50%) */}
+                <div className="flex-1 md:flex-1 min-w-0 bg-background flex flex-col border-l border-border/10">
+                    <div className="flex items-center border-b border-border/50 bg-muted/20 px-4 h-12 justify-between">
+                        <span className="text-[10px] uppercase font-black tracking-widest text-primary flex items-center gap-2">
+                            Notes pour : Scène {selectedSceneIdx + 1}
+                        </span>
+                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                            {filteredNotes.length} Notes
                         </span>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
                         {filteredNotes.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-2">
-                                <CheckCircle className="w-12 h-12 opacity-20" />
-                                <p>Aucune note pour cette scène.</p>
+                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-2 opacity-50">
+                                <p className="text-sm italic">Aucune note pour cette scène.</p>
                             </div>
                         ) : (
                             filteredNotes.map((note) => (
