@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from "react";
 import { ParsedScript } from "@/lib/types";
 import { Button } from "./ui/button";
 import { ArrowLeft, Highlighter, Layout, Download } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isUserLine, getSceneCharacters } from "@/lib/utils";
 import { ScriptSettings } from "./script-setup";
 import { exportToPdf } from "@/lib/pdf-export";
 import { filterScriptLines, parseSegments } from "@/lib/utils/stage-directions";
@@ -33,33 +33,25 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
     // Check if private notes are enabled
     const showPrivateNotes = userCharacters.includes(PRIVATE_NOTE_CHAR);
 
-    const isUserLine = (lineChar: string) => {
-        if (!lineChar || !userCharacters || userCharacters.length === 0) return false;
+    // Pre-calculate per-scene characters for correct "TOUS" handling
+    // We only need to do this once when script changes
+    const sceneCharactersMap = useMemo(() => {
+        return getSceneCharacters(script);
+    }, [script]);
 
-        const normalizedLineChar = lineChar.toLowerCase().trim();
-        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-
-        return userCharacters.some(userChar => {
-            const normalizedUserChar = userChar.toLowerCase().trim();
-            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-        });
-    };
-
-    // Pre-calculate line numbers for user characters
-    const userLineNumbers = useMemo(() => {
-        const map = new Map<string, number>();
-        let counter = 0;
-        script.lines.forEach((line) => {
-            if (isUserLine(line.character)) {
-                counter++;
-                map.set(line.id, counter);
-            }
-        });
+    // Build a map of line index -> scene info (including scene start index for lookup)
+    const sceneInfoMap = useMemo(() => {
+        const map = new Map<number, { title: string, startIndex: number }>();
+        if (script.scenes && script.scenes.length > 0) {
+            script.scenes.forEach((scene) => {
+                map.set(scene.index, { title: scene.title, startIndex: scene.index });
+            });
+        }
         return map;
-    }, [script.lines, userCharacters]);
+    }, [script.scenes]);
 
-    // Build a map of line index -> scene info
-    const sceneAtIndex = useMemo(() => {
+    // Compatible map for PDF export (which expects Map<number, string>)
+    const sceneTitleMap = useMemo(() => {
         const map = new Map<number, string>();
         if (script.scenes && script.scenes.length > 0) {
             script.scenes.forEach((scene) => {
@@ -69,18 +61,39 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
         return map;
     }, [script.scenes]);
 
-    // Track current scene for sticky display
-    const getCurrentScene = (lineIndex: number): string | null => {
-        let currentScene: string | null = null;
+    // Track current scene for sticky display AND context
+    const getCurrentSceneInfo = (lineIndex: number): { title: string, startIndex: number } | null => {
+        let currentScene: { title: string, startIndex: number } | null = null;
         for (const scene of script.scenes || []) {
             if (scene.index <= lineIndex) {
-                currentScene = scene.title;
+                currentScene = { title: scene.title, startIndex: scene.index };
             } else {
                 break;
             }
         }
+        // Fallback for scripts without scenes: treat as index 0
+        if (!currentScene && (!script.scenes || script.scenes.length === 0)) {
+            return { title: "", startIndex: 0 };
+        }
         return currentScene;
     };
+
+    // Pre-calculate line numbers for user characters
+    const userLineNumbers = useMemo(() => {
+        const map = new Map<string, number>();
+        let counter = 0;
+
+        script.lines.forEach((line, index) => {
+            const sceneInfo = getCurrentSceneInfo(index);
+            const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
+
+            if (isUserLine(line.character, userCharacters, activeChars)) {
+                counter++;
+                map.set(line.id, counter);
+            }
+        });
+        return map;
+    }, [script.lines, userCharacters, sceneCharactersMap]); // Add sceneCharactersMap dependency
 
     // Helper for visibility masking
     const getVisibleText = (text: string, isUser: boolean) => {
@@ -118,16 +131,23 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
         if (settings.mode === "full") return stageFilteredLines;
 
         return stageFilteredLines.filter((line) => {
-            const isUser = isUserLine(line.character);
+            const sceneInfo = getCurrentSceneInfo(line.originalIndex);
+            const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
+            const isUser = isUserLine(line.character, userCharacters, activeChars);
+
             if (isUser) return true;
 
             if (settings.mode === "cue") {
                 const nextLine = script.lines[line.originalIndex + 1];
-                return nextLine && isUserLine(nextLine.character) && !shouldSkipLine(nextLine.character);
+                if (nextLine) {
+                    const nextSceneInfo = getCurrentSceneInfo(line.originalIndex + 1);
+                    const nextActiveChars = nextSceneInfo ? sceneCharactersMap.get(nextSceneInfo.startIndex) : undefined;
+                    return isUserLine(nextLine.character, userCharacters, nextActiveChars) && !shouldSkipLine(nextLine.character);
+                }
             }
             return false;
         });
-    }, [script.lines, settings.mode, userCharacters, skipCharacters, showStageDirections]);
+    }, [script.lines, settings.mode, userCharacters, skipCharacters, showStageDirections, sceneCharactersMap]);
 
     return (
         <div className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground font-sans overflow-hidden">
@@ -150,7 +170,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneAtIndex)}
+                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneTitleMap)}
                         className="gap-2 hidden sm:flex"
                     >
                         <Download className="w-4 h-4" />
@@ -159,7 +179,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneAtIndex)}
+                        onClick={() => exportToPdf(filteredLines, script.title || "Script", userCharacters.join(", "), settings, sceneTitleMap)}
                         className="sm:hidden"
                     >
                         <Download className="w-5 h-5" />
@@ -201,11 +221,16 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                     <div className="flex-1 p-4 md:p-8">
                         <div className="max-w-3xl mx-auto space-y-4 pb-32">
                             {filteredLines.map((line, idx) => {
-                                const isUser = isUserLine(line.character);
+                                const sceneInfo = getCurrentSceneInfo((line as any).originalIndex);
+                                const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
+                                const isUser = isUserLine(line.character, userCharacters, activeChars);
+
                                 const lineNumber = userLineNumbers.get(line.id);
-                                const sceneTitle = sceneAtIndex.get((line as any).originalIndex);
+                                // The map keys are ORIGINAL indexes (from scenes array), so we need to find if this line starts a scene
+                                const sceneTitle = sceneInfoMap.get((line as any).originalIndex)?.title;
 
                                 // Private Note Logic
+
                                 const note = showPrivateNotes && privateNotes.length > 0
                                     ? privateNotes.find(n => n.line_index === (line as any).originalIndex)
                                     : null;
@@ -243,7 +268,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                         >
                                             <div className="hidden md:flex flex-col items-center w-12 flex-shrink-0 pt-1">
                                                 <span className="text-[9px] text-muted-foreground font-mono">
-                                                    {getCurrentScene(idx)?.split(' ').slice(0, 2).join(' ')}
+                                                    {getCurrentSceneInfo((line as any).originalIndex)?.title?.split(' ').slice(0, 2).join(' ')}
                                                 </span>
                                             </div>
 

@@ -1,4 +1,5 @@
 import { ScriptLine, ParsedScript, ScriptScene } from "./types";
+import { COLLECTIVE_ROLES } from "./constants";
 
 /**
  * MASTERCLASS PARSER v2.0
@@ -362,8 +363,11 @@ function extractTitle(lines: string[]): string | undefined {
 /**
  * Step 1: Fast scan to detect potential characters
  */
-// Collective roles that should be detected but not assigned to a specific actor
-const COLLECTIVE_ROLES = new Set(["TOUS", "TOUTES", "ENSEMBLE", "CHOEUR", "CHŒUR", "FOULE", "GROUPE", "VOIX"]);
+/**
+ * Step 1: Fast scan to detect potential characters
+ */
+// Collective roles are now imported from constants
+
 
 /**
  * Step 1: Fast scan to detect potential characters

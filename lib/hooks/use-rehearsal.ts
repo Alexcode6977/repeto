@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ParsedScript, ScriptLine } from "../types";
 import { useSpeech } from "./use-speech";
 import { useOpenAITTS } from "./use-openai-tts";
 import { calculateSimilarity, stripStageDirections } from "../similarity";
 import { offlineManager } from "../offline/offline-manager";
+import { getSceneCharacters, isUserLine as checkIsUserLine } from "../utils";
 
 export type RehearsalStatus =
     | "setup"
@@ -44,6 +45,9 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
 
     const [recordings, setRecordings] = useState<any[]>([]);
     const [isPlayingRecording, setIsPlayingRecording] = useState(false);
+
+    // Pre-calculate scene characters for collective role logic
+    const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
 
     // Fetch recordings if playId is provided
     useEffect(() => {
@@ -171,19 +175,36 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
     // If status changes to 'paused', the effect cleanup runs -> clearTimeout. PERFECT.
     // So if I hit pause, status -> paused. Effect [speechState, status] cleanup runs. Timer killed. logic holds.
 
+    // Helper to find the current scene start index for a given line index
+    const getSceneStartIndex = (lineIndex: number): number => {
+        let currentIndex = 0;
+        for (const scene of script.scenes || []) {
+            if (scene.index <= lineIndex) {
+                currentIndex = scene.index;
+            } else {
+                break;
+            }
+        }
+        return currentIndex;
+    };
+
+    // Helper for character matching with extended collective logic
+    const isUserLine = (lineChar: string, specificLineIndex?: number) => {
+        // Find which scene this line belongs to
+        const idx = specificLineIndex !== undefined ? specificLineIndex : currentLineIndex;
+        const sceneStartIdx = getSceneStartIndex(idx);
+        const activeChars = sceneCharactersMap.get(sceneStartIdx);
+
+        return checkIsUserLine(lineChar, userCharacters, activeChars);
+    };
+
     const togglePause = () => {
         if (transitionLockRef.current) return;
         if (status === "paused") {
             // Resume
             const line = script.lines[currentLineIndex];
-            const isUser = (() => {
-                const normalizedLineChar = line.character.toLowerCase().trim();
-                const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-                return userCharacters.some(userChar => {
-                    const normalizedUserChar = userChar.toLowerCase().trim();
-                    return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-                });
-            })();
+            // FIX: Pass current index explicitly to ensure scene lookup is correct
+            const isUser = isUserLine(line.character, currentLineIndex);
 
             if (isUser) {
                 setStatus("listening_user");
@@ -195,19 +216,6 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             setStatus("paused");
             stopAll();
         }
-    };
-
-    // Helper for character matching
-    const isUserLine = (lineChar: string) => {
-        if (!lineChar || !userCharacters || userCharacters.length === 0) return false;
-
-        const normalizedLineChar = lineChar.toLowerCase().trim();
-        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-
-        return userCharacters.some(userChar => {
-            const normalizedUserChar = userChar.toLowerCase().trim();
-            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-        });
     };
 
     // Helper to check if a line should be skipped (e.g., DIDASCALIES)
@@ -253,7 +261,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             let isRelevant = true;
             if (currentMode === "check") {
                 // Only user lines are relevant
-                isRelevant = isUserLine(line.character);
+                // FIX: Pass index to check scene context
+                isRelevant = isUserLine(line.character, entryIdx);
             } else if (currentMode === "cue") {
                 // User lines OR lines just before user lines are relevant
                 const nextRelevantIdx = (() => {
@@ -264,7 +273,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                     return nextIdx;
                 })();
                 const nextLine = script.lines[nextRelevantIdx];
-                isRelevant = isUserLine(line.character) || (nextLine && isUserLine(nextLine.character));
+                // FIX: Pass index to check scene context for both
+                isRelevant = isUserLine(line.character, entryIdx) || (nextLine && isUserLine(nextLine.character, nextRelevantIdx));
             }
 
             if (isRelevant) break;
@@ -281,7 +291,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         const line = script.lines[entryIdx];
 
         const executeStart = () => {
-            if (isUserLine(line.character)) {
+            // FIX: Pass index
+            if (isUserLine(line.character, entryIdx)) {
                 setStatus("listening_user");
                 // Force play tone if we start directly on user (Cue Mode / Check Mode edge case)
                 playBip();
@@ -313,7 +324,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             let isRelevant = true;
             const currentMode = stateRef.current.mode;
             if (currentMode === "check") {
-                isRelevant = isUserLine(line.character);
+                // FIX: Pass index
+                isRelevant = isUserLine(line.character, idx);
             } else if (currentMode === "cue") {
                 const nextRelevantIdx = (() => {
                     let nIdx = idx + 1;
@@ -323,7 +335,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                     return nIdx;
                 })();
                 const nextLine = script.lines[nextRelevantIdx];
-                isRelevant = isUserLine(line.character) || (nextLine && isUserLine(nextLine.character));
+                // FIX: Pass indexes
+                isRelevant = isUserLine(line.character, idx) || (nextLine && isUserLine(nextLine.character, nextRelevantIdx));
             }
 
             if (isRelevant) return idx;
@@ -346,7 +359,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             const nextLine = script.lines[nextIdx];
             setTimeout(() => {
                 manualSkipRef.current = false;
-                if (isUserLine(nextLine.character)) {
+                // FIX: Pass new index
+                if (isUserLine(nextLine.character, nextIdx)) {
                     setStatus("listening_user");
                     playBip();
                 } else {
@@ -375,7 +389,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             const prevLine = script.lines[prevIdx];
             setTimeout(() => {
                 manualSkipRef.current = false;
-                if (isUserLine(prevLine.character)) {
+                // FIX: Pass index
+                if (isUserLine(prevLine.character, prevIdx)) {
                     setStatus("listening_user");
                     playBip();
                 } else {
@@ -406,10 +421,12 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         retryCountRef.current = 0;
 
         // FIX: Use stateRef to get CURRENT line index, not stale closure
-        const line = script.lines[stateRef.current.currentLineIndex];
+        const currentIdx = stateRef.current.currentLineIndex;
+        const line = script.lines[currentIdx];
         setTimeout(() => {
             manualSkipRef.current = false;
-            if (isUserLine(line.character)) {
+            // FIX: Pass index
+            if (isUserLine(line.character, currentIdx)) {
                 setStatus("listening_user");
                 playBip();
             } else {
@@ -450,7 +467,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                 const nextIdx = currentLineIndex + i;
                 if (nextIdx < script.lines.length) {
                     const nextLine = script.lines[nextIdx];
-                    if (!isUserLine(nextLine.character)) {
+                    // FIX: Pass index
+                    if (!isUserLine(nextLine.character, nextIdx)) {
                         preloadLine(nextLine.text, nextLine.character);
                     }
                 }
@@ -469,7 +487,8 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                         lookAheadIdx++;
                     }
                     const nextLine = script.lines[lookAheadIdx];
-                    shouldPlay = (nextLine && isUserLine(nextLine.character)) || false;
+                    // FIX: Pass index
+                    shouldPlay = (nextLine && isUserLine(nextLine.character, lookAheadIdx)) || false;
                 }
 
                 if (!shouldPlay) {

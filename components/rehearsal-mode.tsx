@@ -11,7 +11,7 @@ import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getSceneCharacters, isUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
@@ -171,10 +171,11 @@ export function RehearsalMode({
                 if (!capabilities.features.advancedVisibility && lineVisibility !== "visible") {
                     setLineVisibility("visible");
                 }
-                if (!capabilities.features.aiVoices && ttsProvider === "openai") {
-                    setTtsProvider("browser");
-                } else if (capabilities.features.aiVoices && !ttsProvider) {
+                // Enforce TTS Rules: Premium/Troupe -> OpenAI, Free -> Browser
+                if (capabilities.features.aiVoices) {
                     setTtsProvider("openai");
+                } else {
+                    setTtsProvider("browser");
                 }
             } catch (error) {
                 console.error("Failed to fetch user capabilities", error);
@@ -755,15 +756,6 @@ export function RehearsalMode({
         }
     }, [status, hasStarted, showFeedbackModal, showUpgradeModal, stop, isDemo]);
 
-    const isUserTurn = currentLine && (() => {
-        const normalizedLineChar = currentLine.character.toLowerCase().trim();
-        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-        return (userCharacters || []).some(userChar => {
-            const normalizedUserChar = (userChar || "").toLowerCase().trim();
-            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-        });
-    })();
-
     const getExampleStatus = (score: number) => score >= threshold;
 
     // Helper for visibility masking
@@ -795,6 +787,30 @@ export function RehearsalMode({
         return null;
     }, [playId, script.title]);
 
+
+
+    // Pre-calculate scene characters for collective role logic
+    const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
+
+    const getSceneStartIndex = (lineIndex: number): number => {
+        let currentIndex = 0;
+        for (const scene of script.scenes || []) {
+            if (scene.index <= lineIndex) {
+                currentIndex = scene.index;
+            } else {
+                break;
+            }
+        }
+        return currentIndex;
+    };
+
+    const isUserLineHelper = (line: ScriptLine, index: number) => {
+        const sceneStartIdx = getSceneStartIndex(index);
+        const activeChars = sceneCharactersMap.get(sceneStartIdx);
+        return isUserLine(line.character, userCharacters, activeChars);
+    };
+
+    const isUserTurn = currentLine && isUserLineHelper(currentLine, currentLineIndex);
 
     if (!hasStarted) {
         // Quick Start Logic - quickStartSettings is now defined above, outside this conditional
@@ -1146,14 +1162,7 @@ export function RehearsalMode({
                     >
                         {script.lines.map((line, index) => {
                             const isActive = index === currentLineIndex;
-                            const isUser = (() => {
-                                const normalizedLineChar = line.character.toLowerCase().trim();
-                                const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-                                return (userCharacters || []).some(userChar => {
-                                    const normalizedUserChar = (userChar || "").toLowerCase().trim();
-                                    return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-                                });
-                            })();
+                            const isUser = isUserLineHelper(line, index);
 
                             const isIndication = line.character === "INDICATIONS";
 
