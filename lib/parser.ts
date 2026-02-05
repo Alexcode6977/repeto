@@ -362,6 +362,12 @@ function extractTitle(lines: string[]): string | undefined {
 /**
  * Step 1: Fast scan to detect potential characters
  */
+// Collective roles that should be detected but not assigned to a specific actor
+const COLLECTIVE_ROLES = new Set(["TOUS", "TOUTES", "ENSEMBLE", "CHOEUR", "CHŒUR", "FOULE", "GROUPE", "VOIX"]);
+
+/**
+ * Step 1: Fast scan to detect potential characters
+ */
 export function detectCharactersHeuristic(rawText: string): { title?: string, characters: string[] } {
     console.log("[Parser] Running heuristic character detection...");
 
@@ -370,8 +376,8 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
 
     const title = extractTitle(lines);
     const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']+)[:\.,]\s*(.*)/;
-    const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ]{2,}[A-ZÀ-ÖØ-Þ\s\-\'']*)\s*$/;
 
+    // Track usage stats
     const characterUsage = new Map<string, { headers: number, totalWords: number }>();
 
     // First pass: detect if file uses PERSO/REPLIQUE format
@@ -471,9 +477,11 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
 
             const finalName = extractVoixName(charName);
             const score = scoreCharacterName(finalName);
+            const isCollective = COLLECTIVE_ROLES.has(finalName.toUpperCase());
 
             // Increased from 0.6 to 0.75 to prevent false positives like "CONTINUEZ DONC"
-            if (score > 0.75) {
+            // But allow collective roles regardless of score
+            if (score > 0.75 || isCollective) {
                 const normalized = finalName.toUpperCase();
                 const stats = characterUsage.get(normalized) || { headers: 0, totalWords: 0 };
                 if (isHeader) stats.headers++;
@@ -485,10 +493,9 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
 
     // Filter and sort
     const characters = Array.from(characterUsage.entries())
-        .filter(([name, stats]) => stats.headers >= 1)
+        .filter(([name, stats]) => stats.headers >= 1 && !COLLECTIVE_ROLES.has(name)) // Exclude collective roles from assignable list
         .sort((a, b) => b[1].headers - a[1].headers)
         .map(([name]) => name);
-
 
     return { title, characters };
 }
@@ -753,7 +760,9 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             const score = scoreCharacterName(finalName);
 
             // If validated characters list provided, check against it
-            if (charWhitelist && !charWhitelist.has(finalName.toUpperCase())) {
+            const isCollective = COLLECTIVE_ROLES.has(finalName.toUpperCase());
+
+            if (charWhitelist && !charWhitelist.has(finalName.toUpperCase()) && !isCollective) {
                 let foundSimilar = false;
                 for (const valid of charWhitelist) {
                     if (similarity(finalName, valid) > 0.85) {
@@ -762,7 +771,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
                         break;
                     }
                 }
-                // Skip if not in whitelist and no similar match found
+                // Skip if not in whitelist and no similar match found, AND not a collective role
                 if (!foundSimilar && score < 0.3) {
                     previousLine = lineForDetection;
                     continue;

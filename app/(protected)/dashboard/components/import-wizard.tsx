@@ -434,66 +434,6 @@ export function ImportWizard({
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={() => !isAiImporting && setImportChoice("choice")}>
                     {/* ... Content based on User Tier ... */}
 
-                    {/* SPECIAL ADMIN CASE: CHOICE BETWEEN BASIC OR AI */}
-                    {userEmail === ADMIN_EMAIL && !isAiImporting && !isImporting && aiImportStep === 0 && (
-                        <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
-
-                            <div className="text-center mb-6">
-                                <div className="w-16 h-16 mx-auto mb-4 bg-purple-500/20 rounded-full flex items-center justify-center">
-                                    <Crown className="w-8 h-8 text-purple-500" />
-                                </div>
-                                <h2 className="text-2xl font-bold text-foreground">Mode Admin</h2>
-                                <p className="text-muted-foreground mt-2">Quelle méthode d'import utiliser ?</p>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-4">
-                                {/* Option 1: Basic / Free */}
-                                <div className="relative group">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full justify-start h-auto p-4 border-dashed hover:border-primary hover:bg-primary/5"
-                                        asChild
-                                    >
-                                        <label className="cursor-pointer flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
-                                                <Upload className="w-5 h-5 text-orange-500" />
-                                            </div>
-                                            <div className="text-left">
-                                                <div className="font-bold text-foreground">Import Classique (Gratuit)</div>
-                                                <div className="text-xs text-muted-foreground">Via parsing PDF basic (Legacy)</div>
-                                            </div>
-                                            <input type="file" accept=".pdf" className="hidden" onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }} />
-                                        </label>
-                                    </Button>
-                                </div>
-
-                                {/* Option 2: AI */}
-                                <div className="relative group">
-                                    <Button
-                                        variant="outline"
-                                        className="w-full justify-start h-auto p-4 border-dashed hover:border-green-500 hover:bg-green-500/5"
-                                        asChild
-                                    >
-                                        <label className="cursor-pointer flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
-                                                <Loader2 className="w-5 h-5 text-green-500" />
-                                            </div>
-                                            <div className="text-left">
-                                                <div className="font-bold text-foreground">Import IA</div>
-                                                <div className="text-xs text-muted-foreground">Extraction et nettoyage automatique</div>
-                                            </div>
-                                            {/* Note: This triggers the AI flow in the else block if we weren't just showing this choice. 
-                                                But since we are here, we need to manually trigger the next step OR just use the input to trigger handleAiFileChange 
-                                                which will switch UI state because isAiImporting becomes true */}
-                                            <input type="file" accept=".pdf" className="hidden" onChange={handleAiFileChange} />
-                                        </label>
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* REGULAR USERS OR ADMIN DURING IMPORT */}
                     {(userTier === "free" && userEmail !== ADMIN_EMAIL) ? (
                         // FREE TIER UI
@@ -520,80 +460,77 @@ export function ImportWizard({
                             </div>
                         </div>
                     ) : (
-                        // AI TIER UI (Standard for Pro/Troupe OR Admin when actually importing)
-                        // We hide this block if Admin is choosing (above block) unless they are actively importing (isAiImporting or step > 0)
-                        (userEmail !== ADMIN_EMAIL || isAiImporting || aiImportStep > 0) && (
-                            <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                                {!isAiImporting && <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>}
-                                <div className="absolute -top-20 -left-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
+                        // AI TIER UI (Standard for Pro/Troupe OR Admin)
+                        <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                            {!isAiImporting && <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>}
+                            <div className="absolute -top-20 -left-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                                {isAiImporting ? (
-                                    <div className="py-4">
-                                        {aiImportSuccess ? (
-                                            <div className="text-center py-8">
-                                                <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30"><Check className="w-10 h-10 text-white" /></div>
-                                                <h3 className="text-2xl font-bold text-foreground mb-2">Import réussi !</h3>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-6">
-                                                <div className="text-center mb-6"><h3 className="text-xl font-bold text-foreground">Analyse Intelligente en cours...</h3></div>
-                                                <div className="p-4 rounded-2xl border bg-muted/30 border-primary/30">
-                                                    <div className="flex items-center gap-3 mb-2"><Loader2 className="w-4 h-4 animate-spin text-primary" /><span className="font-medium text-foreground">Traitement Automatique étape {aiImportStep}</span></div>
-                                                    <div className="ml-7">
-                                                        <div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-1000" style={{ width: `${aiImportProgress}%` }} /></div>
-                                                    </div>
+                            {isAiImporting ? (
+                                <div className="py-4">
+                                    {aiImportSuccess ? (
+                                        <div className="text-center py-8">
+                                            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30"><Check className="w-10 h-10 text-white" /></div>
+                                            <h3 className="text-2xl font-bold text-foreground mb-2">Import réussi !</h3>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            <div className="text-center mb-6"><h3 className="text-xl font-bold text-foreground">Analyse Intelligente en cours...</h3></div>
+                                            <div className="p-4 rounded-2xl border bg-muted/30 border-primary/30">
+                                                <div className="flex items-center gap-3 mb-2"><Loader2 className="w-4 h-4 animate-spin text-primary" /><span className="font-medium text-foreground">Traitement Automatique étape {aiImportStep}</span></div>
+                                                <div className="ml-7">
+                                                    <div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-1000" style={{ width: `${aiImportProgress}%` }} /></div>
                                                 </div>
-                                                <div className="pt-4 border-t border-border mt-4"><Button variant="ghost" onClick={cancelAiImport} className="w-full text-muted-foreground hover:text-foreground">Annuler l'import</Button></div>
                                             </div>
-                                        )}
+                                            <div className="pt-4 border-t border-border mt-4"><Button variant="ghost" onClick={cancelAiImport} className="w-full text-muted-foreground hover:text-foreground">Annuler l'import</Button></div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="text-center">
+                                        <h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Nouveau Format PDF</h2>
+                                        <p className="text-muted-foreground mt-2">Votre PDF doit utiliser le nouveau format avec crochets</p>
                                     </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        <div className="text-center">
-                                            <h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Nouveau Format PDF</h2>
-                                            <p className="text-muted-foreground mt-2">Votre PDF doit utiliser le nouveau format avec crochets</p>
-                                        </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="bg-muted/30 border border-border rounded-2xl p-4">
-                                                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                                                    <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">1</span>
-                                                    Format requis
-                                                </h3>
-                                                <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
-                                                    <p><span className="text-primary font-bold">[NOM]</span></p>
-                                                    <p>Texte du dialogue</p>
-                                                    <p><span className="text-amber-500">(didascalie)</span></p>
-                                                </div>
-                                            </div>
-                                            <div className="bg-muted/30 border border-border rounded-2xl p-4">
-                                                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                                                    <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">2</span>
-                                                    Exemple
-                                                </h3>
-                                                <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
-                                                    <p><span className="text-primary">[MARIE]</span></p>
-                                                    <p>Où est Pierre ?</p>
-                                                    <p className="opacity-50">&nbsp;</p>
-                                                    <p><span className="text-primary">[JEAN]</span></p>
-                                                    <p>(souriant) Au marché.</p>
-                                                </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-muted/30 border border-border rounded-2xl p-4">
+                                            <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                                                <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">1</span>
+                                                Format requis
+                                            </h3>
+                                            <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
+                                                <p><span className="text-primary font-bold">[NOM]</span></p>
+                                                <p>Texte du dialogue</p>
+                                                <p><span className="text-amber-500">(didascalie)</span></p>
                                             </div>
                                         </div>
-
-                                        <div className="flex justify-center">
-                                            <Button className="py-6 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-xl" asChild>
-                                                <label className="cursor-pointer flex items-center justify-center gap-3">
-                                                    <Upload className="w-5 h-5" />
-                                                    Importer mon PDF
-                                                    <input type="file" accept=".pdf" className="hidden" onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }} />
-                                                </label>
-                                            </Button>
+                                        <div className="bg-muted/30 border border-border rounded-2xl p-4">
+                                            <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                                                <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">2</span>
+                                                Exemple
+                                            </h3>
+                                            <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
+                                                <p><span className="text-primary">[MARIE]</span></p>
+                                                <p>Où est Pierre ?</p>
+                                                <p className="opacity-50">&nbsp;</p>
+                                                <p><span className="text-primary">[JEAN]</span></p>
+                                                <p>(souriant) Au marché.</p>
+                                            </div>
                                         </div>
                                     </div>
-                                )}
-                            </div>
-                        )
+
+                                    <div className="flex justify-center">
+                                        <Button className="py-6 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-xl" asChild>
+                                            <label className="cursor-pointer flex items-center justify-center gap-3">
+                                                <Upload className="w-5 h-5" />
+                                                Importer mon PDF
+                                                <input type="file" accept=".pdf" className="hidden" onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }} />
+                                            </label>
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             )}
