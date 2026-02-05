@@ -539,7 +539,101 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     // Scene header
     const sceneRegex = /^(?:SCÈNE|SCENE|ACTE|TABLEAU)\s+(?:[IVX0-9]+|PREMI[ÈE]RE?|DERNI[ÈE]RE?)/i;
 
-    // === MAIN PARSING LOOP ===
+    // === STRICT MODE DETECTION ===
+    // If we detect the bracket format, we activate STRICT PARSING mode.
+    // This bypasses all heuristics and assumes the text is perfectly formatted.
+    // We scan the ENTIRE file to be sure (as requested).
+    const hasBracketFormat = lines.some(line => /^\s*\[([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-']+)\]/.test(line));
+
+    if (hasBracketFormat) {
+        console.log("[Parser] STRICT MODE ACTIVATED (Bracket Format detected)");
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
+            if (/^\d+$/.test(trimmedLine)) continue; // Skip page numbers
+
+            // 1. Detect Character: [NAME]
+            const bracketMatch = line.match(/^\[([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-']+)\]\s*(.*)/);
+
+            if (bracketMatch) {
+                // Flush previous buffer
+                if (currentCharacter && currentBuffer) {
+                    scriptLines.push({
+                        id: String(idCounter++),
+                        character: currentCharacter,
+                        text: currentBuffer.trim(),
+                        type: "dialogue",
+                    });
+                    currentBuffer = "";
+                }
+
+                const rawName = bracketMatch[1].trim();
+                currentCharacter = extractVoixName(rawName).toUpperCase();
+                characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+
+                // If there is dialogue on the same line
+                const dialogueAfter = bracketMatch[2].trim();
+                if (dialogueAfter) {
+                    currentBuffer = dialogueAfter;
+                }
+                continue;
+            }
+
+            // 2. Detect Scene Header
+            // Even in strict mode, we want to capture scenes
+            const cleanLine = trimmedLine.replace(/\(.*?\)/g, "").trim(); // Remove directions for checking
+            if (sceneRegex.test(cleanLine)) {
+                if (currentCharacter && currentBuffer) {
+                    scriptLines.push({
+                        id: String(idCounter++),
+                        character: currentCharacter,
+                        text: currentBuffer.trim(),
+                        type: "dialogue",
+                    });
+                    currentBuffer = "";
+                }
+                scenes.push({ index: scriptLines.length, title: cleanLine });
+                currentCharacter = "";
+                currentBuffer = "";
+                continue;
+            }
+
+            // 3. Detect Orphan Stage Directions OR Add to Dialogue
+            // If we have a character, it is dialogue (or embedded directions)
+            if (currentCharacter) {
+                currentBuffer += (currentBuffer ? " " : "") + trimmedLine;
+            } else {
+                // No character yet, must be a stage direction (like start of scene)
+                // Or a scene description
+                scriptLines.push({
+                    id: String(idCounter++),
+                    character: "INDICATIONS",
+                    text: trimmedLine,
+                    type: "stage_direction"
+                });
+            }
+        }
+
+        // Flush final buffer for Strict Mode
+        if (currentCharacter && currentBuffer) {
+            scriptLines.push({
+                id: String(idCounter++),
+                character: currentCharacter,
+                text: currentBuffer.trim(),
+                type: "dialogue",
+            });
+        }
+
+        // Return early - SKIP THE OLD HEURISTIC LOOP
+        return {
+            lines: scriptLines,
+            characters: Object.keys(characterCounts),
+            scenes
+        };
+    }
+
+    // === FALLBACK: LEGACY HEURISTIC LOOP ===
     let previousLine = "";
 
     for (const originalLine of lines) {
