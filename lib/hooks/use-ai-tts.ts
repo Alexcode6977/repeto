@@ -3,9 +3,9 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { synthesizeSpeech, OpenAIVoice } from "@/app/actions/tts";
 
-export type TTSProvider = "browser" | "openai";
+export type TTSProvider = "browser" | "openai" | "elevenlabs";
 
-interface UseOpenAITTSReturn {
+interface UseAITTSReturn {
     speak: (text: string, voice?: string) => Promise<void>;
     preload: (text: string, voice?: string) => Promise<void>;
     stop: () => void;
@@ -16,7 +16,7 @@ interface UseOpenAITTSReturn {
 
 const MAX_CACHE_SIZE = 50; // Limit in-memory cache to prevent memory leaks
 
-export function useOpenAITTS(): UseOpenAITTSReturn {
+export function useAITTS(): UseAITTSReturn {
     const [isLoading, setIsLoading] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
         setIsLoading(false);
     }, []);
 
-    const preload = useCallback(async (text: string, voice: string = "nova") => {
+    const preload = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM") => {
         const key = `${voice}:${text}`;
         if (audioCache.current.has(key)) return;
 
@@ -62,7 +62,7 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
         }
     }, [addToCache]);
 
-    const speak = useCallback(async (text: string, voice: string = "nova") => {
+    const speak = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM") => {
         // Stop any ongoing playback
         stop();
 
@@ -107,7 +107,7 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
                 };
 
                 const onError = (e: any) => {
-                    console.error("[OpenAI] Audio Error:", e);
+                    console.error("[AI TTS] Audio Error:", e);
                     setError("Failed to play audio");
                     setIsSpeaking(false);
                     setIsLoading(false);

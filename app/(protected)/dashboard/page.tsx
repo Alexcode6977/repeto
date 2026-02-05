@@ -151,6 +151,28 @@ export default function Home() {
   // --- SCRIPT ACTIONS (Passed to Grid) ---
 
   const handleLoadScript = async (s: ScriptMetadata) => {
+    // ENFORCE VOICE CONFIGURATION
+    // First-time check: If no voices configured, force open Casting Studio
+    if (!(s as any).hasVoiceConfig) {
+      setIsLoadingDetail(true);
+      try {
+        const fullScript = await getScriptById(s.id);
+        if (fullScript) {
+          setSettingsScript({
+            id: s.id,
+            title: fullScript.title,
+            characters: fullScript.characters || [],
+          });
+          // Optional: You could set a specific flag to show a "Welcome/Setup" message in the modal
+        }
+      } catch (err) {
+        setError("Erreur lors de l'ouverture de la configuration.");
+      } finally {
+        setIsLoadingDetail(false);
+      }
+      return;
+    }
+
     setIsLoadingDetail(true);
     setError(null);
     try {

@@ -293,13 +293,22 @@ export async function ensureVoiceConfig(
     const existing = await hasVoiceConfig(sourceType, sourceId);
     if (existing) return { success: true };
 
-    const VOICES: OpenAIVoice[] = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+    // ElevenLabs Default Voices (Varied genders/ages)
+    const VOICES = [
+        "21m00Tcm4TlvDq8ikWAM", // Rachel
+        "pNInz6obpgDQGcFmaJgB", // Adam
+        "EXAVITQu4vr4xnNLMQyw", // Bella
+        "ErXw9S1k3MpBy928U4cm", // Antoni
+        "MF3mGyEYCl7XYW7Lyk9p", // Elli
+        "TxGEqnHW47ic3A7NWmsG", // Josh
+    ];
 
     // Create assignments for private script (including didascalies)
     const allRoles = ["didascalies", ...characters];
     const assignments: VoiceAssignment[] = allRoles.map((role, index) => ({
         character: role,
-        voice: VOICES[index % VOICES.length]
+        voice: VOICES[index % VOICES.length],
+        provider: 'elevenlabs'
     }));
 
     return createVoiceConfig(sourceType, sourceId, assignments, troupeId);

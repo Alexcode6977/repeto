@@ -1,6 +1,6 @@
 "use client";
 
-import { useOpenAITTS } from "@/lib/hooks/use-openai-tts";
+import { useAITTS } from "@/lib/hooks/use-ai-tts";
 import { OpenAIVoice } from "@/app/actions/tts";
 import { Play, Pause, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ interface VoicePreviewButtonProps {
 }
 
 export function VoicePreviewButton({ voice, className }: VoicePreviewButtonProps) {
-    const { speak, stop, isSpeaking, isLoading } = useOpenAITTS();
+    const { speak, stop, isSpeaking, isLoading } = useAITTS();
 
     const handlePlay = (e: React.MouseEvent) => {
         e.preventDefault();

@@ -20,7 +20,10 @@ const OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
 
 // Helper to determine provider from voice ID if not specified
 function inferProvider(voice: string): 'openai' | 'elevenlabs' {
-    return OPENAI_VOICES.includes(voice) ? 'openai' : 'elevenlabs';
+    // If it's a UUID/ID (usually 20 chars), it's ElevenLabs. 
+    // If it's one of the 6 OpenAI names, it's OpenAI.
+    if (OPENAI_VOICES.includes(voice)) return 'openai';
+    return 'elevenlabs';
 }
 
 async function generateElevenLabsAudio(text: string, voiceId: string, settings?: any): Promise<ArrayBuffer> {
@@ -57,7 +60,7 @@ async function generateElevenLabsAudio(text: string, voiceId: string, settings?:
 
 export async function synthesizeSpeech(
     text: string,
-    voice: string = "nova",
+    voice: string = "21m00Tcm4TlvDq8ikWAM", // Default to Rachel (ElevenLabs)
     troupeId?: string
 ): Promise<{ audio: string } | { error: string }> {
     try {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { ScriptLine, ParsedScript } from "@/lib/types";
+import { useAITTS, type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { synthesizeSpeech } from "@/app/actions/tts";
@@ -19,7 +20,7 @@ import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 import { BrowserVoiceConfig } from "./browser-voice-config";
 import { saveSessionStats, saveLineErrors, LineErrorData } from "@/app/actions/stats"; // Stats Actions
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
-import { removeStageDirections } from "@/lib/utils/stage-directions";
+import { removeStageDirections, parseSegments } from "@/lib/utils/stage-directions";
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -124,7 +125,7 @@ export function RehearsalMode({
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
     const [hasStarted, setHasStarted] = useState(false);
-    const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | null>(null);
+    const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | "elevenlabs" | null>(null);
     const [forceAudioOutput] = useState(false); // CarPlay experimental fix (read-only for now)
 
     // Initialize ignored characters - merge prop with default didascalies
@@ -171,9 +172,9 @@ export function RehearsalMode({
                 if (!capabilities.features.advancedVisibility && lineVisibility !== "visible") {
                     setLineVisibility("visible");
                 }
-                // Enforce TTS Rules: Premium/Troupe -> OpenAI, Free -> Browser
-                if (capabilities.features.aiVoices) {
-                    setTtsProvider("openai");
+                // Enforce TTS Rules: Premium/Troupe -> ElevenLabs, Free -> Browser
+                if (capabilities.features.aiVoices || capabilities.isPremium) {
+                    setTtsProvider("elevenlabs");
                 } else {
                     setTtsProvider("browser");
                 }
@@ -207,23 +208,34 @@ export function RehearsalMode({
                 if (config) {
                     setExistingVoiceConfig(config);
                     // Pre-fill voice assignments from config
-                    const assignments: Record<string, OpenAIVoice> = {};
-                    config.forEach(c => {
-                        assignments[c.character_name] = c.voice as OpenAIVoice;
-                    });
-                    setOpenaiVoiceAssignments(assignments);
-                } else {
-                    // Fallback: Generate local assignments if no config exists (Shared Library / Unconfigured Troupe Plays)
-                    // This ensures users still get Premium voices even if the Global Admin hasn't run the setup script
-                    const VOICES: OpenAIVoice[] = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
-                    const localAssignments: Record<string, OpenAIVoice> = {};
+                    const assignments: Record<string, string> = {};
 
-                    // We need to ensure consistency for the same user session
+                    config.forEach(c => {
+                        // Accept all voices from config as they are already validated by the provider column in DB
+                        assignments[c.character_name] = c.voice;
+                    });
+
+                    if (Object.keys(assignments).length > 0) {
+                        setOpenaiVoiceAssignments(assignments as any);
+                    } else {
+                        // Fallback: Generate local ElevenLabs assignments
+                        const VOICES = ["21m00Tcm4TlvDq8ikWAM", "pNInz6obpgDQGcFmaJgB", "EXAVITQu4vr4xnNLMQyw", "ErXw9S1k3MpBy928U4cm", "MF3mGyEYCl7XYW7Lyk9p", "TxGEqnHW47ic3A7NWmsG"];
+                        const localAssignments: Record<string, string> = {};
+                        script.characters.forEach((char, index) => {
+                            localAssignments[char] = VOICES[index % VOICES.length];
+                        });
+                        setOpenaiVoiceAssignments(localAssignments as any);
+                    }
+                } else {
+                    // Fallback: ElevenLabs default distribution
+                    const VOICES = ["21m00Tcm4TlvDq8ikWAM", "pNInz6obpgDQGcFmaJgB", "EXAVITQu4vr4xnNLMQyw", "ErXw9S1k3MpBy928U4cm", "MF3mGyEYCl7XYW7Lyk9p", "TxGEqnHW47ic3A7NWmsG"];
+                    const localAssignments: Record<string, string> = {};
+
                     script.characters.forEach((char, index) => {
                         localAssignments[char] = VOICES[index % VOICES.length];
                     });
 
-                    setOpenaiVoiceAssignments(localAssignments);
+                    setOpenaiVoiceAssignments(localAssignments as any);
                 }
             } catch (error) {
                 console.error("Failed to fetch voice config", error);
@@ -267,8 +279,8 @@ export function RehearsalMode({
     }, [autoStart, hasStarted, isLoadingStatus, script?.lines?.length, userCharacters]);
 
     // OpenAI voice assignments per character
-    type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
-    const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, OpenAIVoice>>({});
+
+    const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, string>>({});
     const [testingVoice, setTestingVoice] = useState<string | null>(null);  // Track which role is being tested
 
     const {
@@ -318,7 +330,7 @@ export function RehearsalMode({
         }
     };
     // Function to test OpenAI voice
-    const testOpenAIVoice = async (role: string, voice: OpenAIVoice) => {
+    const testAIVoice = async (role: string, voice: string) => {
         setTestingVoice(role);
         try {
             const result = await synthesizeSpeech("Bonjour, je suis votre partenaire de répétition !", voice);
@@ -888,8 +900,8 @@ export function RehearsalMode({
                                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
                                 >
                                     <option value={0} className="bg-zinc-900">Début du script</option>
-                                    {script.scenes?.map((scene) => (
-                                        <option key={scene.index} value={scene.index} className="bg-zinc-900">
+                                    {script.scenes?.map((scene, i) => (
+                                        <option key={`scene-${scene.index}-${i}`} value={scene.index} className="bg-zinc-900">
                                             {scene.title}
                                         </option>
                                     ))}
@@ -982,66 +994,7 @@ export function RehearsalMode({
                                 </div>
                             </div>
 
-                            {/* 3. VOIX */}
-                            <div className="space-y-4">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-                                    <Sparkles className="w-3 h-3" />
-                                    Voix
-                                </label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button
-                                        onClick={() => setTtsProvider("browser")}
-                                        className={cn(
-                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
-                                            ttsProvider === "browser"
-                                                ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
-                                                : "bg-white/5 border-transparent hover:bg-white/10"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                            ttsProvider === "browser" ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
-                                        )}>
-                                            <span className="text-[10px] font-bold">STD</span>
-                                        </div>
-                                        <div>
-                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "browser" ? "text-white" : "text-muted-foreground")}>
-                                                Standard
-                                            </div>
-                                        </div>
-                                        {ttsProvider === "browser" && <Check className="w-4 h-4 text-violet-400 absolute top-3 right-3" />}
-                                    </button>
 
-                                    <button
-                                        onClick={() => isPremiumUnlocked ? setTtsProvider("openai") : setShowUpgradeModal(true)}
-                                        className={cn(
-                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
-                                            ttsProvider === "openai"
-                                                ? "bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                                                : "bg-white/5 border-transparent hover:bg-white/10",
-                                            !isPremiumUnlocked && "opacity-50"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                            ttsProvider === "openai" ? "bg-emerald-500 text-white" : "bg-white/10 text-muted-foreground"
-                                        )}>
-                                            <Sparkles className="w-3 h-3" />
-                                        </div>
-                                        <div>
-                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "openai" ? "text-emerald-400" : "text-muted-foreground")}>
-                                                Premium
-                                            </div>
-                                            {!isPremiumUnlocked && (
-                                                <div className="text-[9px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                                                    <Lock className="w-2 h-2" /> Verrouillé
-                                                </div>
-                                            )}
-                                        </div>
-                                        {ttsProvider === "openai" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
-                                    </button>
-                                </div>
-                            </div>
 
                         </div>
 
@@ -1211,7 +1164,6 @@ export function RehearsalMode({
                                         isActive
                                             ? "text-xl md:text-3xl text-foreground"
                                             : "text-base md:text-lg text-muted-foreground grayscale",
-                                        isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : "",
                                         isIndication ? "text-muted-foreground italic text-lg" : ""
                                     )}>
                                         {/* Status Indicators for Active Line */}
@@ -1224,16 +1176,41 @@ export function RehearsalMode({
                                                 Voix Troupe
                                             </Badge>
                                         )}
-                                        {getVisibleText(line.text, isUser)}
+                                        {(() => {
+                                            const text = getVisibleText(line.text, isUser);
+                                            if (typeof text !== "string") return text;
+
+                                            // If showStageDirections is false, the text is already stripped.
+                                            // If true, we split it to apply different styles.
+                                            if (!showStageDirections) {
+                                                return <span className={cn(isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : "")}>{text}</span>;
+                                            }
+
+                                            const segments = parseSegments(text);
+                                            return segments.map((seg, i) => (
+                                                <span
+                                                    key={i}
+                                                    className={cn(
+                                                        seg.isDirection
+                                                            ? "text-muted-foreground/60 italic text-[0.85em] mx-1 font-sans"
+                                                            : (isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : "")
+                                                    )}
+                                                >
+                                                    {seg.text}
+                                                </span>
+                                            ));
+                                        })()}
                                     </p>
 
                                     {/* Error Feedback */}
-                                    {isActive && status === "error" && (
-                                        <div className="flex items-center gap-2 mt-4 text-red-400 text-sm font-medium animate-in fade-in slide-in-from-top-2">
-                                            <AlertTriangle className="w-4 h-4" />
-                                            <span>Je n'ai pas compris. Répétez ?</span>
-                                        </div>
-                                    )}
+                                    {
+                                        isActive && status === "error" && (
+                                            <div className="flex items-center gap-2 mt-4 text-red-400 text-sm font-medium animate-in fade-in slide-in-from-top-2">
+                                                <AlertTriangle className="w-4 h-4" />
+                                                <span>Je n'ai pas compris. Répétez ?</span>
+                                            </div>
+                                        )
+                                    }
                                 </div>
                             );
                         })}
@@ -1397,114 +1374,116 @@ export function RehearsalMode({
 
 
             {/* Stats Recap Modal */}
-            {sessionStatsForRecap && !showFeedbackModal && !showUpgradeModal && (
-                <Portal>
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-                        <div className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                            {/* Header */}
-                            <div className="bg-gradient-to-r from-primary/20 to-violet-500/20 p-6 text-center">
-                                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center ring-4 ring-primary/10">
-                                    <Check className="w-8 h-8 text-primary" />
-                                </div>
-                                <h3 className="text-xl font-bold text-foreground">Répétition terminée !</h3>
-                            </div>
-
-                            {/* Stats Grid */}
-                            <div className="p-5 space-y-3">
-                                {/* Top stats row */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-muted/30 rounded-2xl p-4 text-center">
-                                        <p className="text-2xl font-bold text-foreground">
-                                            {Math.floor(sessionStatsForRecap.durationSeconds / 60)}
-                                            <span className="text-sm font-normal text-muted-foreground">min</span>
-                                        </p>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Durée</p>
+            {
+                sessionStatsForRecap && !showFeedbackModal && !showUpgradeModal && (
+                    <Portal>
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+                            <div className="bg-card border border-border rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                                {/* Header */}
+                                <div className="bg-gradient-to-r from-primary/20 to-violet-500/20 p-6 text-center">
+                                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center ring-4 ring-primary/10">
+                                        <Check className="w-8 h-8 text-primary" />
                                     </div>
-                                    <div className="bg-muted/30 rounded-2xl p-4 text-center">
-                                        <p className="text-2xl font-bold text-foreground">{sessionStatsForRecap.linesRehearsed}</p>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Répliques</p>
-                                    </div>
+                                    <h3 className="text-xl font-bold text-foreground">Répétition terminée !</h3>
                                 </div>
 
-                                {/* Detailed stats */}
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="bg-teal-500/10 rounded-xl p-3 text-center">
-                                        <p className="text-xl font-bold text-teal-400">
-                                            {sessionStatsForRecap.linesValidatedFirstTry}
-                                        </p>
-                                        <p className="text-[9px] text-teal-400/70 uppercase font-bold">1er coup</p>
+                                {/* Stats Grid */}
+                                <div className="p-5 space-y-3">
+                                    {/* Top stats row */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-muted/30 rounded-2xl p-4 text-center">
+                                            <p className="text-2xl font-bold text-foreground">
+                                                {Math.floor(sessionStatsForRecap.durationSeconds / 60)}
+                                                <span className="text-sm font-normal text-muted-foreground">min</span>
+                                            </p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Durée</p>
+                                        </div>
+                                        <div className="bg-muted/30 rounded-2xl p-4 text-center">
+                                            <p className="text-2xl font-bold text-foreground">{sessionStatsForRecap.linesRehearsed}</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Répliques</p>
+                                        </div>
                                     </div>
-                                    <div className={cn(
-                                        "rounded-xl p-3 text-center",
-                                        sessionStatsForRecap.linesWrong > 0 ? "bg-red-500/10" : "bg-muted/20"
-                                    )}>
-                                        <p className={cn(
-                                            "text-xl font-bold",
-                                            sessionStatsForRecap.linesWrong > 0 ? "text-red-400" : "text-muted-foreground"
+
+                                    {/* Detailed stats */}
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="bg-teal-500/10 rounded-xl p-3 text-center">
+                                            <p className="text-xl font-bold text-teal-400">
+                                                {sessionStatsForRecap.linesValidatedFirstTry}
+                                            </p>
+                                            <p className="text-[9px] text-teal-400/70 uppercase font-bold">1er coup</p>
+                                        </div>
+                                        <div className={cn(
+                                            "rounded-xl p-3 text-center",
+                                            sessionStatsForRecap.linesWrong > 0 ? "bg-red-500/10" : "bg-muted/20"
                                         )}>
-                                            {sessionStatsForRecap.linesWrong}
-                                        </p>
-                                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Erreurs</p>
-                                    </div>
-                                    <div className={cn(
-                                        "rounded-xl p-3 text-center",
-                                        sessionStatsForRecap.linesSkipped > 0 ? "bg-orange-500/10" : "bg-muted/20"
-                                    )}>
-                                        <p className={cn(
-                                            "text-xl font-bold",
-                                            sessionStatsForRecap.linesSkipped > 0 ? "text-orange-400" : "text-muted-foreground"
+                                            <p className={cn(
+                                                "text-xl font-bold",
+                                                sessionStatsForRecap.linesWrong > 0 ? "text-red-400" : "text-muted-foreground"
+                                            )}>
+                                                {sessionStatsForRecap.linesWrong}
+                                            </p>
+                                            <p className="text-[9px] text-muted-foreground uppercase font-bold">Erreurs</p>
+                                        </div>
+                                        <div className={cn(
+                                            "rounded-xl p-3 text-center",
+                                            sessionStatsForRecap.linesSkipped > 0 ? "bg-orange-500/10" : "bg-muted/20"
                                         )}>
-                                            {sessionStatsForRecap.linesSkipped}
-                                        </p>
-                                        <p className="text-[9px] text-muted-foreground uppercase font-bold">Passées</p>
+                                            <p className={cn(
+                                                "text-xl font-bold",
+                                                sessionStatsForRecap.linesSkipped > 0 ? "text-orange-400" : "text-muted-foreground"
+                                            )}>
+                                                {sessionStatsForRecap.linesSkipped}
+                                            </p>
+                                            <p className="text-[9px] text-muted-foreground uppercase font-bold">Passées</p>
+                                        </div>
+                                    </div>
+
+                                    {/* First try rate banner */}
+                                    <div className="bg-primary/10 rounded-2xl p-4 text-center">
+                                        <p className="text-3xl font-bold text-primary">{sessionStatsForRecap.firstTryRate}%</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Réussite du 1er coup</p>
                                     </div>
                                 </div>
 
-                                {/* First try rate banner */}
-                                <div className="bg-primary/10 rounded-2xl p-4 text-center">
-                                    <p className="text-3xl font-bold text-primary">{sessionStatsForRecap.firstTryRate}%</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Réussite du 1er coup</p>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="p-5 pt-0 space-y-3">
-                                <Button
-                                    onClick={() => {
-                                        setSessionStatsForRecap(null);
-                                        if (!isDemo) {
-                                            setShowFeedbackModal(true);
-                                        } else {
-                                            setShowUpgradeModal(true);
-                                        }
-                                    }}
-                                    className="w-full bg-primary hover:bg-primary/90 text-foreground font-bold py-3 rounded-xl"
-                                >
-                                    Continuer
-                                </Button>
-                                {sessionStatsForRecap.linesSkipped > 0 && troupeId && playId && (
-                                    <a
-                                        href={`/troupes/${troupeId}/plays/${playId}/my-character`}
-                                        className="block w-full text-center text-xs text-orange-400 hover:text-orange-300 transition-colors py-2 font-medium"
+                                {/* Actions */}
+                                <div className="p-5 pt-0 space-y-3">
+                                    <Button
+                                        onClick={() => {
+                                            setSessionStatsForRecap(null);
+                                            if (!isDemo) {
+                                                setShowFeedbackModal(true);
+                                            } else {
+                                                setShowUpgradeModal(true);
+                                            }
+                                        }}
+                                        className="w-full bg-primary hover:bg-primary/90 text-foreground font-bold py-3 rounded-xl"
                                     >
-                                        Voir les répliques difficiles →
-                                    </a>
-                                )}
-                                <button
-                                    onClick={() => {
-                                        setSessionStatsForRecap(null);
-                                        releaseWakeLock();
-                                        onExit();
-                                    }}
-                                    className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
-                                >
-                                    Passer le feedback
-                                </button>
+                                        Continuer
+                                    </Button>
+                                    {sessionStatsForRecap.linesSkipped > 0 && troupeId && playId && (
+                                        <a
+                                            href={`/troupes/${troupeId}/plays/${playId}/my-character`}
+                                            className="block w-full text-center text-xs text-orange-400 hover:text-orange-300 transition-colors py-2 font-medium"
+                                        >
+                                            Voir les répliques difficiles →
+                                        </a>
+                                    )}
+                                    <button
+                                        onClick={() => {
+                                            setSessionStatsForRecap(null);
+                                            releaseWakeLock();
+                                            onExit();
+                                        }}
+                                        className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
+                                    >
+                                        Passer le feedback
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </Portal>
-            )}
+                    </Portal>
+                )
+            }
 
             {/* Feedback Modal */}
             < FeedbackModal

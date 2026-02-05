@@ -58,15 +58,16 @@ export interface TextSegment {
 export function parseSegments(text: string): TextSegment[] {
     if (!text) return [];
 
-    // Split by parentheses, capturing the delimiters so they are included in the result array
-    // "Hello (waves) world" -> ["Hello ", "(waves)", " world"]
+    // Split by parentheses, capturing the delimiters
+    // Improved regex to handle nested parens or multiple ones better, though simple is usually enough for scripts
     const parts = text.split(/(\(.*?\))/g);
 
     return parts
-        .filter(part => part !== "") // Keep whitespace, remove truly empty strings
+        .filter(part => part !== "") // Keep whitespace segments for correct joining
         .map(part => {
-            // Check if it looks like a stage direction (starts with ( and ends with ))
-            const isDirection = /^\(.*\)$/.test(part.trim()); // Trim check for robust detection
+            const trimmed = part.trim();
+            // A segment is a direction if it's wrapped in parentheses
+            const isDirection = trimmed.startsWith("(") && trimmed.endsWith(")");
             return {
                 text: part,
                 isDirection

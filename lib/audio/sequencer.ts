@@ -44,6 +44,7 @@ export async function playLineSequentially(
                 .trim();
 
             if (cleanText) {
+                // We pass isDirection = true so the caller knows to use the Narrator voice
                 await onSpeak(cleanText, true);
             }
         } else {

@@ -1,16 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+"use client";
+
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ParsedScript, ScriptLine } from "../types";
+import { useAITTS, type TTSProvider } from "./use-ai-tts";
 import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { getPlayRecordings } from "../actions/recordings";
-import { synthesizeSpeechWithPlayCache } from "@/app/actions/tts";
 import { determineSourceType, type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
 import { playLineSequentially } from "../audio/sequencer";
 import { AudioQueue } from "../audio/audio-queue";
 
 export type ListenStatus = "setup" | "playing" | "paused" | "finished";
 export type ListenMode = "full" | "cue" | "check";
-export type TTSProvider = "browser" | "openai";
-export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
 
 interface UseListenProps {
     script: ParsedScript;
@@ -19,7 +19,7 @@ interface UseListenProps {
     ttsProvider?: TTSProvider;
     announceCharacter?: boolean;
     initialLineIndex?: number;
-    openaiVoiceAssignments?: Record<string, OpenAIVoice>;
+    openaiVoiceAssignments?: Record<string, string>;
     skipCharacters?: string[];
     playId?: string;
     scriptId?: string;
@@ -61,7 +61,6 @@ export function useListen({
     isPublicScript = false,
     troupeId,
     showStageDirections = true,
-    openaiVoiceAssignments = {}
 }: UseListenProps): UseListenReturn {
     // State
     const [currentLineIndex, setCurrentLineIndex] = useState(initialLineIndex);
@@ -75,10 +74,10 @@ export function useListen({
     const isMountedRef = useRef(true);
     const sessionRef = useRef(0);
     const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-    // Audio Queue Ref (Singleton per component life)
     const audioQueueRef = useRef<AudioQueue>(new AudioQueue());
 
-    // Voice assignments
+    // Hooks
+    const aiSpeech = useAITTS();
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
 
     // Load voices
@@ -93,17 +92,20 @@ export function useListen({
         loadVoices();
         window.speechSynthesis.onvoiceschanged = loadVoices;
 
-        return () => { window.speechSynthesis.onvoiceschanged = null; };
+        return () => {
+            if (typeof window !== "undefined") {
+                window.speechSynthesis.onvoiceschanged = null;
+            }
+        };
     }, []);
 
-    // Load source type AND ensure voice config
+    // Initial setup
     useEffect(() => {
         const init = async () => {
             const type = await determineSourceType(isPublicScript, troupeId, playId);
             setSourceType(type);
 
-            // Auto-configure voices if using OpenAI
-            if (ttsProvider === "openai") {
+            if (ttsProvider === "openai" || ttsProvider === "elevenlabs") {
                 const sourceId = playId || scriptId || "";
                 if (sourceId && script.characters) {
                     await ensureVoiceConfig(type, sourceId, script.characters, troupeId);
@@ -111,45 +113,26 @@ export function useListen({
             }
         };
         init();
-        // Clear queue on source change to avoid stale data
         audioQueueRef.current.clear();
     }, [isPublicScript, troupeId, playId, ttsProvider, scriptId, script.characters]);
 
-    // PRELOADING EFFECT
-    // Whenever currentLineIndex changes, preload the next 3 lines
     useEffect(() => {
-        if (ttsProvider !== "openai" || status === "finished") return;
+        if ((ttsProvider !== "openai" && ttsProvider !== "elevenlabs") || status === "finished") return;
 
         const sourceId = playId || scriptId || "";
         if (!sourceId) return;
 
-        // Preload next 3 lines (lookahead)
-        // start from current + 1
+        // Preload
         audioQueueRef.current.preload(
             script.lines,
-            currentLineIndex + 1,
-            3,
+            currentLineIndex,
+            4,
             sourceType,
             sourceId,
             troupeId,
             showStageDirections ?? true
         );
-
-        // Also preload CURRENT line if just starting (in case it wasn't preloaded)
-        if (status === "setup" || status === "playing") {
-            audioQueueRef.current.preload(
-                script.lines,
-                currentLineIndex,
-                1,
-                sourceType,
-                sourceId,
-                troupeId,
-                showStageDirections ?? true
-            );
-        }
-
     }, [currentLineIndex, script.lines, sourceType, playId, scriptId, troupeId, showStageDirections, ttsProvider, status]);
-
 
     // Load recordings
     useEffect(() => {
@@ -163,11 +146,10 @@ export function useListen({
             isMountedRef.current = false;
             window.speechSynthesis?.cancel();
             currentAudioRef.current?.pause();
-            audioQueueRef.current.clear(); // Clear memory
+            audioQueueRef.current.clear();
         };
     }, []);
 
-    // ... (HELPERS: isUserLine, shouldSkipLine, relevantIndices - unchanged) ...
     // === HELPERS ===
     const isUserLine = useCallback((char: string) => {
         if (!char || !userCharacters?.length) return false;
@@ -180,7 +162,7 @@ export function useListen({
         return skipCharacters.some(s => n === s.toLowerCase().trim());
     }, [skipCharacters]);
 
-    const relevantIndices = useCallback((): number[] => {
+    const relevantIndices = useMemo((): number[] => {
         const indices: number[] = [];
         for (let i = 0; i < script.lines.length; i++) {
             const line = script.lines[i];
@@ -203,37 +185,44 @@ export function useListen({
         return indices;
     }, [script.lines, mode, isUserLine, shouldSkipLine]);
 
+    const findNextIndex = useCallback((current: number, dir: 1 | -1): number | null => {
+        const pos = relevantIndices.indexOf(current);
+
+        if (dir === 1) {
+            if (pos === -1) {
+                const next = relevantIndices.find(i => i > current);
+                return next !== undefined ? next : null;
+            }
+            return pos < relevantIndices.length - 1 ? relevantIndices[pos + 1] : null;
+        } else {
+            if (pos === -1) {
+                const prev = [...relevantIndices].reverse().find(i => i < current);
+                return prev !== undefined ? prev : null;
+            }
+            return pos > 0 ? relevantIndices[pos - 1] : null;
+        }
+    }, [relevantIndices]);
+
     // Progress
-    const allRelevant = relevantIndices();
-    const totalRelevantLines = allRelevant.length;
-    const currentRelevantIndex = allRelevant.indexOf(currentLineIndex) + 1;
+    const totalRelevantLines = relevantIndices.length;
+    const currentRelevantIndex = relevantIndices.indexOf(currentLineIndex) + 1;
     const progress = totalRelevantLines > 0 ? Math.round((currentRelevantIndex / totalRelevantLines) * 100) : 0;
 
-    // === CORE: Stop everything ===
+    // === CORE CONTROLS ===
     const stopEverything = useCallback(() => {
-        // Increment session to invalidate ALL pending operations
         sessionRef.current++;
-
-        // Stop browser TTS
-        if (typeof window !== "undefined" && window.speechSynthesis) {
-            window.speechSynthesis.cancel();
-        }
-
-        // Stop audio element
+        if (typeof window !== "undefined") window.speechSynthesis.cancel();
         if (currentAudioRef.current) {
             currentAudioRef.current.pause();
             currentAudioRef.current.src = "";
             currentAudioRef.current = null;
         }
-    }, []);
+        aiSpeech.stop();
+    }, [aiSpeech]);
 
-    // === CORE: Speak text using direct API ===
     const speakDirect = useCallback((text: string, voice?: SpeechSynthesisVoice): Promise<void> => {
         return new Promise((resolve) => {
-            if (typeof window === "undefined" || !window.speechSynthesis) {
-                resolve();
-                return;
-            }
+            if (typeof window === "undefined" || !window.speechSynthesis) return resolve();
 
             const session = sessionRef.current;
             const utterance = new SpeechSynthesisUtterance(text);
@@ -243,17 +232,11 @@ export function useListen({
             utterance.onend = () => resolve();
             utterance.onerror = () => resolve();
 
-            // Check session before speaking
-            if (session !== sessionRef.current) {
-                resolve();
-                return;
-            }
-
+            if (session !== sessionRef.current) return resolve();
             window.speechSynthesis.speak(utterance);
         });
     }, []);
 
-    // === CORE: Play audio file ===
     const playAudioFile = useCallback((url: string): Promise<void> => {
         return new Promise((resolve) => {
             const session = sessionRef.current;
@@ -269,44 +252,15 @@ export function useListen({
                 resolve();
             };
 
-            if (session !== sessionRef.current) {
-                resolve();
-                return;
-            }
-
+            if (session !== sessionRef.current) return resolve();
             audio.play().catch(() => resolve());
         });
     }, []);
 
-    // === Navigation helpers ===
-    const findNextIndex = useCallback((current: number, dir: 1 | -1): number | null => {
-        const indices = relevantIndices();
-        const pos = indices.indexOf(current);
-
-        if (dir === 1) {
-            if (pos === -1) {
-                const next = indices.find(i => i > current);
-                return next !== undefined ? next : null;
-            }
-            return pos < indices.length - 1 ? indices[pos + 1] : null;
-        } else {
-            if (pos === -1) {
-                const prev = [...indices].reverse().find(i => i < current);
-                return prev !== undefined ? prev : null;
-            }
-            return pos > 0 ? indices[pos - 1] : null;
-        }
-    }, [relevantIndices]);
-
-    // === CONTROLS ===
     const start = useCallback(() => {
         stopEverything();
-        const indices = relevantIndices();
-        const first = indices.find(i => i >= initialLineIndex) ?? indices[0];
-        if (first === undefined) {
-            setStatus("finished");
-            return;
-        }
+        const first = relevantIndices.find(i => i >= initialLineIndex) ?? relevantIndices[0];
+        if (first === undefined) return setStatus("finished");
         setCurrentLineIndex(first);
         setStatus("playing");
     }, [initialLineIndex, relevantIndices, stopEverything]);
@@ -351,53 +305,41 @@ export function useListen({
         setStatus("setup");
     }, [stopEverything]);
 
-    // === MAIN PLAYBACK ENGINE ===
+    // === MAIN ENGINE ===
     useEffect(() => {
         if (status !== "playing") return;
 
         const line = script.lines[currentLineIndex];
-        if (!line) {
-            setStatus("finished");
-            return;
-        }
+        if (!line) return setStatus("finished");
 
-        // Capture session at start
         const session = sessionRef.current;
         const isValid = () => session === sessionRef.current && isMountedRef.current;
 
         const run = async () => {
             try {
-                // 1. Announce character if enabled
                 if (announceCharacter) {
                     if (!isValid()) return;
                     await speakDirect(line.character);
                     if (!isValid()) return;
                     await new Promise(r => setTimeout(r, 100));
-                    if (!isValid()) return;
                 }
 
-                // 2. Play the line
+                if (!isValid()) return;
                 const sourceId = playId || scriptId || "";
                 const recording = recordings.find(r => r.line_id === line.id);
 
                 if (recording) {
-                    // User recording - Play full file
-                    if (!isValid()) return;
                     await playAudioFile(recording.audio_url);
                 } else {
-                    // TTS - Use Sequencer for Mixed Voices
                     await playLineSequentially(
                         line,
                         showStageDirections ?? true,
                         async (textToSpeak, isDirection) => {
                             if (!isValid()) return;
 
-                            if (ttsProvider === "openai" && sourceId && line.character) {
-                                // OpenAI TTS - USE QUEUE
+                            if ((ttsProvider === "openai" || ttsProvider === "elevenlabs") && sourceId && line.character) {
                                 setIsLoadingAudio(true);
-                                let audioPlayed = false;
                                 try {
-                                    // Use AudioQueue instead of direct server call
                                     const audioUrl = await audioQueueRef.current.getUrl(
                                         textToSpeak,
                                         isDirection ? "didascalies" : line.character,
@@ -408,38 +350,30 @@ export function useListen({
                                         isDirection
                                     );
 
-                                    if (!isValid()) { setIsLoadingAudio(false); return; }
-
-                                    if (audioUrl) {
+                                    if (isValid() && audioUrl) {
                                         await playAudioFile(audioUrl);
-                                        audioPlayed = true;
+                                    } else if (isValid()) {
+                                        const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
+                                        await speakDirect(textToSpeak, bVoice);
                                     }
                                 } catch (e) {
-                                    console.error("[Listen] OpenAI TTS failed:", e);
+                                    console.error("[Listen] AI TTS failed:", e);
+                                    const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
+                                    await speakDirect(textToSpeak, bVoice);
                                 }
                                 setIsLoadingAudio(false);
-
-                                // Fallback
-                                if (!audioPlayed && isValid()) {
-                                    const browserVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
-                                    await speakDirect(textToSpeak, browserVoice);
-                                }
                             } else {
-                                // Browser TTS
-                                const browserVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
-                                await speakDirect(textToSpeak, browserVoice);
+                                const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
+                                await speakDirect(textToSpeak, bVoice);
                             }
                         }
                     );
                 }
 
                 if (!isValid()) return;
-
-                // 3. Small pause before next
                 await new Promise(r => setTimeout(r, 600));
                 if (!isValid()) return;
 
-                // 4. Auto-advance
                 const nextIdx = findNextIndex(currentLineIndex, 1);
                 if (nextIdx !== null) {
                     setCurrentLineIndex(nextIdx);
@@ -447,14 +381,14 @@ export function useListen({
                     setStatus("finished");
                 }
             } catch (e) {
-                console.error("[Listen] Error:", e);
+                console.error("[Listen] Engine error:", e);
             }
         };
 
         run();
     }, [status, currentLineIndex, script.lines, announceCharacter, recordings,
         ttsProvider, sourceType, playId, scriptId, troupeId, voiceAssignments,
-        speakDirect, playAudioFile, findNextIndex]);
+        speakDirect, playAudioFile, findNextIndex, showStageDirections]);
 
     return {
         currentLine: script.lines[currentLineIndex] || null,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ParsedScript, ScriptLine } from "../types";
 import { useSpeech } from "./use-speech";
-import { useOpenAITTS } from "./use-openai-tts";
+import { useAITTS } from "./use-ai-tts";
 import { calculateSimilarity, stripStageDirections } from "../similarity";
 import { offlineManager } from "../offline/offline-manager";
 import { getSceneCharacters, isUserLine as checkIsUserLine } from "../utils";
@@ -16,8 +16,7 @@ export type RehearsalStatus =
     | "paused"
     | "finished";
 
-export type TTSProvider = "browser" | "openai";
-export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+export type TTSProvider = "browser" | "openai" | "elevenlabs";
 
 interface UseRehearsalProps {
     script: ParsedScript;
@@ -26,7 +25,7 @@ interface UseRehearsalProps {
     initialLineIndex?: number;
     mode?: "full" | "cue" | "check";
     ttsProvider?: TTSProvider;
-    openaiVoiceAssignments?: Record<string, OpenAIVoice>;
+    openaiVoiceAssignments?: Record<string, string>;
     skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
     playId?: string;
     partnerCharacters?: string[];
@@ -40,7 +39,7 @@ import { playLineSequentially } from "../audio/sequencer";
 
 export function useRehearsal({ script, userCharacters, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId, partnerCharacters = [], showStageDirections = true }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
-    const openaiSpeech = useOpenAITTS();
+    const aiSpeech = useAITTS();
     const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
 
     const [recordings, setRecordings] = useState<any[]>([]);
@@ -64,9 +63,9 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         // Validation
         if (!text || !text.trim()) return;
 
-        // Priority 2: OpenAI TTS
-        if (ttsProvider === "openai") {
-            const assignedVoice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "nova";
+        // Priority 2: AI TTS (OpenAI or ElevenLabs)
+        if (ttsProvider === "openai" || ttsProvider === "elevenlabs") {
+            const assignedVoice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "21m00Tcm4TlvDq8ikWAM";
 
             // OFFLINE CHECK
             const hash = await offlineManager.generateHash(text, assignedVoice);
@@ -81,7 +80,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                 });
             }
 
-            await openaiSpeech.speak(text, assignedVoice);
+            await aiSpeech.speak(text, assignedVoice);
         }
         // Priority 3: Browser TTS
         else {
@@ -90,17 +89,17 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
     };
 
     // Preload helper
-    const preloadLine = (text: string, characterName: string) => {
-        if (ttsProvider === "openai") {
-            const voice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "nova";
-            openaiSpeech.preload(text, voice);
+    const preloadLine = async (text: string, characterName: string) => {
+        if (ttsProvider === "openai" || ttsProvider === "elevenlabs") {
+            const assignedVoice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "21m00Tcm4TlvDq8ikWAM";
+            await aiSpeech.preload(text, assignedVoice);
         }
     };
 
     // Combined stop function
     const stopAll = () => {
         browserSpeech.stop();
-        openaiSpeech.stop();
+        aiSpeech.stop();
     };
 
     // Helper for synthetic recording "bip" (important for iPad feedback)
@@ -154,7 +153,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
         return () => {
             isMountedRef.current = false;
             browserSpeech.stop();
-            openaiSpeech.stop();
+            aiSpeech.stop();
         };
     }, []);
 
@@ -538,7 +537,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                             await speak(
                                 textToSpeak,
                                 assignedVoice,
-                                isDirection ? "NARRATOR" : line.character,
+                                isDirection ? "didascalies" : line.character,
                                 line.id
                             );
                         }
