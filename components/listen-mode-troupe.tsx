@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ParsedScript } from "@/lib/types";
-import { useListen, ListenMode, OpenAIVoice } from "@/lib/hooks/use-listen";
+import { useListen, ListenMode } from "@/lib/hooks/use-listen";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { getVoiceConfig, determineSourceType, VoiceConfig } from "@/lib/actions/voice-cache";
@@ -44,7 +44,7 @@ export function ListenModeTroupe({
 
     // Voice Config State
     const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
-    const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, OpenAIVoice>>({});
+    const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, string>>({});
 
     // Didascalies detection - MERGE WITH PASSED SKIP CHARACTERS
     const hasDidascalies = useMemo(() =>
@@ -97,9 +97,9 @@ export function ListenModeTroupe({
                 const config = await getVoiceConfig(sourceType, playId);
                 if (config) {
                     setExistingVoiceConfig(config);
-                    const assignments: Record<string, OpenAIVoice> = {};
+                    const assignments: Record<string, string> = {};
                     config.forEach(c => {
-                        assignments[c.character_name] = c.voice as OpenAIVoice;
+                        assignments[c.character_name] = c.voice as string;
                     });
                     setOpenaiVoiceAssignments(assignments);
                 }
