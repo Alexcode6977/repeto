@@ -6,8 +6,8 @@ import { synthesizeSpeech, OpenAIVoice } from "@/app/actions/tts";
 export type TTSProvider = "browser" | "openai";
 
 interface UseOpenAITTSReturn {
-    speak: (text: string, voice?: OpenAIVoice) => Promise<void>;
-    preload: (text: string, voice?: OpenAIVoice) => Promise<void>;
+    speak: (text: string, voice?: string) => Promise<void>;
+    preload: (text: string, voice?: string) => Promise<void>;
     stop: () => void;
     isLoading: boolean;
     isSpeaking: boolean;
@@ -45,7 +45,7 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
         setIsLoading(false);
     }, []);
 
-    const preload = useCallback(async (text: string, voice: OpenAIVoice = "nova") => {
+    const preload = useCallback(async (text: string, voice: string = "nova") => {
         const key = `${voice}:${text}`;
         if (audioCache.current.has(key)) return;
 
@@ -62,7 +62,7 @@ export function useOpenAITTS(): UseOpenAITTSReturn {
         }
     }, [addToCache]);
 
-    const speak = useCallback(async (text: string, voice: OpenAIVoice = "nova") => {
+    const speak = useCallback(async (text: string, voice: string = "nova") => {
         // Stop any ongoing playback
         stop();
 

@@ -17,7 +17,7 @@ export function useRehearsalVoices(script: ParsedScript, voices: SpeechSynthesis
 
             // 2. Narrator
             const narratorVoice = pool.find(v => v !== assistantVoice && !v.name.includes("Compact")) || pool[pool.length - 1];
-            assignments["NARRATOR"] = narratorVoice;
+            assignments["didascalies"] = narratorVoice;
 
             // 3. Characters
             let charPool = pool.filter(v => v !== assistantVoice && v !== narratorVoice);

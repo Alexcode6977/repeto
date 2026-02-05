@@ -82,7 +82,7 @@ export class AudioQueue {
                         if (cleanText) {
                             requests.push({
                                 text: cleanText,
-                                character: "NARRATOR", // Narrator speaks directions
+                                character: "didascalies", // Narrator speaks directions
                                 lineIndex: index,
                                 sourceType,
                                 sourceId,

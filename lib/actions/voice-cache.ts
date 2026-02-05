@@ -77,13 +77,19 @@ export async function createVoiceConfig(
     const { error } = await supabase
         .from('play_voice_config')
         .insert(
+            // Insert assignments
+            // Note: We use the provided assignments. If logic for "auto-assign" was here,
+            // it should now default to ElevenLabs.
+            // Assuming the caller provides valid assignments.
+            // If we need to fill in blanks:
+
             assignments.map(a => ({
                 source_type: sourceType,
                 source_id: sourceId,
                 character_name: a.character,
-                voice: a.voice,
-                provider: a.provider || 'openai', // Default to openai
-                settings: {},
+                voice: a.voice || "21m00Tcm4TlvDq8ikWAM", // Default to Rachel if missing
+                provider: a.provider || 'elevenlabs',
+                settings: { stability: 0.5, similarity_boost: 0.75 }, // Default settings
                 created_by: user.id,
                 troupe_id: troupeId || null
             }))
@@ -186,18 +192,24 @@ export async function getCharacterVoice(
     sourceType: SourceType,
     sourceId: string,
     characterName: string
-): Promise<OpenAIVoice | null> {
+): Promise<{ voice: string; provider: VoiceProvider; settings: any } | null> {
     const supabase = await createClient();
 
     const { data } = await supabase
         .from('play_voice_config')
-        .select('voice')
+        .select('voice, provider, settings')
         .eq('source_type', sourceType)
         .eq('source_id', sourceId)
         .eq('character_name', characterName)
         .single();
 
-    return data?.voice as OpenAIVoice || null;
+    if (!data) return null;
+
+    return {
+        voice: data.voice,
+        provider: (data.provider as VoiceProvider) || 'openai',
+        settings: data.settings || {}
+    };
 }
 
 /**
@@ -283,9 +295,10 @@ export async function ensureVoiceConfig(
 
     const VOICES: OpenAIVoice[] = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
 
-    // Create assignments for private script
-    const assignments: VoiceAssignment[] = characters.map((char, index) => ({
-        character: char,
+    // Create assignments for private script (including didascalies)
+    const allRoles = ["didascalies", ...characters];
+    const assignments: VoiceAssignment[] = allRoles.map((role, index) => ({
+        character: role,
         voice: VOICES[index % VOICES.length]
     }));
 
@@ -299,7 +312,9 @@ export async function updateVoiceAssignment(
     sourceType: SourceType,
     sourceId: string,
     characterName: string,
-    voice: OpenAIVoice,
+    voice: string,
+    provider: VoiceProvider = 'openai',
+    settings: any = {},
     troupeId?: string
 ): Promise<{ success: boolean; error?: string }> {
     const supabase = await createClient();
@@ -351,6 +366,8 @@ export async function updateVoiceAssignment(
             source_id: sourceId,
             character_name: characterName,
             voice: voice,
+            provider: provider,
+            settings: settings,
             troupe_id: troupeId || null,
             created_by: user.id
         }, {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface VoicePreviewButtonProps {
-    voice: OpenAIVoice;
+    voice: string;
     className?: string;
 }
 

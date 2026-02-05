@@ -3,11 +3,12 @@
 import { updateCasting } from "@/lib/actions/play";
 import { updateVoiceAssignment, VoiceConfig, OpenAIVoice } from "@/lib/actions/voice-cache";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useEffect } from "react";
 import { Check, User, Mic, Play } from "lucide-react";
 import { Button } from "./ui/button";
 import { VoicePreviewButton } from "./voice-preview-button";
+import { getElevenLabsVoices, ElevenLabsVoice } from "@/app/actions/elevenlabs";
 
 interface CastingManagerProps {
     playId: string;
@@ -19,7 +20,7 @@ interface CastingManagerProps {
     initialVoiceConfigs: VoiceConfig[] | null;
 }
 
-const VOICES: { id: OpenAIVoice; name: string; gender: string }[] = [
+const OPENAI_VOICES_LIST: { id: string; name: string; gender: string }[] = [
     { id: 'alloy', name: 'Alloy', gender: 'Neutre' },
     { id: 'echo', name: 'Echo', gender: 'Masculin' },
     { id: 'fable', name: 'Fable', gender: 'Masculin (British)' },
@@ -47,8 +48,8 @@ export function CastingManager({
     });
 
     // Map charName -> voiceId
-    const [voiceAssignments, setVoiceAssignments] = useState<Record<string, OpenAIVoice>>(() => {
-        const map: Record<string, OpenAIVoice> = {};
+    const [voiceAssignments, setVoiceAssignments] = useState<Record<string, string>>(() => {
+        const map: Record<string, string> = {};
         if (initialVoiceConfigs) {
             initialVoiceConfigs.forEach(c => {
                 map[c.character_name] = c.voice;
@@ -58,6 +59,15 @@ export function CastingManager({
     });
 
     const [loadingState, setLoadingState] = useState<Record<string, boolean>>({});
+    const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
+
+    useEffect(() => {
+        if (isAdmin) {
+            getElevenLabsVoices().then(voices => {
+                setElevenLabsVoices(voices);
+            });
+        }
+    }, [isAdmin]);
 
     const handleAssign = async (charId: string, assignment: string) => {
         if (!isAdmin) return; // double check protection
@@ -82,13 +92,18 @@ export function CastingManager({
         }
     };
 
-    const handleVoiceAssign = async (charName: string, voice: OpenAIVoice) => {
+    const handleVoiceAssign = async (charName: string, voiceId: string) => {
         if (!isAdmin) return;
         setLoadingState(prev => ({ ...prev, [`voice-${charName}`]: true }));
         try {
-            const result = await updateVoiceAssignment('troupe_play', playId, charName, voice, troupeId);
+            // Determine provider
+            const isOpenAI = OPENAI_VOICES_LIST.some(v => v.id === voiceId);
+            const provider = isOpenAI ? 'openai' : 'elevenlabs';
+            const settings = isOpenAI ? {} : { stability: 0.5, similarity_boost: 0.75 };
+
+            const result = await updateVoiceAssignment('troupe_play', playId, charName, voiceId, provider, settings, troupeId);
             if (result.success) {
-                setVoiceAssignments(prev => ({ ...prev, [charName]: voice }));
+                setVoiceAssignments(prev => ({ ...prev, [charName]: voiceId }));
             } else {
                 alert("Erreur: " + result.error);
             }
@@ -98,6 +113,14 @@ export function CastingManager({
         } finally {
             setLoadingState(prev => ({ ...prev, [`voice-${charName}`]: false }));
         }
+    };
+
+    const getVoiceName = (voiceId: string) => {
+        const openai = OPENAI_VOICES_LIST.find(v => v.id === voiceId);
+        if (openai) return openai.name;
+        const el = elevenLabsVoices.find(v => v.voice_id === voiceId);
+        if (el) return el.name;
+        return "Voix Inconnue";
     };
 
     return (
@@ -131,26 +154,24 @@ export function CastingManager({
                             <SelectContent>
                                 <SelectItem value="unassigned">-- Non attribué --</SelectItem>
 
-                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Membres Repeto
-                                </div>
-                                {troupeMembers.map((member) => (
-                                    <SelectItem key={member.user_id} value={`u:${member.user_id}`}>
-                                        {member.profiles?.first_name || member.profiles?.email || "Membre inconnu"}
-                                    </SelectItem>
-                                ))}
+                                <SelectGroup>
+                                    <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Membres Repeto</SelectLabel>
+                                    {troupeMembers.map((member) => (
+                                        <SelectItem key={member.user_id} value={`u:${member.user_id}`}>
+                                            {member.profiles?.first_name || member.profiles?.email || "Membre inconnu"}
+                                        </SelectItem>
+                                    ))}
+                                </SelectGroup>
 
                                 {guests.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2 border-t">
-                                            Invités (Provisoires)
-                                        </div>
+                                    <SelectGroup>
+                                        <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2 border-t">Invités (Provisoires)</SelectLabel>
                                         {guests.map((guest) => (
                                             <SelectItem key={guest.id} value={`g:${guest.id}`}>
                                                 {guest.name}
                                             </SelectItem>
                                         ))}
-                                    </>
+                                    </SelectGroup>
                                 )}
                             </SelectContent>
                         </Select>
@@ -161,25 +182,31 @@ export function CastingManager({
                         <div className="w-full md:w-[200px] flex items-center gap-2">
                             <Select
                                 value={voiceAssignments[char.name] || ""}
-                                onValueChange={(val) => handleVoiceAssign(char.name, val as OpenAIVoice)}
+                                onValueChange={(val) => handleVoiceAssign(char.name, val)}
                                 disabled={loadingState[`voice-${char.name}`]}
                             >
                                 <SelectTrigger className="w-full h-9 text-xs border-dashed border-primary/30">
                                     <Mic className="w-3 h-3 mr-2 opacity-50" />
-                                    <SelectValue placeholder="Voix Premium" />
+                                    <SelectValue placeholder="Choisir une voix" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                        Voix OpenAI
-                                    </div>
-                                    {VOICES.map((v) => (
-                                        <SelectItem key={v.id} value={v.id}>
-                                            <span className="flex items-center gap-2">
-                                                <span>{v.name}</span>
-                                                <span className="text-[10px] text-muted-foreground opacity-50">({v.gender})</span>
-                                            </span>
-                                        </SelectItem>
-                                    ))}
+                                <SelectContent className="max-h-[300px]">
+                                    {elevenLabsVoices.length > 0 ? (
+                                        <SelectGroup>
+                                            <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-card sticky top-0">ElevenLabs</SelectLabel>
+                                            {elevenLabsVoices.map((v) => (
+                                                <SelectItem key={v.voice_id} value={v.voice_id}>
+                                                    <span className="flex items-center gap-2">
+                                                        <span>{v.name}</span>
+                                                        <span className="text-[10px] text-muted-foreground opacity-50">({v.category})</span>
+                                                    </span>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    ) : (
+                                        <div className="p-2 text-xs text-muted-foreground text-center">
+                                            Aucune voix ElevenLabs trouvée.<br />Ajoutez-les sur elevenlabs.io.
+                                        </div>
+                                    )}
                                 </SelectContent>
                             </Select>
                             {voiceAssignments[char.name] && (
@@ -190,8 +217,8 @@ export function CastingManager({
                         // Read-only view for members
                         <div className="w-full md:w-[160px] flex items-center gap-2 px-3 h-9 rounded-md border border-border bg-muted/50 text-xs text-muted-foreground">
                             <Mic className="w-3 h-3 opacity-50" />
-                            <span>
-                                {VOICES.find(v => v.id === voiceAssignments[char.name])?.name || "Pas de voix Premium"}
+                            <span className="truncate">
+                                {getVoiceName(voiceAssignments[char.name])}
                             </span>
                         </div>
                     )}

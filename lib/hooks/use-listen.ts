@@ -400,7 +400,7 @@ export function useListen({
                                     // Use AudioQueue instead of direct server call
                                     const audioUrl = await audioQueueRef.current.getUrl(
                                         textToSpeak,
-                                        isDirection ? "NARRATOR" : line.character,
+                                        isDirection ? "didascalies" : line.character,
                                         currentLineIndex,
                                         sourceType,
                                         sourceId,
@@ -421,12 +421,12 @@ export function useListen({
 
                                 // Fallback
                                 if (!audioPlayed && isValid()) {
-                                    const browserVoice = isDirection ? undefined : voiceAssignments[line.character];
+                                    const browserVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
                                     await speakDirect(textToSpeak, browserVoice);
                                 }
                             } else {
                                 // Browser TTS
-                                const browserVoice = isDirection ? undefined : voiceAssignments[line.character];
+                                const browserVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
                                 await speakDirect(textToSpeak, browserVoice);
                             }
                         }
