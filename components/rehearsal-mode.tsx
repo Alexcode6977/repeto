@@ -121,7 +121,14 @@ export function RehearsalMode({
     privateNotes = [],
     showStageDirections = true
 }: RehearsalModeProps) {
-    const [threshold, setThreshold] = useState(0.85); // Default 85%
+    // Tolerance: 3 positions (Strict=0.90, Modéré=0.80, Permissif=0.65)
+    const [toleranceLevel, setToleranceLevel] = useState<"strict" | "moderate" | "permissive">("moderate");
+    const threshold = toleranceLevel === "strict" ? 0.90 : toleranceLevel === "moderate" ? 0.80 : 0.65;
+
+    // Playback Speed: 3 positions (Normal=1.0, Accéléré=1.25, Très rapide=1.5)
+    const [playbackSpeed, setPlaybackSpeed] = useState<"normal" | "fast" | "veryfast">("normal");
+    const speedMultiplier = playbackSpeed === "normal" ? 1.0 : playbackSpeed === "fast" ? 1.25 : 1.5;
+
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
     const [hasStarted, setHasStarted] = useState(false);
@@ -994,7 +1001,73 @@ export function RehearsalMode({
                                 </div>
                             </div>
 
+                            {/* 3. TOLERANCE */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Tolérance
+                                </label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[
+                                        { id: "strict", label: "Strict", sub: "Exigent" },
+                                        { id: "moderate", label: "Modéré", sub: "Équilibré" },
+                                        { id: "permissive", label: "Permissif", sub: "Souple" },
+                                    ].map((t) => {
+                                        const isActive = toleranceLevel === t.id;
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                onClick={() => setToleranceLevel(t.id as any)}
+                                                className={cn(
+                                                    "relative p-3 rounded-xl text-center transition-all duration-300 border",
+                                                    isActive
+                                                        ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                )}
+                                            >
+                                                <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                    {t.label}
+                                                </div>
+                                                {isActive && <Check className="w-3 h-3 text-violet-400 absolute top-2 right-2" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
+                            {/* 4. PLAYBACK SPEED */}
+                            <div className="space-y-4">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                    <Zap className="w-3 h-3" />
+                                    Vitesse de lecture
+                                </label>
+                                <div className="grid grid-cols-3 gap-3">
+                                    {[
+                                        { id: "normal", label: "Normal", sub: "1×" },
+                                        { id: "fast", label: "Accéléré", sub: "1.25×" },
+                                        { id: "veryfast", label: "Très rapide", sub: "1.5×" },
+                                    ].map((s) => {
+                                        const isActive = playbackSpeed === s.id;
+                                        return (
+                                            <button
+                                                key={s.id}
+                                                onClick={() => setPlaybackSpeed(s.id as any)}
+                                                className={cn(
+                                                    "relative p-3 rounded-xl text-center transition-all duration-300 border",
+                                                    isActive
+                                                        ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
+                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                )}
+                                            >
+                                                <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                    {s.label}
+                                                </div>
+                                                {isActive && <Check className="w-3 h-3 text-violet-400 absolute top-2 right-2" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
 
                         </div>
 

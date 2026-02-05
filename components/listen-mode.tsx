@@ -43,6 +43,10 @@ export function ListenMode({
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [hasStarted, setHasStarted] = useState(false);
 
+    // Playback Speed: 3 positions (Normal=1.0, Accéléré=1.25, Très rapide=1.5)
+    const [playbackSpeed, setPlaybackSpeed] = useState<"normal" | "fast" | "veryfast">("normal");
+    const speedMultiplier = playbackSpeed === "normal" ? 1.0 : playbackSpeed === "fast" ? 1.25 : 1.5;
+
     // Premium / Feature State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
     const [isLoadingStatus, setIsLoadingStatus] = useState(true);
@@ -320,6 +324,40 @@ export function ListenMode({
                                 </div>
                                 {announceCharacter && <Check className="w-4 h-4 text-indigo-400 ml-auto" />}
                             </button>
+                        </div>
+
+                        {/* PLAYBACK SPEED */}
+                        <div className="space-y-4">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                                <Zap className="w-3 h-3" />
+                                Vitesse de lecture
+                            </label>
+                            <div className="grid grid-cols-3 gap-3">
+                                {[
+                                    { id: "normal", label: "Normal", sub: "1×" },
+                                    { id: "fast", label: "Accéléré", sub: "1.25×" },
+                                    { id: "veryfast", label: "Très rapide", sub: "1.5×" },
+                                ].map((s) => {
+                                    const isActive = playbackSpeed === s.id;
+                                    return (
+                                        <button
+                                            key={s.id}
+                                            onClick={() => setPlaybackSpeed(s.id as any)}
+                                            className={cn(
+                                                "relative p-3 rounded-xl text-center transition-all duration-300 border",
+                                                isActive
+                                                    ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
+                                                    : "bg-white/5 border-transparent hover:bg-white/10"
+                                            )}
+                                        >
+                                            <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                {s.label}
+                                            </div>
+                                            {isActive && <Check className="w-3 h-3 text-teal-400 absolute top-2 right-2" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         <button onClick={handleStartWithSave} className="w-full group py-4 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold uppercase tracking-wider shadow-lg flex items-center justify-center gap-3 transition-all">
