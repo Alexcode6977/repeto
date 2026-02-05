@@ -5,6 +5,7 @@ import { getPlayRecordings } from "../actions/recordings";
 import { synthesizeSpeechWithPlayCache } from "@/app/actions/tts";
 import { determineSourceType, type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
 import { playLineSequentially } from "../audio/sequencer";
+import { AudioQueue } from "../audio/audio-queue";
 
 export type ListenStatus = "setup" | "playing" | "paused" | "finished";
 export type ListenMode = "full" | "cue" | "check";
@@ -70,10 +71,12 @@ export function useListen({
     const [sourceType, setSourceType] = useState<SourceType>("private_script");
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-    // Refs - CRITICAL: sessionRef is used to invalidate all pending operations
+    // Refs
     const isMountedRef = useRef(true);
     const sessionRef = useRef(0);
     const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+    // Audio Queue Ref (Singleton per component life)
+    const audioQueueRef = useRef<AudioQueue>(new AudioQueue());
 
     // Voice assignments
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
@@ -108,7 +111,45 @@ export function useListen({
             }
         };
         init();
+        // Clear queue on source change to avoid stale data
+        audioQueueRef.current.clear();
     }, [isPublicScript, troupeId, playId, ttsProvider, scriptId, script.characters]);
+
+    // PRELOADING EFFECT
+    // Whenever currentLineIndex changes, preload the next 3 lines
+    useEffect(() => {
+        if (ttsProvider !== "openai" || status === "finished") return;
+
+        const sourceId = playId || scriptId || "";
+        if (!sourceId) return;
+
+        // Preload next 3 lines (lookahead)
+        // start from current + 1
+        audioQueueRef.current.preload(
+            script.lines,
+            currentLineIndex + 1,
+            3,
+            sourceType,
+            sourceId,
+            troupeId,
+            showStageDirections ?? true
+        );
+
+        // Also preload CURRENT line if just starting (in case it wasn't preloaded)
+        if (status === "setup" || status === "playing") {
+            audioQueueRef.current.preload(
+                script.lines,
+                currentLineIndex,
+                1,
+                sourceType,
+                sourceId,
+                troupeId,
+                showStageDirections ?? true
+            );
+        }
+
+    }, [currentLineIndex, script.lines, sourceType, playId, scriptId, troupeId, showStageDirections, ttsProvider, status]);
+
 
     // Load recordings
     useEffect(() => {
@@ -122,9 +163,11 @@ export function useListen({
             isMountedRef.current = false;
             window.speechSynthesis?.cancel();
             currentAudioRef.current?.pause();
+            audioQueueRef.current.clear(); // Clear memory
         };
     }, []);
 
+    // ... (HELPERS: isUserLine, shouldSkipLine, relevantIndices - unchanged) ...
     // === HELPERS ===
     const isUserLine = useCallback((char: string) => {
         if (!char || !userCharacters?.length) return false;
@@ -345,30 +388,30 @@ export function useListen({
                     // TTS - Use Sequencer for Mixed Voices
                     await playLineSequentially(
                         line,
-                        showStageDirections,
+                        showStageDirections ?? true,
                         async (textToSpeak, isDirection) => {
                             if (!isValid()) return;
 
                             if (ttsProvider === "openai" && sourceId && line.character) {
-                                // OpenAI TTS
-                                const voice = isDirection
-                                    ? "onyx"
-                                    : (openaiVoiceAssignments?.[line.character] ?? "nova");
-
+                                // OpenAI TTS - USE QUEUE
                                 setIsLoadingAudio(true);
                                 let audioPlayed = false;
                                 try {
-                                    // console.log("[Listen] OpenAI TTS:", { text: textToSpeak, role: isDirection ? "Narrator" : line.character });
-                                    const result = await synthesizeSpeechWithPlayCache(
+                                    // Use AudioQueue instead of direct server call
+                                    const audioUrl = await audioQueueRef.current.getUrl(
                                         textToSpeak,
                                         isDirection ? "NARRATOR" : line.character,
                                         currentLineIndex,
-                                        sourceType, sourceId, troupeId
+                                        sourceType,
+                                        sourceId,
+                                        troupeId,
+                                        isDirection
                                     );
 
                                     if (!isValid()) { setIsLoadingAudio(false); return; }
-                                    if ("audio" in result && result.audio) {
-                                        await playAudioFile(result.audio);
+
+                                    if (audioUrl) {
+                                        await playAudioFile(audioUrl);
                                         audioPlayed = true;
                                     }
                                 } catch (e) {

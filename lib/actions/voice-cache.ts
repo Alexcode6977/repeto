@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 
 // Define locally to avoid circular dependency with tts.ts
 export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+export type VoiceProvider = 'openai' | 'elevenlabs';
 
 export type SourceType = 'library_script' | 'private_script' | 'troupe_play';
 
@@ -12,14 +13,17 @@ export interface VoiceConfig {
     source_type: SourceType;
     source_id: string;
     character_name: string;
-    voice: OpenAIVoice;
+    voice: string; // Changed from OpenAIVoice to string to support EL IDs
+    provider: VoiceProvider; // Added
+    settings: any; // Added
     created_by: string | null;
     troupe_id: string | null;
 }
 
 export interface VoiceAssignment {
     character: string;
-    voice: OpenAIVoice;
+    voice: string;
+    provider?: VoiceProvider;
 }
 
 /**
@@ -78,6 +82,8 @@ export async function createVoiceConfig(
                 source_id: sourceId,
                 character_name: a.character,
                 voice: a.voice,
+                provider: a.provider || 'openai', // Default to openai
+                settings: {},
                 created_by: user.id,
                 troupe_id: troupeId || null
             }))
@@ -98,7 +104,8 @@ export async function getCachedAudio(
     sourceType: SourceType,
     sourceId: string,
     lineIndex: number,
-    characterName: string
+    characterName: string,
+    textHash: string // Added parameter
 ): Promise<string | null> {
     const supabase = await createClient();
 
@@ -119,6 +126,7 @@ export async function getCachedAudio(
         .select('audio_url')
         .eq('config_id', config.id)
         .eq('line_index', lineIndex)
+        .eq('text_hash', textHash) // Added check
         .single();
 
     return cache?.audio_url || null;
@@ -160,7 +168,7 @@ export async function cacheAudio(
             text_hash: textHash,
             audio_url: audioUrl
         }, {
-            onConflict: 'config_id,line_index'
+            onConflict: 'config_id,line_index,text_hash' // Updated conflict target
         });
 
     if (error) {

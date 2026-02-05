@@ -149,17 +149,22 @@ export async function synthesizeSpeechWithPlayCache(
             return { error: "Abonnement Solo Pro ou Troupe requis pour les voix IA." };
         }
 
-        // 1. Check play-based cache first
-        const cachedAudioUrl = await getCachedAudio(sourceType, sourceId, lineIndex, characterName);
-        if (cachedAudioUrl) {
-            console.log(`[TTS Play Cache] HIT for ${characterName} line ${lineIndex}`);
-            return { audio: cachedAudioUrl };
-        }
-
         // 2. Get the voice for this character from config
         const voice = await getCharacterVoice(sourceType, sourceId, characterName);
         if (!voice) {
             return { error: `Aucune voix configurée pour ${characterName}. Veuillez d'abord configurer les voix.` };
+        }
+
+        // --- HASH CALCULATION (Moved Up) ---
+        // We need the hash to check the cache specifically for this segment text
+        const contentToHash = `${text.trim()}|${voice}`;
+        const textHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
+
+        // 1. Check play-based cache first (using Hash)
+        const cachedAudioUrl = await getCachedAudio(sourceType, sourceId, lineIndex, characterName, textHash);
+        if (cachedAudioUrl) {
+            console.log(`[TTS Play Cache] HIT for ${characterName} line ${lineIndex} segment ${textHash.substring(0, 8)}`);
+            return { audio: cachedAudioUrl };
         }
 
         console.log(`[TTS Play Cache] MISS for ${characterName} line ${lineIndex} - Generating with voice ${voice}...`);
@@ -173,8 +178,7 @@ export async function synthesizeSpeechWithPlayCache(
         });
 
         const buffer = await response.arrayBuffer();
-        const contentToHash = `${text.trim()}|${voice}`;
-        const textHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
+        // contentToHash and textHash already calculated above
         const fileName = `play_${sourceId.substring(0, 8)}_${textHash}.mp3`;
 
         // 4. Upload to storage
