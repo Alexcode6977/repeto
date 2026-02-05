@@ -51,23 +51,40 @@ export class GaplessAudioPlayer {
     }
 
     /**
-     * Preload and Decode audio data
+     * Preload and Decode audio data with retry logic
      */
-    public async loadAudio(url: string): Promise<AudioBuffer | null> {
+    public async loadAudio(url: string, retryCount: number = 2): Promise<AudioBuffer | null> {
         if (this.bufferCache.has(url)) return this.bufferCache.get(url)!;
 
-        try {
-            const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            if (!this.audioContext) return null;
+        for (let attempt = 0; attempt <= retryCount; attempt++) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
 
-            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-            this.bufferCache.set(url, audioBuffer);
-            return audioBuffer;
-        } catch (e) {
-            console.error("[GaplessPlayer] Load error:", e);
-            return null;
+                const arrayBuffer = await response.arrayBuffer();
+                if (!this.audioContext) return null;
+                if (arrayBuffer.byteLength === 0) {
+                    throw new Error("Empty audio buffer received");
+                }
+
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                this.bufferCache.set(url, audioBuffer);
+                return audioBuffer;
+            } catch (e) {
+                const isLastAttempt = attempt === retryCount;
+                if (isLastAttempt) {
+                    console.error(`[GaplessPlayer] Load failed after ${retryCount + 1} attempts:`, e);
+                    return null;
+                } else {
+                    console.warn(`[GaplessPlayer] Load attempt ${attempt + 1} failed, retrying...`, e);
+                    // Brief delay before retry
+                    await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+                }
+            }
         }
+        return null;
     }
 
     /**

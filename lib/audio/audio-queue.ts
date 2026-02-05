@@ -22,10 +22,13 @@ export class AudioQueue {
 
     /**
      * Generate a unique key for the cache
+     * Includes all parameters that affect the audio output
      */
     private getCacheKey(req: AudioRequest): string {
-        // Include isDirection/Narrator in key to differentiate voice
-        return `${req.sourceId}-${req.lineIndex}-${req.character}-${req.text.trim().substring(0, 20)}`;
+        // Include isDirection to differentiate character voice from narrator voice
+        // Include sourceType to differentiate play vs script contexts
+        const directionMarker = req.isDirection ? "DIR" : "DLG"; // Direction vs Dialogue
+        return `${req.sourceType}:${req.sourceId}:${req.lineIndex}:${req.character}:${directionMarker}:${req.text.trim().substring(0, 30)}`;
     }
 
     /**

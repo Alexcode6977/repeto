@@ -214,14 +214,22 @@ export function calculateSimilarity(str1: string, str2: string, playTitle?: stri
         }
     }
 
-    // == SHORT LINE TOLERANCE ==
-    // For very short theatrical lines (1-2 words), we are more permissive.
-    // If distance is only 1 or 2 characters and the line is short, we allow it.
+    // == DYNAMIC THRESHOLD BASED ON LINE LENGTH ==
+    // Short theatrical lines (interjections, reactions) need more tolerance.
+    // - 1 word: Very permissive (minimum 0.70)
+    // - 2 words: Permissive (minimum 0.75)
+    // - 3 words: Slightly permissive (minimum 0.80)
+    // - 4+ words: Use standard threshold
     const wordsCount = s2Value.split(" ").length;
-    if (wordsCount <= 2 && distance <= 2) {
-        // e.g. "Hein" vs "Hein ?" or "Ah" vs "Oh" (if distance small enough)
-        // This helps with transcription noise on interjections.
-        return Math.max(score, 0.85);
+    const dynamicMinScore = wordsCount <= 1 ? 0.70
+        : wordsCount === 2 ? 0.75
+            : wordsCount === 3 ? 0.80
+                : 0.0; // No floor for longer lines
+
+    // Apply floor for short lines
+    if (dynamicMinScore > 0 && distance <= Math.ceil(wordsCount * 0.8)) {
+        // Allow some errors proportional to word count
+        score = Math.max(score, dynamicMinScore);
     }
 
     // == PHONETIC FALLBACK ==
