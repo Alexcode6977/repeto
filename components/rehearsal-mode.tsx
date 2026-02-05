@@ -19,6 +19,7 @@ import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 import { BrowserVoiceConfig } from "./browser-voice-config";
 import { saveSessionStats, saveLineErrors, LineErrorData } from "@/app/actions/stats"; // Stats Actions
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
+import { removeStageDirections } from "@/lib/utils/stage-directions";
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -99,6 +100,7 @@ interface RehearsalModeProps {
     isVisio?: boolean;
     autoStart?: boolean;
     privateNotes?: any[];
+    showStageDirections?: boolean; // Toggle for showing/hiding stage directions
 }
 
 export function RehearsalMode({
@@ -115,7 +117,8 @@ export function RehearsalMode({
     partnerCharacters = [],
     isVisio = false,
     autoStart = false,
-    privateNotes = []
+    privateNotes = [],
+    showStageDirections = true
 }: RehearsalModeProps) {
     const [threshold, setThreshold] = useState(0.85); // Default 85%
     const [startLineIndex, setStartLineIndex] = useState(0);
@@ -295,6 +298,7 @@ export function RehearsalMode({
         mode: rehearsalMode,
         ttsProvider: ttsProvider || "browser",
         openaiVoiceAssignments,
+        showStageDirections,
         skipCharacters: ignoredCharacters,
         playId,
         partnerCharacters
@@ -765,11 +769,16 @@ export function RehearsalMode({
     // Helper for visibility masking
     const getVisibleText = (text: string | undefined, isUser: boolean) => {
         if (!text) return "";
-        if (!isUser || lineVisibility === "visible") return text;
+
+        // First, filter stage directions if needed
+        const filteredText = showStageDirections ? text : removeStageDirections(text);
+
+        // Then apply visibility masking for user lines
+        if (!isUser || lineVisibility === "visible") return filteredText;
 
         if (lineVisibility === "hint") {
-            const words = text.split(" ");
-            if (words.length <= 2) return text;
+            const words = filteredText.split(" ");
+            if (words.length <= 2) return filteredText;
             return `${words[0]} ${words[1]} ...`;
         }
 
@@ -1146,6 +1155,8 @@ export function RehearsalMode({
                                 });
                             })();
 
+                            const isIndication = line.character === "INDICATIONS";
+
                             return (
                                 <div
                                     key={line.id}
@@ -1177,19 +1188,22 @@ export function RehearsalMode({
                                         );
                                     })()}
 
-                                    <p className={cn(
-                                        "text-xs font-bold uppercase tracking-widest mb-3",
-                                        isActive ? "text-foreground" : "text-muted-foreground"
-                                    )}>
-                                        {line.character}
-                                    </p>
+                                    {!isIndication && (
+                                        <p className={cn(
+                                            "text-xs font-bold uppercase tracking-widest mb-3",
+                                            isActive ? "text-foreground" : "text-muted-foreground"
+                                        )}>
+                                            {line.character}
+                                        </p>
+                                    )}
 
                                     <p className={cn(
                                         "leading-relaxed font-serif transition-all",
                                         isActive
                                             ? "text-xl md:text-3xl text-foreground"
                                             : "text-base md:text-lg text-muted-foreground grayscale",
-                                        isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : ""
+                                        isUser && isActive ? "text-yellow-600 dark:text-yellow-300 drop-shadow-md" : "",
+                                        isIndication ? "text-muted-foreground italic text-lg" : ""
                                     )}>
                                         {/* Status Indicators for Active Line */}
                                         {isActive && status === "listening_user" && (

@@ -13,43 +13,88 @@ const AI_CLEANING_PROMPT = `Tu es un expert en restructuration de scripts théâ
 ### 1. FORMAT DE SORTIE (STRICT)
 Pour chaque intervention, utilise ce modèle exact avec les sauts de ligne :
 
-PERSO [NOM EN MAJUSCULES]
+[NOM EN MAJUSCULES]
 (Ligne vide)
-REPLIQUE [Texte du dialogue]
+Texte du dialogue normal
 (Ligne vide)
 
-### 2. RÈGLES DE NETTOYAGE
+### 2. RÈGLES DE FORMATAGE
+
+**Personnages** :
+- Le nom doit être entre crochets [COMME CECI]
+- Toujours en MAJUSCULES
+- Exemples : [LUCIEN], [MARIE], [LE MAÎTRE], [RÉGIE], [LUMIÈRE]
+
+**Dialogue** :
+- Texte normal, sans préfixe ni balise
+- Garde la ponctuation d'origine
+
+**Didascalies** (indications scéniques) :
+- Entre parenthèses (comme ceci)
+- Peuvent être au début, milieu ou fin du dialogue
+- Exemples : (se levant), (furieux), (à part), (il sort)
+
+### 3. RÈGLES DE NETTOYAGE
 - Supprime les balises \`[source]\`, les numéros de pages et les en-têtes.
-- Supprime les lignes vides inutiles.
+- Supprime les lignes vides multiples (max 1 ligne vide entre les sections).
+- Garde les scènes : SCÈNE I, ACTE II, etc.
 
-### 3. FILTRE ANTI-BRUIT (Les Faux Personnages)
+### 4. FILTRE ANTI-BRUIT (Les Faux Personnages)
 Le texte contient des didascalies formatées comme des noms. Tu dois les détecter.
-- **RÈGLE :** Un \`PERSO\` doit être un Nom Propre (ex: LUCIEN).
+- **RÈGLE :** Un personnage doit être un Nom Propre (ex: LUCIEN, MARIE).
 - **INTERDIT (Blacklist)** :
   1. Tout mot finissant par **"-MENT"** (ex: "SEULEMENT", "BRUSQUEMENT").
   2. Les adjectifs/actions : "FURIEUX", "AHURI", "INDIGNÉE", "ALLEZ", "HAUSSANT LES ÉPAULES", "APRÈS UN TEMPS", "ENSEMBLE", "VITE".
-- **ACTION :** Si tu trouves un mot interdit isolé, ne crée pas de \`PERSO\`. Intègre-le au début de la \`REPLIQUE\` concernée entre parenthèses.
+  3. Les mots techniques seuls : "RIDEAU", "NOIR", "LUMIÈRE" (sauf si clairement un personnage technique comme [LUMIÈRE])
+- **ACTION :** Si tu trouves un mot interdit isolé, ne crée pas de personnage. Intègre-le dans le dialogue suivant entre parenthèses.
   *Exemple :* \`(Furieux) C'est faux !\`
 
-### 4. RÈGLE DE DÉCOUPAGE (SEGMENTATION) - TRES IMPORTANT
+### 5. RÈGLE DE DÉCOUPAGE (SEGMENTATION) - TRÈS IMPORTANT
 Le texte source contient des erreurs OCR où deux personnages sont collés sur la même ligne.
 Tu dois scanner l'intérieur des phrases.
 - **SI** tu trouves un [NOM DE PERSONNAGE] en majuscules au milieu d'une phrase :
-- **ALORS** tu dois couper le dialogue et créer une nouvelle entrée \`PERSO\`.
+- **ALORS** tu dois couper le dialogue et créer une nouvelle entrée personnage.
 
 *Exemple du problème :*
 Entrée : \`ANNETTE Oui moussié YVONNE Ah non !\`
 
 *Sortie attendue (Tu dois séparer) :*
-PERSO ANNETTE
-REPLIQUE Oui moussié
+[ANNETTE]
 
-PERSO YVONNE
-REPLIQUE Ah non !
+Oui moussié
 
-### 5. CAS SPÉCIAUX
+[YVONNE]
+
+Ah non !
+
+### 6. CAS SPÉCIAUX
 - Si tu trouves "VOIX DE...", attribue le rôle au personnage cité.
-  *Exemple :* "VOIX D'ANNETTE" -> PERSO ANNETTE / REPLIQUE (Voix) ...
+  *Exemple :* "VOIX D'ANNETTE" -> [ANNETTE] avec dialogue "(Voix) ..."
+- Les personnages techniques (RÉGIE, LUMIÈRE, SON, etc.) sont traités comme des personnages normaux : [RÉGIE]
+
+### 7. EXEMPLE COMPLET
+
+Entrée brute :
+\`\`\`
+SCÈNE I
+LUCIEN, debout
+Bonjour Marie ! Comment vas-tu ?
+MARIE souriante
+Bien merci. Et toi ?
+\`\`\`
+
+Sortie formatée :
+\`\`\`
+SCÈNE I
+
+[LUCIEN]
+
+(debout) Bonjour Marie ! Comment vas-tu ?
+
+[MARIE]
+
+(souriante) Bien merci. Et toi ?
+\`\`\`
 
 Génère uniquement le script formaté.`;
 

@@ -501,11 +501,11 @@ export function ImportWizard({
                             <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
                             <div className="absolute -top-20 -left-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
                             <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-                            <div className="text-center mb-8"><h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Préparez votre script</h2><p className="text-muted-foreground mt-2">Pour que l'import fonctionne, votre PDF doit être formaté selon ces règles</p></div>
+                            <div className="text-center mb-8"><h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Nouveau Format PDF</h2><p className="text-muted-foreground mt-2">Votre PDF doit utiliser le nouveau format avec crochets</p></div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                <div className="bg-muted/30 border border-border rounded-2xl p-6"><h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><span className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center text-sm">1</span>Format requis</h3><div className="bg-background rounded-xl p-4 font-mono text-sm space-y-2 text-muted-foreground"><p><span className="text-primary font-bold">PERSO</span> JEAN</p><p><span className="text-primary font-bold">REPLIQUE</span> Bonjour !</p><p className="text-muted-foreground/50">...</p></div></div>
-                                <div className="bg-muted/30 border border-border rounded-2xl p-6"><h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><span className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center text-sm">2</span>Exemple complet</h3><div className="bg-background rounded-xl p-4 font-mono text-xs space-y-1 text-muted-foreground"><p><span className="text-primary">PERSO</span> MARIE</p><p><span className="text-primary">REPLIQUE</span> Où est Pierre ?</p><p className="opacity-50">&nbsp;</p><p><span className="text-primary">PERSO</span> JEAN</p><p><span className="text-primary">REPLIQUE</span> Parti au marché.</p></div></div>
+                                <div className="bg-muted/30 border border-border rounded-2xl p-6"><h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><span className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center text-sm">1</span>Format requis</h3><div className="bg-background rounded-xl p-4 font-mono text-sm space-y-2 text-muted-foreground"><p><span className="text-primary font-bold">[NOM]</span></p><p>Texte du dialogue</p><p><span className="text-amber-500">(didascalie)</span></p></div></div>
+                                <div className="bg-muted/30 border border-border rounded-2xl p-6"><h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><span className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center text-sm">2</span>Exemple complet</h3><div className="bg-background rounded-xl p-4 font-mono text-xs space-y-1 text-muted-foreground"><p><span className="text-primary">[MARIE]</span></p><p>Où est Pierre ?</p><p className="opacity-50">&nbsp;</p><p><span className="text-primary">[JEAN]</span></p><p>(souriant) Parti au marché.</p></div></div>
                             </div>
                             <div className="flex justify-center">
                                 <div className="relative group">
@@ -550,16 +550,46 @@ export function ImportWizard({
                                 ) : (
                                     <div className="space-y-6">
                                         <div className="text-center">
-                                            <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30"><span className="text-4xl">🤖</span></div>
-                                            <h3 className="text-2xl font-extrabold text-foreground">Import Automatique</h3>
-                                            <p className="text-muted-foreground mt-2">Importez <strong className="text-foreground">n'importe quel PDF</strong>.</p>
+                                            <h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Nouveau Format PDF</h2>
+                                            <p className="text-muted-foreground mt-2">Votre PDF doit utiliser le nouveau format avec crochets</p>
                                         </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="bg-muted/30 border border-border rounded-2xl p-4">
+                                                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                                                    <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">1</span>
+                                                    Format requis
+                                                </h3>
+                                                <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
+                                                    <p><span className="text-primary font-bold">[NOM]</span></p>
+                                                    <p>Texte du dialogue</p>
+                                                    <p><span className="text-amber-500">(didascalie)</span></p>
+                                                </div>
+                                            </div>
+                                            <div className="bg-muted/30 border border-border rounded-2xl p-4">
+                                                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                                                    <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">2</span>
+                                                    Exemple
+                                                </h3>
+                                                <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
+                                                    <p><span className="text-primary">[MARIE]</span></p>
+                                                    <p>Où est Pierre ?</p>
+                                                    <p className="opacity-50">&nbsp;</p>
+                                                    <p><span className="text-primary">[JEAN]</span></p>
+                                                    <p>(souriant) Au marché.</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                         <div className="flex justify-center">
-                                            <Button className="py-7 px-12 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-500/90 text-white font-bold text-lg shadow-xl shadow-green-500/30" asChild>
-                                                <label className="cursor-pointer flex items-center justify-center gap-3"><Upload className="w-6 h-6" />Importer mon PDF<input type="file" accept=".pdf" className="hidden" onChange={handleAiFileChange} /></label>
+                                            <Button className="py-6 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-xl" asChild>
+                                                <label className="cursor-pointer flex items-center justify-center gap-3">
+                                                    <Upload className="w-5 h-5" />
+                                                    Importer mon PDF
+                                                    <input type="file" accept=".pdf" className="hidden" onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }} />
+                                                </label>
                                             </Button>
                                         </div>
-                                        <p className="text-center text-muted-foreground text-xs">PDF uniquement • Powered by GPT-4</p>
                                     </div>
                                 )}
                             </div>

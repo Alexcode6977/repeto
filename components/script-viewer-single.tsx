@@ -2,7 +2,7 @@
 
 import { ParsedScript } from "@/lib/types";
 import { Button } from "./ui/button";
-import { BookOpen, Play, Headphones, Check, ChevronDown, ChevronLeft } from "lucide-react";
+import { BookOpen, Play, Headphones, Check, ChevronDown, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -16,7 +16,7 @@ import {
 
 interface ScriptViewerSingleProps {
     script: ParsedScript;
-    onConfirm: (character: string, mode: 'reader' | 'rehearsal' | 'listen', ignoredCharacters?: string[]) => void;
+    onConfirm: (character: string, mode: 'reader' | 'rehearsal' | 'listen', ignoredCharacters?: string[], showStageDirections?: boolean) => void;
     onBack?: () => void;
 }
 
@@ -40,6 +40,9 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
         technicalCharacters.filter(c => c.toLowerCase().includes("didascalie"))
     );
 
+    // State for showing/hiding stage directions (enabled by default)
+    const [showStageDirections, setShowStageDirections] = useState(true);
+
     const toggleTechnical = (char: string) => {
         setIgnoredTechnical(prev =>
             prev.includes(char) ? prev.filter(c => c !== char) : [...prev, char]
@@ -48,7 +51,7 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
 
     const handleConfirm = (mode: 'reader' | 'rehearsal' | 'listen') => {
         if (mode === 'listen' || selectedChar) {
-            onConfirm(selectedChar, mode, ignoredTechnical);
+            onConfirm(selectedChar, mode, ignoredTechnical, showStageDirections);
         }
     };
 
@@ -207,6 +210,37 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
                             <div className="text-center">
                                 <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Répéter</h3>
                                 <p className="text-gray-300 text-[9px] hidden md:block">Avec le Partenaire</p>
+                            </div>
+                        </button>
+                    </div>
+
+                    {/* Stage Directions Toggle */}
+                    <div className="mt-6 pt-4 border-t border-border/50">
+                        <button
+                            onClick={() => setShowStageDirections(!showStageDirections)}
+                            className="w-full flex items-center justify-between p-4 rounded-xl bg-muted/20 hover:bg-muted/30 border border-border/50 transition-all duration-200"
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                                    {showStageDirections ? (
+                                        <Eye className="w-5 h-5 text-amber-400" />
+                                    ) : (
+                                        <EyeOff className="w-5 h-5 text-muted-foreground" />
+                                    )}
+                                </div>
+                                <div className="text-left">
+                                    <h4 className="text-sm font-semibold text-foreground">Afficher les didascalies</h4>
+                                    <p className="text-xs text-muted-foreground">Indications scéniques entre parenthèses</p>
+                                </div>
+                            </div>
+                            <div className={cn(
+                                "w-12 h-6 rounded-full relative transition-colors duration-300",
+                                showStageDirections ? "bg-primary" : "bg-muted-foreground/30"
+                            )}>
+                                <div className={cn(
+                                    "absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform duration-300",
+                                    showStageDirections ? "translate-x-6" : "translate-x-0.5"
+                                )} />
                             </div>
                         </button>
                     </div>

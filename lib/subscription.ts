@@ -82,7 +82,7 @@ export async function getEffectiveTier(
     }
 
     // Check if user is in a troupe with active subscription
-    // If troupeId is provided, check that specific troupe
+    // If troupeId is provided, check that specific troupe (Context-Aware)
     if (troupeId) {
         const { data: troupe } = await supabase
             .from('troupes')
@@ -93,17 +93,9 @@ export async function getEffectiveTier(
         if (troupe?.subscription_status === 'active' || troupe?.subscription_status === 'trialing') {
             return 'troupe';
         }
-    } else {
-        // Check any troupe the user belongs to
-        const { data: memberships } = await supabase
-            .from('troupe_members')
-            .select('troupe_id, troupes(subscription_status)')
-            .eq('user_id', userId);
-
-        if (memberships?.some((m: any) => ['active', 'trialing'].includes(m.troupes?.subscription_status))) {
-            return 'troupe';
-        }
     }
+    // PREVIOUSLY: We checked all troupe memberships here.
+    // NOW: We return 'free' because Troupe Premium benefits are strictly local to the troupe context.
 
     return 'free';
 }

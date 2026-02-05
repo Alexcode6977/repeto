@@ -29,13 +29,15 @@ interface UseRehearsalProps {
     skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
     playId?: string;
     partnerCharacters?: string[];
+    showStageDirections?: boolean;
 }
 
 import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { isNextCommand, isPrevCommand } from "../speech-utils";
 import { getPlayRecordings } from "../actions/recordings";
+import { playLineSequentially } from "../audio/sequencer";
 
-export function useRehearsal({ script, userCharacters, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId, partnerCharacters = [] }: UseRehearsalProps) {
+export function useRehearsal({ script, userCharacters, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId, partnerCharacters = [], showStageDirections = true }: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const openaiSpeech = useOpenAITTS();
     const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
@@ -53,25 +55,10 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
     // Use specialized voice hook
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
 
-    // Unified speak function that handles both providers AND custom recordings
+    // Unified speak function that handles both providers (Recordings logic moved to caller)
     const speak = async (text: string, _voice?: SpeechSynthesisVoice, characterName?: string, lineId?: string): Promise<void> => {
-        // Priority 1: User Recording
-        const recording = recordings.find(r => r.line_id === lineId);
-        if (recording) {
-            setIsPlayingRecording(true);
-            return new Promise((resolve) => {
-                const audio = new Audio(recording.audio_url);
-                audio.onended = () => {
-                    setIsPlayingRecording(false);
-                    resolve();
-                };
-                audio.onerror = () => {
-                    setIsPlayingRecording(false);
-                    resolve();
-                };
-                audio.play();
-            });
-        }
+        // Validation
+        if (!text || !text.trim()) return;
 
         // Priority 2: OpenAI TTS
         if (ttsProvider === "openai") {
@@ -80,25 +67,13 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
             // OFFLINE CHECK
             const hash = await offlineManager.generateHash(text, assignedVoice);
             const offlineUrl = lineId ? await offlineManager.getAudio(lineId, hash) : null;
-            // Also check by content-hash-only as fallback if lineId specific asset missing? 
-            // The offlineManager.getAudio checks by lineId (which is unique asset ID). 
-            // So if lineId is passed, we good.
 
             if (offlineUrl) {
-                // Playing offline cached audio
-                // Play blob
-                return new Promise((resolve, reject) => {
+                return new Promise((resolve) => {
                     const audio = new Audio(offlineUrl);
                     audio.onended = () => resolve();
-                    audio.onerror = (e) => {
-                        console.error("Offline audio error", e);
-                        // Fallback to online if file corrupt?
-                        resolve();
-                    };
-                    audio.play().catch(e => {
-                        console.error("Play error", e);
-                        resolve();
-                    });
+                    audio.onerror = () => resolve();
+                    audio.play().catch(() => resolve());
                 });
             }
 
@@ -511,9 +486,45 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                     return;
                 }
 
+                // Check for User Recording first (Priority 1)
+                const recording = recordings.find(r => r.line_id === line.id);
+                if (recording) {
+                    setIsPlayingRecording(true);
+                    const audio = new Audio(recording.audio_url);
+                    await new Promise<void>((resolve) => {
+                        audio.onended = () => resolve();
+                        audio.onerror = () => resolve();
+                        audio.play().catch(() => resolve());
+                    });
+                    setIsPlayingRecording(false);
+                    if (!isMountedRef.current) return;
+                    if (statusRef.current === "playing_other" && !manualSkipRef.current) next();
+                    return;
+                }
+
                 const voice = voiceAssignments[line.character];
                 try {
-                    await speak(line.text, voice, line.character, line.id);
+                    // Use Sequencer for Mixed Voice Playback
+                    await playLineSequentially(
+                        line,
+                        showStageDirections,
+                        async (textToSpeak, isDirection) => {
+                            if (!isMountedRef.current || manualSkipRef.current) return;
+
+                            // Determine Voice (Narrator vs Character)
+                            const assignedVoice = isDirection
+                                ? undefined // Browser default for narrator
+                                : voice;
+
+                            await speak(
+                                textToSpeak,
+                                assignedVoice,
+                                isDirection ? "NARRATOR" : line.character,
+                                line.id
+                            );
+                        }
+                    );
+
                     if (!isMountedRef.current) return;
                     if (statusRef.current === "playing_other" && !manualSkipRef.current) {
                         next();

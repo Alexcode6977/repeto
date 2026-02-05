@@ -386,6 +386,30 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
         if (!line || /^\d+$/.test(line)) continue;
         if (line.length > 60) continue;
 
+        // === NEW BRACKET FORMAT DETECTION ===
+        // Detect "[CHARACTER NAME]" format (priority format)
+        const bracketCharacterRegex = /^\[([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-']+)\]\s*/;
+        const bracketMatch = line.match(bracketCharacterRegex);
+        if (bracketMatch) {
+            const charName = bracketMatch[1].trim().toUpperCase();
+            const stats = characterUsage.get(charName) || { headers: 0, totalWords: 0 };
+            stats.headers++;
+
+            // Peek at next lines for dialogue word count (until next bracket or empty line)
+            let dialogueWords = 0;
+            for (let j = i + 1; j < lines.length && j < i + 5; j++) {
+                const nextLine = lines[j].trim();
+                if (!nextLine || /^\[/.test(nextLine)) break;
+                // Count words, excluding parentheses content for word count
+                const cleanLine = nextLine.replace(/\(.*?\)/g, '');
+                dialogueWords += cleanLine.split(/\s+/).filter(w => w.length > 0).length;
+            }
+            stats.totalWords += dialogueWords;
+            characterUsage.set(charName, stats);
+            continue;
+        }
+        // === END BRACKET FORMAT DETECTION ===
+
         // === AI-CLEANED FORMAT DETECTION (PERSO/REPLIQUE) ===
         // Detect "PERSO X" format - extract character name
         const persoMatch = line.match(/^PERSO\s+(.+)$/i);
@@ -448,7 +472,8 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
             const finalName = extractVoixName(charName);
             const score = scoreCharacterName(finalName);
 
-            if (score > 0.6) {
+            // Increased from 0.6 to 0.75 to prevent false positives like "CONTINUEZ DONC"
+            if (score > 0.75) {
                 const normalized = finalName.toUpperCase();
                 const stats = characterUsage.get(normalized) || { headers: 0, totalWords: 0 };
                 if (isHeader) stats.headers++;
@@ -504,6 +529,10 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     // Refinement: require at least 2 characters for the name part (avoids "M." or "D." at start of line)
     const characterPrefixRegex = /^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']{1,})[:\.,]\s*(.*)/;
 
+    // Bracket-based character detection: [CHARACTER NAME]
+    // Allow dialogue on the same line after the bracket
+    const bracketCharacterRegex = /^\[([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-']+)\]\s*(.*)/;
+
     // Standalone uppercase line (possibly with a trailing dot)
     const characterLineRegex = /^\s*([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-\'']{1,35}[\.]?)\s*$/;
 
@@ -514,17 +543,42 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
     let previousLine = "";
 
     for (const originalLine of lines) {
-        // Clean line
-        let line = originalLine
-            .replace(/\(.*?\)/g, "")  // Remove parenthetical content
+        // Create TWO versions of the line:
+        // 1. lineForDetection: Clean line WITHOUT parentheses (for character matching logic)
+        const lineForDetection = originalLine
+            .replace(/\(.*?\)/g, "")  // Remove parentheses ONLY for detection
             .replace(/\s+/g, " ")
             .trim();
 
-        if (!line) continue;
-        if (/^\d+$/.test(line)) continue; // Page numbers
+        // 2. lineForDialogue: Line WITH parentheses preserved (for dialogue accumulation)
+        const lineForDialogue = originalLine
+            .replace(/\s+/g, " ")
+            .trim();
+
+        if (!lineForDetection && !lineForDialogue) continue; // Skip strictly empty lines
+        if (lineForDetection && /^\d+$/.test(lineForDetection)) continue; // Page numbers
+
+        // Handle pure stage direction lines (where detection line is empty but dialogue line exists)
+        // Example: "(Tous sont assis à table)"
+        if (!lineForDetection && lineForDialogue) {
+            if (currentCharacter) {
+                // Determine if we should add a space or not
+                currentBuffer += (currentBuffer ? " " : "") + lineForDialogue;
+            } else {
+                // Orphan stage direction (e.g. start of scene description)
+                scriptLines.push({
+                    id: String(idCounter++),
+                    character: "INDICATIONS", // Neutral character name for scene directions
+                    text: lineForDialogue,
+                    type: "stage_direction"
+                });
+            }
+            previousLine = lineForDialogue;
+            continue;
+        }
 
         // Check for scene header
-        if (sceneRegex.test(line)) {
+        if (sceneRegex.test(lineForDetection)) {
             // Flush current buffer
             if (currentCharacter && currentBuffer) {
                 scriptLines.push({
@@ -536,20 +590,17 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
                 currentBuffer = "";
             }
 
-            scriptLines.push({
-                id: String(idCounter++),
-                character: "SCENE",
-                text: line,
-                type: "scene_heading",
-            });
-            scenes.push({ index: scriptLines.length - 1, title: line });
+            // Add scene to scenes array ONLY (not to scriptLines to avoid duplication)
+            scenes.push({ index: scriptLines.length, title: lineForDetection });
             currentCharacter = "";
-            continue;
+            currentBuffer = "";
+            previousLine = lineForDetection;
+            continue; // Skip to next line - don't process scene header as dialogue
         }
 
         // === AI-CLEANED FORMAT DETECTION (PERSO/REPLIQUE) ===
         // Detect "PERSO X" format - extract character name
-        const persoMatch = line.match(/^PERSO\s+(.+)$/i);
+        const persoMatch = lineForDetection.match(/^PERSO\s+(.+)$/i);
         if (persoMatch) {
             // Flush current buffer
             if (currentCharacter && currentBuffer) {
@@ -563,18 +614,84 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             }
             currentCharacter = persoMatch[1].trim().toUpperCase();
             characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
-            previousLine = line;
+            previousLine = lineForDetection;
             continue;
         }
 
         // Detect "REPLIQUE X" format - extract dialogue text (strip REPLIQUE keyword)
-        const repliqueMatch = line.match(/^REPLIQUE\s+(.+)$/i);
+        const repliqueMatch = lineForDetection.match(/^REPLIQUE\s+(.+)$/i);
         if (repliqueMatch && currentCharacter) {
-            currentBuffer += (currentBuffer ? " " : "") + repliqueMatch[1].trim();
-            previousLine = line;
+            // Use the ORIGINAL line (with parentheses) for dialogue, not the cleaned one
+            const originalRepliqueMatch = lineForDialogue.match(/^REPLIQUE\s+(.+)$/i);
+            if (originalRepliqueMatch) {
+                currentBuffer += (currentBuffer ? " " : "") + originalRepliqueMatch[1].trim();
+            }
+            previousLine = lineForDetection;
             continue;
         }
         // === END AI-CLEANED FORMAT DETECTION ===
+
+        // === NEW BRACKET FORMAT DETECTION ===
+        // Detect "[CHARACTER NAME]" format with optional dialogue on same line
+        const bracketMatch = lineForDetection.match(bracketCharacterRegex);
+
+        if (bracketMatch) {
+            // Flush current buffer
+            if (currentCharacter && currentBuffer) {
+                scriptLines.push({
+                    id: String(idCounter++),
+                    character: currentCharacter,
+                    text: currentBuffer.trim(),
+                    type: "dialogue",
+                });
+                currentBuffer = "";
+            }
+
+            const rawName = bracketMatch[1].trim();
+
+            // Extract dialogue from ORIGINAL line (with parentheses preserved!)
+            const originalBracketMatch = lineForDialogue.match(bracketCharacterRegex);
+            const dialogueOnSameLine = originalBracketMatch ? originalBracketMatch[2].trim() : "";
+
+            let finalName = extractVoixName(rawName);
+
+            // Validate character name (allow technical characters like RÉGIE, LUMIÈRE)
+            const score = scoreCharacterName(finalName);
+
+            // If validated characters list provided, check against it
+            if (charWhitelist && !charWhitelist.has(finalName.toUpperCase())) {
+                let foundSimilar = false;
+                for (const valid of charWhitelist) {
+                    if (similarity(finalName, valid) > 0.85) {
+                        finalName = valid;
+                        foundSimilar = true;
+                        break;
+                    }
+                }
+                // Skip if not in whitelist and no similar match found
+                if (!foundSimilar && score < 0.3) {
+                    previousLine = lineForDetection;
+                    continue;
+                }
+            }
+
+            currentCharacter = finalName.toUpperCase();
+            characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+
+            // Track history for collective character resolution
+            if (!finalName.includes(",") && !finalName.includes(" et ")) {
+                lastSpeakers.push({ name: finalName, gender: getGender(finalName) });
+                if (lastSpeakers.length > 10) lastSpeakers.shift();
+            }
+
+            // If dialogue is on the same line, start the buffer with it (WITH parentheses!)
+            if (dialogueOnSameLine) {
+                currentBuffer = dialogueOnSameLine + " ";
+            }
+
+            previousLine = lineForDetection;
+            continue;
+        }
 
         // Check for character
         let potentialName = "";
@@ -589,8 +706,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             /\b(M\.|Mme\.|Mlle\.|à|de|et|ou|mais|que|qui)\s*$/i.test(previousLine)
         );
 
-        // Pattern 1: "NAME. dialogue" or "NAME, description"
-        const prefixMatch = line.match(characterPrefixRegex);
+        // Pattern 1: "NAME. dialogue" or "NAME: dialogue"
+        const prefixMatch = lineForDetection.match(characterPrefixRegex);
         if (prefixMatch) {
             const rawName = prefixMatch[1].trim();
             const afterName = prefixMatch[2].trim();
@@ -606,13 +723,15 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
                 if (afterName && /^[a-zà-ö]/.test(afterName)) {
                     potentialDialogue = "";
                 } else {
-                    potentialDialogue = afterName;
+                    // Extract dialogue from ORIGINAL line (with parentheses!)
+                    const originalPrefixMatch = lineForDialogue.match(characterPrefixRegex);
+                    potentialDialogue = originalPrefixMatch ? originalPrefixMatch[2].trim() : "";
                 }
                 matched = true;
             }
         } else {
             // Pattern 2: Standalone name on its own line
-            const nameMatch = line.match(characterLineRegex);
+            const nameMatch = lineForDetection.match(characterLineRegex);
             if (nameMatch) {
                 const rawName = nameMatch[1].trim();
 
@@ -650,7 +769,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
 
             const score = scoreCharacterName(finalName);
 
-            if (score > 0 || isCollective) {
+            // Increased threshold to 0.7 to prevent false positives like "CONTINUEZ DONC"
+            if (score > 0.7 || isCollective) {
                 // GUIDED PARSING OVERRIDE: 
                 // If we have a whitelist, we ONLY care if it's in the list or very similar.
                 // EXCEPTION: Collective characters (TOUS, etc.) always pass.
@@ -748,21 +868,22 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             }
         }
 
-        // Otherwise, add to current dialogue buffer
+        // Otherwise, add to current dialogue buffer (use lineForDialogue to keep parentheses!)
         if (currentCharacter) {
-            currentBuffer += (currentBuffer ? " " : "") + line;
+            currentBuffer += (currentBuffer ? " " : "") + lineForDialogue;
         }
 
         // Update previous line for next iteration
-        previousLine = line;
+        previousLine = lineForDetection;
     }
 
     // Flush final buffer
     if (currentCharacter && currentBuffer) {
+        const finalText = currentBuffer.trim();
         scriptLines.push({
             id: String(idCounter++),
             character: currentCharacter,
-            text: currentBuffer.trim(),
+            text: finalText,
             type: "dialogue",
         });
     }

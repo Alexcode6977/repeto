@@ -77,6 +77,7 @@ export default function Home() {
     mode: "full",
   });
   const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>([]);
+  const [showStageDirections, setShowStageDirections] = useState(true); // Stage directions toggle state
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // Settings Modal State
@@ -207,9 +208,10 @@ export default function Home() {
 
   // --- VIEWER CALLBACKS ---
 
-  const handleConfirmSelection = (character: string, mode: 'reader' | 'rehearsal' | 'listen', ignored?: string[]) => {
+  const handleConfirmSelection = (character: string, mode: 'reader' | 'rehearsal' | 'listen', ignored?: string[], showDirections?: boolean) => {
     setRehearsalChar(character);
     setIgnoredCharacters(ignored || []);
+    setShowStageDirections(showDirections !== undefined ? showDirections : true); // Update stage directions preference
     if (mode === 'rehearsal') setViewMode("rehearsal");
     else if (mode === 'listen') setViewMode("listen");
     else setViewMode("setup");
@@ -238,6 +240,7 @@ export default function Home() {
         scriptId={selectedScriptMeta?.id}
         isPublicScript={selectedScriptMeta?.isPublic}
         skipCharacters={ignoredCharacters}
+        showStageDirections={showStageDirections}
       />
     );
   }
@@ -253,6 +256,7 @@ export default function Home() {
         scriptId={selectedScriptMeta?.id}
         isPublicScript={selectedScriptMeta?.isPublic}
         initialIgnoredCharacters={ignoredCharacters}
+        showStageDirections={showStageDirections}
       />
     );
   }
@@ -267,6 +271,7 @@ export default function Home() {
         settings={sessionSettings}
         userId={userId}
         skipCharacters={ignoredCharacters}
+        showStageDirections={showStageDirections}
       />
     );
   }

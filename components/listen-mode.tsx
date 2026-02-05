@@ -11,6 +11,7 @@ import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, R
 import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { BrowserVoiceConfig } from "./browser-voice-config";
+import { filterScriptLines } from "@/lib/utils/stage-directions";
 
 interface ListenModeProps {
     script: ParsedScript;
@@ -21,6 +22,7 @@ interface ListenModeProps {
     isPublicScript?: boolean;
     troupeId?: string;
     skipCharacters?: string[];
+    showStageDirections?: boolean; // Toggle for showing/hiding stage directions
 }
 
 export function ListenMode({
@@ -31,7 +33,8 @@ export function ListenMode({
     scriptId,
     isPublicScript = false,
     troupeId,
-    skipCharacters = []
+    skipCharacters = [],
+    showStageDirections = true
 }: ListenModeProps) {
     // Configuration state
     const [listenMode, setListenMode] = useState<ListenMode>("full");
@@ -152,7 +155,8 @@ export function ListenMode({
         skipCharacters: effectiveSkipCharacters,
         playId,
         scriptId,
-        isPublicScript
+        isPublicScript,
+        showStageDirections
     });
 
     const { requestWakeLock, releaseWakeLock } = useWakeLock();
@@ -270,6 +274,12 @@ export function ListenMode({
         });
     };
 
+    // Filter stage directions from script lines
+    const filteredLines = useMemo(() =>
+        filterScriptLines(script.lines, showStageDirections),
+        [script.lines, showStageDirections]
+    );
+
     // === SETUP SCREEN ===
     if (!hasStarted) {
         return (
@@ -323,8 +333,8 @@ export function ListenMode({
                                     style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
                                 >
                                     <option value={0} className="bg-zinc-900">Début du script</option>
-                                    {script.scenes?.map((scene) => (
-                                        <option key={scene.index} value={scene.index} className="bg-zinc-900">
+                                    {script.scenes?.map((scene, i) => (
+                                        <option key={`scene-${scene.index}-${i}`} value={scene.index} className="bg-zinc-900">
                                             {scene.title}
                                         </option>
                                     ))}
@@ -557,9 +567,10 @@ export function ListenMode({
                         isFirstScrollRef.current ? "opacity-0" : "opacity-100"
                     )}
                 >
-                    {script.lines.map((line, index) => {
+                    {filteredLines.map((line, index) => {
                         const isActive = index === currentLineIndex;
                         const isUser = isUserLine(line.character);
+                        const isIndication = line.character === "INDICATIONS";
 
                         return (
                             <div
@@ -576,12 +587,14 @@ export function ListenMode({
                                             : "opacity-40 scale-95 blur-[0.5px]"
                                 )}
                             >
-                                <p className={cn(
-                                    "text-xs font-bold uppercase tracking-widest mb-3",
-                                    isActive ? "text-foreground" : "text-muted-foreground"
-                                )}>
-                                    {line.character}
-                                </p>
+                                {!isIndication && (
+                                    <p className={cn(
+                                        "text-xs font-bold uppercase tracking-widest mb-3",
+                                        isActive ? "text-foreground" : "text-muted-foreground"
+                                    )}>
+                                        {line.character}
+                                    </p>
+                                )}
 
                                 <p className={cn(
                                     "leading-relaxed font-serif transition-all",

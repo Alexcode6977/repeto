@@ -4,6 +4,7 @@ import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { getPlayRecordings } from "../actions/recordings";
 import { synthesizeSpeechWithPlayCache } from "@/app/actions/tts";
 import { determineSourceType, type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
+import { playLineSequentially } from "../audio/sequencer";
 
 export type ListenStatus = "setup" | "playing" | "paused" | "finished";
 export type ListenMode = "full" | "cue" | "check";
@@ -23,6 +24,7 @@ interface UseListenProps {
     scriptId?: string;
     isPublicScript?: boolean;
     troupeId?: string;
+    showStageDirections?: boolean;
 }
 
 interface UseListenReturn {
@@ -56,7 +58,9 @@ export function useListen({
     playId,
     scriptId,
     isPublicScript = false,
-    troupeId
+    troupeId,
+    showStageDirections = true,
+    openaiVoiceAssignments = {}
 }: UseListenProps): UseListenReturn {
     // State
     const [currentLineIndex, setCurrentLineIndex] = useState(initialLineIndex);
@@ -334,45 +338,56 @@ export function useListen({
                 const recording = recordings.find(r => r.line_id === line.id);
 
                 if (recording) {
-                    // User recording
+                    // User recording - Play full file
                     if (!isValid()) return;
                     await playAudioFile(recording.audio_url);
-                } else if (ttsProvider === "openai" && sourceId && line.character) {
-                    // OpenAI TTS
-                    if (!isValid()) return;
-                    setIsLoadingAudio(true);
-                    let audioPlayed = false;
-                    try {
-                        console.log("[Listen] Requesting OpenAI TTS for:", line.text.substring(0, 50));
-                        const result = await synthesizeSpeechWithPlayCache(
-                            line.text, line.character, currentLineIndex,
-                            sourceType, sourceId, troupeId
-                        );
-                        console.log("[Listen] OpenAI TTS result:", result);
-                        if (!isValid()) { setIsLoadingAudio(false); return; }
-                        if ("audio" in result && result.audio) {
-                            console.log("[Listen] Playing audio URL:", result.audio.substring(0, 100));
-                            await playAudioFile(result.audio);
-                            audioPlayed = true;
-                        } else {
-                            console.warn("[Listen] No audio in result, falling back to browser TTS");
-                        }
-                    } catch (e) {
-                        console.error("[Listen] OpenAI TTS failed:", e);
-                    }
-                    setIsLoadingAudio(false);
-
-                    // Fallback to browser TTS if OpenAI didn't produce audio
-                    if (!audioPlayed && isValid()) {
-                        console.log("[Listen] Using browser TTS fallback");
-                        const voice = voiceAssignments[line.character];
-                        await speakDirect(line.text, voice);
-                    }
                 } else {
-                    // Browser TTS
-                    if (!isValid()) return;
-                    const voice = voiceAssignments[line.character];
-                    await speakDirect(line.text, voice);
+                    // TTS - Use Sequencer for Mixed Voices
+                    await playLineSequentially(
+                        line,
+                        showStageDirections,
+                        async (textToSpeak, isDirection) => {
+                            if (!isValid()) return;
+
+                            if (ttsProvider === "openai" && sourceId && line.character) {
+                                // OpenAI TTS
+                                const voice = isDirection
+                                    ? "onyx"
+                                    : (openaiVoiceAssignments?.[line.character] ?? "nova");
+
+                                setIsLoadingAudio(true);
+                                let audioPlayed = false;
+                                try {
+                                    // console.log("[Listen] OpenAI TTS:", { text: textToSpeak, role: isDirection ? "Narrator" : line.character });
+                                    const result = await synthesizeSpeechWithPlayCache(
+                                        textToSpeak,
+                                        isDirection ? "NARRATOR" : line.character,
+                                        currentLineIndex,
+                                        sourceType, sourceId, troupeId
+                                    );
+
+                                    if (!isValid()) { setIsLoadingAudio(false); return; }
+                                    if ("audio" in result && result.audio) {
+                                        await playAudioFile(result.audio);
+                                        audioPlayed = true;
+                                    }
+                                } catch (e) {
+                                    console.error("[Listen] OpenAI TTS failed:", e);
+                                }
+                                setIsLoadingAudio(false);
+
+                                // Fallback
+                                if (!audioPlayed && isValid()) {
+                                    const browserVoice = isDirection ? undefined : voiceAssignments[line.character];
+                                    await speakDirect(textToSpeak, browserVoice);
+                                }
+                            } else {
+                                // Browser TTS
+                                const browserVoice = isDirection ? undefined : voiceAssignments[line.character];
+                                await speakDirect(textToSpeak, browserVoice);
+                            }
+                        }
+                    );
                 }
 
                 if (!isValid()) return;

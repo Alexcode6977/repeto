@@ -7,6 +7,7 @@ import { ArrowLeft, Highlighter, Layout, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScriptSettings } from "./script-setup";
 import { exportToPdf } from "@/lib/pdf-export";
+import { filterScriptLines, parseSegments } from "@/lib/utils/stage-directions";
 
 import { StickyNote } from "lucide-react";
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
@@ -20,9 +21,10 @@ interface ScriptReaderProps {
     userId?: string;
     skipCharacters?: string[];
     privateNotes?: any[];
+    showStageDirections?: boolean; // Toggle for showing/hiding stage directions
 }
 
-export function ScriptReader({ script, userCharacters, onExit, settings, skipCharacters = [], privateNotes = [] }: ScriptReaderProps) {
+export function ScriptReader({ script, userCharacters, onExit, settings, skipCharacters = [], privateNotes = [], showStageDirections = true }: ScriptReaderProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
     const lineRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -110,9 +112,12 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
             }))
             .filter(line => !shouldSkipLine(line.character)); // Skip ignored characters
 
-        if (settings.mode === "full") return linesWithOriginalIndex;
+        // Apply stage directions filtering (cast to preserve originalIndex)
+        const stageFilteredLines = filterScriptLines(linesWithOriginalIndex, showStageDirections) as typeof linesWithOriginalIndex;
 
-        return linesWithOriginalIndex.filter((line) => {
+        if (settings.mode === "full") return stageFilteredLines;
+
+        return stageFilteredLines.filter((line) => {
             const isUser = isUserLine(line.character);
             if (isUser) return true;
 
@@ -122,7 +127,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
             }
             return false;
         });
-    }, [script.lines, settings.mode, userCharacters, skipCharacters]);
+    }, [script.lines, settings.mode, userCharacters, skipCharacters, showStageDirections]);
 
     return (
         <div className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground font-sans overflow-hidden">
@@ -205,6 +210,8 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                     ? privateNotes.find(n => n.line_index === (line as any).originalIndex)
                                     : null;
 
+                                const isIndication = line.character === "INDICATIONS";
+
                                 return (
                                     <div key={line.id}>
                                         {sceneTitle && (
@@ -247,27 +254,38 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                                             #{lineNumber}
                                                         </span>
                                                     )}
-                                                    <span className={cn(
-                                                        "text-[11px] font-bold uppercase tracking-widest",
-                                                        isUser ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"
-                                                    )}>
-                                                        {line.character}
-                                                    </span>
+                                                    {!isIndication && (
+                                                        <span className={cn(
+                                                            "text-[11px] font-bold uppercase tracking-widest",
+                                                            isUser ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"
+                                                        )}>
+                                                            {line.character}
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 <p className="text-lg md:text-xl leading-relaxed">
                                                     <span className={cn(
                                                         isUser && highlightStyle !== "text" ? "text-yellow-800 dark:text-yellow-100 font-medium" : "",
-                                                        !isUser ? "text-muted-foreground" : "",
-                                                        isUser && highlightStyle === "text" ? "bg-yellow-400 text-black px-1 rounded box-decoration-clone" : ""
-                                                    )}
-                                                        style={
-                                                            highlightStyle === "text" && isUser
-                                                                ? { backgroundColor: '#facc15', color: '#000000', padding: '4px 8px', borderRadius: '4px', display: 'inline', WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone' }
-                                                                : undefined
-                                                        }
-                                                    >
-                                                        {getVisibleText(line.text, isUser)}
+                                                        !isUser && !isIndication ? "text-muted-foreground" : "",
+                                                        isIndication ? "text-muted-foreground italic text-base" : ""
+                                                    )}>
+                                                        {parseSegments(getVisibleText(line.text, isUser) || "").map((segment, i) => (
+                                                            <span key={i} className={cn(
+                                                                segment.isDirection ? "italic text-muted-foreground bg-transparent font-normal" : "",
+                                                                !segment.isDirection && isUser && highlightStyle === "text"
+                                                                    ? "bg-yellow-400 text-black px-1 rounded box-decoration-clone"
+                                                                    : ""
+                                                            )}
+                                                                style={
+                                                                    !segment.isDirection && highlightStyle === "text" && isUser
+                                                                        ? { backgroundColor: '#facc15', color: '#000000', padding: '4px 2px', borderRadius: '2px', display: 'inline', WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone' }
+                                                                        : undefined
+                                                                }
+                                                            >
+                                                                {segment.text}
+                                                            </span>
+                                                        ))}
                                                     </span>
                                                 </p>
                                             </div>

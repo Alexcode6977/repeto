@@ -107,7 +107,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
         const wasInactive = troupeData?.subscription_status === 'inactive';
 
-        // Update troupe
+        // Update troupe ONLY
         await supabase
             .from('troupes')
             .update({
@@ -119,20 +119,10 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
             })
             .eq('id', troupeId);
 
-        // Also mark the owner as having a troupe subscription
-        await supabase
-            .from('profiles')
-            .update({
-                subscription_tier: 'troupe',
-                subscription_status: 'active',
-                stripe_subscription_id: subscriptionId,
-                subscription_end_date: new Date(subscription.current_period_end * 1000).toISOString(),
-            })
-            .eq('id', userId);
-
         console.log(`[Webhook] ${wasInactive ? 'Reactivated' : 'Activated'} troupe subscription for troupe ${troupeId}`);
     } else {
         // Solo Pro subscription - upgrade from trial if trialing
+        // THIS BLOCK IS ONLY FOR PERSONAL SUBSCRIPTIONS NOW
         const { data: profileData } = await supabase
             .from('profiles')
             .select('subscription_status')
@@ -185,7 +175,19 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
 
     console.log(`[Webhook] Subscription updated - Status: ${status}, Tier: ${tier}`);
 
-    if (userId) {
+    // If it's a TROUPE subscription, update ONLY the troupe
+    if (troupeId) {
+        await getSupabaseAdmin()
+            .from('troupes')
+            .update({
+                subscription_status: status,
+            })
+            .eq('id', troupeId);
+
+        // DO NOT update profile
+    }
+    // If it's a USER subscription (no troupeId), update the profile
+    else if (userId) {
         await getSupabaseAdmin()
             .from('profiles')
             .update({
@@ -195,15 +197,6 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
             })
             .eq('id', userId);
     }
-
-    if (troupeId) {
-        await getSupabaseAdmin()
-            .from('troupes')
-            .update({
-                subscription_status: status,
-            })
-            .eq('id', troupeId);
-    }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -212,7 +205,20 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
     console.log(`[Webhook] Subscription deleted - User: ${userId}, Troupe: ${troupeId || 'N/A'}`);
 
-    if (userId) {
+    // If it's a TROUPE subscription
+    if (troupeId) {
+        await getSupabaseAdmin()
+            .from('troupes')
+            .update({
+                subscription_status: 'canceled',
+                stripe_subscription_id: null,
+            })
+            .eq('id', troupeId);
+
+        // DO NOT downgrade the user profile here, as they might have a separate personal subscription
+    }
+    // If it's a PERSONAL subscription
+    else if (userId) {
         // Get previous tier for logging
         const { data: profile } = await getSupabaseAdmin()
             .from('profiles')
@@ -232,22 +238,12 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         // Log event
         await getSupabaseAdmin().from('subscription_events').insert({
             user_id: userId,
-            troupe_id: troupeId || null,
+            troupe_id: null,
             event_type: 'canceled',
             stripe_event_id: subscription.id,
             previous_tier: profile?.subscription_tier || 'unknown',
             new_tier: 'free',
         });
-    }
-
-    if (troupeId) {
-        await getSupabaseAdmin()
-            .from('troupes')
-            .update({
-                subscription_status: 'canceled',
-                stripe_subscription_id: null,
-            })
-            .eq('id', troupeId);
     }
 }
 
