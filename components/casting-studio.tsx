@@ -40,6 +40,8 @@ export function CastingStudio({
     const [search, setSearch] = useState("");
     const [voiceAssignments, setVoiceAssignments] = useState<Record<string, string>>(initialAssignments);
     const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<"voices" | "casting">("voices");
+    const [selectedCharForAssignment, setSelectedCharForAssignment] = useState<string | null>(null);
     const [selectedGender, setSelectedGender] = useState<string>("All");
     const [selectedAge, setSelectedAge] = useState<string>("All");
     const [showPremade, setShowPremade] = useState(false);
@@ -106,9 +108,9 @@ export function CastingStudio({
     const totalCount = characters.length + 1; // +1 for Didascalies
 
     return (
-        <div className="bg-neutral-900 border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden max-w-5xl w-full flex flex-col max-h-[85vh]">
+        <div className="bg-neutral-900 border border-white/10 md:rounded-[2.5rem] shadow-2xl overflow-hidden max-w-5xl w-full flex flex-col h-[100dvh] md:h-auto md:max-h-[85vh] fixed inset-0 md:relative z-50">
             {/* Header Mignon */}
-            <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+            <div className="p-4 md:p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.02] pt-safe md:pt-5">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-primary/20 rounded-2xl flex items-center justify-center">
                         <Sparkles className="w-5 h-5 text-primary" />
@@ -125,9 +127,34 @@ export function CastingStudio({
                 </div>
             </div>
 
-            <div className="flex flex-1 overflow-hidden">
+            {/* Mobile Tabs */}
+            <div className="flex md:hidden border-b border-white/5 bg-black/40">
+                <button
+                    onClick={() => setActiveTab("voices")}
+                    className={cn(
+                        "flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all",
+                        activeTab === "voices" ? "text-primary border-b-2 border-primary bg-primary/5" : "text-white/30"
+                    )}
+                >
+                    1. Choisir une voix
+                </button>
+                <button
+                    onClick={() => setActiveTab("casting")}
+                    className={cn(
+                        "flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all",
+                        activeTab === "casting" ? "text-primary border-b-2 border-primary bg-primary/5" : "text-white/30"
+                    )}
+                >
+                    2. Assigner ({assignedCount}/{totalCount})
+                </button>
+            </div>
+
+            <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
                 {/* Left: Voice Pool with Advanced Filters */}
-                <div className="w-[42%] border-r border-white/5 flex flex-col bg-black/20">
+                <div className={cn(
+                    "w-full md:w-[42%] border-r border-white/5 flex flex-col bg-black/20 overflow-hidden transition-all",
+                    activeTab !== "voices" && "hidden md:flex"
+                )}>
                     <div className="p-4 space-y-4">
                         <div className="relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" />
@@ -216,8 +243,16 @@ export function CastingStudio({
                                     whileDrag={{ scale: 1.1, zIndex: 50 }}
                                     className={cn(
                                         "group bg-white/5 border border-white/10 rounded-xl p-2.5 px-3 flex items-center gap-3 cursor-grab active:cursor-grabbing transition-all",
-                                        isUsed ? "opacity-30 grayscale" : "hover:bg-white/10 hover:border-white/20"
+                                        isUsed ? "opacity-30 grayscale" : "hover:bg-white/10 hover:border-white/20",
+                                        selectedCharForAssignment && !isUsed && "border-primary/50 bg-primary/5"
                                     )}
+                                    onClick={() => {
+                                        if (selectedCharForAssignment && !isUsed) {
+                                            assignVoice(selectedCharForAssignment, voice.voice_id);
+                                            setSelectedCharForAssignment(null);
+                                            setActiveTab("casting");
+                                        }
+                                    }}
                                 >
                                     <div className="bg-primary/20 p-2 rounded-lg">
                                         <Mic className="w-4 h-4 text-primary" />
@@ -256,19 +291,35 @@ export function CastingStudio({
                 </div>
 
                 {/* Right: Character Slots */}
-                <div className="flex-1 overflow-y-auto p-6 bg-black/40">
-                    <div className="space-y-4 max-w-md mx-auto">
+                <div className={cn(
+                    "flex-1 overflow-y-auto p-4 md:p-6 bg-black/40",
+                    activeTab !== "casting" && "hidden md:flex"
+                )}>
+                    <div className="space-y-3 md:space-y-4 max-w-md mx-auto">
+                        {/* Selector Info on Mobile */}
+                        {selectedCharForAssignment && (
+                            <div className="md:hidden bg-primary/10 border border-primary/20 rounded-xl p-3 mb-2 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                                <p className="text-[10px] font-black uppercase text-primary">Assignation : {selectedCharForAssignment}</p>
+                                <button onClick={() => setSelectedCharForAssignment(null)} className="text-primary/50 hover:text-primary"><X className="w-4 h-4" /></button>
+                            </div>
+                        )}
+
                         <CharacterSlot
                             name="Didascalies (Narration)"
                             type="narration"
                             voiceId={voiceAssignments["didascalies"]}
                             onDrop={() => draggedVoice && assignVoice("didascalies", draggedVoice.voice_id)}
                             onRemove={() => removeVoice("didascalies")}
+                            onClick={() => {
+                                setSelectedCharForAssignment("didascalies");
+                                setActiveTab("voices");
+                            }}
+                            isSelected={selectedCharForAssignment === "didascalies"}
                             voices={voices}
                             isDragging={!!draggedVoice}
                         />
 
-                        <div className="flex items-center gap-4 py-2 opacity-20">
+                        <div className="flex items-center gap-4 py-1.5 md:py-2 opacity-20">
                             <div className="h-px bg-white/50 flex-1" />
                             <span className="text-[9px] font-black uppercase tracking-widest text-white whitespace-nowrap">Personnages</span>
                             <div className="h-px bg-white/50 flex-1" />
@@ -281,6 +332,11 @@ export function CastingStudio({
                                 voiceId={voiceAssignments[char]}
                                 onDrop={() => draggedVoice && assignVoice(char, draggedVoice.voice_id)}
                                 onRemove={() => removeVoice(char)}
+                                onClick={() => {
+                                    setSelectedCharForAssignment(char);
+                                    setActiveTab("voices");
+                                }}
+                                isSelected={selectedCharForAssignment === char}
                                 voices={voices}
                                 isDragging={!!draggedVoice}
                             />
@@ -290,7 +346,7 @@ export function CastingStudio({
             </div>
 
             {/* Footer */}
-            <div className="p-5 border-t border-white/5 bg-white/[0.01] flex items-center justify-between">
+            <div className="p-4 md:p-5 border-t border-white/5 bg-white/[0.01] flex items-center justify-between pb-safe md:pb-5">
                 <p className="text-[10px] text-white/30 font-medium">Assignez toutes les voix pour terminer.</p>
                 <div className="flex gap-3">
                     <Button variant="ghost" onClick={onClose} className="rounded-xl text-white/50 hover:text-white h-9 px-6 text-xs font-bold">Annuler</Button>
@@ -319,7 +375,7 @@ export function CastingStudio({
                     </motion.div>
                 )}
             </AnimatePresence>
-        </div>
+        </div >
     );
 }
 
@@ -329,6 +385,8 @@ function CharacterSlot({
     type = "character",
     onDrop,
     onRemove,
+    onClick,
+    isSelected = false,
     voices,
     isDragging
 }: {
@@ -337,6 +395,8 @@ function CharacterSlot({
     type?: string,
     onDrop: () => void,
     onRemove: () => void,
+    onClick: () => void,
+    isSelected?: boolean,
     voices: ElevenLabsVoice[],
     isDragging: boolean
 }) {
@@ -348,15 +408,17 @@ function CharacterSlot({
             onMouseUp={() => isDragging && onDrop()}
             onMouseEnter={() => isDragging && setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onClick={onClick}
             className={cn(
-                "group relative rounded-2xl border-2 p-3 transition-all duration-300",
+                "group relative rounded-2xl border-2 p-3 transition-all duration-300 cursor-pointer overflow-hidden",
                 assignedVoice
                     ? "bg-white/5 border-white/10"
-                    : isHovered
+                    : isHovered || isSelected
                         ? "bg-primary/20 border-primary border-dashed scale-[1.02]"
                         : isDragging
                             ? "bg-primary/5 border-primary/20 border-dashed animate-pulse"
-                            : "bg-white/[0.02] border-white/5 border-dashed hover:border-white/10"
+                            : "bg-white/[0.02] border-white/5 border-dashed hover:border-white/10",
+                isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-black"
             )}
         >
             <div className="flex items-center gap-4">

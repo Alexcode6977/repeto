@@ -629,6 +629,10 @@ export function useSpeech(): UseSpeechReturn {
             }
 
             // 1. Get Mic Permission
+            // Check if mediaDevices API is available (Safari mobile compatibility)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error("MIC_API_NOT_AVAILABLE");
+            }
             await navigator.mediaDevices.getUserMedia({ audio: true });
 
             // 2. Warmup Speech Recognition (silent start/stop)

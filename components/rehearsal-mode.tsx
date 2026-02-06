@@ -413,8 +413,14 @@ export function RehearsalMode({
                 await navigator.mediaDevices.getUserMedia({ audio: true });
             }
         } catch (e) {
-            console.error("Microphone access denied", e);
-            alert("Accès micro refusé. Veuillez vérifier les permissions de votre navigateur.");
+            console.error("Microphone initialization error", e);
+
+            // Provide specific error messages based on the error type
+            if (e === "MIC_API_NOT_AVAILABLE" || (typeof e === 'object' && e && 'message' in e && (e as Error).message === "MIC_API_NOT_AVAILABLE")) {
+                alert("Votre navigateur ne supporte pas l'enregistrement audio.\n\nSur Safari, assurez-vous d'utiliser une version récente et d'être en HTTPS.");
+            } else {
+                alert("Accès micro refusé. Veuillez vérifier les permissions de votre navigateur.");
+            }
             return;
         }
 
@@ -858,13 +864,13 @@ export function RehearsalMode({
         };
 
         return (
-            <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center">
+            <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center pt-safe">
                 <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative w-full">
                     {/* Background Gradient Blobs */}
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                    <div className="p-6 md:p-8 space-y-8 relative z-10">
+                    <div className="p-6 md:p-8 space-y-8 relative z-10 pt-8">
                         {/* Header */}
                         <div className="space-y-6">
                             <button

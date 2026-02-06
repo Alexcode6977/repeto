@@ -608,7 +608,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                 } catch (e) {
                     if (e !== "Cancelled") {
                         // Specific handling for microphone errors
-                        if (e === "MIC_PERMISSION_DENIED" || e === "MIC_CAPTURE_FAILED") {
+                        if (e === "MIC_PERMISSION_DENIED" || e === "MIC_CAPTURE_FAILED" || e === "MIC_API_NOT_AVAILABLE") {
                             console.error("[Rehearsal] Microphone error:", e);
                             setStatus("error");
                             // Don't auto-retry mic permission issues
