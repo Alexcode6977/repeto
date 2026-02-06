@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ClipboardList, Play, ArrowRight, CalendarDays, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import {
+    CalendarDays,
+    Sparkles,
+    Loader2,
+    CheckCircle2,
+    ArrowRight,
+    ClipboardList
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SessionsMobileChoicesProps {
@@ -10,74 +16,108 @@ interface SessionsMobileChoicesProps {
 }
 
 export function SessionsMobileChoices({ troupeId }: SessionsMobileChoicesProps) {
+    const categories = [
+        {
+            id: "preparation",
+            label: "À Préparer",
+            description: "Gérer l'agenda et préparer le contenu",
+            icon: Sparkles,
+            color: "indigo",
+            href: `/troupes/${troupeId}/sessions/all?tab=preparation`,
+            bg: "bg-[#1a1528]",
+            iconBg: "bg-indigo-500/20",
+            iconColor: "text-indigo-300",
+            glow: "bg-indigo-500/10"
+        },
+        {
+            id: "upcoming",
+            label: "À Venir",
+            description: "Prochaines séances et Mode Live",
+            icon: CalendarDays,
+            color: "blue",
+            href: `/troupes/${troupeId}/sessions/all?tab=upcoming`,
+            bg: "bg-[#0f172a]",
+            iconBg: "bg-blue-500/20",
+            iconColor: "text-blue-300",
+            glow: "bg-blue-500/10"
+        },
+        {
+            id: "processing",
+            label: "À Traiter",
+            description: "Sessions terminées à valider",
+            icon: Loader2,
+            color: "orange",
+            href: `/troupes/${troupeId}/sessions/all?tab=processing`,
+            bg: "bg-[#1c1610]",
+            iconBg: "bg-orange-500/20",
+            iconColor: "text-orange-300",
+            glow: "bg-orange-500/10"
+        },
+        {
+            id: "validated",
+            label: "Historique",
+            description: "Consulter les séances passées",
+            icon: CheckCircle2,
+            color: "emerald",
+            href: `/troupes/${troupeId}/sessions/all?tab=validated`,
+            bg: "bg-[#0f1d15]",
+            iconBg: "bg-emerald-500/20",
+            iconColor: "text-emerald-300",
+            glow: "bg-emerald-500/10"
+        }
+    ];
+
     return (
-        <div className="md:hidden flex flex-col gap-5 py-4">
+        <div className="md:hidden flex flex-col gap-6 py-4">
 
             {/* Header Mini */}
-            <div className="flex items-center gap-2 px-1 mb-2">
-                <div className="h-8 w-1 bg-primary rounded-full" />
-                <h2 className="text-xl font-black tracking-tight text-white">Que voulez-vous faire ?</h2>
+            <div className="flex items-center gap-3 px-1 mb-2">
+                <div className="h-10 w-1.5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)]" />
+                <div>
+                    <h2 className="text-2xl font-black tracking-tight text-white leading-tight">Gestion des Séances</h2>
+                    <p className="text-white/40 text-xs font-medium">Choisissez l'état à consulter</p>
+                </div>
             </div>
 
-            {/* Card 1: Planifier (To List) */}
-            <Link href={`/troupes/${troupeId}/sessions/all`} className="block group">
-                <div className="relative overflow-hidden rounded-[2rem] bg-[#1a1528] border border-white/5 p-8 shadow-2xl shadow-indigo-500/10 transition-all duration-300 active:scale-[0.98]">
+            {/* Grid of Choices */}
+            <div className="grid grid-cols-1 gap-4">
+                {categories.map((cat) => (
+                    <Link key={cat.id} href={cat.href} className="block group">
+                        <div className={cn(
+                            "relative overflow-hidden rounded-[2rem] border border-white/5 p-6 shadow-2xl transition-all duration-300 active:scale-[0.98]",
+                            cat.bg
+                        )}>
+                            {/* Background Glow */}
+                            <div className={cn(
+                                "absolute top-0 right-0 w-48 h-48 blur-[60px] rounded-full pointer-events-none group-hover:opacity-100 opacity-60 transition-opacity",
+                                cat.glow
+                            )} />
 
-                    {/* Background Vibes */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none group-hover:bg-indigo-500/20 transition-all" />
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none" />
+                            <div className="relative z-10 flex gap-5 items-center">
+                                <div className={cn(
+                                    "w-16 h-16 rounded-2xl flex items-center justify-center border border-white/5 shadow-inner grow-0 shrink-0",
+                                    cat.iconBg, cat.iconColor
+                                )}>
+                                    <cat.icon className="w-8 h-8" />
+                                </div>
 
-                    <div className="relative z-10 flex flex-col h-full justify-between gap-12">
-                        <div className="flex justify-between items-start">
-                            <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-indigo-300 border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.3)]">
-                                <CalendarDays className="w-7 h-7" />
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                                <ArrowRight className="w-5 h-5 text-indigo-200" />
-                            </div>
-                        </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-xl font-black text-white mb-1 tracking-tight">
+                                        {cat.label}
+                                    </h3>
+                                    <p className="text-white/40 text-xs font-medium leading-tight">
+                                        {cat.description}
+                                    </p>
+                                </div>
 
-                        <div>
-                            <h3 className="text-3xl font-black text-white mb-2 tracking-tight">Planifier</h3>
-                            <p className="text-indigo-200/60 font-medium leading-relaxed">
-                                Gérer l'agenda et préparer le contenu des futures séances.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </Link>
-
-            {/* Card 2: Mode Live */}
-            <Link href={`/troupes/${troupeId}/sessions/live`} className="block group">
-                <div className="relative overflow-hidden rounded-[2rem] bg-[#0f1d15] border border-white/5 p-8 shadow-2xl shadow-emerald-500/10 transition-all duration-300 active:scale-[0.98]">
-
-                    {/* Background Vibes */}
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none group-hover:bg-emerald-500/20 transition-all" />
-
-                    <div className="relative z-10 flex flex-col h-full justify-between gap-12">
-                        <div className="flex justify-between items-start">
-                            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-300 border border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
-                                <Play className="w-7 h-7 fill-current ml-1" />
-                            </div>
-                            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors">
-                                <ArrowRight className="w-5 h-5 text-emerald-200" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-3xl font-black text-white tracking-tight">Mode Live</h3>
-                                <div className="animate-pulse px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-[10px] font-black uppercase text-emerald-400 tracking-widest">
-                                    Ready
+                                <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-white/10 transition-colors grow-0 shrink-0">
+                                    <ArrowRight className="w-5 h-5 text-white/60" />
                                 </div>
                             </div>
-                            <p className="text-emerald-200/60 font-medium leading-relaxed">
-                                Lancer une séance, suivre le script et noter en direct.
-                            </p>
                         </div>
-                    </div>
-                </div>
-            </Link>
+                    </Link>
+                ))}
+            </div>
         </div>
     );
 }

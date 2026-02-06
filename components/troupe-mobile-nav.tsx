@@ -46,22 +46,20 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
         });
     }
 
-    // 3. Prép. Séance (MES only)
+    // 3. Séances (Unified for MES, or just Live for Members)
     if (canDirectTroupe(roles)) {
         navItems.push({
-            label: "Prép. Séance",
+            label: "Séances",
             href: `/troupes/${troupeId}/sessions`,
-            icon: Timer,
-            active: pathname.startsWith(`/troupes/${troupeId}/sessions`) && !pathname.includes('/live')
+            icon: ClipboardList,
+            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
         });
-    }
-
-    // 4. Séance Live (Member or MES)
-    if (canAccessArtisticContent(roles)) {
+    } else if (canAccessArtisticContent(roles)) {
+        // Members see only Live
         navItems.push({
             label: "Séance Live",
             href: `/troupes/${troupeId}/sessions/live`,
-            icon: Users, // Using Users icon to match desktop
+            icon: Users,
             active: pathname.includes('/live')
         });
     }

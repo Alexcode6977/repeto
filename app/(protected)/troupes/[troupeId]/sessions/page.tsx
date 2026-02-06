@@ -4,7 +4,6 @@ import { canManageContent } from "@/lib/utils/roles";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, MessageSquare } from "lucide-react";
 import Link from "next/link";
-import { SessionsMobileChoices } from "./sessions-mobile-choices";
 import { SessionListClient } from "./session-list-client";
 
 export default async function SessionsPage({
@@ -45,11 +44,8 @@ export default async function SessionsPage({
                 )}
             </div>
 
-            {/* Mobile Nav Hub - Admin Only */}
-            {isAdmin && <SessionsMobileChoices troupeId={troupeId} />}
-
-            {/* Session List (The "Planifier" content) */}
-            <div id="planning-section" className={isAdmin ? "hidden md:block" : "block"}>
+            {/* Session List (Directly visible now) */}
+            <div id="planning-section">
                 <SessionListClient
                     sessions={sessions}
                     troupeId={troupeId}

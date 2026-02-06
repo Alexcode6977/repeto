@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ChevronRight, Calendar, CheckCircle2, Clock, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface SessionListClientProps {
@@ -16,6 +17,8 @@ interface SessionListClientProps {
 }
 
 export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListClientProps) {
+    const searchParams = useSearchParams();
+    const activeTab = searchParams.get('tab');
     const now = new Date();
 
     // Categorize sessions based on status
@@ -40,39 +43,40 @@ export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListCl
     }).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()); // Recent first
 
     return (
-        <Tabs defaultValue={upcoming.length > 0 ? "upcoming" : "preparation"} className="w-full">
-            <div className="flex justify-center mb-8">
-                <TabsList className="bg-muted/10 border border-border/50 p-1 rounded-2xl h-14 w-full md:w-auto overflow-x-auto justify-start md:justify-center">
+        <Tabs defaultValue={activeTab || (upcoming.length > 0 ? "upcoming" : "preparation")} className="w-full relative">
+            <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md pb-4 pt-2 -mx-4 px-4 md:static md:bg-transparent md:backdrop-blur-none md:p-0 md:m-0 md:mb-8">
+                <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-12 w-full justify-between items-center shadow-2xl">
                     {isAdmin && (
                         <TabsTrigger
                             value="preparation"
-                            className="rounded-xl px-4 md:px-8 py-2 data-[state=active]:bg-primary/20 data-[state=active]:text-primary transition-all font-bold text-xs uppercase tracking-widest flex gap-2 items-center"
+                            className="flex-1 rounded-xl px-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-white transition-all font-black text-[10px] uppercase tracking-tighter flex flex-col items-center justify-center gap-0.5"
                         >
-                            À Préparer
-                            {preparation.length > 0 && <span className="bg-primary/20 text-primary px-1.5 py-0.5 rounded-md text-[9px]">{preparation.length}</span>}
+                            <Sparkles className="w-3.5 h-3.5 mb-0.5 md:hidden" />
+                            <span className="truncate w-full text-center">Préparer</span>
                         </TabsTrigger>
                     )}
                     <TabsTrigger
                         value="upcoming"
-                        className="rounded-xl px-4 md:px-8 py-2 data-[state=active]:bg-blue-500/20 data-[state=active]:text-blue-500 transition-all font-bold text-xs uppercase tracking-widest flex gap-2 items-center"
+                        className="flex-1 rounded-xl px-2 py-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white transition-all font-black text-[10px] uppercase tracking-tighter flex flex-col items-center justify-center gap-0.5"
                     >
-                        À Venir
-                        {upcoming.length > 0 && <span className="bg-blue-500/20 text-blue-500 px-1.5 py-0.5 rounded-md text-[9px]">{upcoming.length}</span>}
+                        <Calendar className="w-3.5 h-3.5 mb-0.5 md:hidden" />
+                        <span className="truncate w-full text-center">À Venir</span>
                     </TabsTrigger>
                     {isAdmin && (
                         <TabsTrigger
                             value="processing"
-                            className="rounded-xl px-4 md:px-8 py-2 data-[state=active]:bg-orange-500/20 data-[state=active]:text-orange-500 transition-all font-bold text-xs uppercase tracking-widest flex gap-2 items-center"
+                            className="flex-1 rounded-xl px-2 py-2 data-[state=active]:bg-orange-600 data-[state=active]:text-white transition-all font-black text-[10px] uppercase tracking-tighter flex flex-col items-center justify-center gap-0.5"
                         >
-                            À Traiter
-                            {processing.length > 0 && <span className="bg-orange-500/20 text-orange-500 px-1.5 py-0.5 rounded-md text-[9px]">{processing.length}</span>}
+                            <Loader2 className="w-3.5 h-3.5 mb-0.5 md:hidden" />
+                            <span className="truncate w-full text-center">Traiter</span>
                         </TabsTrigger>
                     )}
                     <TabsTrigger
                         value="validated"
-                        className="rounded-xl px-4 md:px-8 py-2 data-[state=active]:bg-green-500/20 data-[state=active]:text-green-500 transition-all font-bold text-xs uppercase tracking-widest flex gap-2 items-center"
+                        className="flex-1 rounded-xl px-2 py-2 data-[state=active]:bg-green-600 data-[state=active]:text-white transition-all font-black text-[10px] uppercase tracking-tighter flex flex-col items-center justify-center gap-0.5"
                     >
-                        Validées
+                        <CheckCircle2 className="w-3.5 h-3.5 mb-0.5 md:hidden" />
+                        <span className="truncate w-full text-center">Validées</span>
                     </TabsTrigger>
                 </TabsList>
             </div>
