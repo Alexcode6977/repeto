@@ -504,11 +504,12 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
     return { title, characters };
 }
 
-export function parseScript(rawText: string, validatedCharacters?: string[]): ParsedScript {
+export function parseScript(rawText: string, validatedCharacters?: string[], aliasMap?: Record<string, string>): ParsedScript {
     console.log("[Parser] Starting guided heuristic parser...");
 
     // Create a set for fast lookup if provided
     const charWhitelist = validatedCharacters ? new Set(validatedCharacters.map(c => c.toUpperCase())) : null;
+    const aliases = aliasMap || {};
 
     // Pre-process text
     const cleanText = rawText.replace(/\t/g, " ").replace(/ +/g, " ");
@@ -580,7 +581,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
                 }
 
                 const rawName = bracketMatch[1].trim();
-                currentCharacter = extractVoixName(rawName).toUpperCase();
+                const detectedName = extractVoixName(rawName).toUpperCase();
+                currentCharacter = aliases[detectedName] || detectedName;
                 characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
 
                 // If there is dialogue on the same line
@@ -717,7 +719,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
                 });
                 currentBuffer = "";
             }
-            currentCharacter = persoMatch[1].trim().toUpperCase();
+            const detectedName = persoMatch[1].trim().toUpperCase();
+            currentCharacter = aliases[detectedName] || detectedName;
             characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
             previousLine = lineForDetection;
             continue;
@@ -758,7 +761,12 @@ export function parseScript(rawText: string, validatedCharacters?: string[]): Pa
             const originalBracketMatch = lineForDialogue.match(bracketCharacterRegex);
             const dialogueOnSameLine = originalBracketMatch ? originalBracketMatch[2].trim() : "";
 
-            let finalName = extractVoixName(rawName);
+            let finalName = extractVoixName(rawName).toUpperCase();
+
+            // Apply alias mapping
+            if (aliases[finalName]) {
+                finalName = aliases[finalName];
+            }
 
             // Validate character name (allow technical characters like RÉGIE, LUMIÈRE)
             const score = scoreCharacterName(finalName);

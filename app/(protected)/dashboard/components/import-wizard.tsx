@@ -11,6 +11,7 @@ import {
     Edit3,
     BookOpen,
     Crown,
+    Link2,
 } from "lucide-react";
 import {
     detectCharactersAction,
@@ -19,6 +20,13 @@ import {
     saveScript,
 } from "../actions";
 import { CatalogBrowser } from "./catalog-browser";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 const ADMIN_EMAIL = "alex69.sartre@gmail.com";
 
@@ -45,6 +53,7 @@ export function ImportWizard({
     const [validationModalOpen, setValidationModalOpen] = useState(false);
     const [detectedCharacters, setDetectedCharacters] = useState<string[]>([]);
     const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
+    const [characterAliases, setCharacterAliases] = useState<Record<string, string>>({});
     const [customTitle, setCustomTitle] = useState("");
     const [importProgress, setImportProgress] = useState(0);
 
@@ -113,7 +122,7 @@ export function ImportWizard({
             const formData = new FormData();
             formData.append("file", currentFile);
 
-            const result = await finalizeParsingAction(formData, selectedCharacters);
+            const result = await finalizeParsingAction(formData, selectedCharacters, characterAliases);
 
             clearInterval(interval);
             setImportProgress(100);
@@ -287,6 +296,18 @@ export function ImportWizard({
         );
     };
 
+    const handleAliasChange = (char: string, mainChar: string) => {
+        if (mainChar === "none") {
+            const newAliases = { ...characterAliases };
+            delete newAliases[char];
+            setCharacterAliases(newAliases);
+        } else {
+            setCharacterAliases(prev => ({ ...prev, [char]: mainChar }));
+            // If it's an alias, it shouldn't be selected as a separate character for import
+            setSelectedCharacters(prev => prev.filter(c => c !== char));
+        }
+    };
+
     // --- RENDER ---
 
     if (!showImportGuide) {
@@ -340,18 +361,50 @@ export function ImportWizard({
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Personnages ({selectedCharacters.length})</label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {detectedCharacters.map(char => (
-                                        <div key={char} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedCharacters.includes(char) ? 'bg-primary/20 border-primary/50 text-foreground' : 'bg-card border-white/10 text-muted-foreground hover:bg-white/10'}`}>
-                                            <div onClick={() => toggleCharacter(char)} className={`w-5 h-5 rounded flex items-center justify-center border shrink-0 cursor-pointer ${selectedCharacters.includes(char) ? 'bg-primary border-primary' : 'border-white/20'}`}>
-                                                {selectedCharacters.includes(char) && <Check className="w-3 h-3 text-foreground" />}
+                                        <div key={char} className="space-y-2">
+                                            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedCharacters.includes(char) ? 'bg-primary/20 border-primary/50 text-foreground' : characterAliases[char] ? 'bg-white/5 border-white/10 opacity-80' : 'bg-card border-white/10 text-muted-foreground hover:bg-white/10'}`}>
+                                                <div onClick={() => !characterAliases[char] && toggleCharacter(char)} className={`w-5 h-5 rounded flex items-center justify-center border shrink-0 cursor-pointer ${selectedCharacters.includes(char) ? 'bg-primary border-primary' : characterAliases[char] ? 'border-white/10' : 'border-white/20'}`}>
+                                                    {selectedCharacters.includes(char) && <Check className="w-3 h-3 text-foreground" />}
+                                                </div>
+                                                {editingChar === char ? (
+                                                    <input autoFocus type="text" value={tempCharName} onChange={(e) => setTempCharName(e.target.value)} onBlur={() => handleRenameCharacter(char)} onKeyDown={(e) => e.key === 'Enter' && handleRenameCharacter(char)} className="flex-1 bg-white/10 border-none rounded px-2 py-0.5 text-foreground focus:outline-none" />
+                                                ) : (
+                                                    <div className="flex-1 flex items-center justify-between min-w-0">
+                                                        <div className="flex flex-col min-w-0" onClick={() => !characterAliases[char] && toggleCharacter(char)}>
+                                                            <span className="font-semibold truncate cursor-pointer">{char}</span>
+                                                            {characterAliases[char] && (
+                                                                <span className="text-[10px] text-primary flex items-center gap-1">
+                                                                    <Link2 className="w-2.5 h-2.5" /> Lier à {characterAliases[char]}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-foreground/30 hover:text-foreground" onClick={(e) => { e.stopPropagation(); setEditingChar(char); setTempCharName(char); }}>
+                                                            <Edit3 className="w-3 h-3" />
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
-                                            {editingChar === char ? (
-                                                <input autoFocus type="text" value={tempCharName} onChange={(e) => setTempCharName(e.target.value)} onBlur={() => handleRenameCharacter(char)} onKeyDown={(e) => e.key === 'Enter' && handleRenameCharacter(char)} className="flex-1 bg-white/10 border-none rounded px-2 py-0.5 text-foreground focus:outline-none" />
-                                            ) : (
-                                                <div className="flex-1 flex items-center justify-between min-w-0">
-                                                    <span className="font-semibold truncate cursor-pointer" onClick={() => toggleCharacter(char)}>{char}</span>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-foreground/30 hover:text-foreground" onClick={(e) => { e.stopPropagation(); setEditingChar(char); setTempCharName(char); }}>
-                                                        <Edit3 className="w-3 h-3" />
-                                                    </Button>
+
+                                            {/* Alias Selector */}
+                                            {!selectedCharacters.includes(char) && (
+                                                <div className="px-2">
+                                                    <Select value={characterAliases[char] || "none"} onValueChange={(val) => handleAliasChange(char, val)}>
+                                                        <SelectTrigger className="h-8 text-[10px] bg-white/5 border-white/10 rounded-lg text-muted-foreground">
+                                                            <div className="flex items-center gap-2">
+                                                                <Link2 className="w-3 h-3" />
+                                                                <SelectValue placeholder="Lier à un personnage..." />
+                                                            </div>
+                                                        </SelectTrigger>
+                                                        <SelectContent className="bg-[#1a1a1a] border-white/10">
+                                                            <SelectItem value="none" className="text-xs">Aucun lien</SelectItem>
+                                                            {detectedCharacters
+                                                                .filter(c => c !== char && !characterAliases[c])
+                                                                .map(c => (
+                                                                    <SelectItem key={c} value={c} className="text-xs uppercase">{c}</SelectItem>
+                                                                ))
+                                                            }
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             )}
                                         </div>
