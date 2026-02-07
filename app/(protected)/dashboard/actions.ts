@@ -1,7 +1,8 @@
 "use server";
 
-import { parseScript } from "@/lib/parser";
+import { parseScript, ParserOptions, ParseResult } from "@/lib/parser";
 import { ParsedScript } from "@/lib/types";
+
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
@@ -400,7 +401,8 @@ export async function deleteScript(id: string) {
     revalidatePath("/dashboard");
     revalidatePath("/profile");
 }
-export async function parsePdfAction(formData: FormData): Promise<ParsedScript | { error: string }> {
+export async function parsePdfAction(formData: FormData): Promise<ParseResult | { error: string }> {
+
     const file = formData.get("file") as File;
     if (!file) return { error: "No file provided" };
 
@@ -421,7 +423,13 @@ export async function parsePdfAction(formData: FormData): Promise<ParsedScript |
 
 
 // Helper function for regex-based parsing
-async function parseWithRegex(buffer: Buffer, validatedCharacters?: string[], aliasMap?: Record<string, string>): Promise<ParsedScript | { error: string }> {
+async function parseWithRegex(
+    buffer: Buffer,
+    validatedCharacters?: string[],
+    aliasMap?: Record<string, string>,
+    options: ParserOptions = {}
+): Promise<ParseResult | { error: string }> {
+
     const pdf = require("pdf-parse/lib/pdf-parse.js");
     const { parseScript } = await import("@/lib/parser");
 
@@ -546,7 +554,8 @@ async function parseWithRegex(buffer: Buffer, validatedCharacters?: string[], al
         }
         console.log("[Action] Applied ligature and font corruption fixes");
 
-        const script = parseScript(cleanRawText, validatedCharacters, aliasMap);
+        const script = parseScript(cleanRawText, validatedCharacters, aliasMap, options);
+
 
         if (script.lines.length === 0) {
             return { error: "Could not detect any dialogue lines. Ensure the script uses standard formatting (CHARACTER NAMES in CAPS)." };
@@ -556,7 +565,8 @@ async function parseWithRegex(buffer: Buffer, validatedCharacters?: string[], al
     }
 
     // Standard extraction path (PERSO format with clean text)
-    const script = parseScript(cleanRawText, validatedCharacters, aliasMap);
+    const script = parseScript(cleanRawText, validatedCharacters, aliasMap, options);
+
 
     if (script.lines.length === 0) {
         return { error: "Could not detect any dialogue lines. Ensure the script uses standard formatting (CHARACTER NAMES in CAPS)." };
@@ -640,22 +650,31 @@ export async function detectCharactersAction(formData: FormData): Promise<{ titl
             cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
         }
 
-        return detectCharactersHeuristic(cleanRawText);
+        // Use autoGroupCharacters: false to detect "VOIX DE X" as separate chars
+        return detectCharactersHeuristic(cleanRawText, { autoGroupCharacters: false });
     } catch (error: any) {
+
         console.error("[Action] Detect error:", error);
         return { error: error.message };
     }
 }
 
-export async function finalizeParsingAction(formData: FormData, characters: string[], aliasMap?: Record<string, string>): Promise<ParsedScript | { error: string }> {
+export async function finalizeParsingAction(formData: FormData, characters: string[], aliasMap?: Record<string, string>): Promise<ParseResult | { error: string }> {
+
     const file = formData.get("file") as File;
     if (!file) return { error: "Pas de fichier" };
 
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
         // Use the guided parse with validated characters and aliases
-        return await parseWithRegex(buffer, characters, aliasMap);
+        // Enable strict whitelist and auto-grouping OFF (user maps manually) and PRESERVE ORIGINAL NAME
+        return await parseWithRegex(buffer, characters, aliasMap, {
+            strictWhitelist: true,
+            autoGroupCharacters: false,
+            preserveOriginalName: true
+        });
     } catch (error: any) {
+
         console.error("[Action] Finalize error:", error);
         return { error: error.message };
     }

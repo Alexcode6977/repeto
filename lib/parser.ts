@@ -236,9 +236,12 @@ function scoreCharacterName(name: string): number {
             // OK - this is a valid character pattern
         } else if (validTitles.includes(firstWord)) {
             // OK - AUTRE GASCON, MONSIEUR JOURDAIN, etc.
+        } else if (firstWord === "VOIX") {
+            // OK for VOIX DE... VOIX OFF...
         } else {
             return 0;
         }
+
     }
 
     // Is an author
@@ -372,7 +375,18 @@ function extractTitle(lines: string[]): string | undefined {
 /**
  * Step 1: Fast scan to detect potential characters
  */
-export function detectCharactersHeuristic(rawText: string): { title?: string, characters: string[] } {
+
+export interface ParserOptions {
+    autoGroupCharacters?: boolean; // If false, "VOIX DE X" is not normalized to "X" automatically
+    strictWhitelist?: boolean;     // If true, only allowed characters are kept. Others are ignored or mapped.
+    preserveOriginalName?: boolean; // If true, keeps the original name in dialogue: [ANNETTE] (Voix d'Annette) ...
+}
+
+/**
+ * Step 1: Fast scan to detect potential characters
+ */
+export function detectCharactersHeuristic(rawText: string, options: ParserOptions = {}): { title?: string, characters: string[] } {
+
     console.log("[Parser] Running heuristic character detection...");
 
     const cleanText = rawText.replace(/\t/g, " ").replace(/ +/g, " ");
@@ -479,13 +493,17 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
         if (charName) {
             if (!prefixMatch && /[!\?\u2026]$/.test(line)) continue;
 
-            const finalName = extractVoixName(charName);
+            // Apply auto-grouping only if enabled (default: true)
+            const shouldAutoGroup = options.autoGroupCharacters !== false;
+            const finalName = shouldAutoGroup ? extractVoixName(charName) : charName;
+
             const score = scoreCharacterName(finalName);
             const isCollective = COLLECTIVE_ROLES.has(finalName.toUpperCase());
 
-            // Increased from 0.6 to 0.75 to prevent false positives like "CONTINUEZ DONC"
-            // But allow collective roles regardless of score
-            if (score > 0.75 || isCollective) {
+            // Lowered threshold from 0.75 to 0.6 for better detection in first pass
+            // We want to catch "VOIX DE X" even if it looks a bit weird
+            if (score > 0.6 || isCollective) {
+
                 const normalized = finalName.toUpperCase();
                 const stats = characterUsage.get(normalized) || { headers: 0, totalWords: 0 };
                 if (isHeader) stats.headers++;
@@ -497,14 +515,20 @@ export function detectCharactersHeuristic(rawText: string): { title?: string, ch
 
     // Filter and sort
     const characters = Array.from(characterUsage.entries())
-        .filter(([name, stats]) => stats.headers >= 1 && !COLLECTIVE_ROLES.has(name)) // Exclude collective roles from assignable list
+        .filter(([name, stats]) => stats.headers >= 1 && !COLLECTIVE_ROLES.has(name.toUpperCase())) // Exclude collective roles from assignable list
         .sort((a, b) => b[1].headers - a[1].headers)
         .map(([name]) => name);
+
 
     return { title, characters };
 }
 
-export function parseScript(rawText: string, validatedCharacters?: string[], aliasMap?: Record<string, string>): ParsedScript {
+export interface ParseResult extends ParsedScript {
+    detectedButIgnored?: string[]; // Characters found but filtered out by strict whitelist
+}
+
+export function parseScript(rawText: string, validatedCharacters?: string[], aliasMap?: Record<string, string>, options: ParserOptions = {}): ParseResult {
+
     console.log("[Parser] Starting guided heuristic parser...");
 
     // Create a set for fast lookup if provided
@@ -525,6 +549,11 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
     let scriptLines: ScriptLine[] = [];
     const scenes: ScriptScene[] = [];
     const characterCounts: Record<string, number> = {};
+    const detectedButIgnored = new Set<string>();
+
+    const shouldAutoGroup = options.autoGroupCharacters !== false;
+
+
 
     let currentCharacter = "";
     let currentBuffer = "";
@@ -581,15 +610,72 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 }
 
                 const rawName = bracketMatch[1].trim();
-                const detectedName = extractVoixName(rawName).toUpperCase();
-                currentCharacter = aliases[detectedName] || detectedName;
+                let detectedName = rawName;
+
+                if (shouldAutoGroup) {
+                    detectedName = extractVoixName(rawName);
+                }
+                detectedName = detectedName.toUpperCase();
+
+                let finalName = detectedName;
+
+                // Apply alias mapping
+                if (aliases[detectedName]) {
+                    finalName = aliases[detectedName];
+                }
+
+                // STRICT MODE WHITELIST CHECK
+                if (options.strictWhitelist && charWhitelist) {
+                    const isAllowed = charWhitelist.has(finalName) || COLLECTIVE_ROLES.has(finalName);
+
+                    if (!isAllowed) {
+                        // Try to find similarity match
+                        let foundSimilar = false;
+                        for (const valid of charWhitelist) {
+                            if (similarity(finalName, valid) > 0.85) {
+                                finalName = valid;
+                                foundSimilar = true;
+                                break;
+                            }
+                        }
+
+                        if (!foundSimilar) {
+                            // IGNORE THIS CHARACTER LINE
+                            detectedButIgnored.add(finalName);
+                            // If there is dialogue, we might want to attach it to previous speaker or make it direction?
+                            // For now, strict mode means we SKIP lines from unknown characters to avoid pollution.
+                            // But better: Add as Stage Direction if it looks like noise, or just skip.
+                            // Let's skip to be safe and report it.
+                            continue;
+                        }
+                    }
+                }
+
+                currentCharacter = finalName;
                 characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+
+                // PRESERVE ORIGINAL NAME logic
+                // If the canonical character (finalName) is different from the raw name in text (rawName)
+                // We prepend the raw name to the dialogue to keep context.
+                if (options.preserveOriginalName) {
+                    const normalizedRaw = rawName.toUpperCase().trim();
+                    const normalizedFinal = finalName.toUpperCase().trim();
+
+                    if (normalizedRaw !== normalizedFinal || aliases[normalizedFinal]) {
+                        currentBuffer = `(${rawName})`;
+                    }
+                }
 
                 // If there is dialogue on the same line
                 const dialogueAfter = bracketMatch[2].trim();
                 if (dialogueAfter) {
-                    currentBuffer = dialogueAfter;
+                    if (currentBuffer) {
+                        currentBuffer += " " + dialogueAfter;
+                    } else {
+                        currentBuffer = dialogueAfter;
+                    }
                 }
+
                 continue;
             }
 
@@ -636,14 +722,20 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 text: currentBuffer.trim(),
                 type: "dialogue",
             });
+
+
         }
 
         // Return early - SKIP THE OLD HEURISTIC LOOP
         return {
             lines: scriptLines,
-            characters: Object.keys(characterCounts),
-            scenes
+            characters: Object.keys(characterCounts).filter(c => !COLLECTIVE_ROLES.has(c.toUpperCase())),
+            scenes,
+            detectedButIgnored: Array.from(detectedButIgnored)
+
         };
+
+
     }
 
     // === FALLBACK: LEGACY HEURISTIC LOOP ===
@@ -759,9 +851,15 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
 
             // Extract dialogue from ORIGINAL line (with parentheses preserved!)
             const originalBracketMatch = lineForDialogue.match(bracketCharacterRegex);
-            const dialogueOnSameLine = originalBracketMatch ? originalBracketMatch[2].trim() : "";
+            let dialogueOnSameLine = originalBracketMatch ? originalBracketMatch[2].trim() : "";
 
-            let finalName = extractVoixName(rawName).toUpperCase();
+
+            let finalName = rawName;
+            if (shouldAutoGroup) {
+                finalName = extractVoixName(rawName);
+            }
+            finalName = finalName.toUpperCase();
+
 
             // Apply alias mapping
             if (aliases[finalName]) {
@@ -774,7 +872,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             // If validated characters list provided, check against it
             const isCollective = COLLECTIVE_ROLES.has(finalName.toUpperCase());
 
-            if (charWhitelist && !charWhitelist.has(finalName.toUpperCase()) && !isCollective) {
+            if (options.strictWhitelist && charWhitelist && !charWhitelist.has(finalName) && !isCollective) {
+
                 let foundSimilar = false;
                 for (const valid of charWhitelist) {
                     if (similarity(finalName, valid) > 0.85) {
@@ -784,10 +883,13 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                     }
                 }
                 // Skip if not in whitelist and no similar match found, AND not a collective role
-                if (!foundSimilar && score < 0.3) {
+                if (!foundSimilar) {
+                    // In strict mode, if we haven't found a match, we IGNORE this line and track the char
+                    detectedButIgnored.add(finalName);
                     previousLine = lineForDetection;
                     continue;
                 }
+
             }
 
             currentCharacter = finalName.toUpperCase();
@@ -799,10 +901,33 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 if (lastSpeakers.length > 10) lastSpeakers.shift();
             }
 
+            // PRESERVE ORIGINAL NAME Logic
+            if (options.preserveOriginalName) {
+                const normalizedRaw = rawName.toUpperCase().trim();
+                const normalizedFinal = finalName.toUpperCase().trim();
+
+                // If name was mapped or auto-grouped (if enabled)
+                if (normalizedRaw !== normalizedFinal || aliases[normalizedFinal]) {
+                    // Check if dialogue already starts with this info to avoid dupe
+                    const prefix = `(${rawName})`;
+                    if (dialogueOnSameLine) {
+                        if (!dialogueOnSameLine.startsWith(prefix)) {
+                            dialogueOnSameLine = `${prefix} ${dialogueOnSameLine}`;
+                        }
+                    } else {
+                        currentBuffer = prefix;
+                    }
+
+
+                }
+            }
+
+
             // If dialogue is on the same line, start the buffer with it (WITH parentheses!)
             if (dialogueOnSameLine) {
-                currentBuffer = dialogueOnSameLine + " ";
+                currentBuffer = dialogueOnSameLine + " "; // Add space for next append
             }
+
 
             previousLine = lineForDetection;
             continue;
@@ -1098,7 +1223,10 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             }
             return true;
         })
+        .filter(c => !COLLECTIVE_ROLES.has(c.toUpperCase())) // Exclude collective roles from assignable list
         .sort();
+
+
 
     console.log("[Parser] Final characters:", realCharacters.length);
     console.log("[Parser] Characters:", realCharacters.join(", "));

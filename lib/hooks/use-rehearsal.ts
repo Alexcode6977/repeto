@@ -5,6 +5,8 @@ import { useAITTS } from "./use-ai-tts";
 import { calculateSimilarity, stripStageDirections } from "../similarity";
 import { offlineManager } from "../offline/offline-manager";
 import { getSceneCharacters, isUserLine as checkIsUserLine } from "../utils";
+import { COLLECTIVE_ROLES } from "../constants";
+
 
 export type RehearsalStatus =
     | "setup"
@@ -57,6 +59,29 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
 
     // Use specialized voice hook
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
+
+    const getCollectiveVoice = (lineIndex: number): SpeechSynthesisVoice | undefined => {
+        // Find current scene
+        let sceneStartIdx = 0;
+        for (const scene of script.scenes || []) {
+            if (scene.index <= lineIndex) {
+                sceneStartIdx = scene.index;
+            } else {
+                break;
+            }
+        }
+
+        const activeChars = sceneCharactersMap.get(sceneStartIdx);
+        if (!activeChars) return undefined;
+
+        // Pick the first active character that has an assigned voice
+        for (const char of activeChars) {
+            const voice = voiceAssignments[char];
+            if (voice) return voice;
+        }
+        return undefined;
+    };
+
 
     // Unified speak function that handles both providers (Recordings logic moved to caller)
     const speak = async (text: string, _voice?: SpeechSynthesisVoice, characterName?: string, lineId?: string): Promise<void> => {
@@ -532,7 +557,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                             // Determine Voice (Narrator vs Character)
                             const assignedVoice = isDirection
                                 ? undefined // Browser default for narrator
-                                : voice;
+                                : (voice || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
 
                             await speak(
                                 textToSpeak,
@@ -540,6 +565,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                                 isDirection ? "didascalies" : line.character,
                                 line.id
                             );
+
                         }
                     );
 

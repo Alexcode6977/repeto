@@ -8,6 +8,9 @@ import { getPlayRecordings } from "../actions/recordings";
 import { determineSourceType, type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
 import { playLineSequentially } from "../audio/sequencer";
 import { AudioQueue } from "../audio/audio-queue";
+import { getSceneCharacters } from "../utils";
+import { COLLECTIVE_ROLES } from "../constants";
+
 
 export type ListenStatus = "setup" | "playing" | "paused" | "finished";
 export type ListenMode = "full" | "cue" | "check";
@@ -79,6 +82,32 @@ export function useListen({
     // Hooks
     const aiSpeech = useAITTS();
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
+
+    // Pre-calculate scene characters for collective role logic
+    const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
+
+    const getCollectiveVoice = useCallback((lineIndex: number): SpeechSynthesisVoice | undefined => {
+        // Find current scene
+        let sceneStartIdx = 0;
+        for (const scene of script.scenes || []) {
+            if (scene.index <= lineIndex) {
+                sceneStartIdx = scene.index;
+            } else {
+                break;
+            }
+        }
+
+        const activeChars = sceneCharactersMap.get(sceneStartIdx);
+        if (!activeChars) return undefined;
+
+        // Pick the first active character that has an assigned voice
+        for (const char of activeChars) {
+            const voice = voiceAssignments[char];
+            if (voice) return voice;
+        }
+        return undefined;
+    }, [script.scenes, sceneCharactersMap, voiceAssignments]);
+
 
     // Load voices
     useEffect(() => {
@@ -358,17 +387,21 @@ export function useListen({
                                     }
                                 } catch (e) {
                                     console.error("[Listen] AI TTS failed:", e);
-                                    const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
+                                    const bVoice = isDirection
+                                        ? voiceAssignments["didascalies"]
+                                        : (voiceAssignments[line.character] || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
                                     await speakDirect(textToSpeak, bVoice);
                                 }
-                                setIsLoadingAudio(false);
                             } else {
-                                const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
+                                const bVoice = isDirection
+                                    ? voiceAssignments["didascalies"]
+                                    : (voiceAssignments[line.character] || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
                                 await speakDirect(textToSpeak, bVoice);
                             }
                         }
                     );
                 }
+
 
                 if (!isValid()) return;
                 await new Promise(r => setTimeout(r, 600));

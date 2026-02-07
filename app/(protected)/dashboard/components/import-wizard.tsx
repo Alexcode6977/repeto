@@ -61,6 +61,9 @@ export function ImportWizard({
     const [newCharName, setNewCharName] = useState("");
     const [editingChar, setEditingChar] = useState<string | null>(null);
     const [tempCharName, setTempCharName] = useState("");
+    const [validationMessage, setValidationMessage] = useState<string | null>(null);
+
+
 
     // AI Import State
     const [isAiImporting, setIsAiImporting] = useState(false);
@@ -89,8 +92,10 @@ export function ImportWizard({
 
         setIsImporting(true);
         setImportProgress(20);
+        setValidationMessage(null); // Reset message
 
         startTransition(async () => {
+
             const result = await detectCharactersAction(formData);
             setIsImporting(false);
 
@@ -129,18 +134,43 @@ export function ImportWizard({
 
             if ("error" in result) {
                 onError(result.error);
+                setCurrentFile(null); // Reset on error to allow retry
+                setIsImporting(false);
+                setShowImportGuide(false);
             } else {
+                // CHECK FOR NEWLY DETECTED CHARACTERS (Strict Mode)
+                if (result.detectedButIgnored && result.detectedButIgnored.length > 0) {
+                    // Filter out already detected ones to be sure
+                    const newChars = result.detectedButIgnored.filter(c => !detectedCharacters.includes(c));
+
+                    if (newChars.length > 0) {
+                        // WE NEED CONFIRMATION
+                        setIsImporting(false); // Stop progress modal
+
+                        // Add new characters to the list AND select them
+                        setDetectedCharacters(prev => [...prev, ...newChars]);
+                        setSelectedCharacters(prev => [...prev, ...newChars]);
+
+                        setValidationMessage(`⚠️ L'analyse approfondie a détecté ${newChars.length} personnage(s) supplémentaire(s). Veuillez confirmer.`);
+                        setValidationModalOpen(true);
+                        return; // STOP HERE
+                    }
+                }
+
                 await saveScript({ ...result, title: customTitle });
                 await onImportComplete();
+                setIsImporting(false);
+                setCurrentFile(null);
+                setShowImportGuide(false);
             }
         } catch (e) {
             onError("Erreur lors de l'analyse approfondie.");
-        } finally {
             setIsImporting(false);
             setCurrentFile(null);
-            setShowImportGuide(false); // Close everything
+            setShowImportGuide(false);
         }
     };
+
 
     // --- HANDLERS (AI IMPORT) ---
 
@@ -351,7 +381,14 @@ export function ImportWizard({
                         <div className="mb-6">
                             <h2 className="text-2xl font-bold text-foreground">Prêt à importer ?</h2>
                             <p className="text-muted-foreground text-sm mt-1">Vérifiez la liste des personnages détectés. Seuls les sélectionnés seront importés.</p>
+                            {validationMessage && (
+                                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3 text-amber-500 text-sm animate-in fade-in slide-in-from-top-2">
+                                    <div className="w-5 h-5 shrink-0 mt-0.5"><Crown className="w-5 h-5" /></div>
+                                    <p className="font-medium">{validationMessage}</p>
+                                </div>
+                            )}
                         </div>
+
                         <div className="space-y-6 flex-1 overflow-y-auto pr-2">
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Titre du script</label>
