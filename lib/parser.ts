@@ -168,6 +168,76 @@ function normalizeName(name: string): string {
 }
 
 /**
+ * True when a speaker label is a multi-character collective form
+ * like "YVONNE ET LUCIEN", "X & Y", "A/B" or "A, B".
+ */
+function isCompositeSpeakerLabel(name: string): boolean {
+    const upper = normalizeName(name);
+    return /\bET\b|&|\/|,/.test(upper);
+}
+
+/**
+ * True when a speaker label is a collective placeholder that should not
+ * become an assignable character (e.g. TOUS, TOUS LES DEUX, ENSEMBLE).
+ */
+function isCollectiveSpeakerLabel(name: string): boolean {
+    const upper = normalizeName(name);
+
+    if (COLLECTIVE_ROLES.has(upper)) return true;
+    if (/^TOUS(?:\s+LES)?\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])$/i.test(upper)) return true;
+    if (/^TOUTES(?:\s+LES)?\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])$/i.test(upper)) return true;
+    if (/^LES\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])$/i.test(upper)) return true;
+
+    return false;
+}
+
+/**
+ * Canonicalize composite labels so "Y ET X" and "X ET Y"
+ * become the same value.
+ */
+function canonicalizeCompositeSpeakerLabel(name: string): string {
+    const upper = name.toUpperCase().replace(/\s+/g, " ").trim();
+    if (!isCompositeSpeakerLabel(upper)) return upper;
+
+    const parts = upper
+        .split(/\s*(?:,|\/|&|\bET\b)\s*/i)
+        .map(p => p.trim())
+        .filter(p => p.length > 0 && p !== "ET");
+
+    const uniqueSorted = Array.from(new Set(parts)).sort((a, b) => a.localeCompare(b, "fr"));
+    if (uniqueSorted.length < 2) return upper;
+    return uniqueSorted.join(" ET ");
+}
+
+/**
+ * Merge consecutive dialogue lines when they are attributed to the same
+ * character. This prevents artificial split lines around OCR/IA cuts.
+ */
+function mergeAdjacentDialogueLines(lines: ScriptLine[]): ScriptLine[] {
+    if (lines.length === 0) return lines;
+
+    const merged: ScriptLine[] = [];
+
+    for (const line of lines) {
+        const previous = merged[merged.length - 1];
+
+        if (
+            previous &&
+            previous.type === "dialogue" &&
+            line.type === "dialogue" &&
+            normalizeName(previous.character) === normalizeName(line.character)
+        ) {
+            previous.text = `${previous.text} ${line.text}`.replace(/\s+/g, " ").trim();
+            continue;
+        }
+
+        merged.push({ ...line });
+    }
+
+    return merged;
+}
+
+/**
  * Calculate Levenshtein distance between two strings
  */
 function levenshtein(s1: string, s2: string): number {
@@ -406,7 +476,7 @@ export function detectCharactersHeuristic(rawText: string, options: ParserOption
     }
 
     for (let i = 0; i < lines.length; i++) {
-        let line = lines[i].trim();
+        const line = lines[i].trim();
         if (!line || /^\d+$/.test(line)) continue;
         if (line.length > 60) continue;
 
@@ -498,7 +568,7 @@ export function detectCharactersHeuristic(rawText: string, options: ParserOption
             const finalName = shouldAutoGroup ? extractVoixName(charName) : charName;
 
             const score = scoreCharacterName(finalName);
-            const isCollective = COLLECTIVE_ROLES.has(finalName.toUpperCase());
+            const isCollective = isCollectiveSpeakerLabel(finalName);
 
             // Lowered threshold from 0.75 to 0.6 for better detection in first pass
             // We want to catch "VOIX DE X" even if it looks a bit weird
@@ -515,7 +585,11 @@ export function detectCharactersHeuristic(rawText: string, options: ParserOption
 
     // Filter and sort
     const characters = Array.from(characterUsage.entries())
-        .filter(([name, stats]) => stats.headers >= 1 && !COLLECTIVE_ROLES.has(name.toUpperCase())) // Exclude collective roles from assignable list
+        .filter(([name, stats]) =>
+            stats.headers >= 1 &&
+            !isCollectiveSpeakerLabel(name) &&
+            !isCompositeSpeakerLabel(name)
+        ) // Exclude collective and composite labels from assignable list
         .sort((a, b) => b[1].headers - a[1].headers)
         .map(([name]) => name);
 
@@ -561,7 +635,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
 
     // Speaker history with gender tracking: { name, gender }
     interface SpeakerInfo { name: string; gender: 'M' | 'F' | 'unknown' }
-    let lastSpeakers: SpeakerInfo[] = [];
+    const lastSpeakers: SpeakerInfo[] = [];
 
     // === REGEX PATTERNS ===
 
@@ -590,6 +664,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
         console.log("[Parser] STRICT MODE ACTIVATED (Bracket Format detected)");
 
         let strictDidascalieBuffer = "";
+        const strictLastSpeakers: SpeakerInfo[] = [];
 
         for (const line of lines) {
             const trimmedLine = line.trim();
@@ -636,10 +711,11 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 if (aliases[detectedName]) {
                     finalName = aliases[detectedName];
                 }
+                finalName = canonicalizeCompositeSpeakerLabel(finalName);
 
                 // STRICT MODE WHITELIST CHECK
                 if (options.strictWhitelist && charWhitelist) {
-                    const isAllowed = charWhitelist.has(finalName) || COLLECTIVE_ROLES.has(finalName);
+                    const isAllowed = charWhitelist.has(finalName) || isCollectiveSpeakerLabel(finalName);
 
                     if (!isAllowed) {
                         // Try to find similarity match
@@ -664,8 +740,37 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                     }
                 }
 
+                const upperFinal = finalName.toUpperCase();
+                if (upperFinal === "TOUS" || upperFinal === "TOUTES" || upperFinal === "ENSEMBLE") {
+                    if (validatedCharacters && validatedCharacters.length > 0) {
+                        finalName = validatedCharacters.join(", ");
+                    }
+                } else if (/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i.test(upperFinal)) {
+                    const match = upperFinal.match(/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i);
+                    const countMap: Record<string, number> = { "DEUX": 2, "TROIS": 3, "QUATRE": 4, "CINQ": 5 };
+                    const label = match?.[1]?.toUpperCase() || "DEUX";
+                    const count = /^\d$/.test(label) ? Number(label) : (countMap[label] || 2);
+
+                    const candidates: string[] = [];
+                    for (let j = strictLastSpeakers.length - 1; j >= 0; j--) {
+                        const s = strictLastSpeakers[j];
+                        if (!candidates.includes(s.name)) {
+                            candidates.push(s.name);
+                        }
+                        if (candidates.length >= count) break;
+                    }
+
+                    if (candidates.length >= 2) {
+                        finalName = candidates.reverse().join(", ");
+                    }
+                }
+
                 currentCharacter = finalName;
                 characterCounts[currentCharacter] = (characterCounts[currentCharacter] || 0) + 1;
+                if (!isCollectiveSpeakerLabel(currentCharacter) && !isCompositeSpeakerLabel(currentCharacter) && !currentCharacter.includes(",")) {
+                    strictLastSpeakers.push({ name: currentCharacter, gender: getGender(currentCharacter) });
+                    if (strictLastSpeakers.length > 10) strictLastSpeakers.shift();
+                }
 
                 // PRESERVE ORIGINAL NAME logic
                 // If the canonical character (finalName) is different from the raw name in text (rawName)
@@ -753,12 +858,21 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 type: "stage_direction"
             });
         }
+        scriptLines = mergeAdjacentDialogueLines(scriptLines);
 
 
         // Return early - SKIP THE OLD HEURISTIC LOOP
+        const strictCharacters = Array.from(
+            new Set(
+                Object.keys(characterCounts).map(c => canonicalizeCompositeSpeakerLabel(c))
+            )
+        )
+            .filter(c => !isCollectiveSpeakerLabel(c) && !isCompositeSpeakerLabel(c))
+            .sort();
+
         return {
             lines: scriptLines,
-            characters: Object.keys(characterCounts).filter(c => !COLLECTIVE_ROLES.has(c.toUpperCase())),
+            characters: strictCharacters,
             scenes,
             detectedButIgnored: Array.from(detectedButIgnored)
 
@@ -1007,11 +1121,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 finalName = aliases[finalName];
             }
 
-            // Validate character name (allow technical characters like RÉGIE, LUMIÈRE)
-            const score = scoreCharacterName(finalName);
-
             // If validated characters list provided, check against it
-            const isCollective = COLLECTIVE_ROLES.has(finalName.toUpperCase());
+            const isCollective = isCollectiveSpeakerLabel(finalName);
 
             if (options.strictWhitelist && charWhitelist && !charWhitelist.has(finalName) && !isCollective) {
 
@@ -1147,7 +1258,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
 
             // Special handling for collective speech: allow them to bypass standard scoring
             const upperName = finalName.toUpperCase();
-            const isCollective = /^TOUS$|^TOUTES$|^ENSEMBLE$|^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i.test(upperName) ||
+            const isCollective = isCollectiveSpeakerLabel(upperName) ||
                 upperName.includes(" ET ") ||
                 (upperName.includes(",") && upperName.length > 5);
 
@@ -1193,10 +1304,11 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                         }
                     }
                     // 2. Resolve "LES DEUX" / "LES TROIS" etc.
-                    else if (/^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i.test(upper)) {
-                        const match = upper.match(/^LES\s+(DEUX|TROIS|QUATRE|CINQ)/i);
+                    else if (/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i.test(upper)) {
+                        const match = upper.match(/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i);
                         const countMap: Record<string, number> = { "DEUX": 2, "TROIS": 3, "QUATRE": 4, "CINQ": 5 };
-                        const count = countMap[match![1].toUpperCase()] || 2;
+                        const label = match?.[1]?.toUpperCase() || "DEUX";
+                        const count = /^\d$/.test(label) ? Number(label) : (countMap[label] || 2);
 
                         const genderTarget = upper.includes("HOMME") || upper.includes("GARÇON") ? 'M' :
                             upper.includes("FEMME") || upper.includes("FILLE") ? 'F' : 'unknown';
@@ -1291,7 +1403,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             for (let j = i + 1; j < sortedChars.length; j++) {
                 const candidate = sortedChars[j];
                 if (redirectMap[candidate]) continue;
-                if (primary.includes(" et ") || candidate.includes(" et ")) continue;
+                if (isCompositeSpeakerLabel(primary) || isCompositeSpeakerLabel(candidate)) continue;
 
                 const sim = similarity(primary, candidate);
                 if (sim >= CONFIG.MERGE_SIMILARITY_THRESHOLD) {
@@ -1306,10 +1418,19 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             if (redirectMap[line.character]) {
                 line.character = redirectMap[line.character];
             }
+            if (line.type === "dialogue") {
+                line.character = canonicalizeCompositeSpeakerLabel(line.character);
+            }
         });
     } else {
         console.log("[Parser] PERSO/REPLIQUE format detected - skipping character merge");
+        scriptLines.forEach(line => {
+            if (line.type === "dialogue") {
+                line.character = canonicalizeCompositeSpeakerLabel(line.character);
+            }
+        });
     }
+    scriptLines = mergeAdjacentDialogueLines(scriptLines);
 
     // === FILTER CHARACTER LIST LINES ===
     // At scene openings, there's often a list of present characters that looks like dialogue
@@ -1349,6 +1470,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
     const realCharacters = Object.keys(finalCounts)
         .filter(c => {
             if (c === "SCENE") return false;
+            if (isCollectiveSpeakerLabel(c) || isCompositeSpeakerLabel(c)) return false;
 
             // PRIORITY: If the character was explicitly validated in the wizard, ALWAYS keep it!
             if (charWhitelist && charWhitelist.has(c.toUpperCase())) {
@@ -1356,18 +1478,13 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             }
 
             // For non-whitelisted characters, apply stricter filters
-            if (c.includes(" et ") || c.includes(",")) {
-                console.log(`[Parser] Filtering out "${c}" (collective character, not in whitelist)`);
-                return false;
-            }
-
             if (finalCounts[c] < CONFIG.MIN_LINES_THRESHOLD) {
                 console.log(`[Parser] Filtering out "${c}" (only ${finalCounts[c]} line(s), not in whitelist)`);
                 return false;
             }
             return true;
         })
-        .filter(c => !COLLECTIVE_ROLES.has(c.toUpperCase())) // Exclude collective roles from assignable list
+        .filter(c => !isCollectiveSpeakerLabel(c)) // Exclude collective roles from assignable list
         .sort();
 
 

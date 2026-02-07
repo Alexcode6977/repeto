@@ -30,8 +30,10 @@ interface UseRehearsalProps {
     openaiVoiceAssignments?: Record<string, string>;
     skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
     playId?: string;
+    scriptId?: string;
     partnerCharacters?: string[];
     showStageDirections?: boolean;
+    playbackRate?: number;
 }
 
 import { useRehearsalVoices } from "./use-rehearsal-voices";
@@ -39,7 +41,21 @@ import { isNextCommand, isPrevCommand } from "../speech-utils";
 import { getPlayRecordings } from "../actions/recordings";
 import { playLineSequentially } from "../audio/sequencer";
 
-export function useRehearsal({ script, userCharacters, similarityThreshold = 0.85, initialLineIndex = 0, mode = "full", ttsProvider = "browser", openaiVoiceAssignments = {}, skipCharacters = [], playId, partnerCharacters = [], showStageDirections = true }: UseRehearsalProps) {
+export function useRehearsal({
+    script,
+    userCharacters,
+    similarityThreshold = 0.85,
+    initialLineIndex = 0,
+    mode = "full",
+    ttsProvider = "browser",
+    openaiVoiceAssignments = {},
+    skipCharacters = [],
+    playId,
+    scriptId,
+    partnerCharacters = [],
+    showStageDirections = true,
+    playbackRate = 1
+}: UseRehearsalProps) {
     const browserSpeech = useSpeech();
     const aiSpeech = useAITTS();
     const { voices, listen, stop: stopSpeech, state: speechState, initializeAudio, transcript } = browserSpeech;
@@ -94,22 +110,24 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
 
             // OFFLINE CHECK
             const hash = await offlineManager.generateHash(text, assignedVoice);
-            const offlineUrl = lineId ? await offlineManager.getAudio(lineId, hash) : null;
+            const sourceId = playId || scriptId;
+            const offlineUrl = lineId ? await offlineManager.getAudio(lineId, hash, sourceId) : null;
 
             if (offlineUrl) {
                 return new Promise((resolve) => {
                     const audio = new Audio(offlineUrl);
+                    audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
                     audio.onended = () => resolve();
                     audio.onerror = () => resolve();
                     audio.play().catch(() => resolve());
                 });
             }
 
-            await aiSpeech.speak(text, assignedVoice);
+            await aiSpeech.speak(text, assignedVoice, playbackRate);
         }
         // Priority 3: Browser TTS
         else {
-            await browserSpeech.speak(text, _voice);
+            await browserSpeech.speak(text, _voice, playbackRate);
         }
     };
 
@@ -534,6 +552,7 @@ export function useRehearsal({ script, userCharacters, similarityThreshold = 0.8
                 if (recording) {
                     setIsPlayingRecording(true);
                     const audio = new Audio(recording.audio_url);
+                    audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
                     await new Promise<void>((resolve) => {
                         audio.onended = () => resolve();
                         audio.onerror = () => resolve();

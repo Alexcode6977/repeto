@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { parsePdfAction } from "@/app/actions";
+import { parsePdfAction, parsePdfWithAiAction } from "@/app/actions";
 import { createPlay, getUserScripts, getSharedScripts } from "@/lib/actions/play";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,6 @@ import { Loader2, Upload, FileText, CheckCircle, Library, Globe } from "lucide-r
 import { ParsedScript } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function NewPlayPage({
     params
@@ -28,8 +27,10 @@ export default function NewPlayPage({
     const [file, setFile] = useState<File | null>(null);
     const [title, setTitle] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [uploadMode, setUploadMode] = useState<"standard" | "ai">("standard");
     const [step, setStep] = useState<'upload' | 'review' | 'saving'>('upload');
     const [parsedScript, setParsedScript] = useState<ParsedScript | null>(null);
+    const [characterAliases, setCharacterAliases] = useState<Record<string, string>>({});
     const router = useRouter();
 
     // library data
@@ -58,7 +59,9 @@ export default function NewPlayPage({
             const formData = new FormData();
             formData.append('file', file);
 
-            const result = await parsePdfAction(formData);
+            const result = uploadMode === "ai"
+                ? await parsePdfWithAiAction(formData, unwrappedParams?.troupeId)
+                : await parsePdfAction(formData);
 
             if ('error' in result) {
                 alert(result.error);
@@ -66,6 +69,7 @@ export default function NewPlayPage({
             }
 
             setParsedScript(result);
+            setCharacterAliases({});
             setStep('review');
         } catch (error) {
             console.error(error);
@@ -82,6 +86,7 @@ export default function NewPlayPage({
         }
         setTitle(script.title || "Pièce Importée");
         setParsedScript(script.content);
+        setCharacterAliases({});
         setStep('review');
     };
 
@@ -91,9 +96,34 @@ export default function NewPlayPage({
         setIsLoading(true);
         setStep('saving');
         try {
+            const resolveAlias = (name: string): string => {
+                let current = name;
+                const seen = new Set<string>();
+                while (characterAliases[current] && !seen.has(current)) {
+                    seen.add(current);
+                    current = characterAliases[current];
+                }
+                return current;
+            };
+
+            const hasAliases = Object.keys(characterAliases).length > 0;
+            const scriptToSave: ParsedScript = hasAliases
+                ? {
+                    ...parsedScript,
+                    lines: parsedScript.lines.map((line) =>
+                        line.type === "dialogue"
+                            ? { ...line, character: resolveAlias(line.character) }
+                            : line
+                    ),
+                    characters: Array.from(
+                        new Set(parsedScript.characters.map(resolveAlias))
+                    ).sort((a, b) => a.localeCompare(b, "fr"))
+                }
+                : parsedScript;
+
             // For MVP we don't upload the PDF file to storage yet, we just store the parsed content.
             // Ideally we would upload via supabase.storage first.
-            await createPlay(unwrappedParams.troupeId, title, parsedScript, null);
+            await createPlay(unwrappedParams.troupeId, title, scriptToSave, null);
             router.push(`/troupes/${unwrappedParams.troupeId}/plays`);
         } catch (error) {
             console.error(error);
@@ -142,6 +172,29 @@ export default function NewPlayPage({
                             </div>
 
                             <div className="space-y-2">
+                                <Label>Mode import</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={uploadMode === "standard" ? "default" : "outline"}
+                                        onClick={() => setUploadMode("standard")}
+                                    >
+                                        PDF classique
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={uploadMode === "ai" ? "default" : "outline"}
+                                        onClick={() => setUploadMode("ai")}
+                                    >
+                                        PDF + Nettoyage IA
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Classique: pour un PDF deja propre. IA: pour un PDF brut/OCR a normaliser.
+                                </p>
+                            </div>
+
+                            <div className="space-y-2">
                                 <Label>Fichier PDF</Label>
                                 <div className="flex items-center gap-4">
                                     <Input
@@ -161,12 +214,12 @@ export default function NewPlayPage({
                                 {isLoading ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Analyse du script...
+                                        {uploadMode === "ai" ? "Nettoyage IA + analyse..." : "Analyse du script..."}
                                     </>
                                 ) : (
                                     <>
                                         <Upload className="mr-2 h-4 w-4" />
-                                        Analyser le PDF
+                                        {uploadMode === "ai" ? "Nettoyer + analyser (IA)" : "Analyser le PDF"}
                                     </>
                                 )}
                             </Button>
@@ -254,6 +307,44 @@ export default function NewPlayPage({
                                         + {parsedScript.characters.length - 10} autres...
                                     </span>
                                 )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label>Fusionner des personnages (optionnel)</Label>
+                            <p className="text-xs text-muted-foreground">
+                                Exemple: relier "VALET DE CHAMBRE" vers "JOSEPH". Les repliques seront attribuees au role cible.
+                            </p>
+                            <div className="space-y-2 max-h-52 overflow-auto pr-1">
+                                {parsedScript.characters.map((character) => (
+                                    <div key={character} className="grid grid-cols-[1fr_180px] gap-2 items-center">
+                                        <span className="text-sm font-medium">{character}</span>
+                                        <select
+                                            className="h-9 rounded-md border bg-background px-2 text-sm"
+                                            value={characterAliases[character] || "none"}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                setCharacterAliases((prev) => {
+                                                    if (value === "none") {
+                                                        const next = { ...prev };
+                                                        delete next[character];
+                                                        return next;
+                                                    }
+                                                    return { ...prev, [character]: value };
+                                                });
+                                            }}
+                                        >
+                                            <option value="none">Ne pas fusionner</option>
+                                            {parsedScript.characters
+                                                .filter((c) => c !== character)
+                                                .map((candidate) => (
+                                                    <option key={candidate} value={candidate}>
+                                                        {candidate}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </div>
+                                ))}
                             </div>
                         </div>
 

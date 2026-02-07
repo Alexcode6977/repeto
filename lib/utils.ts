@@ -7,6 +7,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function isCollectiveCharacterLabel(characterName: string): boolean {
+  const normalized = characterName.toUpperCase().trim();
+
+  if (COLLECTIVE_ROLES.has(normalized)) return true;
+  if (/^TOUS(?:\s+LES)?\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])$/i.test(normalized)) return true;
+  if (/^TOUTES(?:\s+LES)?\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])$/i.test(normalized)) return true;
+  if (/^LES\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])$/i.test(normalized)) return true;
+
+  return false;
+}
+
 /**
  * Pre-calculate a map of scene start indexes to the set of characters present in that scene.
  * This allows O(1) lookups during runtime.
@@ -82,7 +93,7 @@ export function isUserLine(characterName: string, userCharacters: string[], acti
 
   // 2. Collective Roles Match (TOUS, ENSEMBLE...)
   // Only applies if the user actually has a character present in the active scene (if context provided)
-  if (COLLECTIVE_ROLES.has(normalizedLineChar)) {
+  if (isCollectiveCharacterLabel(normalizedLineChar)) {
     if (activeSceneCharacters) {
       // Check if ANY of the user's characters are in the scene
       const userHasCharInScene = userCharacters.some(userChar =>

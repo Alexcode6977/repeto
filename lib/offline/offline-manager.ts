@@ -18,8 +18,26 @@ export class OfflineManager {
     /**
      * Retrieves audio blob URL for a specific line if available and valid.
      */
-    public async getAudio(lineId: string, expectedHash: string): Promise<string | null> {
-        const asset = await db.assets.get(lineId);
+    public async getAudio(lineId: string, expectedHash: string, scriptId?: string): Promise<string | null> {
+        const candidateIds: string[] = [];
+
+        // New format used by offline downloader
+        if (scriptId) {
+            candidateIds.push(`${scriptId}_${lineId}`);
+        }
+        // Legacy/direct key format
+        candidateIds.push(lineId);
+
+        let asset: Awaited<ReturnType<typeof db.assets.get>> | undefined;
+        for (const id of candidateIds) {
+            asset = await db.assets.get(id);
+            if (asset) break;
+        }
+
+        // Last fallback: lookup by script+hash for compatibility when line IDs differ by source.
+        if (!asset && scriptId) {
+            asset = await db.assets.where('[scriptId+hash]').equals([scriptId, expectedHash]).first();
+        }
 
         if (!asset) return null;
 

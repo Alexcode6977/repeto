@@ -29,6 +29,7 @@ interface UseListenProps {
     isPublicScript?: boolean;
     troupeId?: string;
     showStageDirections?: boolean;
+    playbackRate?: number;
 }
 
 interface UseListenReturn {
@@ -64,6 +65,7 @@ export function useListen({
     isPublicScript = false,
     troupeId,
     showStageDirections = true,
+    playbackRate = 1,
 }: UseListenProps): UseListenReturn {
     // State
     const [currentLineIndex, setCurrentLineIndex] = useState(initialLineIndex);
@@ -247,6 +249,7 @@ export function useListen({
             currentAudioRef.current = null;
         }
         aiSpeech.stop();
+        setIsLoadingAudio(false);
     }, [aiSpeech]);
 
     const speakDirect = useCallback((text: string, voice?: SpeechSynthesisVoice): Promise<void> => {
@@ -257,6 +260,7 @@ export function useListen({
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = "fr-FR";
             if (voice) utterance.voice = voice;
+            utterance.rate = Math.max(0.7, Math.min(1.8, playbackRate));
 
             utterance.onend = () => resolve();
             utterance.onerror = () => resolve();
@@ -264,12 +268,13 @@ export function useListen({
             if (session !== sessionRef.current) return resolve();
             window.speechSynthesis.speak(utterance);
         });
-    }, []);
+    }, [playbackRate]);
 
     const playAudioFile = useCallback((url: string): Promise<void> => {
         return new Promise((resolve) => {
             const session = sessionRef.current;
             const audio = new Audio(url);
+            audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
             currentAudioRef.current = audio;
 
             audio.onended = () => {
@@ -284,7 +289,7 @@ export function useListen({
             if (session !== sessionRef.current) return resolve();
             audio.play().catch(() => resolve());
         });
-    }, []);
+    }, [playbackRate]);
 
     const start = useCallback(() => {
         stopEverything();
@@ -346,12 +351,12 @@ export function useListen({
 
         const run = async () => {
             try {
-                if (announceCharacter) {
-                    if (!isValid()) return;
-                    await speakDirect(line.character);
-                    if (!isValid()) return;
-                    await new Promise(r => setTimeout(r, 100));
-                }
+                    if (announceCharacter) {
+                        if (!isValid()) return;
+                        await speakDirect(line.character);
+                        if (!isValid()) return;
+                        await new Promise(r => setTimeout(r, Math.round(100 / playbackRate)));
+                    }
 
                 if (!isValid()) return;
                 const sourceId = playId || scriptId || "";
@@ -391,6 +396,10 @@ export function useListen({
                                         ? voiceAssignments["didascalies"]
                                         : (voiceAssignments[line.character] || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
                                     await speakDirect(textToSpeak, bVoice);
+                                } finally {
+                                    if (isValid()) {
+                                        setIsLoadingAudio(false);
+                                    }
                                 }
                             } else {
                                 const bVoice = isDirection
@@ -404,7 +413,7 @@ export function useListen({
 
 
                 if (!isValid()) return;
-                await new Promise(r => setTimeout(r, 600));
+                await new Promise(r => setTimeout(r, Math.round(600 / playbackRate)));
                 if (!isValid()) return;
 
                 const nextIdx = findNextIndex(currentLineIndex, 1);
@@ -415,13 +424,16 @@ export function useListen({
                 }
             } catch (e) {
                 console.error("[Listen] Engine error:", e);
+                if (isValid()) {
+                    setIsLoadingAudio(false);
+                }
             }
         };
 
         run();
     }, [status, currentLineIndex, script.lines, announceCharacter, recordings,
         ttsProvider, sourceType, playId, scriptId, troupeId, voiceAssignments,
-        speakDirect, playAudioFile, findNextIndex, showStageDirections]);
+        speakDirect, playAudioFile, findNextIndex, showStageDirections, playbackRate]);
 
     return {
         currentLine: script.lines[currentLineIndex] || null,

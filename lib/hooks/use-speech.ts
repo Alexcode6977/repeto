@@ -16,7 +16,7 @@ export interface UseSpeechReturn {
     listeningError: string | null;
     listen: (estimatedDurationMs?: number, expectedText?: string, playTitle?: string) => Promise<string>;
     stop: () => void;
-    speak: (text: string, voice?: SpeechSynthesisVoice) => Promise<void>;
+    speak: (text: string, voice?: SpeechSynthesisVoice, playbackRate?: number) => Promise<void>;
     pause: () => void;
     resume: () => void;
     voices: SpeechSynthesisVoice[];
@@ -132,7 +132,7 @@ export function useSpeech(): UseSpeechReturn {
      * - Detects emotional tone and adjusts pitch/rate
      * - Adds micro-pauses at punctuation
      */
-    const speak = useCallback((text: string, voice?: SpeechSynthesisVoice): Promise<void> => {
+    const speak = useCallback((text: string, voice?: SpeechSynthesisVoice, playbackRate: number = 1): Promise<void> => {
         return new Promise(async (resolve) => {
             if (!synthRef.current) {
                 resolve();
@@ -155,7 +155,7 @@ export function useSpeech(): UseSpeechReturn {
                 const segment = segments[i];
                 if (!segment.text.trim()) continue;
 
-                await speakSegment(segment.text, voice, segment.emotion);
+                await speakSegment(segment.text, voice, segment.emotion, playbackRate);
 
                 // SAFE_BUFFER_DELAY: Small pause to allow audio hardware to "breathe" 
                 // between buffers, preventing word truncation on mobile/Bluetooth.
@@ -176,7 +176,12 @@ export function useSpeech(): UseSpeechReturn {
     /**
      * Speak a single segment with emotion-based prosody
      */
-    const speakSegment = (text: string, voice?: SpeechSynthesisVoice, emotion: Emotion = 'neutral'): Promise<void> => {
+    const speakSegment = (
+        text: string,
+        voice?: SpeechSynthesisVoice,
+        emotion: Emotion = 'neutral',
+        playbackRate: number = 1
+    ): Promise<void> => {
         return new Promise((resolve) => {
             if (!synthRef.current) {
                 resolve();
@@ -284,7 +289,7 @@ export function useSpeech(): UseSpeechReturn {
             }
 
             utterance.pitch = pitch;
-            utterance.rate = rate;
+            utterance.rate = Math.max(0.7, Math.min(1.8, rate * playbackRate));
             utterance.volume = volume;
 
             utterance.onend = () => {

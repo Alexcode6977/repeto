@@ -6,7 +6,7 @@ import { synthesizeSpeech, OpenAIVoice } from "@/app/actions/tts";
 export type TTSProvider = "browser" | "openai" | "elevenlabs";
 
 interface UseAITTSReturn {
-    speak: (text: string, voice?: string) => Promise<void>;
+    speak: (text: string, voice?: string, playbackRate?: number) => Promise<void>;
     preload: (text: string, voice?: string) => Promise<void>;
     stop: () => void;
     isLoading: boolean;
@@ -62,7 +62,7 @@ export function useAITTS(): UseAITTSReturn {
         }
     }, [addToCache]);
 
-    const speak = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM") => {
+    const speak = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM", playbackRate: number = 1) => {
         // Stop any ongoing playback
         stop();
 
@@ -94,6 +94,7 @@ export function useAITTS(): UseAITTSReturn {
             }
 
             audioRef.current = audio;
+            audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
             setIsLoading(false);
 
             // Wait for playback to finish

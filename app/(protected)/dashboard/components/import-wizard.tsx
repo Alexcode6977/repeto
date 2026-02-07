@@ -12,6 +12,7 @@ import {
     BookOpen,
     Crown,
     Link2,
+    Sparkles,
 } from "lucide-react";
 import {
     detectCharactersAction,
@@ -27,7 +28,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 interface ImportWizardProps {
     showImportGuide: boolean;
@@ -46,7 +46,6 @@ export function ImportWizard({
     onImportComplete,
     onError,
 }: ImportWizardProps) {
-    const isAdminUser = isPlatformAdminEmail(userEmail);
     // --- STATE ---
     const [isImporting, setIsImporting] = useState(false);
     const [currentFile, setCurrentFile] = useState<File | null>(null);
@@ -331,6 +330,8 @@ export function ImportWizard({
             const newAliases = { ...characterAliases };
             delete newAliases[char];
             setCharacterAliases(newAliases);
+            // If alias is removed, re-enable the character in import by default.
+            setSelectedCharacters(prev => prev.includes(char) ? prev : [...prev, char]);
         } else {
             setCharacterAliases(prev => ({ ...prev, [char]: mainChar }));
             // If it's an alias, it shouldn't be selected as a separate character for import
@@ -422,28 +423,6 @@ export function ImportWizard({
                                                 )}
                                             </div>
 
-                                            {/* Alias Selector */}
-                                            {!selectedCharacters.includes(char) && (
-                                                <div className="px-2">
-                                                    <Select value={characterAliases[char] || "none"} onValueChange={(val) => handleAliasChange(char, val)}>
-                                                        <SelectTrigger className="h-8 text-[10px] bg-white/5 border-white/10 rounded-lg text-muted-foreground">
-                                                            <div className="flex items-center gap-2">
-                                                                <Link2 className="w-3 h-3" />
-                                                                <SelectValue placeholder="Lier à un personnage..." />
-                                                            </div>
-                                                        </SelectTrigger>
-                                                        <SelectContent className="bg-[#1a1a1a] border-white/10">
-                                                            <SelectItem value="none" className="text-xs">Aucun lien</SelectItem>
-                                                            {detectedCharacters
-                                                                .filter(c => c !== char && !characterAliases[c])
-                                                                .map(c => (
-                                                                    <SelectItem key={c} value={c} className="text-xs uppercase">{c}</SelectItem>
-                                                                ))
-                                                            }
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -452,6 +431,38 @@ export function ImportWizard({
                                     <Button variant="outline" size="icon" onClick={addCharacter} className="rounded-xl border-white/10 hover:bg-white/10">
                                         <UserPlus className="w-4 h-4" />
                                     </Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Fusion de personnages (optionnel)</label>
+                                <p className="text-xs text-muted-foreground">
+                                    Exemple : lier <span className="font-semibold">VALET DE CHAMBRE</span> vers <span className="font-semibold">JOSEPH</span>.
+                                </p>
+                                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                                    {detectedCharacters.map((char) => (
+                                        <div key={`alias-${char}`} className="grid grid-cols-[1fr_1fr] items-center gap-2">
+                                            <span className="text-xs font-semibold truncate">{char}</span>
+                                            <Select value={characterAliases[char] || "none"} onValueChange={(val) => handleAliasChange(char, val)}>
+                                                <SelectTrigger className="h-8 text-[10px] bg-white/5 border-white/10 rounded-lg text-muted-foreground">
+                                                    <div className="flex items-center gap-2">
+                                                        <Link2 className="w-3 h-3" />
+                                                        <SelectValue placeholder="Ne pas fusionner" />
+                                                    </div>
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-[#1a1a1a] border-white/10">
+                                                    <SelectItem value="none" className="text-xs">Ne pas fusionner</SelectItem>
+                                                    {detectedCharacters
+                                                        .filter((candidate) => candidate !== char && candidate !== characterAliases[char])
+                                                        .map((candidate) => (
+                                                            <SelectItem key={`${char}-${candidate}`} value={candidate} className="text-xs uppercase">
+                                                                {candidate}
+                                                            </SelectItem>
+                                                        ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -525,7 +536,7 @@ export function ImportWizard({
                     {/* ... Content based on User Tier ... */}
 
                     {/* REGULAR USERS OR ADMIN DURING IMPORT */}
-                    {(userTier === "free" && !isAdminUser) ? (
+                    {(userTier === "free") ? (
                         // FREE TIER UI
                         <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
@@ -578,43 +589,59 @@ export function ImportWizard({
                             ) : (
                                 <div className="space-y-6">
                                     <div className="text-center">
-                                        <h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Nouveau Format PDF</h2>
-                                        <p className="text-muted-foreground mt-2">Votre PDF doit utiliser le nouveau format avec crochets</p>
+                                        <h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Import PDF</h2>
+                                        <p className="text-muted-foreground mt-2">Choisissez le mode import selon la qualite de votre PDF.</p>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="bg-muted/30 border border-border rounded-2xl p-4">
                                             <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
                                                 <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">1</span>
-                                                Format requis
+                                                Mode classique
                                             </h3>
-                                            <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
-                                                <p><span className="text-primary font-bold">[NOM]</span></p>
-                                                <p>Texte du dialogue</p>
-                                                <p><span className="text-amber-500">(didascalie)</span></p>
+                                            <div className="bg-background rounded-xl p-3 text-xs space-y-2 text-muted-foreground">
+                                                <p>Utilisez ce mode si votre PDF est deja bien structure.</p>
+                                                <p className="font-mono">
+                                                    <span className="text-primary font-bold">[NOM]</span> + replique + <span className="text-amber-500">(didascalie)</span>
+                                                </p>
                                             </div>
                                         </div>
                                         <div className="bg-muted/30 border border-border rounded-2xl p-4">
                                             <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
                                                 <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">2</span>
-                                                Exemple
+                                                Mode IA (nettoyage)
                                             </h3>
-                                            <div className="bg-background rounded-xl p-3 font-mono text-xs space-y-1 text-muted-foreground">
-                                                <p><span className="text-primary">[MARIE]</span></p>
-                                                <p>Où est Pierre ?</p>
-                                                <p className="opacity-50">&nbsp;</p>
-                                                <p><span className="text-primary">[JEAN]</span></p>
-                                                <p>(souriant) Au marché.</p>
+                                            <div className="bg-background rounded-xl p-3 text-xs space-y-2 text-muted-foreground">
+                                                <p>Utilisez ce mode pour un PDF brut/OCR ou mal formate.</p>
+                                                <p>Le script sera converti automatiquement en format compatible parseur.</p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-center">
-                                        <Button className="py-6 px-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-xl" asChild>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <Button className="py-6 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base shadow-xl" asChild>
                                             <label className="cursor-pointer flex items-center justify-center gap-3">
                                                 <Upload className="w-5 h-5" />
-                                                Importer mon PDF
-                                                <input type="file" accept=".pdf" className="hidden" onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }} />
+                                                PDF classique
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf"
+                                                    className="hidden"
+                                                    onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }}
+                                                />
+                                            </label>
+                                        </Button>
+
+                                        <Button className="py-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base shadow-xl" asChild>
+                                            <label className="cursor-pointer flex items-center justify-center gap-3">
+                                                <Sparkles className="w-5 h-5" />
+                                                PDF + Nettoyage IA
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf"
+                                                    className="hidden"
+                                                    onChange={handleAiFileChange}
+                                                />
                                             </label>
                                         </Button>
                                     </div>

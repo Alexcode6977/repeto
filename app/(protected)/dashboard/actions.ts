@@ -7,102 +7,90 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
 import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
+import { getEffectiveTier } from "@/lib/subscription";
 
 // pdf-parse required inside action
 
-const AI_CLEANING_PROMPT = `Tu es un expert en restructuration de scripts théâtraux pour le moteur "Repeto". Ta mission est de convertir le texte brut en un script standardisé.
+const MAX_PDF_SIZE_BYTES = 30 * 1024 * 1024; // 30MB safety cap
 
-### 1. FORMAT DE SORTIE (STRICT)
-Pour chaque intervention, utilise ce modèle exact avec les sauts de ligne :
+function validatePdfFile(file: File | null): { ok: true } | { ok: false; error: string } {
+    if (!file) return { ok: false, error: "No file provided" };
 
-[NOM EN MAJUSCULES]
-(Ligne vide)
-Texte du dialogue normal
-(Ligne vide)
+    const fileName = (file.name || "").toLowerCase();
+    const isPdfMime = (file.type || "").toLowerCase().includes("pdf");
+    const isPdfExt = fileName.endsWith(".pdf");
 
-### 2. RÈGLES DE FORMATAGE
+    if (!isPdfMime && !isPdfExt) {
+        return { ok: false, error: "Le fichier doit etre un PDF (.pdf)." };
+    }
 
-**Personnages** :
-- Le nom doit être entre crochets [COMME CECI]
-- Toujours en MAJUSCULES
-- Exemples : [LUCIEN], [MARIE], [LE MAÎTRE], [RÉGIE], [LUMIÈRE]
+    if (file.size <= 0) {
+        return { ok: false, error: "Le fichier PDF est vide." };
+    }
 
-**Dialogue** :
-- Texte normal, sans préfixe ni balise
-- Garde la ponctuation d'origine
+    if (file.size > MAX_PDF_SIZE_BYTES) {
+        return { ok: false, error: "Le PDF depasse 30 Mo. Merci de le compresser ou de le decouper." };
+    }
 
-**Didascalies** (indications scéniques) :
-- Entre parenthèses (comme ceci)
-- Peuvent être au début, milieu ou fin du dialogue
-- Exemples : (se levant), (furieux), (à part), (il sort)
+    return { ok: true };
+}
 
-### 3. RÈGLES DE NETTOYAGE
-- Supprime les balises \`[source]\`, les numéros de pages et les en-têtes.
-- Supprime les lignes vides multiples (max 1 ligne vide entre les sections).
-- Garde les scènes : SCÈNE I, ACTE II, etc.
+const AI_CLEANING_PROMPT = `Tu es un moteur de normalisation de scripts de theatre en francais.
+Ton unique mission est de transformer un PDF brut/OCR en texte CANONIQUE compatible avec un parseur strict.
 
-### 4. FILTRE ANTI-BRUIT (Les Faux Personnages)
-Le texte contient des didascalies formatées comme des noms. Tu dois les détecter.
-- **RÈGLE :** Un personnage doit être un Nom Propre (ex: LUCIEN, MARIE).
-- **INTERDIT (Blacklist)** :
-  1. Tout mot finissant par **"-MENT"** (ex: "SEULEMENT", "BRUSQUEMENT").
-  2. Les adjectifs/actions : "FURIEUX", "AHURI", "INDIGNÉE", "ALLEZ", "HAUSSANT LES ÉPAULES", "APRÈS UN TEMPS", "ENSEMBLE", "VITE".
-  3. Les mots techniques seuls : "RIDEAU", "NOIR", "LUMIÈRE" (sauf si clairement un personnage technique comme [LUMIÈRE])
-- **ACTION :** Si tu trouves un mot interdit isolé, ne crée pas de personnage. Intègre-le dans le dialogue suivant entre parenthèses.
-  *Exemple :* \`(Furieux) C'est faux !\`
+FORMAT CIBLE OBLIGATOIRE
+1) Conserver les titres de structure:
+- ACTE ... (ex: ACTE I)
+- SCENE ... ou SCENE ... (ex: SCENE 1, SCENE IV)
 
-### 5. RÈGLE DE DÉCOUPAGE (SEGMENTATION) - TRÈS IMPORTANT
-Le texte source contient des erreurs OCR où deux personnages sont collés sur la même ligne.
-Tu dois scanner l'intérieur des phrases.
-- **SI** tu trouves un [NOM DE PERSONNAGE] en majuscules au milieu d'une phrase :
-- **ALORS** tu dois couper le dialogue et créer une nouvelle entrée personnage.
+2) Chaque prise de parole doit respecter exactement:
+[PERSONNAGE]
+Replique...
 
-*Exemple du problème :*
-Entrée : \`ANNETTE Oui moussié YVONNE Ah non !\`
+3) Les didascalies doivent etre strictement entre parentheses:
+- Dans une replique: (il se leve) Je pars.
+- Ou en ligne seule: (Noir.)
 
-*Sortie attendue (Tu dois séparer) :*
-[ANNETTE]
+4) Le nom personnage est TOUJOURS en MAJUSCULES entre crochets.
 
-Oui moussié
+REGLES DE NORMALISATION
+- Supprimer numerotation de pages, en-tetes/pieds, artefacts OCR evidents, mentions techniques hors script.
+- Corriger les collages OCR (deux personnages fusionnes sur une ligne).
+- Si une ligne ressemble a une action/indication et pas a un personnage, la convertir en didascalie ( ... ).
+- Si un personnage est mentionne a la fois par un role descriptif et un nom propre (ex: "VALET DE CHAMBRE" et "JOSEPH"), privilegier le nom propre entre crochets et garder le role descriptif en didascalie.
+- Si une replique est dite par plusieurs personnages, garder un seul label collectif (ex: [LUCIEN ET YVONNE]) sans creer de doublon inverse.
+- Garder le texte des repliques le plus fidele possible (pas de reecriture litteraire).
+- Uniformiser les espaces et sauts de ligne.
+- Ne jamais inventer d'elements absents.
 
-[YVONNE]
+CAS AMBIGU
+- Si tu hesites entre personnage et didascalie, privilegie didascalie ( ... ) plutot qu'un faux personnage.
 
-Ah non !
+EXEMPLE
+ENTREE:
+ACTE I
+Scene 1
+JEAN entre rapidement
+MARIE Bonjour !
+JEAN (soufflant) J'arrive.
 
-### 6. CAS SPÉCIAUX
-- Si tu trouves "VOIX DE...", attribue le rôle au personnage cité.
-  *Exemple :* "VOIX D'ANNETTE" -> [ANNETTE] avec dialogue "(Voix) ..."
-- Les personnages techniques (RÉGIE, LUMIÈRE, SON, etc.) sont traités comme des personnages normaux : [RÉGIE]
-
-### 7. EXEMPLE COMPLET
-
-Entrée brute :
-\`\`\`
-SCÈNE I
-LUCIEN, debout
-Bonjour Marie ! Comment vas-tu ?
-MARIE souriante
-Bien merci. Et toi ?
-\`\`\`
-
-Sortie formatée :
-\`\`\`
-SCÈNE I
-
-[LUCIEN]
-
-(debout) Bonjour Marie ! Comment vas-tu ?
+SORTIE:
+ACTE I
+SCENE 1
 
 [MARIE]
+Bonjour !
 
-(souriante) Bien merci. Et toi ?
-\`\`\`
+[JEAN]
+(entre rapidement) (soufflant) J'arrive.
 
-Génère uniquement le script formaté.`;
+IMPORTANT
+- Retourner UNIQUEMENT le script nettoye, sans explication.
+- Respecter exactement la grammaire ci-dessus.`;
 
 /**
  * Clean and restructure a messy script using AI (GPT-4o-mini)
- * For Solo Pro users - Returns formatted text (PERSO/REPLIQUE)
+ * Returns canonical text expected by parseScript ([CHAR], dialogue, (didascalies), ACTE/SCENE)
  */
 export async function cleanScriptWithAI(rawText: string): Promise<string | { error: string }> {
     try {
@@ -155,11 +143,40 @@ export async function cleanScriptWithAI(rawText: string): Promise<string | { err
 /**
  * Full AI-powered import: Extract PDF text, clean with AI, then parse with existing heuristic parser
  */
-export async function importScriptWithAI(formData: FormData): Promise<ParsedScript | { error: string }> {
+export async function importScriptWithAI(formData: FormData, troupeId?: string): Promise<ParsedScript | { error: string }> {
     const file = formData.get("file") as File;
-    if (!file) return { error: "Pas de fichier" };
+    const validation = validatePdfFile(file ?? null);
+    if (!validation.ok) return { error: validation.error };
 
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return { error: "Veuillez vous connecter pour importer un PDF." };
+        }
+
+        // Access rules:
+        // - Solo flow: IA import reserved to premium tiers (solo_pro/troupe/troupe_xl)
+        // - Troupe flow: available to any member of the target troupe
+        if (troupeId) {
+            const { data: membership } = await supabase
+                .from("troupe_members")
+                .select("user_id")
+                .eq("troupe_id", troupeId)
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+            if (!membership) {
+                return { error: "Acces refuse: vous n'etes pas membre de cette troupe." };
+            }
+        } else {
+            const tier = await getEffectiveTier(user.id);
+            if (tier === "free") {
+                return { error: "Le nettoyage IA est reserve aux comptes Solo Pro et Troupe." };
+            }
+        }
+
         console.log("[AI Import] Starting AI-powered import for:", file.name);
 
         // Step 1: Extract raw text from PDF
@@ -403,7 +420,8 @@ export async function deleteScript(id: string) {
 export async function parsePdfAction(formData: FormData): Promise<ParseResult | { error: string }> {
 
     const file = formData.get("file") as File;
-    if (!file) return { error: "No file provided" };
+    const validation = validatePdfFile(file ?? null);
+    if (!validation.ok) return { error: validation.error };
 
     try {
         const arrayBuffer = await file.arrayBuffer();
@@ -576,7 +594,8 @@ async function parseWithRegex(
 
 export async function detectCharactersAction(formData: FormData): Promise<{ title?: string, characters: string[] } | { error: string }> {
     const file = formData.get("file") as File;
-    if (!file) return { error: "Pas de fichier" };
+    const validation = validatePdfFile(file ?? null);
+    if (!validation.ok) return { error: validation.error };
 
     try {
         const buffer = Buffer.from(await file.arrayBuffer());
@@ -661,7 +680,8 @@ export async function detectCharactersAction(formData: FormData): Promise<{ titl
 export async function finalizeParsingAction(formData: FormData, characters: string[], aliasMap?: Record<string, string>): Promise<ParseResult | { error: string }> {
 
     const file = formData.get("file") as File;
-    if (!file) return { error: "Pas de fichier" };
+    const validation = validatePdfFile(file ?? null);
+    if (!validation.ok) return { error: validation.error };
 
     try {
         const buffer = Buffer.from(await file.arrayBuffer());

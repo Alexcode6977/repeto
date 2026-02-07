@@ -161,7 +161,8 @@ export function ListenMode({
         playId,
         scriptId,
         isPublicScript,
-        showStageDirections
+        showStageDirections,
+        playbackRate: speedMultiplier
     });
 
     const { requestWakeLock, releaseWakeLock } = useWakeLock();

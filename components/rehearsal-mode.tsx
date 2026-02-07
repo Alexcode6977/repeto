@@ -321,6 +321,8 @@ export function RehearsalMode({
         showStageDirections,
         skipCharacters: ignoredCharacters,
         playId,
+        scriptId,
+        playbackRate: speedMultiplier,
         partnerCharacters
     });
 
@@ -1574,4 +1576,3 @@ export function RehearsalMode({
         </>
     );
 }
-
