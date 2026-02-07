@@ -30,7 +30,6 @@ export default async function PrivateAnnotatePage({
     return (
         <PrivateAnnotatorClient
             play={play}
-            troupeId={troupeId}
             script={script}
             privateNotes={privateNotes}
         />
