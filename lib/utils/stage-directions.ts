@@ -29,12 +29,20 @@ export function filterScriptLines(
         return lines;
     }
 
-    return lines.map(line => ({
-        ...line,
-        text: line.type === 'dialogue'
-            ? removeStageDirections(line.text)
-            : line.text
-    }));
+    return lines
+        .filter(line => {
+            // If hiding directions, skip standalone stage direction lines
+            if (!showStageDirections && line.type === 'stage_direction') {
+                return false;
+            }
+            return true;
+        })
+        .map(line => ({
+            ...line,
+            text: line.type === 'dialogue'
+                ? removeStageDirections(line.text)
+                : line.text
+        }));
 }
 
 /**

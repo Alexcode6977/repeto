@@ -589,6 +589,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
     if (hasBracketFormat) {
         console.log("[Parser] STRICT MODE ACTIVATED (Bracket Format detected)");
 
+        let strictDidascalieBuffer = "";
+
         for (const line of lines) {
             const trimmedLine = line.trim();
             if (!trimmedLine) continue;
@@ -598,6 +600,17 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             const bracketMatch = line.match(/^\[([A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þ\s\-']+)\]\s*(.*)/);
 
             if (bracketMatch) {
+                // FLUSH DIDASCALIE BUFFER FIRST
+                if (strictDidascalieBuffer) {
+                    scriptLines.push({
+                        id: String(idCounter++),
+                        character: "INDICATIONS",
+                        text: strictDidascalieBuffer,
+                        type: "stage_direction"
+                    });
+                    strictDidascalieBuffer = "";
+                }
+
                 // Flush previous buffer
                 if (currentCharacter && currentBuffer) {
                     scriptLines.push({
@@ -683,6 +696,17 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             // Even in strict mode, we want to capture scenes
             const cleanLine = trimmedLine.replace(/\(.*?\)/g, "").trim(); // Remove directions for checking
             if (sceneRegex.test(cleanLine)) {
+                // FLUSH DIDASCALIE BUFFER FIRST
+                if (strictDidascalieBuffer) {
+                    scriptLines.push({
+                        id: String(idCounter++),
+                        character: "INDICATIONS",
+                        text: strictDidascalieBuffer,
+                        type: "stage_direction"
+                    });
+                    strictDidascalieBuffer = "";
+                }
+
                 if (currentCharacter && currentBuffer) {
                     scriptLines.push({
                         id: String(idCounter++),
@@ -705,12 +729,9 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             } else {
                 // No character yet, must be a stage direction (like start of scene)
                 // Or a scene description
-                scriptLines.push({
-                    id: String(idCounter++),
-                    character: "INDICATIONS",
-                    text: trimmedLine,
-                    type: "stage_direction"
-                });
+                // BUFFER IT instead of pushing immediately
+                strictDidascalieBuffer += (strictDidascalieBuffer ? " " : "") + trimmedLine;
+
             }
         }
 
@@ -722,9 +743,17 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 text: currentBuffer.trim(),
                 type: "dialogue",
             });
-
-
         }
+        // Flush final didascalie buffer
+        if (strictDidascalieBuffer) {
+            scriptLines.push({
+                id: String(idCounter++),
+                character: "INDICATIONS",
+                text: strictDidascalieBuffer,
+                type: "stage_direction"
+            });
+        }
+
 
         // Return early - SKIP THE OLD HEURISTIC LOOP
         return {
@@ -740,6 +769,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
 
     // === FALLBACK: LEGACY HEURISTIC LOOP ===
     let previousLine = "";
+    let didascalieBuffer = "";
 
     for (const originalLine of lines) {
         // Create TWO versions of the line:
@@ -754,27 +784,138 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
             .replace(/\s+/g, " ")
             .trim();
 
-        if (!lineForDetection && !lineForDialogue) continue; // Skip strictly empty lines
+        if (!lineForDetection && !lineForDialogue) {
+            // Flush didascalie buffer on empty line? No, maybe just ignore.
+            continue;
+        }
         if (lineForDetection && /^\d+$/.test(lineForDetection)) continue; // Page numbers
 
-        // Handle pure stage direction lines (where detection line is empty but dialogue line exists)
-        // Example: "(Tous sont assis à table)"
-        if (!lineForDetection && lineForDialogue) {
-            if (currentCharacter) {
-                // Determine if we should add a space or not
-                currentBuffer += (currentBuffer ? " " : "") + lineForDialogue;
-            } else {
-                // Orphan stage direction (e.g. start of scene description)
+        // === DIDASCALIE MERGING LOGIC ===
+        // If we have an active didascalie buffer (opened with '(' but not closed)
+        if (didascalieBuffer) {
+            // Append current line to buffer
+            didascalieBuffer += " " + lineForDialogue;
+
+            // Check if it closes now
+            if (lineForDialogue.trim().endsWith(")")) {
                 scriptLines.push({
                     id: String(idCounter++),
-                    character: "INDICATIONS", // Neutral character name for scene directions
-                    text: lineForDialogue,
+                    character: "INDICATIONS",
+                    text: didascalieBuffer,
                     type: "stage_direction"
                 });
+                didascalieBuffer = "";
             }
+            // If we hit a character name or scene header while buffering, we force flush
+            // Logic below will detect character/scene and handle it
+            else {
+                // Check if it MIGHT be a character line or scene header, in which case we force close
+                // Reuse detection logic below...
+                // Actually, if it's a character line, we should flush the buffer as is (maybe missing closing paren)
+                // Use the exact same regex as the main loop to ensure consistency
+                const potentialCharPrefix = characterPrefixRegex.test(lineForDialogue);
+                const potentialStandalone = /^[A-ZÀ-ÖØ-Þ]{2,}[A-ZÀ-ÖØ-Þ\s\-\'']*[A-ZÀ-ÖØ-Þ\.]?$/.test(lineForDetection);
+                const potentialScene = sceneRegex.test(lineForDetection);
+
+                if (potentialScene) {
+                    // Scene headers are definitive. Flush.
+                    console.log("[Parser Debug] FLUSHING didascalie. Triggered by SCENE:", lineForDetection);
+                    scriptLines.push({
+                        id: String(idCounter++),
+                        character: "INDICATIONS",
+                        text: didascalieBuffer + (didascalieBuffer.endsWith(")") ? "" : ")"),
+                        type: "stage_direction"
+                    });
+                    didascalieBuffer = "";
+                }
+                else if (potentialCharPrefix || potentialStandalone) {
+                    // CAUTION: "Au mur, ..." matches characterPrefixRegex!
+                    // We must verify the "name" part is likely a real character.
+                    let candidateName = "";
+                    if (potentialCharPrefix) {
+                        const match = lineForDialogue.match(/^([A-ZÀ-ÖØ-Þ][a-zà-öA-ZÀ-ÖØ-Þ\s\-\'']{1,})[:\.,]/);
+                        if (match) candidateName = match[1].trim().toUpperCase();
+                    } else if (potentialStandalone) {
+                        candidateName = lineForDetection.replace(/\.$/, "").trim().toUpperCase();
+                    }
+
+                    // QUICK CHECKS TO AVOID FALSE FLUSHES
+                    const words = candidateName.split(/\s+/);
+                    const firstWord = words[0];
+
+                    let isSuspicious = false;
+                    // 1. If starts with a specific forbidden word 
+                    if (FORBIDDEN_SINGLE_WORDS.has(candidateName)) isSuspicious = true;
+                    if (FORBIDDEN_SINGLE_WORDS.has(firstWord)) {
+                        if (["AU", "AUX", "DANS", "SUR", "SOUS", "AVEC", "LE", "LA", "LES", "UN", "UNE"].includes(firstWord)) {
+                            // If it's just "LE MAITRE", it's fine.
+                            // But "AU MUR" -> Suspicious.
+                            // "LE SILENCE" -> Suspicious.
+                            // If matching forbidden pattern?
+                            isSuspicious = true;
+                        }
+                    }
+
+                    if (isSuspicious) {
+                        continue; // Continue buffering
+                    }
+
+                    // Auto-close and flush
+                    scriptLines.push({
+                        id: String(idCounter++),
+                        character: "INDICATIONS",
+                        text: didascalieBuffer + (didascalieBuffer.endsWith(")") ? "" : ")"),
+                        type: "stage_direction"
+                    });
+
+                    didascalieBuffer = "";
+                    // Fall through to normal processing for this line
+                } else {
+                    continue; // Continue buffering
+                }
+
+            }
+
+        }
+
+        // Handle pure stage direction lines (where detection line is empty but dialogue line exists)
+        // AND it starts with '('
+        // Example: "(Tous sont assis à table...)"
+        // OR multiline didascalie start like "(La chambre..."
+        const startsWithParen = lineForDialogue.startsWith("(");
+
+        if ((!lineForDetection && lineForDialogue) || (startsWithParen && !currentCharacter)) {
+            // Check if it closes on the same line
+            if (lineForDialogue.endsWith(")")) {
+                // It's a self-contained didascalie.
+                if (currentCharacter) {
+                    currentBuffer += (currentBuffer ? " " : "") + lineForDialogue;
+                } else {
+                    scriptLines.push({
+                        id: String(idCounter++),
+                        character: "INDICATIONS",
+                        text: lineForDialogue,
+                        type: "stage_direction"
+                    });
+                }
+            } else {
+                // IT IS OPEN! Start buffering.
+                // Assuming it's a main description if no character is active
+                if (!currentCharacter) {
+                    didascalieBuffer = lineForDialogue;
+                    continue;
+                } else {
+
+                    // Inside character: just append to buffer
+                    currentBuffer += (currentBuffer ? " " : "") + lineForDialogue;
+                }
+            }
+
             previousLine = lineForDialogue;
             continue;
         }
+
+
 
         // Check for scene header
         if (sceneRegex.test(lineForDetection)) {
@@ -942,9 +1083,12 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
         // If the previous line doesn't end with sentence punctuation or ends with a connector,
         // we are very likely continuing a sentence, even if it looks like a character name.
         const isContinuing = previousLine && (
-            !/[.!?:…]$/.test(previousLine) ||
+            !/[.!?:…\)]$/.test(previousLine) ||
             /\b(M\.|Mme\.|Mlle\.|à|de|et|ou|mais|que|qui)\s*$/i.test(previousLine)
         );
+
+
+
 
         // Pattern 1: "NAME. dialogue" or "NAME: dialogue"
         const prefixMatch = lineForDetection.match(characterPrefixRegex);
