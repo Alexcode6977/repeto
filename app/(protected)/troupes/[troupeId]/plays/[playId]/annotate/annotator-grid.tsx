@@ -108,7 +108,7 @@ export function AnnotatorGrid({ actorsInScene, playId, context }: AnnotatorGridP
     const isTechBlocked = selectedTargetType === 'actor' && selectedTargets.length > 0;
 
     return (
-        <div className="flex-1 flex flex-col overflow-hidden bg-background">
+        <div className="flex-1 flex flex-col overflow-hidden bg-background keyboard-inset">
 
             {/* 1. Header Area (Static) */}
             <div className="p-4 border-b border-white/5 bg-black/5 flex items-center justify-between shrink-0">
@@ -130,7 +130,7 @@ export function AnnotatorGrid({ actorsInScene, playId, context }: AnnotatorGridP
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     placeholder={selectedTargetType === 'tech' ? "Instruction technique..." : "Indication de jeu..."}
-                    className="w-full h-24 bg-white/5 border border-white/10 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-amber-500/50 text-white placeholder:text-gray-600 custom-scrollbar"
+                    className="w-full h-24 bg-white/10 border border-white/15 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-amber-500/60 text-white placeholder:text-white/40 custom-scrollbar"
                 />
                 <Button
                     onClick={handleSend}

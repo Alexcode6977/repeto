@@ -57,6 +57,16 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
     // --- Derived Data ---
 
+    const uniquePlays = useMemo(() => {
+        const map = new Map<string, any>();
+        plays.forEach((play: any) => {
+            if (play?.id && !map.has(play.id)) {
+                map.set(play.id, play);
+            }
+        });
+        return Array.from(map.values());
+    }, [plays]);
+
     // Map: UserId -> Attendance Status
     const attendanceMap = useMemo(() => {
         const map: Record<string, string> = {};
@@ -230,7 +240,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                     <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-border rounded-xl bg-card/50 hover:bg-card transition-colors gap-4">
                         <p className="text-sm font-bold text-muted-foreground">Ajouter une pièce au programme</p>
                         <div className="flex flex-wrap justify-center gap-3">
-                            {plays.map((play: any) => (
+                            {uniquePlays.map((play: any) => (
                                 <Button
                                     key={play.id}
                                     variant="outline"

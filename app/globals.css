@@ -59,6 +59,9 @@
   --input: hsl(240 5.9% 90%);
   --ring: hsl(267 100% 61%);
 
+  /* Keyboard inset (mobile) */
+  --keyboard-offset: 0px;
+
   /* Card shadow - soft elevation for light mode */
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
 
@@ -82,13 +85,13 @@
   --secondary: hsl(240 3.7% 15.9%);
   --secondary-foreground: hsl(0 0% 98%);
   --muted: hsl(240 3.7% 15.9%);
-  --muted-foreground: hsl(240 5% 64.9%);
+  --muted-foreground: hsl(240 5% 72%);
   --accent: hsl(240 3.7% 15.9%);
   --accent-foreground: hsl(0 0% 98%);
   --destructive: hsl(0 62.8% 30.6%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 3.7% 15.9%);
-  --input: hsl(240 3.7% 15.9%);
+  --border: hsl(240 4% 20%);
+  --input: hsl(240 4% 20%);
   --ring: hsl(240 4.9% 83.9%);
 
   /* Card shadow - violet glow for dark mode */
@@ -96,6 +99,25 @@
 
   /* Dark mode gradient */
   --body-gradient: radial-gradient(circle at 50% 0%, #2e1065 0%, #000000 60%, #000000 100%);
+}
+
+/* Keyboard safe area helpers */
+.keyboard-inset {
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--keyboard-offset));
+}
+
+@media (max-width: 768px) {
+  .mobile-note-sheet {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: calc(env(safe-area-inset-bottom) + var(--keyboard-offset));
+    width: 100vw;
+    max-height: min(70vh, 520px);
+    overflow-y: auto;
+    border-top-left-radius: 1.5rem;
+    border-top-right-radius: 1.5rem;
+  }
 }
 
 @layer base {
@@ -111,16 +133,11 @@
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
 
-    /* Native App Feel: Disable "Web" Behaviors */
+    /* Preserve native scroll behavior without locking gestures/text */
     overscroll-behavior-y: none;
-    /* No elastic bounce */
     -webkit-tap-highlight-color: transparent;
-    /* No blue flash on tap */
-    user-select: none;
-    /* No text selection */
-    -webkit-user-select: none;
-    touch-action: pan-x pan-y;
-    /* Disable pinch-zoom */
+    user-select: text;
+    -webkit-user-select: text;
   }
 
   /* Enhanced cursor visibility for pointer devices (iPad with mouse, etc.) */
@@ -190,6 +207,40 @@
 
   .touch-manipulation {
     touch-action: manipulation;
+  }
+
+  /* Performance helpers for mobile/touch surfaces */
+  .mobile-heavy-surface {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .mobile-heavy-glow {
+    filter: blur(60px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (pointer: coarse) {
+  .mobile-heavy-surface {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    box-shadow: var(--shadow-card) !important;
+  }
+
+  .mobile-heavy-glow {
+    filter: blur(24px) !important;
+    opacity: 0.3 !important;
   }
 }
 

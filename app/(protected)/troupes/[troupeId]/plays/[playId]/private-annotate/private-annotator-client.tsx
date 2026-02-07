@@ -8,17 +8,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ParsedScript, AnnotationContext } from '@/lib/types';
 import { InteractiveScriptViewer } from '../annotate/interactive-script-viewer';
 import { upsertPrivateNote } from '@/lib/actions/private-notes';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 
-interface PrivateAnnotatorClientProps {
-    play: any;
-    troupeId: string;
-    script: ParsedScript;
-    privateNotes: any[];
+interface PrivateAnnotatorPlay {
+    id: string;
+    title: string;
 }
 
-export function PrivateAnnotatorClient({ play, troupeId, script, privateNotes }: PrivateAnnotatorClientProps) {
+interface PrivateNote {
+    scene_index: number;
+    line_index: number | null;
+    text: string;
+}
+
+interface PrivateAnnotatorClientProps {
+    play: PrivateAnnotatorPlay;
+    script: ParsedScript;
+    privateNotes: PrivateNote[];
+}
+
+export function PrivateAnnotatorClient({ play, script, privateNotes }: PrivateAnnotatorClientProps) {
+    useKeyboardInset(true);
+
     const router = useRouter();
     const [viewSceneIdx, setViewSceneIdx] = useState(0);
     const [context, setContext] = useState<AnnotationContext>({ type: 'none' });
@@ -69,7 +81,7 @@ export function PrivateAnnotatorClient({ play, troupeId, script, privateNotes }:
     return (
         <div className="flex flex-col h-screen bg-background overflow-hidden relative">
             {/* TOP BAR */}
-            <div className="h-14 shrink-0 border-b border-border/50 bg-background/50 backdrop-blur-md flex items-center justify-between px-4 z-20">
+            <div className="h-14 shrink-0 border-b border-border/50 bg-background/50 backdrop-blur-md mobile-heavy-surface flex items-center justify-between gap-2 px-4 z-20">
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full hover:bg-white/5">
                         <ArrowLeft className="w-5 h-5" />
@@ -87,11 +99,11 @@ export function PrivateAnnotatorClient({ play, troupeId, script, privateNotes }:
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-2 md:inline hidden">Afficher :</span>
                     <Select value={viewSceneIdx.toString()} onValueChange={(val) => setViewSceneIdx(parseInt(val))}>
-                        <SelectTrigger className="w-[180px] md:w-[240px] h-9 bg-muted/50 border-white/5 font-bold text-xs ring-offset-background focus:ring-blue-500/20">
+                        <SelectTrigger className="w-[130px] sm:w-[220px] md:w-[240px] h-9 bg-muted/50 border-white/5 font-bold text-xs ring-offset-background focus:ring-blue-500/20">
                             <SelectValue placeholder="Sélectionner une scène" />
                         </SelectTrigger>
                         <SelectContent className="bg-[#15151a] border-white/10">
-                            {scenes.map((scene: any, idx: number) => (
+                            {scenes.map((scene, idx) => (
                                 <SelectItem key={`select-${idx}`} value={idx.toString()} className="text-xs font-bold focus:bg-blue-500 focus:text-white">
                                     {idx + 1}. {scene.title}
                                 </SelectItem>
@@ -105,7 +117,7 @@ export function PrivateAnnotatorClient({ play, troupeId, script, privateNotes }:
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
 
                 {/* LEFT: SCRIPT (2/3) */}
-                <div className="flex-[2] min-w-0 border-r border-border/10 bg-black/20 overflow-hidden relative">
+                <div className="flex-[2] min-w-0 md:border-r border-border/10 bg-black/20 overflow-hidden relative">
                     <InteractiveScriptViewer
                         script={script}
                         currentSceneIdx={viewSceneIdx}
@@ -116,7 +128,7 @@ export function PrivateAnnotatorClient({ play, troupeId, script, privateNotes }:
                 </div>
 
                 {/* RIGHT: EDITOR PANEL (1/3) */}
-                <div className="flex-[1] min-w-[300px] bg-background overflow-hidden h-full flex flex-col border-l border-white/5">
+                <div className="flex-[1] min-w-0 md:min-w-[300px] bg-background overflow-hidden h-full flex flex-col border-t md:border-t-0 md:border-l border-white/5 keyboard-inset">
                     {context.type === 'none' ? (
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4 opacity-50">
                             <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center">
@@ -139,7 +151,7 @@ export function PrivateAnnotatorClient({ play, troupeId, script, privateNotes }:
                                 </span>
                                 {context.type === 'line' && (
                                     <p className="mt-2 text-xs italic text-muted-foreground line-clamp-2 border-l-2 border-white/10 pl-3">
-                                        "{context.lineContent}"
+                                        &quot;{context.lineContent}&quot;
                                     </p>
                                 )}
                             </div>
@@ -150,7 +162,7 @@ export function PrivateAnnotatorClient({ play, troupeId, script, privateNotes }:
                                     value={noteText}
                                     onChange={(e) => setNoteText(e.target.value)}
                                     placeholder="Écrivez votre note personnelle ici..."
-                                    className="w-full h-32 bg-white/5 border border-white/10 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-blue-500/50 text-white placeholder:text-gray-600 custom-scrollbar"
+                                    className="w-full h-32 bg-white/10 border border-white/15 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-blue-500/60 text-white placeholder:text-white/40 custom-scrollbar"
                                     autoFocus
                                 />
                                 <Button

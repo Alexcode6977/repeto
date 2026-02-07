@@ -8,6 +8,7 @@ import { Plus, NotebookPen, Quote, Mic, MicOff } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { saveRawNote } from '@/lib/actions/session';
+import { useKeyboardInset } from '@/lib/hooks/use-keyboard-inset';
 
 interface LiveScriptViewerProps {
     sessionData: any;
@@ -18,6 +19,8 @@ interface LiveScriptViewerProps {
 }
 
 export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadOnly, highlightedLineIndex }: LiveScriptViewerProps) {
+    useKeyboardInset(true);
+
     const currentScene = scenes[currentSceneIdx];
 
     // Find the relevant play for the current scene
@@ -195,8 +198,8 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
                                 </p>
                             </div>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 p-4" align="start">
-                            <div className="space-y-3">
+                        <PopoverContent className="w-80 p-4 mobile-note-sheet max-md:border-t max-md:border-border/40 max-md:bg-background/95 max-md:shadow-[0_-20px_60px_rgba(0,0,0,0.55)] max-md:p-5" align="start">
+                            <div className="space-y-3 keyboard-inset">
                                 <div className="flex items-center justify-between">
                                     <h4 className="font-bold text-sm flex items-center gap-2">
                                         <NotebookPen className="w-4 h-4 text-primary" />
@@ -296,7 +299,7 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
                             </PopoverTrigger>
 
                             {!isReadOnly && (
-                                <PopoverContent className="w-80 p-0 overflow-hidden rounded-xl bg-popover border-border shadow-2xl" side="right" align="start">
+                                <PopoverContent className="w-80 p-0 overflow-hidden rounded-xl bg-popover border-border shadow-2xl mobile-note-sheet max-md:rounded-t-2xl max-md:rounded-b-none max-md:border-t max-md:border-border/40 max-md:bg-background/95 max-md:shadow-[0_-20px_60px_rgba(0,0,0,0.55)]" side="right" align="start">
                                     <div className="bg-primary/5 p-3 border-b border-border/50 flex justify-between items-center">
                                         <span className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
                                             <Quote className="w-3 h-3" />
@@ -311,7 +314,7 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
                                             {isListening ? <MicOff className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
                                         </Button>
                                     </div>
-                                    <div className="p-3 space-y-3">
+                                    <div className="p-3 space-y-3 keyboard-inset">
                                         <div className="bg-muted/50 rounded-lg p-2 text-xs border border-border/50 max-h-[100px] overflow-y-auto">
                                             {line.character && (
                                                 <span className="font-bold uppercase tracking-wider text-primary block mb-1">

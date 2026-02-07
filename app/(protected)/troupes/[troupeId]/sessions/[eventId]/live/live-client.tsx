@@ -168,29 +168,37 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
 
             {/* FINISH DIALOG */}
             <Dialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Fin de la Séance</DialogTitle>
-                        <DialogDescription>
-                            Vous allez clôturer cette séance et passer au traitement des notes.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Message de fin (Optionnel)</Label>
-                            <Textarea
-                                placeholder="Un dernier mot pour l'équipe ou une note globale..."
-                                value={finalNotes}
-                                onChange={(e) => setFinalNotes(e.target.value)}
-                            />
+                <DialogContent className="max-md:fixed max-md:bottom-[calc(env(safe-area-inset-bottom)+var(--keyboard-offset,0px))] max-md:left-0 max-md:right-0 max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-t-3xl max-md:rounded-b-none max-md:p-0 max-md:max-h-[85vh] overflow-hidden">
+                    <div className="flex flex-col max-h-[85vh]">
+                        <div className="px-6 pt-6 pb-4">
+                            <DialogHeader className="text-left">
+                                <DialogTitle>Fin de la Séance</DialogTitle>
+                                <DialogDescription>
+                                    Vous allez clôturer cette séance et passer au traitement des notes.
+                                </DialogDescription>
+                            </DialogHeader>
+                        </div>
+                        <div className="px-6 pb-6 flex-1 overflow-y-auto">
+                            <div className="space-y-2">
+                                <Label>Message de fin (Optionnel)</Label>
+                                <Textarea
+                                    placeholder="Un dernier mot pour l'équipe ou une note globale..."
+                                    value={finalNotes}
+                                    onChange={(e) => setFinalNotes(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="px-6 pt-2 pb-[calc(env(safe-area-inset-bottom)+18px)] border-t border-border/40 bg-background/90 backdrop-blur-md">
+                            <div className="flex flex-col gap-3">
+                                <Button onClick={handleFinishSession} disabled={isFinishing} className="w-full">
+                                    {isFinishing ? "Clôture..." : "Enregistrer et Clôturer"}
+                                </Button>
+                                <Button variant="outline" onClick={() => setShowFinishDialog(false)} className="w-full">
+                                    Annuler
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setShowFinishDialog(false)}>Annuler</Button>
-                        <Button onClick={handleFinishSession} disabled={isFinishing}>
-                            {isFinishing ? "Clôture..." : "Enregistrer et Clôturer"}
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>

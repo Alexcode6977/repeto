@@ -20,6 +20,7 @@ interface AddEventModalProps {
 export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: AddEventModalProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [formError, setFormError] = useState<string | null>(null);
 
     // Controlled vs Uncontrolled state
     const isControlled = isOpen !== undefined && onOpenChange !== undefined;
@@ -50,12 +51,34 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setFormError(null);
+
+        if (!title.trim()) {
+            setFormError("Le titre est requis.");
+            return;
+        }
+
+        if (!date) {
+            setFormError("Sélectionnez une date.");
+            return;
+        }
+
+        const start = new Date(`${date}T${startTime}`);
+        const end = new Date(`${date}T${endTime}`);
+
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            setFormError("Horaires invalides.");
+            return;
+        }
+
+        if (end <= start) {
+            setFormError("L'heure de fin doit être après l'heure de début.");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            const start = new Date(`${date}T${startTime}`);
-            const end = new Date(`${date}T${endTime}`);
-
             await createEvent(
                 troupeId,
                 title,
@@ -91,7 +114,7 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
             )}
 
             <DialogContent className={cn(
-                "z-[200] border-white/10 p-0 overflow-hidden",
+                "z-[220] border-white/10 p-0 overflow-hidden max-h-[85vh]",
                 // Mobile: Bottom Side
                 "fixed bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0 max-w-none rounded-t-[2rem] rounded-b-none",
                 // Desktop: Center
@@ -108,7 +131,7 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
                         <DialogTitle className="text-xl md:text-2xl font-black tracking-tight text-white md:text-center">
                             Nouvel événement
                         </DialogTitle>
-                        <DialogDescription className="text-white/30 text-xs font-medium md:text-center">
+                        <DialogDescription className="text-white/60 text-xs font-medium md:text-center">
                             Planifiez votre prochaine séance.
                         </DialogDescription>
                     </DialogHeader>
@@ -118,12 +141,14 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
                         date={date} setDate={setDate}
                         startTime={startTime} setStartTime={setStartTime}
                         endTime={endTime} setEndTime={setEndTime}
-                        recurrence={recurrence} setRecurrence={setRecurrence}
-                        handleSubmit={handleSubmit}
-                        isLoading={isLoading}
-                    />
-                </div>
-            </DialogContent>
+                recurrence={recurrence} setRecurrence={setRecurrence}
+                handleSubmit={handleSubmit}
+                isLoading={isLoading}
+                formError={formError}
+                setFormError={setFormError}
+            />
+        </div>
+    </DialogContent>
         </Dialog>
     );
 }
@@ -141,85 +166,110 @@ interface FormProps {
     setRecurrence: (v: "none" | "weekly") => void;
     handleSubmit: (e: React.FormEvent) => void;
     isLoading: boolean;
+    formError: string | null;
+    setFormError: (v: string | null) => void;
 }
 
 function AddEventForm({
     title, setTitle, date, setDate, startTime, setStartTime,
     endTime, setEndTime, recurrence, setRecurrence,
-    handleSubmit, isLoading
+    handleSubmit, isLoading, formError, setFormError
 }: FormProps) {
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-1.5">
-                <Label htmlFor="title" className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Titre de la séance</Label>
-                <Input
-                    id="title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Ex: Lecture Acte III"
-                    required
-                    className="h-11 bg-white/5 border-white/5 hover:border-white/10 focus:border-primary/50 rounded-xl transition-all font-bold text-sm text-white placeholder:text-white/10 px-4"
-                />
-            </div>
-
-            <div className="grid gap-1.5">
-                <Label htmlFor="date" className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Date</Label>
-                <Input
-                    id="date"
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    required
-                    className="h-11 bg-white/5 border-white/5 hover:border-white/10 focus:border-primary/50 rounded-xl transition-all font-bold text-sm text-white px-4"
-                />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="flex flex-col max-h-[75vh]">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
                 <div className="grid gap-1.5">
-                    <Label htmlFor="start" className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Heure Début</Label>
+                    <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Titre de la séance</Label>
                     <Input
-                        id="start"
-                        type="time"
-                        value={startTime}
-                        onChange={(e) => setStartTime(e.target.value)}
+                        id="title"
+                        value={title}
+                        onChange={(e) => {
+                            setTitle(e.target.value);
+                            if (formError) setFormError(null);
+                        }}
+                        placeholder="Ex: Lecture Acte III"
                         required
-                        className="h-11 bg-white/5 border-white/5 hover:border-white/10 focus:border-primary/50 rounded-xl transition-all font-bold text-sm text-white px-4"
+                        className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white placeholder:text-white/40 px-4"
                     />
                 </div>
+
                 <div className="grid gap-1.5">
-                    <Label htmlFor="end" className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Heure Fin</Label>
+                    <Label htmlFor="date" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Date</Label>
                     <Input
-                        id="end"
-                        type="time"
-                        value={endTime}
-                        onChange={(e) => setEndTime(e.target.value)}
+                        id="date"
+                        type="date"
+                        value={date}
+                        onChange={(e) => {
+                            setDate(e.target.value);
+                            if (formError) setFormError(null);
+                        }}
                         required
-                        className="h-11 bg-white/5 border-white/5 hover:border-white/10 focus:border-primary/50 rounded-xl transition-all font-bold text-sm text-white px-4"
+                        className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4"
                     />
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="start" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Heure Début</Label>
+                        <Input
+                            id="start"
+                            type="time"
+                            value={startTime}
+                            onChange={(e) => {
+                                setStartTime(e.target.value);
+                                if (formError) setFormError(null);
+                            }}
+                            required
+                            className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4"
+                        />
+                    </div>
+                    <div className="grid gap-1.5">
+                        <Label htmlFor="end" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Heure Fin</Label>
+                        <Input
+                            id="end"
+                            type="time"
+                            value={endTime}
+                            onChange={(e) => {
+                                setEndTime(e.target.value);
+                                if (formError) setFormError(null);
+                            }}
+                            required
+                            className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid gap-1.5">
+                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Répétition</Label>
+                    <Select value={recurrence} onValueChange={(val: "none" | "weekly") => {
+                        setRecurrence(val);
+                        if (formError) setFormError(null);
+                    }}>
+                        <SelectTrigger className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4 shadow-none">
+                            <SelectValue placeholder="Pas de récurrence" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#0a0a0f] border-white/10 text-white rounded-xl shadow-2xl p-1">
+                            <SelectItem value="none" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">Une seule fois</SelectItem>
+                            <SelectItem value="weekly" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">Toutes les semaines</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {formError && (
+                    <p className="text-xs font-semibold text-red-400">{formError}</p>
+                )}
             </div>
 
-            <div className="grid gap-1.5">
-                <Label className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">Répétition</Label>
-                <Select value={recurrence} onValueChange={(val: "none" | "weekly") => setRecurrence(val)}>
-                    <SelectTrigger className="h-11 bg-white/5 border-white/5 hover:border-white/10 focus:border-primary/50 rounded-xl transition-all font-bold text-sm text-white px-4 shadow-none">
-                        <SelectValue placeholder="Pas de récurrence" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#0a0a0f] border-white/10 text-white rounded-xl shadow-2xl p-1">
-                        <SelectItem value="none" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">Une seule fois</SelectItem>
-                        <SelectItem value="weekly" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">Toutes les semaines</SelectItem>
-                    </SelectContent>
-                </Select>
+            <div className="pt-3 pb-[calc(env(safe-area-inset-bottom)+18px)]">
+                <Button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full h-13 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black text-base transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(124,58,237,0.35)]"
+                >
+                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Plus className="mr-2 h-5 w-5" />}
+                    Planifier la séance
+                </Button>
             </div>
-
-            <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full h-13 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black text-base transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(var(--primary),0.3)] mt-2"
-            >
-                {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Plus className="mr-2 h-5 w-5" />}
-                Planifier la séance
-            </Button>
         </form>
     );
 }
