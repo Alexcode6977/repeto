@@ -108,7 +108,11 @@ export function TroupeSubscriptionManager({
         setError(null);
 
         try {
-            const res = await fetch('/api/stripe/portal', { method: 'POST' });
+            const res = await fetch('/api/stripe/portal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ troupeId }),
+            });
             const data = await res.json();
             if (data.error) throw new Error(data.error);
 

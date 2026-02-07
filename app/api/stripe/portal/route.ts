@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 import { getBaseUrlFromRequest } from '@/lib/server/url';
+import { canManageTroupe } from '@/lib/utils/roles';
 
 export async function POST(request: NextRequest) {
     try {
@@ -15,26 +16,62 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get user's Stripe customer ID
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('stripe_customer_id')
-            .eq('id', user.id)
-            .single();
+        let troupeId: string | undefined;
+        try {
+            const body = await request.json();
+            troupeId = body?.troupeId;
+        } catch {
+            // Empty body is valid for personal portal usage.
+        }
 
-        if (!profile?.stripe_customer_id) {
+        const origin = getBaseUrlFromRequest(request);
+        let customerId: string | null = null;
+        let returnUrl = `${origin}/profile`;
+
+        if (troupeId) {
+            const [{ data: membership }, { data: troupe }] = await Promise.all([
+                supabase
+                    .from('troupe_members')
+                    .select('roles')
+                    .eq('troupe_id', troupeId)
+                    .eq('user_id', user.id)
+                    .maybeSingle(),
+                supabase
+                    .from('troupes')
+                    .select('stripe_customer_id')
+                    .eq('id', troupeId)
+                    .maybeSingle(),
+            ]);
+
+            if (!canManageTroupe(membership?.roles)) {
+                return NextResponse.json(
+                    { error: 'Vous n’avez pas les droits pour gérer la facturation de cette troupe.' },
+                    { status: 403 }
+                );
+            }
+
+            customerId = troupe?.stripe_customer_id || null;
+            returnUrl = `${origin}/troupes/${troupeId}/subscription`;
+        } else {
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('stripe_customer_id')
+                .eq('id', user.id)
+                .single();
+            customerId = profile?.stripe_customer_id || null;
+        }
+
+        if (!customerId) {
             return NextResponse.json(
-                { error: 'Aucun abonnement actif.' },
+                { error: 'Aucun client Stripe lié pour ce contexte.' },
                 { status: 400 }
             );
         }
 
-        const origin = getBaseUrlFromRequest(request);
-
         // Create Stripe Customer Portal session
         const session = await stripe.billingPortal.sessions.create({
-            customer: profile.stripe_customer_id,
-            return_url: `${origin}/profile`,
+            customer: customerId,
+            return_url: returnUrl,
         });
 
         return NextResponse.json({ url: session.url });

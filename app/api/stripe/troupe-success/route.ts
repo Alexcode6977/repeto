@@ -61,10 +61,7 @@ export async function GET(request: NextRequest) {
                 .insert({
                     id: userId,
                     email: email,
-                    subscription_tier: troupeTier,
-                    subscription_status: 'active',
                     stripe_customer_id: customerId,
-                    stripe_subscription_id: subscriptionId,
                 });
 
             if (profileError) {
@@ -74,10 +71,7 @@ export async function GET(request: NextRequest) {
             await supabaseAdmin
                 .from('profiles')
                 .update({
-                    subscription_tier: troupeTier,
-                    subscription_status: 'active',
                     stripe_customer_id: customerId,
-                    stripe_subscription_id: subscriptionId,
                 })
                 .eq('id', userId);
         }
