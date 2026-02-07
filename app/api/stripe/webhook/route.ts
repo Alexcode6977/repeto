@@ -11,6 +11,30 @@ function getSupabaseAdmin() {
     );
 }
 
+function truncate(value: string, max = 1000): string {
+    return value.length <= max ? value : `${value.slice(0, max)}...`;
+}
+
+async function recordStripeWebhookFailure(params: {
+    eventId?: string | null;
+    eventType?: string | null;
+    errorMessage: string;
+    payloadExcerpt?: string | null;
+}) {
+    try {
+        await getSupabaseAdmin()
+            .from('stripe_webhook_failures')
+            .insert({
+                event_id: params.eventId || null,
+                event_type: params.eventType || null,
+                error_message: truncate(params.errorMessage, 1500),
+                payload_excerpt: params.payloadExcerpt ? truncate(params.payloadExcerpt, 4000) : null,
+            });
+    } catch (failureLogError) {
+        console.error('[Stripe Webhook] Failed to record webhook failure:', failureLogError);
+    }
+}
+
 async function markStripeEventProcessed(event: Stripe.Event): Promise<boolean> {
     const { error } = await getSupabaseAdmin()
         .from('stripe_webhook_events')
@@ -91,6 +115,11 @@ export async function POST(request: NextRequest) {
         );
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Unknown signature verification error';
+        await recordStripeWebhookFailure({
+            eventType: 'signature_verification',
+            errorMessage: message,
+            payloadExcerpt: body,
+        });
         console.error('Webhook signature verification failed:', message);
         return NextResponse.json(
             { error: `Webhook Error: ${message}` },
@@ -135,6 +164,13 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ received: true });
     } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Webhook processing error';
+        await recordStripeWebhookFailure({
+            eventId: event.id,
+            eventType: event.type,
+            errorMessage: message,
+            payloadExcerpt: body,
+        });
         console.error('[Stripe Webhook] Error processing event:', error);
         return NextResponse.json(
             { error: 'Webhook processing error' },
