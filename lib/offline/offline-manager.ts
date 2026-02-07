@@ -1,4 +1,4 @@
-import { db } from './db';
+import { db, type OfflineAsset } from './db';
 import { getPlayDetails, getScriptDetails } from '@/lib/actions/play';
 import { getAudioManifest } from '@/app/actions/offline';
 import { determineSourceType } from '@/lib/actions/voice-cache';
@@ -28,15 +28,15 @@ export class OfflineManager {
         // Legacy/direct key format
         candidateIds.push(lineId);
 
-        let asset: Awaited<ReturnType<typeof db.assets.get>> | undefined;
+        let asset: OfflineAsset | undefined;
         for (const id of candidateIds) {
-            asset = await db.assets.get(id);
+            asset = (await db.assets.get(id)) as OfflineAsset | undefined;
             if (asset) break;
         }
 
         // Last fallback: lookup by script+hash for compatibility when line IDs differ by source.
         if (!asset && scriptId) {
-            asset = await db.assets.where('[scriptId+hash]').equals([scriptId, expectedHash]).first();
+            asset = (await db.assets.where('[scriptId+hash]').equals([scriptId, expectedHash]).first()) as OfflineAsset | undefined;
         }
 
         if (!asset) return null;
