@@ -1,6 +1,8 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { canManageTroupe } from "@/lib/utils/roles";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 // Define locally to avoid circular dependency with tts.ts
 export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
@@ -337,19 +339,19 @@ export async function updateVoiceAssignment(
     if (sourceType === 'troupe_play' && troupeId) {
         const { data: member } = await supabase
             .from('troupe_members')
-            .select('role')
+            .select('roles')
             .eq('troupe_id', troupeId)
             .eq('user_id', user.id)
-            .single();
+            .maybeSingle();
 
-        if (member?.role !== 'admin') {
+        if (!canManageTroupe(member?.roles)) {
             return { success: false, error: "Seul l'admin de la troupe peut modifier les voix" };
         }
     }
 
     // 2. Library Script: Must be Global Admin
     if (sourceType === 'library_script') {
-        if (user.email !== 'alex69.sartre@gmail.com') {
+        if (!isPlatformAdminEmail(user.email)) {
             return { success: false, error: "Seul l'admin global peut modifier les voix de la bibliothèque" };
         }
     }

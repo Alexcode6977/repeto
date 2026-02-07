@@ -1,12 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
-import { User, Shield } from "lucide-react";
 import { redirect } from "next/navigation";
 import { GlobalHeader } from "@/components/global-header";
 import { IosInstallPrompt } from "@/components/ios-install-prompt";
 import { getEffectiveTier } from "@/lib/subscription";
-
-const ADMIN_EMAIL = "alex69.sartre@gmail.com";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 export default async function ProtectedLayout({
     children,
@@ -28,7 +25,7 @@ export default async function ProtectedLayout({
         .single();
 
     const displayName = profile?.first_name || user.email?.split('@')[0] || "Utilisateur";
-    const isAdmin = user.email === ADMIN_EMAIL;
+    const isAdmin = isPlatformAdminEmail(user.email);
     const tier = await getEffectiveTier(user.id);
 
     return (
@@ -46,5 +43,4 @@ export default async function ProtectedLayout({
         </div>
     );
 }
-
 

@@ -1,8 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-
-const ADMIN_EMAIL = "alex69.sartre@gmail.com";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 interface AdminFeedbackEntry {
     id: string;
@@ -25,14 +24,14 @@ interface AdminFeedbackEntry {
 export async function isAdmin(): Promise<boolean> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    return user?.email === ADMIN_EMAIL;
+    return isPlatformAdminEmail(user?.email);
 }
 
 export async function getAllFeedback(): Promise<AdminFeedbackEntry[]> {
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(user?.email)) {
         console.error("Unauthorized admin access attempt");
         return [];
     }
@@ -58,7 +57,7 @@ export async function updateFeedbackStatus(
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(user?.email)) {
         throw new Error("Unauthorized");
     }
 
@@ -91,7 +90,7 @@ export async function getFeedbackStats() {
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(user?.email)) {
         return null;
     }
 
@@ -131,7 +130,7 @@ export async function getAllUsers(): Promise<UserProfile[]> {
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(user?.email)) {
         return [];
     }
 
@@ -153,7 +152,7 @@ export async function toggleUserPremium(userId: string, currentTier: string | nu
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(user?.email)) {
         throw new Error("Unauthorized");
     }
 
@@ -190,7 +189,7 @@ export async function getLibraryScripts(): Promise<LibraryScriptEntry[]> {
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email !== ADMIN_EMAIL) {
+    if (!isPlatformAdminEmail(user?.email)) {
         return [];
     }
 

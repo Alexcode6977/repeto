@@ -13,8 +13,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const ADMIN_EMAIL = "alex69.sartre@gmail.com";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 interface ScriptCardProps {
     script: ScriptMetadata;
@@ -44,6 +43,7 @@ export function ScriptCard({
     onSettings,
     onShowStats,
 }: ScriptCardProps) {
+    const isAdminUser = isPlatformAdminEmail(userEmail);
     const [isRenaming, setIsRenaming] = useState(false);
     const [tempTitle, setTempTitle] = useState(script.title);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -129,7 +129,7 @@ export function ScriptCard({
                             />
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        {(script.is_owner || userEmail === ADMIN_EMAIL) && (
+                        {(script.is_owner || isAdminUser) && (
                             <DropdownMenuItem
                                 onClick={handleDelete}
                                 disabled={isDeleting}
@@ -235,7 +235,7 @@ export function ScriptCard({
                         <DownloadButton scriptId={script.id} className="bg-white/10 hover:bg-white/20 text-white border-0 w-12 h-12" />
                     </div>
 
-                    {(script.is_owner || userEmail === ADMIN_EMAIL) && (
+                    {(script.is_owner || isAdminUser) && (
                         <Button
                             variant="ghost"
                             size="icon"
@@ -246,7 +246,7 @@ export function ScriptCard({
                             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                         </Button>
                     )}
-                    {userEmail === ADMIN_EMAIL && (
+                    {isAdminUser && (
                         <Button
                             variant="ghost"
                             size="icon"

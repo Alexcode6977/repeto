@@ -32,6 +32,9 @@ export function getStripePrices() {
         SOLO_PRO_MONTHLY: process.env.STRIPE_SOLO_PRO_PRICE_ID!,
         SOLO_PRO_YEARLY: process.env.STRIPE_SOLO_PRO_PRICE_ID_Yearly!,
         TROUPE_MONTHLY: process.env.STRIPE_TROUPE_PRICE_ID!,
+        TROUPE_YEARLY: process.env.STRIPE_TROUPE_YEARLY_PRICE_ID!,
+        TROUPE_XL_MONTHLY: process.env.STRIPE_TROUPE_XL_PRICE_ID!,
+        TROUPE_XL_YEARLY: process.env.STRIPE_TROUPE_XL_YEARLY_PRICE_ID!,
     };
 }
 
@@ -40,6 +43,9 @@ export const STRIPE_PRICES = {
     get SOLO_PRO_MONTHLY() { return process.env.STRIPE_SOLO_PRO_PRICE_ID!; },
     get SOLO_PRO_YEARLY() { return process.env.STRIPE_SOLO_PRO_PRICE_ID_Yearly!; },
     get TROUPE_MONTHLY() { return process.env.STRIPE_TROUPE_PRICE_ID!; },
+    get TROUPE_YEARLY() { return process.env.STRIPE_TROUPE_YEARLY_PRICE_ID!; },
+    get TROUPE_XL_MONTHLY() { return process.env.STRIPE_TROUPE_XL_PRICE_ID!; },
+    get TROUPE_XL_YEARLY() { return process.env.STRIPE_TROUPE_XL_YEARLY_PRICE_ID!; },
 };
 
 // Subscription tier mapping
@@ -49,7 +55,8 @@ export type SubscriptionTier = 'free' | 'solo_pro' | 'troupe' | 'troupe_xl';
 export function getTierFromPriceId(priceId: string): SubscriptionTier {
     const prices = getStripePrices();
     if (priceId === prices.SOLO_PRO_MONTHLY || priceId === prices.SOLO_PRO_YEARLY) return 'solo_pro';
-    if (priceId === prices.TROUPE_MONTHLY) return 'troupe';
+    if (priceId === prices.TROUPE_MONTHLY || priceId === prices.TROUPE_YEARLY) return 'troupe';
+    if (priceId === prices.TROUPE_XL_MONTHLY || priceId === prices.TROUPE_XL_YEARLY) return 'troupe_xl';
     return 'free';
 }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
+import { getBaseUrlFromRequest } from '@/lib/server/url';
 
 export async function POST(request: NextRequest) {
     try {
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const origin = request.headers.get('origin') || 'http://localhost:3000';
+        const origin = getBaseUrlFromRequest(request);
 
         // Create Stripe Customer Portal session
         const session = await stripe.billingPortal.sessions.create({
@@ -37,10 +38,11 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ url: session.url });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Erreur lors de l\'accès au portail.';
         console.error('Stripe Portal Error:', error);
         return NextResponse.json(
-            { error: error.message || 'Erreur lors de l\'accès au portail.' },
+            { error: message },
             { status: 500 }
         );
     }

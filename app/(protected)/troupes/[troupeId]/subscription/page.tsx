@@ -2,7 +2,6 @@ import { getTroupeDetails, getTroupeSettingsData } from "@/lib/actions/troupe";
 import { canManageTroupe } from "@/lib/utils/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { TroupeSubscriptionManager } from "@/components/troupe-subscription-manager";
 
@@ -50,7 +49,6 @@ export default async function SubscriptionPage({
                     hasStripeCustomerId: false
                 }}
                 troupeId={troupeId}
-                troupeName={troupe.name}
             />
         </div>
     );

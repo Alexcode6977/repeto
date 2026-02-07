@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
+import { getBaseUrlFromRequest } from '@/lib/server/url';
+import { canManageTroupe } from '@/lib/utils/roles';
 
 export async function POST(request: NextRequest) {
     try {
@@ -50,8 +52,46 @@ export async function POST(request: NextRequest) {
                 .eq('id', user.id);
         }
 
+        // Existing troupe checkout: enforce permissions and prevent duplicate subscriptions.
+        if (troupeId) {
+            const [{ data: membership }, { data: troupe }] = await Promise.all([
+                supabase
+                    .from('troupe_members')
+                    .select('roles')
+                    .eq('troupe_id', troupeId)
+                    .eq('user_id', user.id)
+                    .maybeSingle(),
+                supabase
+                    .from('troupes')
+                    .select('stripe_subscription_id, stripe_customer_id, subscription_status')
+                    .eq('id', troupeId)
+                    .maybeSingle(),
+            ]);
+
+            if (!canManageTroupe(membership?.roles)) {
+                return NextResponse.json(
+                    { error: 'Vous n’avez pas les droits pour gérer l’abonnement de cette troupe.' },
+                    { status: 403 }
+                );
+            }
+
+            const hasActiveStripeSubscription =
+                !!troupe?.stripe_subscription_id &&
+                ['active', 'past_due', 'trialing'].includes(troupe.subscription_status || '');
+
+            if (hasActiveStripeSubscription) {
+                return NextResponse.json(
+                    {
+                        error: 'Un abonnement Stripe est déjà actif pour cette troupe. Utilisez le portail de facturation.',
+                        alreadySubscribed: true,
+                    },
+                    { status: 409 }
+                );
+            }
+        }
+
         // Determine success/cancel URLs
-        const origin = request.headers.get('origin') || 'http://localhost:3000';
+        const origin = getBaseUrlFromRequest(request);
 
         // For troupe creation, redirect to a special handler
         const isTroupeCreation = troupeName && (troupeTier === 'troupe' || troupeTier === 'troupe_xl');
@@ -99,10 +139,11 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json({ url: session.url });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Erreur lors de la création du paiement.';
         console.error('Stripe Checkout Error:', error);
         return NextResponse.json(
-            { error: error.message || 'Erreur lors de la création du paiement.' },
+            { error: message },
             { status: 500 }
         );
     }

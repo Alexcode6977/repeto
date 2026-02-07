@@ -3,8 +3,23 @@
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
+import { randomBytes } from 'crypto';
 import { canManageTroupe } from '@/lib/utils/roles';
+
+function generateJoinCode(): string {
+    return randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
+}
+
+function getAdminClient() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+        throw new Error('Server misconfigured');
+    }
+
+    return createAdminClient(supabaseUrl, serviceRoleKey);
+}
 
 export async function createTroupe(name: string, hasMoreThan12Members: boolean = false) {
     const supabase = await createClient();
@@ -14,8 +29,8 @@ export async function createTroupe(name: string, hasMoreThan12Members: boolean =
         throw new Error('Unauthorized');
     }
 
-    // Generate a simple 6-char code
-    const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Generate a 6-char code with stronger entropy.
+    const joinCode = generateJoinCode();
 
     // Determine tier based on member count
     const tier = hasMoreThan12Members ? 'troupe_xl' : 'troupe';
@@ -170,12 +185,13 @@ export async function joinTroupe(joinCode: string) {
 
     const normalizedCode = joinCode.toUpperCase().trim();
 
-    // 1. Find the troupe by code
-    const { data: troupe, error: findError } = await supabase
+    // 1. Find the troupe by code using admin client (RLS no longer exposes all troupes).
+    const supabaseAdmin = getAdminClient();
+    const { data: troupe, error: findError } = await supabaseAdmin
         .from('troupes')
         .select('id, join_code')
         .eq('join_code', normalizedCode)
-        .single();
+        .maybeSingle();
 
     if (findError || !troupe) {
         throw new Error('Code invalide ou troupe introuvable.');
@@ -211,10 +227,10 @@ export async function joinTroupe(joinCode: string) {
     // 3. Check if already a member
     const { data: existingMember } = await supabase
         .from('troupe_members')
-        .select('role')
+        .select('user_id')
         .eq('troupe_id', troupe.id)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
     if (existingMember) {
         // Already a member, just return id
@@ -687,7 +703,7 @@ export async function getTroupeSettingsData(troupeId: string) {
     const { data: troupeData, error: troupeError } = await supabase
         .from('troupes')
         .select(`
-            id, name, join_code, created_at, created_by, subscription_status, subscription_tier,
+            id, name, join_code, created_at, created_by, subscription_status, subscription_tier, stripe_customer_id, stripe_subscription_id,
             trial_end_date, trial_started_at,
             members:troupe_members (
                 user_id, roles,
@@ -741,7 +757,8 @@ export async function getTroupeSettingsData(troupeId: string) {
     }) || [];
 
     const tier = (troupeData as any).subscription_tier || 'troupe';
-    const isSubscribed = troupeData.subscription_status === 'active' || tier === 'troupe' || tier === 'troupe_xl';
+    const status = troupeData.subscription_status || 'inactive';
+    const isSubscribed = ['active', 'trialing', 'past_due'].includes(status);
 
     // Plan display name based on tier
     const planNames: Record<string, string> = {
@@ -782,8 +799,9 @@ export async function getTroupeSettingsData(troupeId: string) {
             tier: tier, // raw tier value
             memberLimit: memberLimit,
             currentCount: totalCount,
-            hasStripeCustomerId: !!(myMembership?.profiles && (Array.isArray(myMembership.profiles) ? myMembership.profiles[0] : myMembership.profiles)?.stripe_customer_id),
-            status: troupeData.subscription_status,
+            hasStripeCustomerId: !!(troupeData as any).stripe_customer_id,
+            hasStripeSubscriptionId: !!(troupeData as any).stripe_subscription_id,
+            status: status,
             trialEndDate: (troupeData as any).trial_end_date || null,
             trialStartedAt: (troupeData as any).trial_started_at || null
         }

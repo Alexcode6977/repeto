@@ -27,8 +27,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-
-const ADMIN_EMAIL = "alex69.sartre@gmail.com";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 interface ImportWizardProps {
     showImportGuide: boolean;
@@ -47,6 +46,7 @@ export function ImportWizard({
     onImportComplete,
     onError,
 }: ImportWizardProps) {
+    const isAdminUser = isPlatformAdminEmail(userEmail);
     // --- STATE ---
     const [isImporting, setIsImporting] = useState(false);
     const [currentFile, setCurrentFile] = useState<File | null>(null);
@@ -525,7 +525,7 @@ export function ImportWizard({
                     {/* ... Content based on User Tier ... */}
 
                     {/* REGULAR USERS OR ADMIN DURING IMPORT */}
-                    {(userTier === "free" && userEmail !== ADMIN_EMAIL) ? (
+                    {(userTier === "free" && !isAdminUser) ? (
                         // FREE TIER UI
                         <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>

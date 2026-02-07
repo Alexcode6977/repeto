@@ -11,6 +11,19 @@ function getSupabaseAdmin() {
     );
 }
 
+async function markStripeEventProcessed(event: Stripe.Event): Promise<boolean> {
+    const { error } = await getSupabaseAdmin()
+        .from('stripe_webhook_events')
+        .insert({
+            event_id: event.id,
+            event_type: event.type,
+        });
+
+    if (!error) return true;
+    if (error.code === '23505') return false;
+    throw error;
+}
+
 export async function POST(request: NextRequest) {
     const body = await request.text();
     const signature = request.headers.get('stripe-signature');
@@ -41,6 +54,12 @@ export async function POST(request: NextRequest) {
     console.log(`[Stripe Webhook] Received event: ${event.type}`);
 
     try {
+        const isNewEvent = await markStripeEventProcessed(event);
+        if (!isNewEvent) {
+            console.log(`[Stripe Webhook] Duplicate event ignored: ${event.id}`);
+            return NextResponse.json({ received: true, duplicate: true });
+        }
+
         switch (event.type) {
             case 'checkout.session.completed':
                 await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
@@ -97,7 +116,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     // Update profile or troupe based on subscription type
     const supabase = getSupabaseAdmin();
 
-    if (troupeId && tier === 'troupe') {
+    if (troupeId && (tier === 'troupe' || tier === 'troupe_xl')) {
         // Troupe subscription - reactivate if inactive
         const { data: troupeData } = await supabase
             .from('troupes')
@@ -112,10 +131,12 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
             .from('troupes')
             .update({
                 subscription_status: 'active',
-                subscription_tier: 'troupe',
+                subscription_tier: tier,
                 stripe_customer_id: session.customer as string,
                 stripe_subscription_id: subscriptionId,
                 inactivated_at: null, // Clear inactivation date on reactivation
+                trial_started_at: null,
+                trial_end_date: null,
             })
             .eq('id', troupeId);
 
@@ -181,6 +202,7 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
             .from('troupes')
             .update({
                 subscription_status: status,
+                subscription_tier: tier === 'free' ? 'troupe' : tier,
             })
             .eq('id', troupeId);
 

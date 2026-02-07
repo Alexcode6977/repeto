@@ -6,6 +6,7 @@ import { ParsedScript } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 // pdf-parse required inside action
 
@@ -294,8 +295,6 @@ export async function renameScriptAction(scriptId: string, newTitle: string) {
     revalidatePath("/dashboard");
 }
 
-const ADMIN_EMAIL = "alex69.sartre@gmail.com";
-
 export async function getScripts() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -329,7 +328,7 @@ export async function togglePublicStatus(scriptId: string, currentStatus: boolea
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user || user.email !== ADMIN_EMAIL) {
+    if (!user || !isPlatformAdminEmail(user.email)) {
         throw new Error("Unauthorized: Only Admin can manage library.");
     }
 
@@ -383,7 +382,7 @@ export async function deleteScript(id: string) {
     // Check if script is public before deleting
     const { data: script } = await supabase.from("scripts").select("is_public, user_id").eq("id", id).single();
 
-    if (script?.is_public && user.email !== ADMIN_EMAIL) {
+    if (script?.is_public && !isPlatformAdminEmail(user.email)) {
         throw new Error("Cannot delete a public library script.");
     }
 

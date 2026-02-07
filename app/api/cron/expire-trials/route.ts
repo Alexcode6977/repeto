@@ -7,9 +7,14 @@ import { expireTrials } from '@/lib/cron/expire-trials';
 
 export async function GET(request: Request) {
     try {
-        // Optional: Add authentication header check for security
+        // Require a token in production to avoid exposing cron execution.
         const authHeader = request.headers.get('authorization');
         const expectedToken = process.env.CRON_SECRET_TOKEN;
+        const isProduction = process.env.NODE_ENV === 'production';
+
+        if (isProduction && !expectedToken) {
+            return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+        }
 
         if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -22,10 +27,11 @@ export async function GET(request: Request) {
             timestamp: new Date().toISOString(),
             results
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Internal server error';
         console.error('[CRON API] Error:', error);
         return NextResponse.json(
-            { error: error.message || 'Internal server error' },
+            { error: message },
             { status: 500 }
         );
     }

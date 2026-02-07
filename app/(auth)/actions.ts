@@ -4,30 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { getBaseUrlFromHost } from "@/lib/server/url";
 
 export async function signInWithGoogle() {
     const supabase = await createClient();
     const headersList = await headers();
-
-    // Get origin properly - check origin header first, then construct from host
-    const originHeader = headersList.get("origin");
-    const xForwardedHost = headersList.get("x-forwarded-host");
-    const host = headersList.get("host");
-
-    let origin: string;
-    if (originHeader) {
-        origin = originHeader;
-    } else if (xForwardedHost) {
-        origin = `https://${xForwardedHost}`;
-    } else if (host) {
-        // For localhost, use http
-        origin = host.includes("localhost") ? `http://${host}` : `https://${host}`;
-    } else {
-        origin = "http://localhost:3000";
-    }
-
-    console.log("[Google OAuth] Redirect origin:", origin);
-    console.log("[Google OAuth] Headers:", { originHeader, xForwardedHost, host });
+    const origin = getBaseUrlFromHost(
+        headersList.get("x-forwarded-host") || headersList.get("host")
+    );
 
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -72,11 +56,9 @@ export async function login(formData: FormData) {
 export async function signup(formData: FormData) {
     const supabase = await createClient();
     const headersList = await headers();
-    const origin = headersList.get("origin") || headersList.get("x-forwarded-host")
-        ? `https://${headersList.get("x-forwarded-host")}`
-        : headersList.get("host")
-            ? `https://${headersList.get("host")}`
-            : "http://localhost:3000";
+    const origin = getBaseUrlFromHost(
+        headersList.get("x-forwarded-host") || headersList.get("host")
+    );
 
     const firstName = formData.get("firstName") as string;
     const password = formData.get("password") as string;
@@ -130,11 +112,9 @@ export async function signup(formData: FormData) {
 export async function forgotPassword(formData: FormData) {
     const supabase = await createClient();
     const headersList = await headers();
-    const origin = headersList.get("origin") || headersList.get("x-forwarded-host")
-        ? `https://${headersList.get("x-forwarded-host")}`
-        : headersList.get("host")
-            ? `https://${headersList.get("host")}`
-            : "http://localhost:3000";
+    const origin = getBaseUrlFromHost(
+        headersList.get("x-forwarded-host") || headersList.get("host")
+    );
 
     const email = formData.get("email") as string;
 

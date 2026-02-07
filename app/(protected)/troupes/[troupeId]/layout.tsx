@@ -4,8 +4,7 @@ import { TroupeSidebar } from "@/components/troupe-sidebar";
 import { TroupeMobileNav } from "@/components/troupe-mobile-nav";
 import { TroupeHeader } from "@/components/troupe-header";
 import { createClient } from "@/lib/supabase/server";
-
-const ADMIN_EMAIL = "alex69.sartre@gmail.com";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 export default async function TroupeLayout({
     children,
@@ -40,7 +39,7 @@ export default async function TroupeLayout({
             .single();
 
         displayName = profile?.first_name || user.email?.split('@')[0] || "Utilisateur";
-        isAdminUser = user.email === ADMIN_EMAIL;
+        isAdminUser = isPlatformAdminEmail(user.email);
     }
 
     return (

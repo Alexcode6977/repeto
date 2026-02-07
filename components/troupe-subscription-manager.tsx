@@ -7,13 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 
 interface TroupeSubscriptionManagerProps {
     troupeId: string;
-    troupeName: string;
     subscription: {
         currentCount: number;
         memberLimit: number;
         plan: string;
         tier?: string;
         hasStripeCustomerId: boolean;
+        hasStripeSubscriptionId?: boolean;
         status?: string;
         trialEndDate?: string | null;
         trialStartedAt?: string | null;
@@ -22,16 +22,21 @@ interface TroupeSubscriptionManagerProps {
 
 export function TroupeSubscriptionManager({
     troupeId,
-    troupeName,
     subscription
 }: TroupeSubscriptionManagerProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const getErrorMessage = (err: unknown) => err instanceof Error ? err.message : "Une erreur est survenue.";
 
     const tier = subscription.tier || 'troupe';
+    const status = subscription.status || 'inactive';
     const isSubscribed = subscription.plan !== 'Free';
     const isTroupeXL = tier === 'troupe_xl';
-    const isTrialing = subscription.status === 'trialing';
+    const isTrialing = status === 'trialing';
+    const hasActiveSubscription = status === 'active' || status === 'past_due';
+    const hasExistingStripeSubscription =
+        !!subscription.hasStripeSubscriptionId && status !== 'canceled' && status !== 'inactive';
+    const canCreateCheckout = !(hasActiveSubscription || hasExistingStripeSubscription);
 
     // Calculate days remaining in trial
     const getDaysRemaining = () => {
@@ -51,6 +56,11 @@ export function TroupeSubscriptionManager({
     const currentPriceLabel = isSubscribed ? (priceLabels[tier] || '20€/mois') : 'Gratuit';
 
     const handleUpgrade = async (targetTier: 'troupe' | 'troupe_xl', billingCycle: 'monthly' | 'yearly' = 'monthly') => {
+        if (!canCreateCheckout) {
+            setError("Un abonnement est déjà actif pour cette troupe. Utilisez le portail de facturation.");
+            return;
+        }
+
         setLoading(true);
         setError(null);
 
@@ -86,9 +96,9 @@ export function TroupeSubscriptionManager({
             if (data.url) {
                 window.location.href = data.url;
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.message || "Une erreur est survenue.");
+            setError(getErrorMessage(err));
             setLoading(false);
         }
     };
@@ -105,9 +115,9 @@ export function TroupeSubscriptionManager({
             if (data.url) {
                 window.location.href = data.url;
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            setError(err.message || "Une erreur est survenue.");
+            setError(getErrorMessage(err));
             setLoading(false);
         }
     };
@@ -164,10 +174,20 @@ export function TroupeSubscriptionManager({
                                     </p>
                                 </div>
                                 <p className="text-xs text-muted-foreground">
-                                    ⚡ Activez votre abonnement pour continuer après l'essai
+                                    ⚡ Activez votre abonnement pour continuer après l&apos;essai
                                 </p>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {!canCreateCheckout && (
+                    <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <p className="text-sm font-semibold text-emerald-400">Abonnement actif détecté</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Pour éviter les doubles paiements, les nouveaux checkouts sont bloqués pour cette troupe.
+                            Utilisez le bouton &quot;Gérer la facturation&quot; pour changer de plan dans Stripe.
+                        </p>
                     </div>
                 )}
 
@@ -177,7 +197,7 @@ export function TroupeSubscriptionManager({
                         <>
                             <Button
                                 onClick={() => handleUpgrade('troupe', 'monthly')}
-                                disabled={loading}
+                                disabled={loading || !canCreateCheckout}
                                 className="flex-1"
                             >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
@@ -185,7 +205,7 @@ export function TroupeSubscriptionManager({
                             </Button>
                             <Button
                                 onClick={() => handleUpgrade('troupe', 'yearly')}
-                                disabled={loading}
+                                disabled={loading || !canCreateCheckout}
                                 variant="outline"
                                 className="flex-1"
                             >
@@ -200,7 +220,7 @@ export function TroupeSubscriptionManager({
                         <>
                             <Button
                                 onClick={() => handleUpgrade('troupe_xl', 'monthly')}
-                                disabled={loading}
+                                disabled={loading || !canCreateCheckout}
                                 className="bg-violet-600 hover:bg-violet-700 flex-1"
                             >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
@@ -208,7 +228,7 @@ export function TroupeSubscriptionManager({
                             </Button>
                             <Button
                                 onClick={() => handleUpgrade('troupe_xl', 'yearly')}
-                                disabled={loading}
+                                disabled={loading || !canCreateCheckout}
                                 variant="outline"
                                 className="flex-1"
                             >
@@ -218,8 +238,8 @@ export function TroupeSubscriptionManager({
                         </>
                     )}
 
-                    {/* Show portal if subscribed */}
-                    {isSubscribed && (
+                    {/* Show portal if Stripe customer exists */}
+                    {subscription.hasStripeCustomerId && (
                         <Button
                             variant="outline"
                             onClick={handlePortal}

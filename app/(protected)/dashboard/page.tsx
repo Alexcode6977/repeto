@@ -42,8 +42,6 @@ const ListenMode = dynamic(() => import("@/components/listen-mode").then(mod => 
   loading: () => <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
 });
 
-const ADMIN_EMAIL = "alex69.sartre@gmail.com";
-
 export default function Home() {
   const [userName, setUserName] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
