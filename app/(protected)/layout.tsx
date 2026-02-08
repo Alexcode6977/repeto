@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { GlobalHeader } from "@/components/global-header";
 import { IosInstallPrompt } from "@/components/ios-install-prompt";
-import { getEffectiveTier } from "@/lib/subscription";
 import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 export default async function ProtectedLayout({
@@ -26,12 +25,11 @@ export default async function ProtectedLayout({
 
     const displayName = profile?.first_name || user.email?.split('@')[0] || "Utilisateur";
     const isAdmin = isPlatformAdminEmail(user.email);
-    const tier = await getEffectiveTier(user.id);
 
     return (
         <div className="min-h-screen bg-transparent flex flex-col font-sans">
             {/* Shared Header - Conditionally rendered via client component */}
-            <GlobalHeader displayName={displayName} isAdmin={isAdmin} tier={tier} />
+            <GlobalHeader displayName={displayName} isAdmin={isAdmin} />
 
             {/* iOS Install Prompt - Handles its own visibility logic */}
             <IosInstallPrompt />
@@ -43,4 +41,3 @@ export default async function ProtectedLayout({
         </div>
     );
 }
-

@@ -3,16 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { User, Shield } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { SingleMask, TripleMask } from "./icons/masks";
 
 interface GlobalHeaderProps {
     displayName: string;
     isAdmin: boolean;
-    tier: "free" | "solo_pro" | "troupe" | "troupe_xl";
 }
 
-export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) {
+export function GlobalHeader({ displayName, isAdmin }: GlobalHeaderProps) {
     const pathname = usePathname();
 
     // Hide global header on specific troupe routes to avoid double header
@@ -38,7 +36,7 @@ export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) 
 
             <div className="flex items-center gap-3">
                 <Link href="/troupes">
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer mr-2">
+                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer mr-2">
                         <TripleMask className="w-6 h-6" />
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">Troupes</span>
                     </div>
@@ -48,7 +46,7 @@ export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) 
                 {/* Admin Button - Only visible for admin */}
                 {isAdmin && (
                     <Link href="/admin">
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors cursor-pointer">
+                        <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors cursor-pointer">
                             <Shield className="w-4 h-4 text-red-400" />
                             <span className="text-sm font-bold text-red-400 hidden md:inline-block">
                                 Admin
@@ -58,7 +56,7 @@ export function GlobalHeader({ displayName, isAdmin, tier }: GlobalHeaderProps) 
                 )}
 
                 <Link href="/profile">
-                    <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer">
+                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-3 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer">
                         <User className="w-4 h-4 text-primary" />
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">
                             {displayName}

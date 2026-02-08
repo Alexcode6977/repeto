@@ -13,14 +13,12 @@ import { ParsedScript, ScriptMetadata } from "@/lib/types";
 import { ScriptViewerSingle } from "@/components/script-viewer-single";
 import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { getScriptsWithVoiceConfig } from "@/lib/actions/voice-cache";
 import { Loader2, AlertCircle } from "lucide-react"; // Using lucide direct import where possible, Button is usually component
 // Fix: Button should be from ui/button (Step 1 correction)
 // Actually DashboardHeader handles the UI. I only need Button/AlertCircle for the Error/Back UI in "ScriptView" mode.
 // Let's import proper UI components.
-import { Button as UIButton } from "@/components/ui/button";
 
 import { DashboardHeader } from "./components/dashboard-header";
 
@@ -84,8 +82,6 @@ export default function Home() {
   // Dashboard Layout Mode (Grid vs List)
   const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
 
-  const router = useRouter();
-
   // Load User & Scripts on Mount
   useEffect(() => {
     const init = async () => {
@@ -140,18 +136,12 @@ export default function Home() {
     }
   };
 
-  const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
-
   // --- SCRIPT ACTIONS (Passed to Grid) ---
 
   const handleLoadScript = async (s: ScriptMetadata) => {
     // ENFORCE VOICE CONFIGURATION
     // First-time check: If no voices configured, force open Casting Studio
-    if (!(s as any).hasVoiceConfig) {
+    if (!s.hasVoiceConfig) {
       setIsLoadingDetail(true);
       try {
         const fullScript = await getScriptById(s.id);
@@ -347,7 +337,6 @@ export default function Home() {
           setSearchQuery={setSearchQuery}
           showMobileSearch={showMobileSearch}
           setShowMobileSearch={setShowMobileSearch}
-          onLogout={handleLogout}
           onImportClick={() => setShowImportGuide(true)}
           isPending={false}
           layoutMode={layoutMode}

@@ -1,21 +1,34 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { AttendanceToggle } from "./attendance-toggle";
 import { EventDetailsModal } from "./event-details-modal";
 import { DayViewModal } from "./day-view-modal";
 import { ChevronLeft, ChevronRight, Calendar, Users } from "lucide-react";
 
+interface EventAttendance {
+    user_id: string;
+    status: string;
+}
+
+interface CalendarEvent {
+    id: string;
+    title: string;
+    event_type: string;
+    start_time: string;
+    end_time?: string | null;
+    event_attendance?: EventAttendance[];
+}
+
 interface CalendarViewProps {
     currentMonth: number;
     currentYear: number;
-    eventsByDate: Record<number, any[]>;
+    eventsByDate: Record<number, CalendarEvent[]>;
     userId: string;
-    members: any[];
+    members: unknown[];
     isAdmin: boolean;
     onDayClick?: (date: Date) => void;
 }
@@ -31,8 +44,8 @@ const EVENT_COLORS: Record<string, string> = {
 export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, members, isAdmin, onDayClick }: CalendarViewProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
-    const [selectedDay, setSelectedDay] = useState<{ date: Date; events: any[] } | null>(null);
+    const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+    const [selectedDay, setSelectedDay] = useState<{ date: Date; events: CalendarEvent[] } | null>(null);
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -82,9 +95,17 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
     };
 
     // Handle day click on mobile
-    const handleMobileDayClick = (day: number, events: any[]) => {
+    const handleMobileDayClick = (day: number, events: CalendarEvent[]) => {
         const date = new Date(currentYear, currentMonth, day);
-        setSelectedDay({ date, events });
+        if (events.length > 0) {
+            setSelectedDay({ date, events });
+            return;
+        }
+
+        // Admin flow: empty day click opens the same create-event modal as the header button.
+        if (onDayClick) {
+            onDayClick(date);
+        }
     };
 
     // Go to today
@@ -117,7 +138,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                                 className="rounded-full text-xs font-bold hidden md:flex"
                             >
                                 <Calendar className="w-3 h-3 mr-1" />
-                                Aujourd'hui
+                                Aujourd&apos;hui
                             </Button>
                         )}
 
@@ -149,7 +170,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                             className="rounded-full text-xs font-bold mb-4 md:hidden w-full"
                         >
                             <Calendar className="w-3 h-3 mr-1" />
-                            Revenir à aujourd'hui
+                            Revenir à aujourd&apos;hui
                         </Button>
                     )}
 
@@ -167,11 +188,6 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                             const isToday = now.getDate() === day && now.getMonth() === currentMonth && now.getFullYear() === currentYear;
                             const hasEvents = dayEvents.length > 0;
 
-                            // Calculate presence for first event (quick preview)
-                            const firstEvent = dayEvents[0];
-                            const confirmedCount = firstEvent?.event_attendance?.filter((a: any) => a.status === 'present').length || 0;
-                            const totalInvited = firstEvent?.event_attendance?.length || 0;
-
                             return (
                                 <div
                                     key={day}
@@ -185,7 +201,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                                             ? 'border-primary/30'
                                             : 'border-transparent md:border-border'
                                         }
-                                        ${onDayClick ? 'cursor-pointer hover:bg-muted/30' : 'md:cursor-default cursor-pointer'} 
+                                        ${onDayClick || hasEvents ? 'cursor-pointer hover:bg-muted/30' : 'md:cursor-default cursor-default'} 
                                         active:scale-[0.98] md:active:scale-100 transition-all
                                     `}
                                     onClick={() => {
@@ -241,7 +257,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                                     {/* Desktop Events List */}
                                     <div className="space-y-1 hidden md:block">
                                         {dayEvents.slice(0, 2).map(e => {
-                                            const confirmedCount = e.event_attendance?.filter((a: any) => a.status === 'present').length || 0;
+                                            const confirmedCount = e.event_attendance?.filter((a) => a.status === 'present').length || 0;
                                             const totalInvited = e.event_attendance?.length || 0;
 
                                             return (

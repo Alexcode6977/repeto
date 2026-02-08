@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, User, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -18,6 +18,7 @@ interface PlayPosterCardProps {
     troupeId: string;
     index?: number;
     isCompact?: boolean;
+    aspectClass?: string;
 }
 
 const GRADIENTS = [
@@ -29,7 +30,13 @@ const GRADIENTS = [
     "from-rose-500 via-red-500 to-orange-500",
 ];
 
-export function PlayPosterCard({ play, troupeId, index = 0, isCompact = false }: PlayPosterCardProps) {
+export function PlayPosterCard({
+    play,
+    troupeId,
+    index = 0,
+    isCompact = false,
+    aspectClass,
+}: PlayPosterCardProps) {
     // Deterministic gradient based on title length + index
     const gradientIndex = (play.title.length + index) % GRADIENTS.length;
     const gradient = GRADIENTS[gradientIndex];
@@ -48,7 +55,7 @@ export function PlayPosterCard({ play, troupeId, index = 0, isCompact = false }:
         >
             <Link
                 href={`/troupes/${troupeId}/plays/${play.id}`}
-                className={cn("group block relative w-full", isCompact ? "aspect-square" : "aspect-[2/3]")}
+                className={cn("group block relative w-full", aspectClass || (isCompact ? "aspect-square" : "aspect-[2/3]"))}
             >
                 {/* Main Card Container */}
                 <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-card">

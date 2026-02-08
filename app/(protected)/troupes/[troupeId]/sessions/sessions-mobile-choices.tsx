@@ -7,15 +7,15 @@ import {
     Loader2,
     CheckCircle2,
     ArrowRight,
-    ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SessionsMobileChoicesProps {
     troupeId: string;
+    isAdmin: boolean;
 }
 
-export function SessionsMobileChoices({ troupeId }: SessionsMobileChoicesProps) {
+export function SessionsMobileChoices({ troupeId, isAdmin }: SessionsMobileChoicesProps) {
     const categories = [
         {
             id: "preparation",
@@ -66,6 +66,9 @@ export function SessionsMobileChoices({ troupeId }: SessionsMobileChoicesProps) 
             glow: "bg-emerald-500/10"
         }
     ];
+    const visibleCategories = isAdmin
+        ? categories
+        : categories.filter((cat) => cat.id === "upcoming" || cat.id === "validated");
 
     return (
         <div className="md:hidden flex flex-col gap-6 py-4">
@@ -75,21 +78,21 @@ export function SessionsMobileChoices({ troupeId }: SessionsMobileChoicesProps) 
                 <div className="h-10 w-1.5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)]" />
                 <div>
                     <h2 className="text-2xl font-black tracking-tight text-white leading-tight">Gestion des Séances</h2>
-                    <p className="text-white/40 text-xs font-medium">Choisissez l'état à consulter</p>
+                    <p className="text-white/40 text-xs font-medium">Choisissez l&apos;état à consulter</p>
                 </div>
             </div>
 
             {/* Grid of Choices */}
             <div className="grid grid-cols-1 gap-4">
-                {categories.map((cat) => (
+                {visibleCategories.map((cat) => (
                     <Link key={cat.id} href={cat.href} className="block group">
                         <div className={cn(
-                            "relative overflow-hidden rounded-[2rem] border border-white/5 p-6 shadow-2xl transition-all duration-300 active:scale-[0.98]",
+                            "relative overflow-hidden rounded-[2rem] border border-white/5 p-6 shadow-2xl mobile-heavy-surface transition-all duration-300 active:scale-[0.98]",
                             cat.bg
                         )}>
                             {/* Background Glow */}
                             <div className={cn(
-                                "absolute top-0 right-0 w-48 h-48 blur-[60px] rounded-full pointer-events-none group-hover:opacity-100 opacity-60 transition-opacity",
+                                "absolute top-0 right-0 w-48 h-48 blur-[60px] mobile-heavy-glow rounded-full pointer-events-none group-hover:opacity-100 opacity-60 transition-opacity",
                                 cat.glow
                             )} />
 

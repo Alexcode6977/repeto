@@ -1,51 +1,69 @@
 'use client';
 
-import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { ChevronRight, Calendar, CheckCircle2, Clock, Loader2, Sparkles } from "lucide-react";
+import { ChevronRight, Calendar, CheckCircle2, Clock, Loader2, Sparkles, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+type SessionTab = 'preparation' | 'upcoming' | 'processing' | 'validated';
+
+interface SessionPlan {
+    status?: 'preparation' | 'draft' | 'upcoming' | 'published' | 'processing' | 'validated' | null;
+    selected_scenes?: Array<{ id: string }> | null;
+}
+
+interface SessionItem {
+    id: string;
+    start_time: string;
+    title?: string | null;
+    plays?: { title?: string | null } | null;
+    session_plans?: SessionPlan | SessionPlan[] | null;
+}
+
 interface SessionListClientProps {
-    sessions: any[];
+    sessions: SessionItem[];
     troupeId: string;
     isAdmin: boolean;
 }
 
+const getSessionPlan = (session: SessionItem): SessionPlan | undefined => {
+    if (!session.session_plans) return undefined;
+    return Array.isArray(session.session_plans) ? session.session_plans[0] : session.session_plans;
+};
+
 export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListClientProps) {
     const searchParams = useSearchParams();
     const activeTab = searchParams.get('tab');
-    const now = new Date();
 
     // Categorize sessions based on status
     const preparation = sessions.filter(s => {
-        const status = s.session_plans?.status;
+        const status = getSessionPlan(s)?.status;
         return !status || status === 'preparation' || status === 'draft';
     }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 
     const upcoming = sessions.filter(s => {
-        const status = s.session_plans?.status;
+        const status = getSessionPlan(s)?.status;
         return status === 'upcoming' || status === 'published';
     }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 
     const processing = sessions.filter(s => {
-        const status = s.session_plans?.status;
+        const status = getSessionPlan(s)?.status;
         return status === 'processing';
     }).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()); // Recent first
 
     const validated = sessions.filter(s => {
-        const status = s.session_plans?.status;
+        const status = getSessionPlan(s)?.status;
         return status === 'validated';
     }).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()); // Recent first
 
     return (
         <Tabs defaultValue={activeTab || (upcoming.length > 0 ? "upcoming" : "preparation")} className="w-full relative">
-            <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md pb-4 pt-2 -mx-4 px-4 md:static md:bg-transparent md:backdrop-blur-none md:p-0 md:m-0 md:mb-8">
-                <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-12 w-full justify-between items-center shadow-2xl">
+            <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md mobile-heavy-surface pb-4 pt-2 -mx-4 px-4 md:static md:bg-transparent md:backdrop-blur-none md:p-0 md:m-0 md:mb-8">
+                <TabsList className="bg-white/5 border border-white/10 p-1 rounded-2xl h-12 w-full justify-between items-center shadow-2xl mobile-heavy-surface">
                     {isAdmin && (
                         <TabsTrigger
                             value="preparation"
@@ -136,7 +154,7 @@ export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListCl
     );
 }
 
-function EmptyState({ list, message, icon: Icon }: { list: any[], message: string, icon: any }) {
+function EmptyState({ list, message, icon: Icon }: { list: SessionItem[]; message: string; icon: LucideIcon }) {
     if (list.length > 0) return null;
     return (
         <div className="text-center py-20 bg-muted/5 rounded-3xl border border-dashed border-border/50 flex flex-col items-center gap-4">
@@ -148,9 +166,9 @@ function EmptyState({ list, message, icon: Icon }: { list: any[], message: strin
     );
 }
 
-function SessionCard({ session, troupeId, status, isAdmin }: { session: any, troupeId: string, status: 'preparation' | 'upcoming' | 'processing' | 'validated', isAdmin: boolean }) {
+function SessionCard({ session, troupeId, status, isAdmin }: { session: SessionItem; troupeId: string; status: SessionTab; isAdmin: boolean }) {
     const date = new Date(session.start_time);
-    const sceneCount = session.session_plans?.selected_scenes?.length || 0;
+    const sceneCount = getSessionPlan(session)?.selected_scenes?.length || 0;
 
     const statusConfig = {
         preparation: { color: "text-gray-500", bg: "bg-gray-500/10", border: "border-gray-500/20", label: "En préparation" },
@@ -209,13 +227,13 @@ function SessionCard({ session, troupeId, status, isAdmin }: { session: any, tro
 
                     {isUpcoming ? (
                         <div className="flex items-center gap-2">
-                            <Button asChild variant="secondary" size="sm" className="font-bold">
+                            <Button asChild variant="secondary" size="sm" className="font-bold h-11 md:h-9 px-4">
                                 <Link href={`/troupes/${troupeId}/sessions/${session.id}`}>
                                     Voir
                                 </Link>
                             </Button>
                             {isAdmin && (
-                                <Button asChild size="sm" className="font-bold bg-green-600 hover:bg-green-700 text-white">
+                                <Button asChild size="sm" className="font-bold bg-green-600 hover:bg-green-700 text-white h-11 md:h-9 px-4">
                                     <Link href={`/troupes/${troupeId}/sessions/${session.id}/live`}>
                                         Lancer
                                     </Link>
@@ -223,7 +241,7 @@ function SessionCard({ session, troupeId, status, isAdmin }: { session: any, tro
                             )}
                         </div>
                     ) : (
-                        <Link href={`/troupes/${troupeId}/sessions/${session.id}`} className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-muted/20 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all">
+                        <Link href={`/troupes/${troupeId}/sessions/${session.id}`} className="w-11 h-11 md:w-10 md:h-10 rounded-full bg-muted/20 flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all">
                             <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
                         </Link>
                     )}

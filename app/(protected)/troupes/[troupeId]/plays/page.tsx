@@ -2,8 +2,7 @@ import { getTroupePlays } from "@/lib/actions/play";
 import { getTroupeDetails } from "@/lib/actions/troupe";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plus, BookOpen, User, ArrowLeft } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Plus, BookOpen } from "lucide-react";
 import { DeletePlayButton } from "./delete-play-button";
 import { PlayPosterCard } from "./play-poster-card";
 import { PlaysCarousel } from "./plays-carousel";
@@ -42,13 +41,23 @@ export default async function TroupePlaysPage({
             {/* Plays Grid / Carousel */}
 
             {/* Mobile View: Horizontal Carousel */}
-            <div className="md:hidden">
+            <div className="md:hidden space-y-4">
+                {canManage && (
+                    <div className="flex justify-end">
+                        <Button asChild size="sm" className="rounded-full font-semibold">
+                            <Link href={`/troupes/${troupeId}/plays/new`}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                Ajouter une pièce
+                            </Link>
+                        </Button>
+                    </div>
+                )}
                 <PlaysCarousel plays={plays} troupeId={troupeId} isAdmin={canManage} />
             </div>
 
             {/* Desktop View: Grid */}
             <div className="hidden md:grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
-                {plays.map((play: any, index: number) => (
+                {plays.map((play, index: number) => (
                     <div key={play.id} className="relative group/wrapper">
                         {canManage && (
                             <div className="absolute -top-2 -right-2 z-50 opacity-0 group-hover/wrapper:opacity-100 transition-opacity">

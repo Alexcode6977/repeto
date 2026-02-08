@@ -1,13 +1,13 @@
 'use client';
 
-import { createEvent, updateAttendance } from "@/lib/actions/calendar";
+import { createEvent } from "@/lib/actions/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useEffect, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2 } from "lucide-react";
+import { CalendarDays, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AddEventModalProps {
@@ -17,12 +17,18 @@ interface AddEventModalProps {
     defaultDate?: Date | null;
 }
 
+const toInputDate = (value: Date) => {
+    const yyyy = value.getFullYear();
+    const mm = String(value.getMonth() + 1).padStart(2, "0");
+    const dd = String(value.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+};
+
 export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: AddEventModalProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
 
-    // Controlled vs Uncontrolled state
     const isControlled = isOpen !== undefined && onOpenChange !== undefined;
     const open = isControlled ? isOpen : internalOpen;
     const setOpen = isControlled ? onOpenChange : setInternalOpen;
@@ -33,21 +39,20 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
     const [endTime, setEndTime] = useState("20:00");
     const [recurrence, setRecurrence] = useState<"none" | "weekly">("none");
 
-    const [hasInitialized, setHasInitialized] = useState(false);
+    useEffect(() => {
+        if (!open) return;
+        setDate(toInputDate(defaultDate || new Date()));
+        setFormError(null);
+    }, [open, defaultDate]);
 
-    // Sync defaultDate when opening
-    if (open && defaultDate && !hasInitialized) {
-        const yyyy = defaultDate.getFullYear();
-        const mm = String(defaultDate.getMonth() + 1).padStart(2, '0');
-        const dd = String(defaultDate.getDate()).padStart(2, '0');
-        setDate(`${yyyy}-${mm}-${dd}`);
-        setHasInitialized(true);
-    }
-
-    // Reset initialization when closing
-    if (!open && hasInitialized) {
-        setHasInitialized(false);
-    }
+    useEffect(() => {
+        if (open) return;
+        setTitle("");
+        setStartTime("18:00");
+        setEndTime("20:00");
+        setRecurrence("none");
+        setIsLoading(false);
+    }, [open]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -88,15 +93,10 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
                 undefined,
                 recurrence
             );
-
             setOpen(false);
-            // Reset form
-            setTitle("");
-            // Keep date if it was set via click, but maybe reset if we want fresh start next time? 
-            // Better to keep user flow simple.
         } catch (error) {
             console.error(error);
-            alert("Erreur lors de la création de l'événement.");
+            setFormError("Erreur lors de la création de l'événement.");
         } finally {
             setIsLoading(false);
         }
@@ -113,42 +113,46 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
                 </DialogTrigger>
             )}
 
-            <DialogContent className={cn(
-                "z-[220] border-white/10 p-0 overflow-hidden max-h-[85vh]",
-                // Mobile: Bottom Side
-                "fixed bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0 max-w-none rounded-t-[2rem] rounded-b-none",
-                // Desktop: Center
-                "md:fixed md:top-[50%] md:left-[50%] md:translate-x-[-50%] md:translate-y-[-50%] md:max-w-[420px] md:rounded-3xl",
-                "bg-[#0a0a0f]/98 backdrop-blur-2xl shadow-[0_-20px_80px_rgba(0,0,0,0.8)]"
-            )}>
-                {/* Mobile Handle */}
+            <DialogContent
+                className={cn(
+                    "z-[220] border-white/10 p-0 overflow-hidden max-h-[88vh]",
+                    "fixed bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0 max-w-none rounded-t-[2rem] rounded-b-none",
+                    "md:fixed md:top-[50%] md:left-[50%] md:translate-x-[-50%] md:translate-y-[-50%] md:max-w-[460px] md:rounded-3xl",
+                    "bg-[#0a0a0f]/98 backdrop-blur-2xl shadow-[0_-20px_80px_rgba(0,0,0,0.8)]"
+                )}
+            >
                 <div className="flex md:hidden justify-center pt-3 pb-1">
-                    <div className="w-10 h-1 rounded-full bg-white/10" />
+                    <div className="w-10 h-1 rounded-full bg-white/20" />
                 </div>
 
-                <div className="p-6 md:p-8">
-                    <DialogHeader className="mb-6 space-y-1">
-                        <DialogTitle className="text-xl md:text-2xl font-black tracking-tight text-white md:text-center">
+                <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-4 md:px-8 md:pb-8 md:pt-7">
+                    <DialogHeader className="mb-5 space-y-2">
+                        <DialogTitle className="text-2xl font-black tracking-tight text-white md:text-center">
                             Nouvel événement
                         </DialogTitle>
-                        <DialogDescription className="text-white/60 text-xs font-medium md:text-center">
+                        <DialogDescription className="text-white/60 text-sm font-medium md:text-center">
                             Planifiez votre prochaine séance.
                         </DialogDescription>
                     </DialogHeader>
 
                     <AddEventForm
-                        title={title} setTitle={setTitle}
-                        date={date} setDate={setDate}
-                        startTime={startTime} setStartTime={setStartTime}
-                        endTime={endTime} setEndTime={setEndTime}
-                recurrence={recurrence} setRecurrence={setRecurrence}
-                handleSubmit={handleSubmit}
-                isLoading={isLoading}
-                formError={formError}
-                setFormError={setFormError}
-            />
-        </div>
-    </DialogContent>
+                        title={title}
+                        setTitle={setTitle}
+                        date={date}
+                        setDate={setDate}
+                        startTime={startTime}
+                        setStartTime={setStartTime}
+                        endTime={endTime}
+                        setEndTime={setEndTime}
+                        recurrence={recurrence}
+                        setRecurrence={setRecurrence}
+                        handleSubmit={handleSubmit}
+                        isLoading={isLoading}
+                        formError={formError}
+                        setFormError={setFormError}
+                    />
+                </div>
+            </DialogContent>
         </Dialog>
     );
 }
@@ -171,100 +175,133 @@ interface FormProps {
 }
 
 function AddEventForm({
-    title, setTitle, date, setDate, startTime, setStartTime,
-    endTime, setEndTime, recurrence, setRecurrence,
-    handleSubmit, isLoading, formError, setFormError
+    title,
+    setTitle,
+    date,
+    setDate,
+    startTime,
+    setStartTime,
+    endTime,
+    setEndTime,
+    recurrence,
+    setRecurrence,
+    handleSubmit,
+    isLoading,
+    formError,
+    setFormError,
 }: FormProps) {
     return (
-        <form onSubmit={handleSubmit} className="flex flex-col max-h-[75vh]">
+        <form onSubmit={handleSubmit} className="flex flex-col max-h-[76vh]">
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-                <div className="grid gap-1.5">
-                    <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Titre de la séance</Label>
-                    <Input
-                        id="title"
-                        value={title}
-                        onChange={(e) => {
-                            setTitle(e.target.value);
-                            if (formError) setFormError(null);
-                        }}
-                        placeholder="Ex: Lecture Acte III"
-                        required
-                        className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white placeholder:text-white/40 px-4"
-                    />
-                </div>
-
-                <div className="grid gap-1.5">
-                    <Label htmlFor="date" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Date</Label>
-                    <Input
-                        id="date"
-                        type="date"
-                        value={date}
-                        onChange={(e) => {
-                            setDate(e.target.value);
-                            if (formError) setFormError(null);
-                        }}
-                        required
-                        className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4"
-                    />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
                     <div className="grid gap-1.5">
-                        <Label htmlFor="start" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Heure Début</Label>
+                        <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">
+                            Titre de la séance
+                        </Label>
                         <Input
-                            id="start"
-                            type="time"
-                            value={startTime}
+                            id="title"
+                            value={title}
                             onChange={(e) => {
-                                setStartTime(e.target.value);
+                                setTitle(e.target.value);
                                 if (formError) setFormError(null);
                             }}
+                            placeholder="Ex: Lecture Acte III"
                             required
-                            className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4"
+                            className="h-12 rounded-xl border-white/15 bg-white/10 px-4 text-sm font-semibold text-white placeholder:text-white/40 hover:border-white/30 focus-visible:ring-primary/60"
                         />
                     </div>
+
                     <div className="grid gap-1.5">
-                        <Label htmlFor="end" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Heure Fin</Label>
-                        <Input
-                            id="end"
-                            type="time"
-                            value={endTime}
-                            onChange={(e) => {
-                                setEndTime(e.target.value);
+                        <Label htmlFor="date" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">
+                            Date
+                        </Label>
+                        <div className="relative">
+                            <CalendarDays className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+                            <Input
+                                id="date"
+                                type="date"
+                                value={date}
+                                onChange={(e) => {
+                                    setDate(e.target.value);
+                                    if (formError) setFormError(null);
+                                }}
+                                required
+                                className="h-12 rounded-xl border-white/15 bg-white/10 pl-10 pr-4 text-sm font-semibold text-white hover:border-white/30 focus-visible:ring-primary/60 appearance-none [color-scheme:dark]"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="start" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">
+                                Heure début
+                            </Label>
+                            <Input
+                                id="start"
+                                type="time"
+                                value={startTime}
+                                onChange={(e) => {
+                                    setStartTime(e.target.value);
+                                    if (formError) setFormError(null);
+                                }}
+                                required
+                                className="h-12 rounded-xl border-white/15 bg-white/10 px-4 text-sm font-semibold text-white hover:border-white/30 focus-visible:ring-primary/60 appearance-none [color-scheme:dark]"
+                            />
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="end" className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">
+                                Heure fin
+                            </Label>
+                            <Input
+                                id="end"
+                                type="time"
+                                value={endTime}
+                                onChange={(e) => {
+                                    setEndTime(e.target.value);
+                                    if (formError) setFormError(null);
+                                }}
+                                required
+                                className="h-12 rounded-xl border-white/15 bg-white/10 px-4 text-sm font-semibold text-white hover:border-white/30 focus-visible:ring-primary/60 appearance-none [color-scheme:dark]"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid gap-1.5">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Répétition</Label>
+                        <Select
+                            value={recurrence}
+                            onValueChange={(val: "none" | "weekly") => {
+                                setRecurrence(val);
                                 if (formError) setFormError(null);
                             }}
-                            required
-                            className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4"
-                        />
+                        >
+                            <SelectTrigger className="h-12 rounded-xl border-white/15 bg-white/10 px-4 text-sm font-semibold text-white hover:border-white/30 focus:ring-primary/60 shadow-none">
+                                <SelectValue placeholder="Pas de récurrence" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#0a0a0f] border-white/10 text-white rounded-xl shadow-2xl p-1">
+                                <SelectItem value="none" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">
+                                    Une seule fois
+                                </SelectItem>
+                                <SelectItem value="weekly" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">
+                                    Toutes les semaines
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
-                </div>
-
-                <div className="grid gap-1.5">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/60 ml-1">Répétition</Label>
-                    <Select value={recurrence} onValueChange={(val: "none" | "weekly") => {
-                        setRecurrence(val);
-                        if (formError) setFormError(null);
-                    }}>
-                        <SelectTrigger className="h-12 bg-white/10 border-white/15 hover:border-white/25 focus:border-primary/60 rounded-xl transition-all font-bold text-sm text-white px-4 shadow-none">
-                            <SelectValue placeholder="Pas de récurrence" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#0a0a0f] border-white/10 text-white rounded-xl shadow-2xl p-1">
-                            <SelectItem value="none" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">Une seule fois</SelectItem>
-                            <SelectItem value="weekly" className="rounded-lg focus:bg-primary/20 focus:text-primary transition-colors py-2.5 text-sm">Toutes les semaines</SelectItem>
-                        </SelectContent>
-                    </Select>
                 </div>
 
                 {formError && (
-                    <p className="text-xs font-semibold text-red-400">{formError}</p>
+                    <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-300">
+                        {formError}
+                    </p>
                 )}
             </div>
 
-            <div className="pt-3 pb-[calc(env(safe-area-inset-bottom)+18px)]">
+            <div className="pt-4">
                 <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full h-13 rounded-2xl bg-primary hover:bg-primary/90 text-white font-black text-base transition-all active:scale-[0.98] shadow-[0_8px_30px_rgba(124,58,237,0.35)]"
+                    className="h-12 w-full rounded-2xl bg-primary font-black text-base text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)] transition-all hover:bg-primary/90 active:scale-[0.98]"
                 >
                     {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Plus className="mr-2 h-5 w-5" />}
                     Planifier la séance

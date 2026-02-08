@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Search, X, LogOut, Loader2, Plus, LayoutGrid, List } from "lucide-react";
+import { Search, X, Loader2, Plus, LayoutGrid, List } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DashboardHeaderProps {
@@ -8,7 +8,6 @@ interface DashboardHeaderProps {
     setSearchQuery: (query: string) => void;
     showMobileSearch: boolean;
     setShowMobileSearch: (show: boolean) => void;
-    onLogout: () => void;
     onImportClick: () => void;
     isPending: boolean;
     layoutMode: "grid" | "list";
@@ -21,7 +20,6 @@ export function DashboardHeader({
     setSearchQuery,
     showMobileSearch,
     setShowMobileSearch,
-    onLogout,
     onImportClick,
     isPending,
     layoutMode,
@@ -73,7 +71,7 @@ export function DashboardHeader({
                                 <button
                                     onClick={() => setLayoutMode("grid")}
                                     className={cn(
-                                        "p-1.5 rounded-lg transition-all",
+                                        "h-11 w-11 rounded-lg transition-all flex items-center justify-center",
                                         layoutMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
                                     )}
                                 >
@@ -82,7 +80,7 @@ export function DashboardHeader({
                                 <button
                                     onClick={() => setLayoutMode("list")}
                                     className={cn(
-                                        "p-1.5 rounded-lg transition-all",
+                                        "h-11 w-11 rounded-lg transition-all flex items-center justify-center",
                                         layoutMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
                                     )}
                                 >
@@ -93,14 +91,14 @@ export function DashboardHeader({
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-foreground hover:bg-muted rounded-full w-9 h-9"
+                                className="text-foreground hover:bg-muted rounded-full w-11 h-11"
                                 onClick={() => setShowMobileSearch(true)}
                             >
                                 <Search className="w-5 h-5" />
                             </Button>
                             <Button
                                 size="icon"
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-9 h-9 shadow-lg shadow-primary/20"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full w-11 h-11 shadow-lg shadow-primary/20"
                                 onClick={onImportClick}
                                 disabled={isPending}
                             >

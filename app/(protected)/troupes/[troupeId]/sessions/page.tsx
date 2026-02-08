@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ClipboardList, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { SessionListClient } from "./session-list-client";
+import { SessionsMobileChoices } from "./sessions-mobile-choices";
 
 export default async function SessionsPage({
     params
@@ -44,8 +45,13 @@ export default async function SessionsPage({
                 )}
             </div>
 
-            {/* Session List (Directly visible now) */}
-            <div id="planning-section">
+            {/* Mobile Entry Points */}
+            <div className="md:hidden">
+                <SessionsMobileChoices troupeId={troupeId} isAdmin={isAdmin} />
+            </div>
+
+            {/* Desktop Session List */}
+            <div id="planning-section" className="hidden md:block">
                 <SessionListClient
                     sessions={sessions}
                     troupeId={troupeId}

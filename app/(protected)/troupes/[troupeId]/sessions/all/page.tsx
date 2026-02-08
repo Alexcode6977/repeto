@@ -18,7 +18,7 @@ export default async function MobileSessionListPage({
     return (
         <div className="space-y-6 pb-20">
             <div className="flex items-center gap-2 mb-6">
-                <Link href={`/troupes/${troupeId}/sessions`} className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                <Link href={`/troupes/${troupeId}/sessions`} className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
                     <ChevronLeft className="w-5 h-5 text-muted-foreground" />
                 </Link>
                 <h1 className="text-2xl font-black tracking-tighter">Planning</h1>

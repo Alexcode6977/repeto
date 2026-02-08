@@ -54,6 +54,7 @@ export function TroupeSubscriptionManager({
         'troupe_xl': '30€/mois',
     };
     const currentPriceLabel = isSubscribed ? (priceLabels[tier] || '20€/mois') : 'Gratuit';
+    const trialTier: 'troupe' | 'troupe_xl' = isTroupeXL ? 'troupe_xl' : 'troupe';
 
     const handleUpgrade = async (targetTier: 'troupe' | 'troupe_xl', billingCycle: 'monthly' | 'yearly' = 'monthly') => {
         if (!canCreateCheckout) {
@@ -200,21 +201,21 @@ export function TroupeSubscriptionManager({
                     {(isTrialing || !isSubscribed) && (
                         <>
                             <Button
-                                onClick={() => handleUpgrade('troupe', 'monthly')}
+                                onClick={() => handleUpgrade(trialTier, 'monthly')}
                                 disabled={loading || !canCreateCheckout}
                                 className="flex-1"
                             >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
-                                Mensuel - Troupe (20€/mois)
+                                {trialTier === 'troupe_xl' ? 'Mensuel - Troupe XL (30€/mois)' : 'Mensuel - Troupe (20€/mois)'}
                             </Button>
                             <Button
-                                onClick={() => handleUpgrade('troupe', 'yearly')}
+                                onClick={() => handleUpgrade(trialTier, 'yearly')}
                                 disabled={loading || !canCreateCheckout}
                                 variant="outline"
                                 className="flex-1"
                             >
                                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
-                                Annuel - Troupe (200€/an)
+                                {trialTier === 'troupe_xl' ? 'Annuel - Troupe XL (300€/an)' : 'Annuel - Troupe (200€/an)'}
                             </Button>
                         </>
                     )}
