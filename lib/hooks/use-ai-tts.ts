@@ -22,6 +22,7 @@ export function useAITTS(): UseAITTSReturn {
     const [error, setError] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const audioCache = useRef<Map<string, HTMLAudioElement>>(new Map());
+    const preloadInFlight = useRef<Map<string, Promise<void>>>(new Map());
 
     // LRU-style cache eviction
     const addToCache = useCallback((key: string, audio: HTMLAudioElement) => {
@@ -48,18 +49,29 @@ export function useAITTS(): UseAITTSReturn {
     const preload = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM") => {
         const key = `${voice}:${text}`;
         if (audioCache.current.has(key)) return;
-
-        try {
-            const result = await synthesizeSpeech(text, voice);
-            if (!("error" in result)) {
-                const audio = new Audio(result.audio);
-                audio.preload = "auto";
-                audio.load();
-                addToCache(key, audio);
-            }
-        } catch (e) {
-            console.warn("Preload failed for:", text.substring(0, 20), e);
+        if (preloadInFlight.current.has(key)) {
+            await preloadInFlight.current.get(key);
+            return;
         }
+
+        const preloadPromise = (async () => {
+            try {
+                const result = await synthesizeSpeech(text, voice);
+                if (!("error" in result)) {
+                    const audio = new Audio(result.audio);
+                    audio.preload = "auto";
+                    audio.load();
+                    addToCache(key, audio);
+                }
+            } catch (e) {
+                console.warn("Preload failed for:", text.substring(0, 20), e);
+            } finally {
+                preloadInFlight.current.delete(key);
+            }
+        })();
+
+        preloadInFlight.current.set(key, preloadPromise);
+        await preloadPromise;
     }, [addToCache]);
 
     const speak = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM", playbackRate: number = 1) => {

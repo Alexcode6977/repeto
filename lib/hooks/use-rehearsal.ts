@@ -6,6 +6,8 @@ import { calculateSimilarity, stripStageDirections } from "../similarity";
 import { offlineManager } from "../offline/offline-manager";
 import { getSceneCharacters, isUserLine as checkIsUserLine } from "../utils";
 import { COLLECTIVE_ROLES } from "../constants";
+import { AudioQueue } from "../audio/audio-queue";
+import { type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
 
 
 export type RehearsalStatus =
@@ -31,7 +33,9 @@ interface UseRehearsalProps {
     skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
     playId?: string;
     scriptId?: string;
+    troupeId?: string;
     partnerCharacters?: string[];
+    isPublicScript?: boolean;
     showStageDirections?: boolean;
     playbackRate?: number;
 }
@@ -52,7 +56,9 @@ export function useRehearsal({
     skipCharacters = [],
     playId,
     scriptId,
+    troupeId,
     partnerCharacters = [],
+    isPublicScript = false,
     showStageDirections = true,
     playbackRate = 1
 }: UseRehearsalProps) {
@@ -62,6 +68,16 @@ export function useRehearsal({
 
     const [recordings, setRecordings] = useState<any[]>([]);
     const [isPlayingRecording, setIsPlayingRecording] = useState(false);
+    const audioQueueRef = useRef<AudioQueue>(new AudioQueue());
+    const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+    const perfRef = useRef<{ pending: { action: "start" | "next" | "previous" | "retry"; ts: number } | null }>({
+        pending: null
+    });
+    const sourceType = useMemo<SourceType>(() => {
+        if (playId && troupeId) return "troupe_play";
+        if (isPublicScript) return "library_script";
+        return "private_script";
+    }, [playId, troupeId, isPublicScript]);
 
     // Pre-calculate scene characters for collective role logic
     const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
@@ -72,6 +88,19 @@ export function useRehearsal({
             getPlayRecordings(playId).then(setRecordings);
         }
     }, [playId]);
+
+    useEffect(() => {
+        const sourceId = playId || scriptId;
+        if (!sourceId || (ttsProvider !== "openai" && ttsProvider !== "elevenlabs")) return;
+
+        ensureVoiceConfig(sourceType, sourceId, script.characters, troupeId).catch((e) => {
+            console.warn("[Rehearsal] ensureVoiceConfig skipped/fallback", e);
+        });
+    }, [sourceType, playId, scriptId, ttsProvider, script.characters, troupeId]);
+
+    useEffect(() => {
+        audioQueueRef.current.clear();
+    }, [sourceType, playId, scriptId, ttsProvider, showStageDirections]);
 
     // Use specialized voice hook
     const { voiceAssignments, setVoiceForRole } = useRehearsalVoices(script, voices);
@@ -131,18 +160,35 @@ export function useRehearsal({
         }
     };
 
-    // Preload helper
-    const preloadLine = async (text: string, characterName: string) => {
-        if (ttsProvider === "openai" || ttsProvider === "elevenlabs") {
-            const assignedVoice = characterName && openaiVoiceAssignments[characterName] ? openaiVoiceAssignments[characterName] : "21m00Tcm4TlvDq8ikWAM";
-            await aiSpeech.preload(text, assignedVoice);
-        }
-    };
-
     // Combined stop function
     const stopAll = () => {
         browserSpeech.stop();
         aiSpeech.stop();
+        if (currentAudioRef.current) {
+            currentAudioRef.current.pause();
+            currentAudioRef.current.src = "";
+            currentAudioRef.current = null;
+        }
+    };
+
+    const playAudioFile = async (url: string): Promise<void> => {
+        await new Promise<void>((resolve) => {
+            const audio = new Audio(url);
+            currentAudioRef.current = audio;
+            audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
+            audio.onended = () => {
+                if (currentAudioRef.current === audio) currentAudioRef.current = null;
+                resolve();
+            };
+            audio.onerror = () => {
+                if (currentAudioRef.current === audio) currentAudioRef.current = null;
+                resolve();
+            };
+            audio.play().catch(() => {
+                if (currentAudioRef.current === audio) currentAudioRef.current = null;
+                resolve();
+            });
+        });
     };
 
     // Helper for synthetic recording "bip" (important for iPad feedback)
@@ -197,6 +243,12 @@ export function useRehearsal({
             isMountedRef.current = false;
             browserSpeech.stop();
             aiSpeech.stop();
+            if (currentAudioRef.current) {
+                currentAudioRef.current.pause();
+                currentAudioRef.current.src = "";
+                currentAudioRef.current = null;
+            }
+            audioQueueRef.current.clear();
         };
     }, []);
 
@@ -266,6 +318,30 @@ export function useRehearsal({
         return skipCharacters.some(skipChar => normalizedLineChar === skipChar.toLowerCase().trim());
     };
 
+    const preloadAroundIndex = (lineIndex: number, count: number) => {
+        const sourceId = playId || scriptId;
+        if (!sourceId || (ttsProvider !== "openai" && ttsProvider !== "elevenlabs")) return;
+
+        audioQueueRef.current.preload(
+            script.lines,
+            Math.max(0, lineIndex),
+            count,
+            sourceType,
+            sourceId,
+            troupeId,
+            showStageDirections
+        );
+    };
+
+    const preparePlaybackStart = async (fromIndex?: number) => {
+        const sourceId = playId || scriptId;
+        if (!sourceId || (ttsProvider !== "openai" && ttsProvider !== "elevenlabs")) return;
+
+        const startIdx = Math.max(0, fromIndex ?? initialLineIndex);
+        console.log(`[RehearsalPerf] priming audio buffer from line ${startIdx}`);
+        preloadAroundIndex(startIdx, 6);
+    };
+
     // Find next valid line index (skipping skipCharacters)
     const findNextValidIndex = (startIdx: number, direction: 1 | -1 = 1): number => {
         let idx = startIdx;
@@ -281,6 +357,7 @@ export function useRehearsal({
 
     const start = (immediate = false) => {
         if (transitionLockRef.current) return;
+        perfRef.current.pending = { action: "start", ts: performance.now() };
         transitionLockRef.current = true;
         stopAll();
         setStatus("setup"); // BREAK the engine loop immediately
@@ -347,8 +424,7 @@ export function useRehearsal({
         if (immediate) {
             executeStart();
         } else {
-            //@ts-ignore
-            setTimeout(executeStart, 200); // Reduced from 300ms for faster start
+            setTimeout(executeStart, 60);
         }
     };
 
@@ -389,6 +465,7 @@ export function useRehearsal({
 
     const next = () => {
         if (!isMountedRef.current || transitionLockRef.current) return;
+        perfRef.current.pending = { action: "next", ts: performance.now() };
         transitionLockRef.current = true;
         manualSkipRef.current = true;
         stopAll();
@@ -398,6 +475,7 @@ export function useRehearsal({
         const nextIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, 1);
         if (nextIdx < script.lines.length) {
             setCurrentLineIndex(nextIdx);
+            preloadAroundIndex(nextIdx, 8);
             const nextLine = script.lines[nextIdx];
             setTimeout(() => {
                 manualSkipRef.current = false;
@@ -409,7 +487,7 @@ export function useRehearsal({
                     setStatus("playing_other");
                 }
                 transitionLockRef.current = false;
-            }, 200); // Reduced from 300ms for faster transitions
+            }, 60);
         } else {
             manualSkipRef.current = false;
             transitionLockRef.current = false;
@@ -419,6 +497,7 @@ export function useRehearsal({
 
     const previous = () => {
         if (!isMountedRef.current || transitionLockRef.current) return;
+        perfRef.current.pending = { action: "previous", ts: performance.now() };
         transitionLockRef.current = true;
         manualSkipRef.current = true;
         stopAll();
@@ -428,6 +507,7 @@ export function useRehearsal({
         const prevIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, -1);
         if (prevIdx >= 0) {
             setCurrentLineIndex(prevIdx);
+            preloadAroundIndex(Math.max(0, prevIdx - 2), 8);
             const prevLine = script.lines[prevIdx];
             setTimeout(() => {
                 manualSkipRef.current = false;
@@ -439,7 +519,7 @@ export function useRehearsal({
                     setStatus("playing_other");
                 }
                 transitionLockRef.current = false;
-            }, 200); // Reduced from 300ms for faster transitions
+            }, 60);
         } else {
             manualSkipRef.current = false;
             transitionLockRef.current = false;
@@ -452,6 +532,7 @@ export function useRehearsal({
 
     const retry = () => {
         if (transitionLockRef.current) return;
+        perfRef.current.pending = { action: "retry", ts: performance.now() };
         transitionLockRef.current = true;
         manualSkipRef.current = true;
         stopAll();
@@ -475,7 +556,7 @@ export function useRehearsal({
                 setStatus("playing_other");
             }
             transitionLockRef.current = false;
-        }, 200); // Reduced from 300ms for faster retry
+        }, 60);
     };
 
     const validateManually = () => {
@@ -504,17 +585,8 @@ export function useRehearsal({
                 return;
             }
 
-            // Preload next 3 lines for smoother playback (buffer)
-            for (let i = 1; i <= 3; i++) {
-                const nextIdx = currentLineIndex + i;
-                if (nextIdx < script.lines.length) {
-                    const nextLine = script.lines[nextIdx];
-                    // FIX: Pass index
-                    if (!isUserLine(nextLine.character, nextIdx)) {
-                        preloadLine(nextLine.text, nextLine.character);
-                    }
-                }
-            }
+            // Sliding buffer around current line for smoother playback/navigation.
+            preloadAroundIndex(Math.max(0, currentLineIndex - 2), 8);
 
             if (status === "playing_other") {
                 // Check if we should skip this line in Cue/Check modes
@@ -551,13 +623,7 @@ export function useRehearsal({
                 const recording = recordings.find(r => r.line_id === line.id);
                 if (recording) {
                     setIsPlayingRecording(true);
-                    const audio = new Audio(recording.audio_url);
-                    audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
-                    await new Promise<void>((resolve) => {
-                        audio.onended = () => resolve();
-                        audio.onerror = () => resolve();
-                        audio.play().catch(() => resolve());
-                    });
+                    await playAudioFile(recording.audio_url);
                     setIsPlayingRecording(false);
                     if (!isMountedRef.current) return;
                     if (statusRef.current === "playing_other" && !manualSkipRef.current) next();
@@ -578,12 +644,38 @@ export function useRehearsal({
                                 ? undefined // Browser default for narrator
                                 : (voice || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
 
-                            await speak(
-                                textToSpeak,
-                                assignedVoice,
-                                isDirection ? "didascalies" : line.character,
-                                line.id
-                            );
+                            if (ttsProvider === "openai" || ttsProvider === "elevenlabs") {
+                                const sourceId = playId || scriptId;
+                                const audioUrl = sourceId
+                                    ? await audioQueueRef.current.getUrl(
+                                        textToSpeak,
+                                        isDirection ? "didascalies" : line.character,
+                                        currentLineIndex,
+                                        sourceType,
+                                        sourceId,
+                                        troupeId,
+                                        isDirection
+                                    )
+                                    : null;
+
+                                if (audioUrl) {
+                                    await playAudioFile(audioUrl);
+                                } else {
+                                    await speak(
+                                        textToSpeak,
+                                        assignedVoice,
+                                        isDirection ? "didascalies" : line.character,
+                                        line.id
+                                    );
+                                }
+                            } else {
+                                await speak(
+                                    textToSpeak,
+                                    assignedVoice,
+                                    isDirection ? "didascalies" : line.character,
+                                    line.id
+                                );
+                            }
 
                         }
                     );
@@ -678,6 +770,16 @@ export function useRehearsal({
         executeStep();
     }, [status, currentLineIndex]); // REMOVED retryCount - now using ref
 
+    useEffect(() => {
+        const pending = perfRef.current.pending;
+        if (!pending) return;
+        if (status !== "playing_other" && status !== "listening_user") return;
+
+        const elapsed = Math.round(performance.now() - pending.ts);
+        console.log(`[RehearsalPerf] ${pending.action} ready in ${elapsed}ms (line ${currentLineIndex})`);
+        perfRef.current.pending = null;
+    }, [status, currentLineIndex]);
+
     return {
         currentLine: script.lines[currentLineIndex],
         currentLineIndex,
@@ -701,6 +803,7 @@ export function useRehearsal({
         isPaused: status === "paused",
         previous,
         initializeAudio,
+        preparePlaybackStart,
         isPlayingRecording,
         retryCount: retryCountRef.current
     };

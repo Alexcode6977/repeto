@@ -132,6 +132,7 @@ export function RehearsalMode({
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
     const [hasStarted, setHasStarted] = useState(false);
+    const [isStarting, setIsStarting] = useState(false);
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | "elevenlabs" | null>(null);
     const [forceAudioOutput] = useState(false); // CarPlay experimental fix (read-only for now)
 
@@ -270,7 +271,7 @@ export function RehearsalMode({
         const hasValidScript = script?.lines?.length > 0;
         const hasValidUserCharacters = userCharacters?.length > 0 && userCharacters.some(c => c?.trim());
 
-        if (autoStart && !hasStarted && !isLoadingStatus && hasValidScript && hasValidUserCharacters) {
+        if (autoStart && !hasStarted && !isStarting && !isLoadingStatus && hasValidScript && hasValidUserCharacters) {
             // Slightly longer delay to ensure audio context and all dependencies are ready
             const timer = setTimeout(() => {
                 console.log("[AutoStart] Triggering with", {
@@ -283,7 +284,7 @@ export function RehearsalMode({
             }, 800);
             return () => clearTimeout(timer);
         }
-    }, [autoStart, hasStarted, isLoadingStatus, script?.lines?.length, userCharacters]);
+    }, [autoStart, hasStarted, isStarting, isLoadingStatus, script?.lines?.length, userCharacters]);
 
     // OpenAI voice assignments per character
 
@@ -308,6 +309,7 @@ export function RehearsalMode({
         setVoiceForRole,
         voices,
         initializeAudio,
+        preparePlaybackStart,
         transcript, // Real-time interim transcript
         isPlayingRecording
     } = useRehearsal({
@@ -322,7 +324,9 @@ export function RehearsalMode({
         skipCharacters: ignoredCharacters,
         playId,
         scriptId,
+        troupeId,
         playbackRate: speedMultiplier,
+        isPublicScript,
         partnerCharacters
     });
 
@@ -362,6 +366,15 @@ export function RehearsalMode({
     };
 
     const handleStart = async () => {
+        if (isStarting || hasStarted) return;
+        setIsStarting(true);
+        let didStart = false;
+
+        try {
+        const preloadPromise = preparePlaybackStart(startLineIndex).catch((e) => {
+            console.warn("[Rehearsal] Preload start skipped", e);
+        });
+
         // SERVER-SIDE VALIDATION: Validate and sanitize settings before starting
         const validation = await validateAndStartRehearsal(
             {
@@ -426,10 +439,18 @@ export function RehearsalMode({
             return;
         }
 
+        await preloadPromise;
+
         setHasStarted(true);
+        didStart = true;
         sessionStartRef.current = Date.now();
         requestWakeLock();
         start();
+        } finally {
+            if (!didStart) {
+                setIsStarting(false);
+            }
+        }
     };
 
     // Session tracking
@@ -534,6 +555,15 @@ export function RehearsalMode({
 
     // Next line preview
     const nextLine = script.lines[currentLineIndex + 1];
+
+    // Virtualized script window to keep scrolling smooth on long scripts.
+    const VIRTUAL_CONTEXT = 70;
+    const VIRTUAL_ROW_ESTIMATE = 176; // Approximate average line card height.
+    const virtualStart = Math.max(0, currentLineIndex - VIRTUAL_CONTEXT);
+    const virtualEnd = Math.min(script.lines.length, currentLineIndex + VIRTUAL_CONTEXT + 1);
+    const visibleLines = script.lines.slice(virtualStart, virtualEnd);
+    const topSpacerHeight = virtualStart * VIRTUAL_ROW_ESTIMATE;
+    const bottomSpacerHeight = Math.max(0, (script.lines.length - virtualEnd) * VIRTUAL_ROW_ESTIMATE);
 
     // Detect success/error for animations AND track metrics
     // Detect success/error for animations (Purely visual)
@@ -842,17 +872,19 @@ export function RehearsalMode({
     if (!hasStarted) {
         // Quick Start Logic - quickStartSettings is now defined above, outside this conditional
 
-        const startQuick = () => {
+        const startQuick = async () => {
+            if (isStarting) return;
             if (quickStartSettings) {
                 setRehearsalMode(quickStartSettings.rehearsalMode);
                 setTtsProvider(quickStartSettings.ttsProvider);
                 setLineVisibility(quickStartSettings.lineVisibility);
                 setStartLineIndex(quickStartSettings.startLineIndex || 0);
-                handleStart();
+                await handleStart();
             }
         };
 
-        const handleStartWithSave = () => {
+        const handleStartWithSave = async () => {
+            if (isStarting) return;
             if (typeof window !== 'undefined') {
                 localStorage.setItem(`souffleur_rehearsal_settings_${playId || script.title}`, JSON.stringify({
                     rehearsalMode,
@@ -862,7 +894,7 @@ export function RehearsalMode({
                     timestamp: Date.now()
                 }));
             }
-            handleStart();
+            await handleStart();
         };
 
         return (
@@ -891,6 +923,7 @@ export function RehearsalMode({
                                 {quickStartSettings && (
                                     <button
                                         onClick={startQuick}
+                                        disabled={isStarting}
                                         className="mt-2 py-2 px-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-500/20 flex items-center gap-2 transition-all w-fit"
                                     >
                                         <span>⚡</span> Reprendre (derniers réglages)
@@ -1083,11 +1116,28 @@ export function RehearsalMode({
                         <div className="pt-4">
                             <button
                                 onClick={handleStartWithSave}
-                                className="w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:shadow-purple-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                                disabled={isStarting}
+                                className={cn(
+                                    "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg",
+                                    isStarting
+                                        ? "bg-violet-500/70 text-white/90 cursor-not-allowed"
+                                        : "bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:shadow-purple-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                                )}
                             >
-                                <span className="font-bold text-sm tracking-wider uppercase">C'est parti</span>
-                                <Play className="w-5 h-5 fill-current group-hover:translate-x-1 transition-transform" />
+                                <span className="font-bold text-sm tracking-wider uppercase">
+                                    {isStarting ? "Chargement..." : "C'est parti"}
+                                </span>
+                                {isStarting ? (
+                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                ) : (
+                                    <Play className="w-5 h-5 fill-current group-hover:translate-x-1 transition-transform" />
+                                )}
                             </button>
+                            {isStarting && (
+                                <p className="mt-3 text-[11px] text-center text-muted-foreground font-medium">
+                                    Préparation des premières répliques...
+                                </p>
+                            )}
                         </div>
                     </div>
                 </Card>
@@ -1194,7 +1244,9 @@ export function RehearsalMode({
                         )}
                         id="script-container"
                     >
-                        {script.lines.map((line, index) => {
+                        {topSpacerHeight > 0 && <div style={{ height: `${topSpacerHeight}px` }} />}
+                        {visibleLines.map((line, localIndex) => {
+                            const index = virtualStart + localIndex;
                             const isActive = index === currentLineIndex;
                             const isUser = isUserLineHelper(line, index);
 
@@ -1204,7 +1256,11 @@ export function RehearsalMode({
                                 <div
                                     key={line.id}
                                     ref={(el) => {
-                                        if (el) lineRefs.current.set(index, el);
+                                        if (el) {
+                                            lineRefs.current.set(index, el);
+                                        } else {
+                                            lineRefs.current.delete(index);
+                                        }
                                     }}
                                     className={cn(
                                         "transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4 md:p-6",
@@ -1295,6 +1351,7 @@ export function RehearsalMode({
                                 </div>
                             );
                         })}
+                        {bottomSpacerHeight > 0 && <div style={{ height: `${bottomSpacerHeight}px` }} />}
                         {/* Bottom Spacer for scrolling */}
                         <div className="h-48" />
                     </div>
