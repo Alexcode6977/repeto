@@ -8,12 +8,32 @@ import { Mic } from "lucide-react";
 import { VoicePreviewButton } from "./voice-preview-button";
 import { getElevenLabsVoices, ElevenLabsVoice } from "@/app/actions/elevenlabs";
 
+interface PlayCharacter {
+    id: string;
+    name: string;
+    actor_id?: string | null;
+    guest_id?: string | null;
+}
+
+interface TroupeMember {
+    user_id: string;
+    profiles?: {
+        first_name?: string | null;
+        email?: string | null;
+    } | null;
+}
+
+interface GuestActor {
+    id: string;
+    name: string;
+}
+
 interface CastingManagerProps {
     playId: string;
     troupeId: string;
-    characters: any[];
-    troupeMembers: any[];
-    guests: any[];
+    characters: PlayCharacter[];
+    troupeMembers: TroupeMember[];
+    guests: GuestActor[];
     isAdmin: boolean;
     initialVoiceConfigs: VoiceConfig[] | null;
 }

@@ -1,11 +1,9 @@
 "use client";
 
 import { ParsedScript } from "@/lib/types";
-import { Button } from "./ui/button";
-import { BookOpen, Play, Headphones, Check, ChevronDown, ChevronLeft, Eye, EyeOff } from "lucide-react";
-import { useState, useMemo } from "react";
+import { BookOpen, Play, Headphones, Check, ChevronLeft, Eye, EyeOff } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
-import Link from "next/link";
 import {
     Select,
     SelectContent,
@@ -32,8 +30,8 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
     const isTechnical = (char: string) => technicalKeywords.some(k => char.toLowerCase().includes(k));
 
     // Categorize characters
-    const mainCharacters = useMemo(() => script.characters.filter(c => !isTechnical(c)), [script.characters]);
-    const technicalCharacters = useMemo(() => script.characters.filter(c => isTechnical(c)), [script.characters]);
+    const mainCharacters = script.characters.filter(c => !isTechnical(c));
+    const technicalCharacters = script.characters.filter(c => isTechnical(c));
 
     // State for ignored technical roles (Didascalies ignored by default)
     const [ignoredTechnical, setIgnoredTechnical] = useState<string[]>(() =>

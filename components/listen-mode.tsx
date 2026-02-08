@@ -6,7 +6,7 @@ import { useListen, type ListenMode } from "@/lib/hooks/use-listen";
 import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
-import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, RotateCcw, ArrowLeft, MessageSquare, Zap, Users, Check } from "lucide-react";
+import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, ArrowLeft, MessageSquare, Zap, Users, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { filterScriptLines, parseSegments } from "@/lib/utils/stage-directions";
@@ -99,9 +99,6 @@ export function ListenMode({
         next,
         previous,
         replay,
-        voices,
-        voiceAssignments,
-        setVoiceForRole,
         isLoadingAudio
     } = useListen({
         script,
@@ -122,6 +119,7 @@ export function ListenMode({
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const containerRef = useRef<HTMLDivElement>(null);
     const isFirstScrollRef = useRef(true);
+    const [hasInitialScrollCompleted, setHasInitialScrollCompleted] = useState(false);
 
     useEffect(() => {
         if (hasStarted && lineRefs.current.has(currentLineIndex)) {
@@ -130,10 +128,12 @@ export function ListenMode({
                 if (isFirstScrollRef.current) {
                     requestAnimationFrame(() => {
                         activeEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
+                        setHasInitialScrollCompleted(true);
                     });
                     isFirstScrollRef.current = false;
                 } else {
                     activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                    setHasInitialScrollCompleted(true);
                 }
             }
         }
@@ -372,7 +372,7 @@ export function ListenMode({
                                     : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white"
                             )}
                         >
-                            <span>Lancer l'écoute</span> <Headphones className="w-5 h-5" />
+                            <span>Lancer l&apos;écoute</span> <Headphones className="w-5 h-5" />
                         </button>
                     </div>
                 </Card>
@@ -403,7 +403,7 @@ export function ListenMode({
                     </div>
                 </div>
 
-                <div ref={containerRef} className={cn("flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar transition-opacity duration-300", isFirstScrollRef.current ? "opacity-0" : "opacity-100")}>
+                <div ref={containerRef} className={cn("flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar transition-opacity duration-300", hasInitialScrollCompleted ? "opacity-100" : "opacity-0")}>
                     {filteredLines.map((line) => {
                         const originalIndex = line.originalIndex;
                         const isActive = originalIndex === currentLineIndex;

@@ -11,6 +11,11 @@ import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
 
+interface PrivateNote {
+    line_index: number;
+    text: string;
+}
+
 interface ListenModeTroupeProps {
     script: ParsedScript;
     userCharacters: string[];
@@ -18,7 +23,7 @@ interface ListenModeTroupeProps {
     playId: string;
     troupeId: string;
     skipCharacters?: string[];
-    privateNotes?: any[];
+    privateNotes?: PrivateNote[];
 }
 
 export function ListenModeTroupe({
@@ -102,6 +107,7 @@ export function ListenModeTroupe({
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const containerRef = useRef<HTMLDivElement>(null);
     const isFirstScrollRef = useRef(true);
+    const [hasInitialScrollCompleted, setHasInitialScrollCompleted] = useState(false);
 
     // Auto-scroll to active line
     useEffect(() => {
@@ -111,10 +117,12 @@ export function ListenModeTroupe({
                 if (isFirstScrollRef.current) {
                     requestAnimationFrame(() => {
                         activeEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
+                        setHasInitialScrollCompleted(true);
                     });
                     isFirstScrollRef.current = false;
                 } else {
                     activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                    setHasInitialScrollCompleted(true);
                 }
             }
         }
@@ -138,7 +146,11 @@ export function ListenModeTroupe({
             switch (e.code) {
                 case "Space":
                     e.preventDefault();
-                    status === "paused" ? resume() : pause();
+                    if (status === "paused") {
+                        resume();
+                    } else {
+                        pause();
+                    }
                     break;
                 case "ArrowRight":
                     e.preventDefault();
@@ -420,7 +432,7 @@ export function ListenModeTroupe({
                                         : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
                                 )}
                             >
-                                <span className="font-bold text-sm tracking-wider uppercase">Lancer l'écoute</span>
+                                <span className="font-bold text-sm tracking-wider uppercase">Lancer l&apos;écoute</span>
                                 <Headphones className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
                             </button>
                         </div>
@@ -475,7 +487,7 @@ export function ListenModeTroupe({
                     ref={containerRef}
                     className={cn(
                         "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin transition-opacity duration-300",
-                        isFirstScrollRef.current ? "opacity-0" : "opacity-100"
+                        hasInitialScrollCompleted ? "opacity-100" : "opacity-0"
                     )}
                 >
                     {script.lines.map((line, index) => {

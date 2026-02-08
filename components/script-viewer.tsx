@@ -1,7 +1,7 @@
 "use client";
 
-import { ScriptLine, ParsedScript } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { ParsedScript } from "@/lib/types";
+import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import {
     Select,
@@ -14,13 +14,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { BookOpen, Play, Headphones, Check, UserCircle, ChevronDown, X, Users } from "lucide-react";
+import { BookOpen, Play, Headphones, Check, UserCircle, ChevronDown, Users } from "lucide-react";
+
+interface PrivateNote {
+    line_index: number;
+    text: string;
+}
 
 interface ScriptViewerProps {
     script: ParsedScript;
     onConfirm: (characters: string[], mode: 'reader' | 'rehearsal' | 'listen', ignoredCharacters?: string[]) => void;
     forcedMode?: 'reader' | 'rehearsal' | 'listen';
-    privateNotes?: any[];
+    privateNotes?: PrivateNote[];
 }
 
 export const PRIVATE_NOTE_CHAR = "[Note Perso]";

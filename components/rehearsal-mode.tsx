@@ -2,26 +2,25 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { ScriptLine, ParsedScript } from "@/lib/types";
-import { useAITTS, type TTSProvider } from "@/lib/hooks/use-ai-tts";
+import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
-import { synthesizeSpeech } from "@/app/actions/tts";
 import { getUserCapabilities, validateAndStartRehearsal } from "@/app/actions/rehearsal";
-import { getVoiceConfig, createVoiceConfig, VoiceConfig, determineSourceType, SourceType } from "@/lib/actions/voice-cache";
+import { getVoiceConfig, determineSourceType } from "@/lib/actions/voice-cache";
 import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Power, Loader2, Sparkles, X, Coins, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote } from "lucide-react";
+import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Loader2, X, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote } from "lucide-react";
 import { cn, getSceneCharacters, isUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
-import { BrowserVoiceConfig } from "./browser-voice-config";
 import { saveSessionStats, saveLineErrors, LineErrorData, type RehearsalContextType } from "@/app/actions/stats"; // Stats Actions
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
 import { removeStageDirections, parseSegments } from "@/lib/utils/stage-directions";
 import { Progress } from "./ui/progress";
+import { createPortal } from "react-dom";
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -70,21 +69,15 @@ const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
     );
 };
 
+interface PrivateNote {
+    line_index: number;
+    text: string;
+}
+
 // Helper for Portals
 const Portal = ({ children }: { children: React.ReactNode }) => {
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-        return () => setMounted(false);
-    }, []);
-
-    if (!mounted) return null;
-
-    // Use document.body directly to bypass any framework wrappers
-    return typeof document !== "undefined"
-        ? require("react-dom").createPortal(children, document.body)
-        : null;
+    if (typeof document === "undefined") return null;
+    return createPortal(children, document.body);
 };
 
 interface RehearsalModeProps {
@@ -102,7 +95,7 @@ interface RehearsalModeProps {
     partnerCharacters?: string[];
     isVisio?: boolean;
     autoStart?: boolean;
-    privateNotes?: any[];
+    privateNotes?: PrivateNote[];
     showStageDirections?: boolean; // Toggle for showing/hiding stage directions
 }
 
@@ -142,26 +135,14 @@ export function RehearsalMode({
     const [forceAudioOutput] = useState(false); // CarPlay experimental fix (read-only for now)
 
     // Initialize ignored characters - merge prop with default didascalies
-    const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>(() => {
+    const ignoredCharacters = useMemo(() => {
         const defaultIgnored = script.characters.filter(c =>
             c.toLowerCase().includes("didascalie")
         );
-        // Merge with initialIgnoredCharacters, avoiding duplicates
         return [...new Set([...defaultIgnored, ...initialIgnoredCharacters])];
-    });
-
-    const toggleCharacterIgnore = (char: string) => {
-        setIgnoredCharacters(prev => {
-            if (prev.includes(char)) {
-                return prev.filter(c => c !== char); // Un-ignore (Activate)
-            } else {
-                return [...prev, char]; // Ignore (Deactivate)
-            }
-        });
-    };
+    }, [script.characters, initialIgnoredCharacters]);
 
     // Premium / Feature State
-    const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
     const [hasAiVoiceAccess, setHasAiVoiceAccess] = useState(false);
     // canRecordAudio is set but currently unused - keeping for future use
     const [, setCanRecordAudio] = useState(false);
@@ -176,7 +157,6 @@ export function RehearsalMode({
         const fetchCapabilities = async () => {
             try {
                 const capabilities = await getUserCapabilities(troupeId);
-                setIsPremiumUnlocked(capabilities.isPremium);
                 setCanRecordAudio(capabilities.features.recording);
                 const canUseAiVoices = capabilities.features.aiVoices || capabilities.isPremium;
                 setHasAiVoiceAccess(canUseAiVoices);
@@ -205,11 +185,6 @@ export function RehearsalMode({
         fetchCapabilities();
     }, [troupeId]);
 
-    // Voice Cache State
-    const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
-    const [isLoadingVoiceConfig, setIsLoadingVoiceConfig] = useState(false);
-
-
     // Fetch existing voice config on mount
     useEffect(() => {
         const fetchVoiceConfig = async () => {
@@ -219,12 +194,9 @@ export function RehearsalMode({
 
             if (!sourceId) return;
 
-            setIsLoadingVoiceConfig(true);
-
             try {
                 const config = await getVoiceConfig(sourceType, sourceId);
                 if (config) {
-                    setExistingVoiceConfig(config);
                     // Pre-fill voice assignments from config
                     const assignments: Record<string, string> = {};
 
@@ -234,7 +206,7 @@ export function RehearsalMode({
                     });
 
                     if (Object.keys(assignments).length > 0) {
-                        setAiVoiceAssignments(assignments as any);
+                        setAiVoiceAssignments(assignments);
                     } else {
                         // Fallback: Generate local ElevenLabs assignments
                         const VOICES = ["21m00Tcm4TlvDq8ikWAM", "pNInz6obpgDQGcFmaJgB", "EXAVITQu4vr4xnNLMQyw", "ErXw9S1k3MpBy928U4cm", "MF3mGyEYCl7XYW7Lyk9p", "TxGEqnHW47ic3A7NWmsG"];
@@ -242,7 +214,7 @@ export function RehearsalMode({
                         script.characters.forEach((char, index) => {
                             localAssignments[char] = VOICES[index % VOICES.length];
                         });
-                        setAiVoiceAssignments(localAssignments as any);
+                        setAiVoiceAssignments(localAssignments);
                     }
                 } else {
                     // Fallback: ElevenLabs default distribution
@@ -253,12 +225,10 @@ export function RehearsalMode({
                         localAssignments[char] = VOICES[index % VOICES.length];
                     });
 
-                    setAiVoiceAssignments(localAssignments as any);
+                    setAiVoiceAssignments(localAssignments);
                 }
             } catch (error) {
                 console.error("Failed to fetch voice config", error);
-            } finally {
-                setIsLoadingVoiceConfig(false);
             }
         };
 
@@ -298,7 +268,6 @@ export function RehearsalMode({
 
     // ElevenLabs voice assignments per character
     const [aiVoiceAssignments, setAiVoiceAssignments] = useState<Record<string, string>>({});
-    const [testingVoice, setTestingVoice] = useState<string | null>(null);  // Track which role is being tested
 
     const {
         currentLine,
@@ -314,9 +283,6 @@ export function RehearsalMode({
         togglePause,
         isPaused,
         previous,
-        voiceAssignments,
-        setVoiceForRole,
-        voices,
         initializeAudio,
         preparePlaybackStart,
         transcript, // Real-time interim transcript
@@ -340,39 +306,6 @@ export function RehearsalMode({
     });
 
     const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
-
-    // Test browser voice
-    const testBrowserVoice = (char: string) => {
-        const voice = voiceAssignments[char];
-        if (voice) {
-            window.speechSynthesis.cancel();
-            const ut = new SpeechSynthesisUtterance("Bonjour, je suis prêt.");
-            ut.voice = voice;
-            window.speechSynthesis.speak(ut);
-        }
-    };
-    // Function to test ElevenLabs voice
-    const testAIVoice = async (role: string, voice: string) => {
-        setTestingVoice(role);
-        try {
-            const result = await synthesizeSpeech("Bonjour, je suis votre partenaire de répétition !", voice);
-
-            if ("error" in result) {
-                console.error("TTS Error:", result.error);
-                setTestingVoice(null);
-                return;
-            }
-
-            if ("audio" in result) {
-                const audio = new Audio(result.audio);
-                audio.onended = () => setTestingVoice(null);
-                await audio.play();
-            }
-        } catch (e) {
-            console.error("Test failed:", e);
-            setTestingVoice(null);
-        }
-    };
 
     const handleStart = async () => {
         if (isStarting || hasStarted || isLoadingStatus || !ttsProvider) return;
@@ -529,6 +462,7 @@ export function RehearsalMode({
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const containerRef = useRef<HTMLDivElement>(null);
     const isFirstScrollRef = useRef(true);
+    const [hasInitialScrollCompleted, setHasInitialScrollCompleted] = useState(false);
 
     // Auto-scroll to active line when index changes - INSTANT on first scroll, smooth after
     useEffect(() => {
@@ -539,11 +473,13 @@ export function RehearsalMode({
                     // First scroll: use requestAnimationFrame to ensure DOM is ready, then instant scroll
                     requestAnimationFrame(() => {
                         activeEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
+                        setHasInitialScrollCompleted(true);
                     });
                     isFirstScrollRef.current = false;
                 } else {
                     // Subsequent scrolls: smooth animation
                     activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+                    setHasInitialScrollCompleted(true);
                 }
             }
         }
@@ -602,6 +538,8 @@ export function RehearsalMode({
     const visibleLines = script.lines.slice(virtualStart, virtualEnd);
     const topSpacerHeight = virtualStart * VIRTUAL_ROW_ESTIMATE;
     const bottomSpacerHeight = Math.max(0, (script.lines.length - virtualEnd) * VIRTUAL_ROW_ESTIMATE);
+    const scriptRuntimeId = (script as { id?: string }).id;
+
     const getSessionContext = (): {
         contextType: RehearsalContextType;
         scriptId?: string;
@@ -617,7 +555,7 @@ export function RehearsalMode({
 
         return {
             contextType,
-            scriptId: contextType === "solo_script" ? (scriptId || (script as any).id) : undefined,
+            scriptId: contextType === "solo_script" ? (scriptId || scriptRuntimeId) : undefined,
             playId: playId || undefined,
             troupeId: troupeId || undefined,
             eventId: eventId || undefined,
@@ -854,7 +792,7 @@ export function RehearsalMode({
     // Handle feedback submission
     const handleFeedbackSubmit = async (feedbackData: FeedbackData) => {
         const sessionStats = getSessionStats();
-        const actualScriptId = playId || scriptId || (script as any).id;
+        const actualScriptId = playId || scriptId || scriptRuntimeId;
         await submitFeedback({
             scriptId: actualScriptId,
             ...sessionStats,
@@ -890,8 +828,6 @@ export function RehearsalMode({
         }
     }, [status, hasStarted, showFeedbackModal, showUpgradeModal, stop, isDemo]);
 
-    const getExampleStatus = (score: number) => score >= threshold;
-
     // Helper for visibility masking
     const getVisibleText = (text: string | undefined, isUser: boolean) => {
         if (!text) return "";
@@ -914,8 +850,8 @@ export function RehearsalMode({
 
     // Quick Start Logic - MOVED OUTSIDE conditional to respect React hooks rules
     const rehearsalStorageKey = useMemo(
-        () => `souffleur_rehearsal_settings_${playId || scriptId || (script as any).id || script.title}`,
-        [playId, scriptId, script]
+        () => `souffleur_rehearsal_settings_${playId || scriptId || scriptRuntimeId || script.title}`,
+        [playId, scriptId, scriptRuntimeId, script.title]
     );
 
     const quickStartSettings = useMemo(() => {
@@ -1056,7 +992,7 @@ export function RehearsalMode({
                                         return (
                                             <button
                                                 key={v.id}
-                                                onClick={() => setLineVisibility(v.id as any)}
+                                                onClick={() => setLineVisibility(v.id as "visible" | "hint" | "hidden")}
                                                 className={cn(
                                                     "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
                                                     isActive
@@ -1099,7 +1035,7 @@ export function RehearsalMode({
                                         return (
                                             <button
                                                 key={m.id}
-                                                onClick={() => setRehearsalMode(m.id as any)}
+                                                onClick={() => setRehearsalMode(m.id as "full" | "cue" | "check")}
                                                 className={cn(
                                                     "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
                                                     isActive
@@ -1141,7 +1077,7 @@ export function RehearsalMode({
                                         return (
                                             <button
                                                 key={t.id}
-                                                onClick={() => setToleranceLevel(t.id as any)}
+                                                onClick={() => setToleranceLevel(t.id as "strict" | "moderate" | "permissive")}
                                                 className={cn(
                                                     "relative p-3 rounded-xl text-center transition-all duration-300 border",
                                                     isActive
@@ -1175,7 +1111,7 @@ export function RehearsalMode({
                                         return (
                                             <button
                                                 key={s.id}
-                                                onClick={() => setPlaybackSpeed(s.id as any)}
+                                                onClick={() => setPlaybackSpeed(s.id as "normal" | "fast" | "veryfast")}
                                                 className={cn(
                                                     "relative p-3 rounded-xl text-center transition-all duration-300 border",
                                                     isActive
@@ -1341,7 +1277,7 @@ export function RehearsalMode({
                         ref={containerRef}
                         className={cn(
                             "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin transition-opacity duration-300",
-                            isFirstScrollRef.current ? "opacity-0" : "opacity-100"
+                            hasInitialScrollCompleted ? "opacity-100" : "opacity-0"
                         )}
                         id="script-container"
                     >
@@ -1445,7 +1381,7 @@ export function RehearsalMode({
                                         isActive && status === "error" && (
                                             <div className="flex items-center gap-2 mt-4 text-red-400 text-sm font-medium animate-in fade-in slide-in-from-top-2">
                                                 <AlertTriangle className="w-4 h-4" />
-                                                <span>Je n'ai pas compris. Répétez ?</span>
+                                                <span>Je n&apos;ai pas compris. Répétez ?</span>
                                             </div>
                                         )
                                     }
