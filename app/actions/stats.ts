@@ -3,8 +3,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
+export type RehearsalContextType = "solo_script" | "troupe_play" | "troupe_event";
+
 export interface SessionStatsData {
     scriptId?: string;
+    playId?: string;
+    troupeId?: string;
+    eventId?: string;
+    contextType?: RehearsalContextType;
     scriptTitle: string;
     characterName: string;
     startTime: Date;
@@ -20,38 +26,57 @@ export interface SessionStatsData {
     linesSkipped?: number;
 }
 
-export async function saveSessionStats(data: SessionStatsData) {
+export async function saveSessionStats(
+    data: SessionStatsData
+): Promise<{ success: true; sessionId: string } | { error: string }> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return { error: "Non authentifié" };
 
     try {
-        const { error } = await supabase.from("rehearsal_sessions").insert({
-            user_id: user.id,
-            script_id: data.scriptId || null,
-            script_title: data.scriptTitle,
-            character_name: data.characterName,
-            start_time: data.startTime.toISOString(),
-            end_time: data.endTime.toISOString(),
-            duration_seconds: data.durationSeconds,
-            lines_total: data.linesTotal,
-            lines_rehearsed: data.linesRehearsed,
-            completion_percentage: data.completionPercentage,
-            mode: data.mode,
-            // Detailed metrics
-            lines_validated_first_try: data.linesValidatedFirstTry || 0,
-            lines_wrong: data.linesWrong || 0,
-            lines_skipped: data.linesSkipped || 0
-        });
+        const contextType: RehearsalContextType =
+            data.contextType ||
+            (data.eventId ? "troupe_event" : data.playId ? "troupe_play" : "solo_script");
+        const scriptId = contextType === "solo_script" ? (data.scriptId || null) : null;
+
+        const { data: inserted, error } = await supabase
+            .from("rehearsal_sessions")
+            .insert({
+                user_id: user.id,
+                context_type: contextType,
+                script_id: scriptId,
+                play_id: data.playId || null,
+                troupe_id: data.troupeId || null,
+                event_id: data.eventId || null,
+                script_title: data.scriptTitle,
+                character_name: data.characterName,
+                start_time: data.startTime.toISOString(),
+                end_time: data.endTime.toISOString(),
+                duration_seconds: data.durationSeconds,
+                lines_total: data.linesTotal,
+                lines_rehearsed: data.linesRehearsed,
+                completion_percentage: data.completionPercentage,
+                mode: data.mode,
+                // Detailed metrics
+                lines_validated_first_try: data.linesValidatedFirstTry || 0,
+                lines_wrong: data.linesWrong || 0,
+                lines_skipped: data.linesSkipped || 0
+            })
+            .select("id")
+            .single();
 
         if (error) {
             console.error("Error saving session stats:", error);
             return { error: "Erreur lors de la sauvegarde" };
         }
 
+        if (!inserted?.id) {
+            return { error: "Session créée mais ID introuvable" };
+        }
+
         revalidatePath("/stats");
-        return { success: true };
+        return { success: true, sessionId: inserted.id };
     } catch (e) {
         console.error("Exception saving stats:", e);
         return { error: "Exception interne" };
@@ -137,12 +162,17 @@ export async function getUserStats(period: '7days' | '30days' | 'all' = 'all') {
     }>();
 
     sessions.forEach(s => {
-        // Key by ID if available, else Title
-        const key = s.script_id || s.script_title;
+        // Key by source context (play/script/title fallback)
+        const sourceId = s.play_id || s.script_id || null;
+        const key = s.play_id
+            ? `play:${s.play_id}`
+            : s.script_id
+                ? `script:${s.script_id}`
+                : `title:${s.script_title || "unknown"}`;
         if (!playsMap.has(key)) {
             playsMap.set(key, {
-                scriptId: s.script_id,
-                title: s.script_title,
+                scriptId: sourceId,
+                title: s.script_title || "Session sans titre",
                 lastPlayed: s.start_time,
                 totalSeconds: 0,
                 sessionsCount: 0,
@@ -164,7 +194,7 @@ export async function getUserStats(period: '7days' | '30days' | 'all' = 'all') {
 
     // Streak Calculation (simplified)
     // Check consecutive days backwards from today
-    let streak = 0;
+    const streak = 0;
     // TODO: Implement robust streak if needed.
 
     return {
@@ -188,7 +218,7 @@ export async function getPlayDetailedStats(scriptId: string) {
         .from("rehearsal_sessions")
         .select("*")
         .eq("user_id", user.id)
-        .eq("script_id", scriptId)
+        .or(`script_id.eq.${scriptId},play_id.eq.${scriptId}`)
         .order("start_time", { ascending: true });
 
     if (error || !sessions) {
@@ -247,6 +277,10 @@ export async function getPlayDetailedStats(scriptId: string) {
 export interface LineErrorData {
     sessionId?: string;
     scriptId?: string;
+    playId?: string;
+    troupeId?: string;
+    eventId?: string;
+    contextType?: RehearsalContextType;
     lineIndex: number;
     lineText: string;
     characterName: string;
@@ -266,9 +300,15 @@ export async function saveLineErrors(errors: LineErrorData[]) {
 
     try {
         const insertData = errors.map(e => ({
+            context_type: e.contextType || (e.eventId ? "troupe_event" : e.playId ? "troupe_play" : "solo_script"),
             user_id: user.id,
             session_id: e.sessionId || null,
-            script_id: e.scriptId || null,
+            script_id: (e.contextType || (e.eventId ? "troupe_event" : e.playId ? "troupe_play" : "solo_script")) === "solo_script"
+                ? (e.scriptId || null)
+                : null,
+            play_id: e.playId || null,
+            troupe_id: e.troupeId || null,
+            event_id: e.eventId || null,
             line_index: e.lineIndex,
             line_text: e.lineText,
             character_name: e.characterName,
@@ -295,18 +335,24 @@ export async function saveLineErrors(errors: LineErrorData[]) {
  * Get line error statistics for a character in a play
  * Returns the most frequently missed lines
  */
-export async function getCharacterLineErrors(scriptId: string, characterName?: string) {
+export async function getCharacterLineErrors(
+    sourceId: string,
+    characterName?: string,
+    sourceType: "script" | "play" = "script"
+) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return [];
 
     try {
+        const sourceColumn = sourceType === "play" ? "play_id" : "script_id";
+
         let query = supabase
             .from("rehearsal_line_errors")
             .select("line_index, line_text, character_name, error_type")
             .eq("user_id", user.id)
-            .eq("script_id", scriptId);
+            .eq(sourceColumn, sourceId);
 
         if (characterName) {
             query = query.eq("character_name", characterName);
@@ -353,4 +399,3 @@ export async function getCharacterLineErrors(scriptId: string, characterName?: s
         return [];
     }
 }
-

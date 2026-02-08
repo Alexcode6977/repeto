@@ -95,7 +95,7 @@ export default async function MyCharacterPage({
         .from('rehearsal_sessions')
         .select('*')
         .eq('user_id', user.id)
-        .eq('script_id', playId)
+        .or(`play_id.eq.${playId},script_id.eq.${playId}`)
         .order('created_at', { ascending: false });
 
     // Get scene rehearsal counts
@@ -107,7 +107,7 @@ export default async function MyCharacterPage({
 
     // Get line errors for this character
     const { getCharacterLineErrors } = await import("@/app/actions/stats");
-    const lineErrors = await getCharacterLineErrors(playId, myCharacter.name);
+    const lineErrors = await getCharacterLineErrors(playId, myCharacter.name, 'play');
 
     // Calculate aggregated stats
     const totalSessions = sessions?.length || 0;
@@ -125,11 +125,9 @@ export default async function MyCharacterPage({
         totalLinesSkipped += (s.lines_skipped || 0);
     });
 
-    const totalLinesValidated = totalLinesRehearsed - totalLinesSkipped;
-    const totalAttempts = totalLinesFirstTry + totalLinesWrong + totalLinesSkipped; // Approximation of total "interactions" tracked
-    // Or just use totalLinesRehearsed as denominator if we trust it matches
-    const avgFirstTryRate = totalLinesValidated > 0
-        ? Math.round((totalLinesFirstTry / totalLinesValidated) * 100)
+    const totalLinesValidated = Math.max(totalLinesRehearsed - totalLinesSkipped, 0);
+    const avgFirstTryRate = totalLinesRehearsed > 0
+        ? Math.round((totalLinesFirstTry / totalLinesRehearsed) * 100)
         : 0;
 
     return (
@@ -158,4 +156,3 @@ export default async function MyCharacterPage({
         />
     );
 }
-

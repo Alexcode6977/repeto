@@ -18,9 +18,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
 import { submitFeedback } from "@/app/(protected)/dashboard/feedback-actions";
 import { BrowserVoiceConfig } from "./browser-voice-config";
-import { saveSessionStats, saveLineErrors, LineErrorData } from "@/app/actions/stats"; // Stats Actions
+import { saveSessionStats, saveLineErrors, LineErrorData, type RehearsalContextType } from "@/app/actions/stats"; // Stats Actions
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
 import { removeStageDirections, parseSegments } from "@/lib/utils/stage-directions";
+import { Progress } from "./ui/progress";
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -96,6 +97,7 @@ interface RehearsalModeProps {
     scriptId?: string;
     isPublicScript?: boolean;
     troupeId?: string;
+    eventId?: string;
     initialIgnoredCharacters?: string[];
     partnerCharacters?: string[];
     isVisio?: boolean;
@@ -114,6 +116,7 @@ export function RehearsalMode({
     scriptId,
     isPublicScript = false,
     troupeId,
+    eventId,
     initialIgnoredCharacters = [],
     partnerCharacters = [],
     isVisio = false,
@@ -133,6 +136,8 @@ export function RehearsalMode({
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
     const [hasStarted, setHasStarted] = useState(false);
     const [isStarting, setIsStarting] = useState(false);
+    const [startupProgress, setStartupProgress] = useState(0);
+    const [startupStep, setStartupStep] = useState("En attente...");
     const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | "elevenlabs" | null>(null);
     const [forceAudioOutput] = useState(false); // CarPlay experimental fix (read-only for now)
 
@@ -367,88 +372,106 @@ export function RehearsalMode({
 
     const handleStart = async () => {
         if (isStarting || hasStarted) return;
+        setStartupProgress(5);
+        setStartupStep("Validation des réglages...");
         setIsStarting(true);
         let didStart = false;
 
         try {
-        const preloadPromise = preparePlaybackStart(startLineIndex).catch((e) => {
-            console.warn("[Rehearsal] Preload start skipped", e);
-        });
+            setStartupProgress(15);
+            setStartupStep("Préchargement audio...");
+            const preloadPromise = preparePlaybackStart(startLineIndex).catch((e) => {
+                console.warn("[Rehearsal] Preload start skipped", e);
+            });
 
-        // SERVER-SIDE VALIDATION: Validate and sanitize settings before starting
-        const validation = await validateAndStartRehearsal(
-            {
-                mode: rehearsalMode,
-                visibility: lineVisibility,
-                ttsProvider: ttsProvider || "browser"
-            },
-            troupeId
-        );
+            // SERVER-SIDE VALIDATION: Validate and sanitize settings before starting
+            setStartupProgress(25);
+            setStartupStep("Vérification des droits et paramètres...");
+            const validation = await validateAndStartRehearsal(
+                {
+                    mode: rehearsalMode,
+                    visibility: lineVisibility,
+                    ttsProvider: ttsProvider || "browser"
+                },
+                troupeId
+            );
 
-        if (!validation.success) {
-            alert(validation.error || "Erreur lors du démarrage de la répétition");
-            return;
-        }
+            if (!validation.success) {
+                setStartupStep("Impossible de démarrer");
+                alert(validation.error || "Erreur lors du démarrage de la répétition");
+                return;
+            }
 
-        // Apply sanitized settings (server enforces tier limits)
-        if (validation.settings.mode !== rehearsalMode) {
-            setRehearsalMode(validation.settings.mode);
-            // NOTIFY USER OF DOWNGRADE
-            alert(`Le mode "${rehearsalMode === 'cue' ? 'Réplique' : 'Solo'}" est réservé aux comptes Premium/Troupe.\n\nLe mode "Lecture Intégrale" a été activé.`);
-        }
-        if (validation.settings.visibility !== lineVisibility) {
-            setLineVisibility(validation.settings.visibility);
-        }
-        if (validation.settings.ttsProvider !== ttsProvider) {
-            setTtsProvider(validation.settings.ttsProvider);
-        }
+            // Apply sanitized settings (server enforces tier limits)
+            if (validation.settings.mode !== rehearsalMode) {
+                setRehearsalMode(validation.settings.mode);
+                // NOTIFY USER OF DOWNGRADE
+                alert(`Le mode "${rehearsalMode === 'cue' ? 'Réplique' : 'Solo'}" est réservé aux comptes Premium/Troupe.\n\nLe mode "Lecture Intégrale" a été activé.`);
+            }
+            if (validation.settings.visibility !== lineVisibility) {
+                setLineVisibility(validation.settings.visibility);
+            }
+            if (validation.settings.ttsProvider !== ttsProvider) {
+                setTtsProvider(validation.settings.ttsProvider);
+            }
 
-        // Show warnings if any features were downgraded
-        if (validation.warnings.length > 0) {
-            console.warn("[Server Validation]", validation.warnings);
-        }
+            // Show warnings if any features were downgraded
+            if (validation.warnings.length > 0) {
+                console.warn("[Server Validation]", validation.warnings);
+            }
 
-        // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)
-        try {
-            if (initializeAudio) {
-                // Check if the user speaks first (Check mode or Cue mode leading into user line)
-                // If so, we SKIP the warmup to avoid race condition with the immediate listen() call
-                let isUserStarting = false;
-                const startLine = script.lines[startLineIndex];
-                if (startLine) {
-                    const normalizedLineChar = startLine.character.toLowerCase().trim();
-                    isUserStarting = (userCharacters || []).some(userChar => {
-                        const normalizedUserChar = (userChar || "").toLowerCase().trim();
-                        return normalizedLineChar === normalizedUserChar;
-                    });
+            // Init audio (Mic + Speech Recog) immediately on user interaction (Required for Safari)
+            try {
+                setStartupProgress(55);
+                setStartupStep("Initialisation du micro...");
+                if (initializeAudio) {
+                    // Check if the user speaks first (Check mode or Cue mode leading into user line)
+                    // If so, we SKIP the warmup to avoid race condition with the immediate listen() call
+                    let isUserStarting = false;
+                    const startLine = script.lines[startLineIndex];
+                    if (startLine) {
+                        const normalizedLineChar = startLine.character.toLowerCase().trim();
+                        isUserStarting = (userCharacters || []).some(userChar => {
+                            const normalizedUserChar = (userChar || "").toLowerCase().trim();
+                            return normalizedLineChar === normalizedUserChar;
+                        });
+                    }
+
+                    await initializeAudio(forceAudioOutput, isUserStarting);
+                } else {
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
                 }
+            } catch (e) {
+                console.error("Microphone initialization error", e);
 
-                await initializeAudio(forceAudioOutput, isUserStarting);
-            } else {
-                await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Provide specific error messages based on the error type
+                if (e === "MIC_API_NOT_AVAILABLE" || (typeof e === 'object' && e && 'message' in e && (e as Error).message === "MIC_API_NOT_AVAILABLE")) {
+                    alert("Votre navigateur ne supporte pas l'enregistrement audio.\n\nSur Safari, assurez-vous d'utiliser une version récente et d'être en HTTPS.");
+                } else {
+                    alert("Accès micro refusé. Veuillez vérifier les permissions de votre navigateur.");
+                }
+                setStartupStep("Erreur d'initialisation micro");
+                return;
             }
-        } catch (e) {
-            console.error("Microphone initialization error", e);
 
-            // Provide specific error messages based on the error type
-            if (e === "MIC_API_NOT_AVAILABLE" || (typeof e === 'object' && e && 'message' in e && (e as Error).message === "MIC_API_NOT_AVAILABLE")) {
-                alert("Votre navigateur ne supporte pas l'enregistrement audio.\n\nSur Safari, assurez-vous d'utiliser une version récente et d'être en HTTPS.");
-            } else {
-                alert("Accès micro refusé. Veuillez vérifier les permissions de votre navigateur.");
-            }
-            return;
-        }
+            setStartupProgress(85);
+            setStartupStep("Finalisation du préchargement...");
+            await preloadPromise;
 
-        await preloadPromise;
-
-        setHasStarted(true);
-        didStart = true;
-        sessionStartRef.current = Date.now();
-        requestWakeLock();
-        start();
+            setStartupProgress(100);
+            setStartupStep("Prêt, lancement...");
+            setHasStarted(true);
+            didStart = true;
+            sessionStartRef.current = Date.now();
+            requestWakeLock();
+            start();
         } finally {
             if (!didStart) {
                 setIsStarting(false);
+                setStartupProgress(0);
+                setStartupStep("En attente...");
+            } else {
+                setStartupStep("En attente...");
             }
         }
     };
@@ -469,6 +492,11 @@ export function RehearsalMode({
         linesSkipped: 0,
         linesValidatedTotal: 0
     });
+    const seenUserLinesRef = useRef<Set<number>>(new Set());
+    const validatedUserLinesRef = useRef<Set<number>>(new Set());
+    const firstTryUserLinesRef = useRef<Set<number>>(new Set());
+    const erroredUserLinesRef = useRef<Set<number>>(new Set());
+    const skippedUserLinesRef = useRef<Set<number>>(new Set());
 
     const [sessionStatsForRecap, setSessionStatsForRecap] = useState<{
         durationSeconds: number;
@@ -485,7 +513,6 @@ export function RehearsalMode({
     const [showErrorAnimation, setShowErrorAnimation] = useState(false);
     const prevLineIndex = useRef(currentLineIndex);
     const prevStatus = useRef(status);
-    const hasErrorOnCurrentLineRef = useRef(false); // Track if current line had an error (for first-try logic)
 
     // Refs for auto-scroll
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -564,8 +591,54 @@ export function RehearsalMode({
     const visibleLines = script.lines.slice(virtualStart, virtualEnd);
     const topSpacerHeight = virtualStart * VIRTUAL_ROW_ESTIMATE;
     const bottomSpacerHeight = Math.max(0, (script.lines.length - virtualEnd) * VIRTUAL_ROW_ESTIMATE);
+    const getSessionContext = (): {
+        contextType: RehearsalContextType;
+        scriptId?: string;
+        playId?: string;
+        troupeId?: string;
+        eventId?: string;
+    } => {
+        const contextType: RehearsalContextType = eventId
+            ? "troupe_event"
+            : playId
+                ? "troupe_play"
+                : "solo_script";
 
-    // Detect success/error for animations AND track metrics
+        return {
+            contextType,
+            scriptId: contextType === "solo_script" ? (scriptId || (script as any).id) : undefined,
+            playId: playId || undefined,
+            troupeId: troupeId || undefined,
+            eventId: eventId || undefined,
+        };
+    };
+
+    // Track a line error (skip, timeout, mismatch)
+    const trackLineError = useCallback((lineIndex: number, errorType: 'skip' | 'timeout' | 'mismatch') => {
+        const line = script.lines[lineIndex];
+        if (!line) return;
+        const context = getSessionContext();
+
+        lineErrorsRef.current.push({
+            contextType: context.contextType,
+            scriptId: context.scriptId,
+            playId: context.playId,
+            troupeId: context.troupeId,
+            eventId: context.eventId,
+            lineIndex,
+            lineText: line.text?.substring(0, 200) || '',
+            characterName: line.character,
+            errorType
+        });
+
+        if (errorType === 'skip' && !skippedUserLinesRef.current.has(lineIndex)) {
+            skippedUserLinesRef.current.add(lineIndex);
+            sessionMetricsRef.current.linesSkipped = skippedUserLinesRef.current.size;
+        }
+
+        console.log(`[LineError] Tracked ${errorType} at line ${lineIndex}`);
+    }, [eventId, playId, script, scriptId, troupeId]);
+
     // Detect success/error for animations (Purely visual)
     useEffect(() => {
         if (currentLineIndex > prevLineIndex.current && (prevStatus.current === "listening_user" || prevStatus.current === "evaluating")) {
@@ -575,62 +648,63 @@ export function RehearsalMode({
         prevLineIndex.current = currentLineIndex;
     }, [currentLineIndex]);
 
-    // RELIABLE STATS TRACKING: Use feedback state from the hook
+    // Mark every user line reached during the session.
     useEffect(() => {
-        if (feedback === "correct") {
-            sessionMetricsRef.current.linesValidatedTotal++;
+        if (status === "listening_user") {
+            seenUserLinesRef.current.add(currentLineIndex);
+        }
+    }, [status, currentLineIndex]);
 
-            // First try logic: Only if no error occurred on this line
-            if (!hasErrorOnCurrentLineRef.current) {
-                sessionMetricsRef.current.linesValidatedFirstTry++;
+    // Track successful validations once per unique line.
+    useEffect(() => {
+        if (feedback !== "correct") return;
+
+        if (!validatedUserLinesRef.current.has(currentLineIndex)) {
+            validatedUserLinesRef.current.add(currentLineIndex);
+            sessionMetricsRef.current.linesValidatedTotal = validatedUserLinesRef.current.size;
+
+            if (!erroredUserLinesRef.current.has(currentLineIndex)) {
+                firstTryUserLinesRef.current.add(currentLineIndex);
+                sessionMetricsRef.current.linesValidatedFirstTry = firstTryUserLinesRef.current.size;
             }
         }
-    }, [feedback]);
+    }, [feedback, currentLineIndex]);
 
-    // Reset error flag when line changes
+    // Track spoken mismatches/timeouts.
     useEffect(() => {
-        hasErrorOnCurrentLineRef.current = false;
-    }, [currentLineIndex]);
+        if (feedback !== "incorrect") return;
+
+        setShowErrorAnimation(true);
+        setTimeout(() => setShowErrorAnimation(false), 600);
+
+        sessionMetricsRef.current.linesWrong++;
+        erroredUserLinesRef.current.add(currentLineIndex);
+
+        const errorType: 'timeout' | 'mismatch' = lastTranscript?.trim() ? 'mismatch' : 'timeout';
+        trackLineError(currentLineIndex, errorType);
+    }, [feedback, currentLineIndex, lastTranscript, trackLineError]);
 
     // Wrapped Next function to track Manual Skips
     const handleManualNext = () => {
-        // If we are listening to user and they skip (and haven't validated yet), it's a "Skip"
-        // We check feedback !== "correct" to avoid counting auto-advance as skip if user clicks fast
-        if (status === "listening_user" && feedback !== "correct") {
-            sessionMetricsRef.current.linesSkipped++;
+        if (status === "listening_user" && !validatedUserLinesRef.current.has(currentLineIndex)) {
             trackLineError(currentLineIndex, 'skip');
         }
         next();
     };
 
     useEffect(() => {
-        // Error: status changed to error
+        // Runtime recognition errors from the hook.
         if (status === "error" && prevStatus.current !== "error") {
             setShowErrorAnimation(true);
             setTimeout(() => setShowErrorAnimation(false), 600);
 
-            // Track wrong answer
             sessionMetricsRef.current.linesWrong++;
-            hasErrorOnCurrentLineRef.current = true; // Mark this line as having an error
-        }
-
-        // If we recovered from error (retry succeeded), track the validated line
-        if (prevStatus.current === "error" && status !== "error" && status !== "listening_user") {
-            // This means they retried and succeeded - counts as validated but not first try
-            sessionMetricsRef.current.linesValidatedTotal++;
-            // Note: We don't increment firstTry because hasErrorOnCurrentLineRef is likely true (or we just rely on the other effect not running if logic is separate)
-            // Wait, if status goes error -> setup -> listening... the other effect handles validation.
-            // But if we go error -> next (skip?), we handle it.
-            // Actually, the main success effect handles "moving forward".
-            // This block here (lines 533-536) seems redundant or potentially double-counting if the main effect also fires?
-
-            // Let's REMOVE this block to avoid double counting. 
-            // The main effect (currentLineIndex change) handles "moving to next line".
-            // If we are just recovering from error to "listening", we haven't validated yet.
+            erroredUserLinesRef.current.add(currentLineIndex);
+            trackLineError(currentLineIndex, 'timeout');
         }
 
         prevStatus.current = status;
-    }, [status]);
+    }, [status, currentLineIndex, trackLineError]);
 
     // Calculate session stats
     const getSessionStats = () => {
@@ -640,15 +714,15 @@ export function RehearsalMode({
             const normalizedLineChar = char.toLowerCase().trim();
             return userCharacters.some(uc => uc.toLowerCase().trim() === normalizedLineChar);
         };
-        const userLines = script.lines.filter(l => isUserCharacter(l.character));
-        const completionPercentage = userLines.length > 0
-            ? Math.round((currentLineIndex / script.lines.length) * 100)
+        const totalUserLines = script.lines.filter(l => isUserCharacter(l.character)).length;
+        const linesRehearsed = seenUserLinesRef.current.size;
+        const completionPercentage = totalUserLines > 0
+            ? Math.round((linesRehearsed / totalUserLines) * 100)
             : 0;
 
         const metrics = sessionMetricsRef.current;
-        const totalValidated = metrics.linesValidatedTotal;
-        const firstTryRate = totalValidated > 0
-            ? Math.round((metrics.linesValidatedFirstTry / totalValidated) * 100)
+        const firstTryRate = linesRehearsed > 0
+            ? Math.round((metrics.linesValidatedFirstTry / linesRehearsed) * 100)
             : 0;
 
         return {
@@ -656,7 +730,7 @@ export function RehearsalMode({
             characterNames: userCharacters,
             characterName: (userCharacters || []).join(", "),
             durationSeconds,
-            linesRehearsed: currentLineIndex,
+            linesRehearsed,
             completionPercentage,
             // Add detailed stats
             linesValidatedFirstTry: metrics.linesValidatedFirstTry,
@@ -673,27 +747,6 @@ export function RehearsalMode({
         };
     };
 
-    // Track a line error (skip, timeout, mismatch)
-    const trackLineError = (lineIndex: number, errorType: 'skip' | 'timeout' | 'mismatch') => {
-        const line = script.lines[lineIndex];
-        if (!line) return;
-
-        lineErrorsRef.current.push({
-            scriptId: (script as any).id,
-            lineIndex,
-            lineText: line.text?.substring(0, 200) || '', // Truncate for storage
-            characterName: line.character,
-            errorType
-        });
-
-        // Increment skip metric
-        if (errorType === 'skip') {
-            sessionMetricsRef.current.linesSkipped++;
-        }
-
-        console.log(`[LineError] Tracked ${errorType} at line ${lineIndex}`);
-    };
-
     // Helper to save stats and line errors
     const persistSessionStats = async () => {
         if (hasSavedStats.current || isDemo) return;
@@ -705,8 +758,8 @@ export function RehearsalMode({
         console.log("[Stats] Saving session...", stats);
 
         const metrics = sessionMetricsRef.current;
-        const firstTryRate = metrics.linesValidatedTotal > 0
-            ? Math.round((metrics.linesValidatedFirstTry / metrics.linesValidatedTotal) * 100)
+        const firstTryRate = stats.linesRehearsed > 0
+            ? Math.round((metrics.linesValidatedFirstTry / stats.linesRehearsed) * 100)
             : 0;
 
         // Store stats for recap modal
@@ -721,11 +774,14 @@ export function RehearsalMode({
         });
 
         try {
-            // Use playId if available, fallback to scriptId or script.id
-            const actualScriptId = playId || scriptId || (script as any).id;
+            const context = getSessionContext();
 
-            await saveSessionStats({
-                scriptId: actualScriptId,
+            const saveResult = await saveSessionStats({
+                contextType: context.contextType,
+                scriptId: context.scriptId,
+                playId: context.playId,
+                troupeId: context.troupeId,
+                eventId: context.eventId,
                 scriptTitle: script.title || "Untitled",
                 characterName: (userCharacters || []).join(", "),
                 startTime: new Date(sessionStartRef.current),
@@ -740,6 +796,10 @@ export function RehearsalMode({
                 linesWrong: metrics.linesWrong,
                 linesSkipped: metrics.linesSkipped
             });
+            if ("error" in saveResult) {
+                console.error("[Stats] Session save returned error:", saveResult.error);
+            }
+            const sessionId = "success" in saveResult ? saveResult.sessionId : undefined;
 
             // Save line errors if any
             if (lineErrorsRef.current.length > 0) {
@@ -747,7 +807,12 @@ export function RehearsalMode({
                 // Update line errors with correct scriptId
                 lineErrorsRef.current = lineErrorsRef.current.map(e => ({
                     ...e,
-                    scriptId: actualScriptId
+                    contextType: context.contextType,
+                    scriptId: context.scriptId,
+                    playId: context.playId,
+                    troupeId: context.troupeId,
+                    eventId: context.eventId,
+                    sessionId
                 }));
                 await saveLineErrors(lineErrorsRef.current);
             }
@@ -778,8 +843,9 @@ export function RehearsalMode({
     // Handle feedback submission
     const handleFeedbackSubmit = async (feedbackData: FeedbackData) => {
         const sessionStats = getSessionStats();
+        const actualScriptId = playId || scriptId || (script as any).id;
         await submitFeedback({
-            scriptId: (script as any).id,
+            scriptId: actualScriptId,
             ...sessionStats,
             characterName: sessionStats.characterNames.join(", "),
             rating: feedbackData.rating,
@@ -1134,9 +1200,16 @@ export function RehearsalMode({
                                 )}
                             </button>
                             {isStarting && (
-                                <p className="mt-3 text-[11px] text-center text-muted-foreground font-medium">
-                                    Préparation des premières répliques...
-                                </p>
+                                <div className="mt-4 space-y-2">
+                                    <Progress
+                                        value={startupProgress}
+                                        className="h-2 bg-violet-500/20 [&>div]:bg-violet-500"
+                                    />
+                                    <div className="flex items-center justify-between text-[11px] font-medium">
+                                        <p className="text-muted-foreground">{startupStep}</p>
+                                        <p className="text-violet-300">{startupProgress}%</p>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
