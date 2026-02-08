@@ -16,11 +16,15 @@ interface SessionPlan {
     selected_scenes?: Array<{ id: string }> | null;
 }
 
+interface SessionPlay {
+    title?: string | null;
+}
+
 interface SessionItem {
     id: string;
     start_time: string;
     title?: string | null;
-    plays?: { title?: string | null } | null;
+    plays?: SessionPlay | SessionPlay[] | null;
     session_plans?: SessionPlan | SessionPlan[] | null;
 }
 
@@ -33,6 +37,12 @@ interface SessionListClientProps {
 const getSessionPlan = (session: SessionItem): SessionPlan | undefined => {
     if (!session.session_plans) return undefined;
     return Array.isArray(session.session_plans) ? session.session_plans[0] : session.session_plans;
+};
+
+const getPlayTitle = (session: SessionItem): string => {
+    if (!session.plays) return "Aucune pièce associée";
+    if (Array.isArray(session.plays)) return session.plays[0]?.title || "Aucune pièce associée";
+    return session.plays.title || "Aucune pièce associée";
 };
 
 export function SessionListClient({ sessions, troupeId, isAdmin }: SessionListClientProps) {
@@ -212,7 +222,7 @@ function SessionCard({ session, troupeId, status, isAdmin }: { session: SessionI
                         </div>
                         <p className="text-xs md:text-sm font-medium text-muted-foreground flex items-center gap-2 truncate">
                             <Clock className="w-3 h-3 shrink-0" />
-                            {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} • {session.plays?.title || "Aucune pièce associée"}
+                            {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} • {getPlayTitle(session)}
                         </p>
                     </div>
                 </Link>
