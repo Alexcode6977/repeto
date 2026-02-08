@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo } from "react";
-import { synthesizeSpeech, OpenAIVoice } from "@/app/actions/tts";
+import { synthesizeSpeech } from "@/app/actions/tts";
 
-export type TTSProvider = "browser" | "openai" | "elevenlabs";
+export type TTSProvider = "browser" | "elevenlabs";
 
 interface UseAITTSReturn {
     speak: (text: string, voice?: string, playbackRate?: number) => Promise<void>;

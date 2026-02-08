@@ -4,11 +4,30 @@ import { createClient } from "@/lib/supabase/server";
 import { canManageTroupe } from "@/lib/utils/roles";
 import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
-// Define locally to avoid circular dependency with tts.ts
-export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
-export type VoiceProvider = 'openai' | 'elevenlabs';
+export type VoiceProvider = "elevenlabs";
+type StoredVoiceProvider = "openai" | "elevenlabs";
 
 export type SourceType = 'library_script' | 'private_script' | 'troupe_play';
+
+const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
+const LEGACY_OPENAI_TO_ELEVENLABS: Record<string, string> = {
+    alloy: "21m00Tcm4TlvDq8ikWAM",
+    echo: "pNInz6obpgDQGcFmaJgB",
+    fable: "ErXw9S1k3MpBy928U4cm",
+    onyx: "TxGEqnHW47ic3A7NWmsG",
+    nova: "EXAVITQu4vr4xnNLMQyw",
+    shimmer: "MF3mGyEYCl7XYW7Lyk9p",
+};
+
+function normalizeVoice(voice: string): string {
+    const candidate = (voice || "").trim();
+    if (!candidate) return DEFAULT_ELEVENLABS_VOICE;
+    return LEGACY_OPENAI_TO_ELEVENLABS[candidate] || candidate;
+}
+
+function normalizeProvider(): VoiceProvider {
+    return "elevenlabs";
+}
 
 export interface VoiceConfig {
     id: string;
@@ -16,7 +35,7 @@ export interface VoiceConfig {
     source_id: string;
     character_name: string;
     voice: string; // Changed from OpenAIVoice to string to support EL IDs
-    provider: VoiceProvider; // Added
+    provider: StoredVoiceProvider;
     settings: any; // Added
     created_by: string | null;
     troupe_id: string | null;
@@ -208,8 +227,8 @@ export async function getCharacterVoice(
     if (!data) return null;
 
     return {
-        voice: data.voice,
-        provider: (data.provider as VoiceProvider) || 'openai',
+        voice: normalizeVoice(data.voice),
+        provider: normalizeProvider(),
         settings: data.settings || {}
     };
 }
@@ -324,7 +343,7 @@ export async function updateVoiceAssignment(
     sourceId: string,
     characterName: string,
     voice: string,
-    provider: VoiceProvider = 'openai',
+    provider: VoiceProvider = "elevenlabs",
     settings: any = {},
     troupeId?: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -376,7 +395,7 @@ export async function updateVoiceAssignment(
             source_type: sourceType,
             source_id: sourceId,
             character_name: characterName,
-            voice: voice,
+            voice: normalizeVoice(voice),
             provider: provider,
             settings: settings,
             troupe_id: troupeId || null,

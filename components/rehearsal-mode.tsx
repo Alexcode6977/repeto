@@ -138,7 +138,7 @@ export function RehearsalMode({
     const [isStarting, setIsStarting] = useState(false);
     const [startupProgress, setStartupProgress] = useState(0);
     const [startupStep, setStartupStep] = useState("En attente...");
-    const [ttsProvider, setTtsProvider] = useState<"browser" | "openai" | "elevenlabs" | null>(null);
+    const [ttsProvider, setTtsProvider] = useState<"browser" | "elevenlabs" | null>(null);
     const [forceAudioOutput] = useState(false); // CarPlay experimental fix (read-only for now)
 
     // Initialize ignored characters - merge prop with default didascalies
@@ -162,6 +162,7 @@ export function RehearsalMode({
 
     // Premium / Feature State
     const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
+    const [hasAiVoiceAccess, setHasAiVoiceAccess] = useState(false);
     // canRecordAudio is set but currently unused - keeping for future use
     const [, setCanRecordAudio] = useState(false);
 
@@ -177,6 +178,8 @@ export function RehearsalMode({
                 const capabilities = await getUserCapabilities(troupeId);
                 setIsPremiumUnlocked(capabilities.isPremium);
                 setCanRecordAudio(capabilities.features.recording);
+                const canUseAiVoices = capabilities.features.aiVoices || capabilities.isPremium;
+                setHasAiVoiceAccess(canUseAiVoices);
 
                 // If not premium, ensure settings are reset to free tier defaults
                 if (!capabilities.features.advancedModes && rehearsalMode !== "full") {
@@ -186,13 +189,15 @@ export function RehearsalMode({
                     setLineVisibility("visible");
                 }
                 // Enforce TTS Rules: Premium/Troupe -> ElevenLabs, Free -> Browser
-                if (capabilities.features.aiVoices || capabilities.isPremium) {
+                if (canUseAiVoices) {
                     setTtsProvider("elevenlabs");
                 } else {
                     setTtsProvider("browser");
                 }
             } catch (error) {
                 console.error("Failed to fetch user capabilities", error);
+                setHasAiVoiceAccess(false);
+                setTtsProvider("browser");
             } finally {
                 setIsLoadingStatus(false);
             }
@@ -229,7 +234,7 @@ export function RehearsalMode({
                     });
 
                     if (Object.keys(assignments).length > 0) {
-                        setOpenaiVoiceAssignments(assignments as any);
+                        setAiVoiceAssignments(assignments as any);
                     } else {
                         // Fallback: Generate local ElevenLabs assignments
                         const VOICES = ["21m00Tcm4TlvDq8ikWAM", "pNInz6obpgDQGcFmaJgB", "EXAVITQu4vr4xnNLMQyw", "ErXw9S1k3MpBy928U4cm", "MF3mGyEYCl7XYW7Lyk9p", "TxGEqnHW47ic3A7NWmsG"];
@@ -237,7 +242,7 @@ export function RehearsalMode({
                         script.characters.forEach((char, index) => {
                             localAssignments[char] = VOICES[index % VOICES.length];
                         });
-                        setOpenaiVoiceAssignments(localAssignments as any);
+                        setAiVoiceAssignments(localAssignments as any);
                     }
                 } else {
                     // Fallback: ElevenLabs default distribution
@@ -248,7 +253,7 @@ export function RehearsalMode({
                         localAssignments[char] = VOICES[index % VOICES.length];
                     });
 
-                    setOpenaiVoiceAssignments(localAssignments as any);
+                    setAiVoiceAssignments(localAssignments as any);
                 }
             } catch (error) {
                 console.error("Failed to fetch voice config", error);
@@ -284,16 +289,15 @@ export function RehearsalMode({
                     userCharacters,
                     ttsProvider
                 });
-                if (!ttsProvider) setTtsProvider("browser");
+                if (!ttsProvider) setTtsProvider(hasAiVoiceAccess ? "elevenlabs" : "browser");
                 handleStart();
             }, 800);
             return () => clearTimeout(timer);
         }
-    }, [autoStart, hasStarted, isStarting, isLoadingStatus, script?.lines?.length, userCharacters]);
+    }, [autoStart, hasStarted, isStarting, isLoadingStatus, script?.lines?.length, userCharacters, hasAiVoiceAccess, ttsProvider]);
 
-    // OpenAI voice assignments per character
-
-    const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, string>>({});
+    // ElevenLabs voice assignments per character
+    const [aiVoiceAssignments, setAiVoiceAssignments] = useState<Record<string, string>>({});
     const [testingVoice, setTestingVoice] = useState<string | null>(null);  // Track which role is being tested
 
     const {
@@ -323,8 +327,8 @@ export function RehearsalMode({
         similarityThreshold: threshold,
         initialLineIndex: startLineIndex,
         mode: rehearsalMode,
-        ttsProvider: ttsProvider || "browser",
-        openaiVoiceAssignments,
+        ttsProvider: ttsProvider || (hasAiVoiceAccess ? "elevenlabs" : "browser"),
+        aiVoiceAssignments,
         showStageDirections,
         skipCharacters: ignoredCharacters,
         playId,
@@ -347,7 +351,7 @@ export function RehearsalMode({
             window.speechSynthesis.speak(ut);
         }
     };
-    // Function to test OpenAI voice
+    // Function to test ElevenLabs voice
     const testAIVoice = async (role: string, voice: string) => {
         setTestingVoice(role);
         try {
@@ -371,7 +375,7 @@ export function RehearsalMode({
     };
 
     const handleStart = async () => {
-        if (isStarting || hasStarted) return;
+        if (isStarting || hasStarted || isLoadingStatus || !ttsProvider) return;
         setStartupProgress(5);
         setStartupStep("Validation des réglages...");
         setIsStarting(true);
@@ -385,7 +389,7 @@ export function RehearsalMode({
                 {
                     mode: rehearsalMode,
                     visibility: lineVisibility,
-                    ttsProvider: ttsProvider || "browser"
+                    ttsProvider: ttsProvider || (hasAiVoiceAccess ? "elevenlabs" : "browser")
                 },
                 troupeId
             );
@@ -749,7 +753,7 @@ export function RehearsalMode({
                 textMode: lineVisibility,
                 rehearsalMode,
                 threshold,
-                ttsProvider,
+                ttsProvider: ttsProvider || (hasAiVoiceAccess ? "elevenlabs" : "browser"),
             },
         };
     };
@@ -909,15 +913,18 @@ export function RehearsalMode({
     };
 
     // Quick Start Logic - MOVED OUTSIDE conditional to respect React hooks rules
+    const rehearsalStorageKey = useMemo(
+        () => `souffleur_rehearsal_settings_${playId || scriptId || (script as any).id || script.title}`,
+        [playId, scriptId, script]
+    );
+
     const quickStartSettings = useMemo(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem(`souffleur_rehearsal_settings_${playId || script.title}`);
+            const saved = localStorage.getItem(rehearsalStorageKey);
             return saved ? JSON.parse(saved) : null;
         }
         return null;
-    }, [playId, script.title]);
-
-
+    }, [rehearsalStorageKey]);
 
     // Pre-calculate scene characters for collective role logic
     const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
@@ -946,10 +953,11 @@ export function RehearsalMode({
         // Quick Start Logic - quickStartSettings is now defined above, outside this conditional
 
         const startQuick = async () => {
-            if (isStarting) return;
+            if (isStarting || isLoadingStatus || !ttsProvider) return;
             if (quickStartSettings) {
+                const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
                 setRehearsalMode(quickStartSettings.rehearsalMode);
-                setTtsProvider(quickStartSettings.ttsProvider);
+                setTtsProvider(enforcedProvider);
                 setLineVisibility(quickStartSettings.lineVisibility);
                 setStartLineIndex(quickStartSettings.startLineIndex || 0);
                 await handleStart();
@@ -957,16 +965,18 @@ export function RehearsalMode({
         };
 
         const handleStartWithSave = async () => {
-            if (isStarting) return;
+            if (isStarting || isLoadingStatus || !ttsProvider) return;
+            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
             if (typeof window !== 'undefined') {
-                localStorage.setItem(`souffleur_rehearsal_settings_${playId || script.title}`, JSON.stringify({
+                localStorage.setItem(rehearsalStorageKey, JSON.stringify({
                     rehearsalMode,
-                    ttsProvider,
+                    ttsProvider: enforcedProvider,
                     lineVisibility,
                     startLineIndex,
                     timestamp: Date.now()
                 }));
             }
+            setTtsProvider(enforcedProvider);
             await handleStart();
         };
 
@@ -996,7 +1006,7 @@ export function RehearsalMode({
                                 {quickStartSettings && (
                                     <button
                                         onClick={startQuick}
-                                        disabled={isStarting}
+                                        disabled={isStarting || isLoadingStatus || !ttsProvider}
                                         className="mt-2 py-2 px-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-500/20 flex items-center gap-2 transition-all w-fit"
                                     >
                                         <span>⚡</span> Reprendre (derniers réglages)
@@ -1189,10 +1199,10 @@ export function RehearsalMode({
                         <div className="pt-4">
                             <button
                                 onClick={handleStartWithSave}
-                                disabled={isStarting}
+                                disabled={isStarting || isLoadingStatus || !ttsProvider}
                                 className={cn(
                                     "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg",
-                                    isStarting
+                                    isStarting || isLoadingStatus || !ttsProvider
                                         ? "bg-violet-500/70 text-white/90 cursor-not-allowed"
                                         : "bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:shadow-purple-500/25 hover:scale-[1.02] active:scale-[0.98]"
                                 )}

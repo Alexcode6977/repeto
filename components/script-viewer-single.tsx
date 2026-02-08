@@ -28,7 +28,7 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
     const [selectedChar, setSelectedChar] = useState<string>("");
 
     // Technical role detection
-    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off"];
+    const technicalKeywords = ["didascalie", "narrateur", "régie", "note", "décor", "voix off", "poursuite", "lumière", "son", "indication"];
     const isTechnical = (char: string) => technicalKeywords.some(k => char.toLowerCase().includes(k));
 
     // Categorize characters

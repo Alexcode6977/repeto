@@ -469,7 +469,7 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
                         {forcedMode ? (
                             // Single Button Mode - Listen Mode (Reader is handled above)
                             <button
-                                onClick={() => onConfirm(selectedChars, forcedMode)}
+                                onClick={() => confirmSelection(forcedMode)}
                                 className={cn(
                                     "w-full max-w-sm group relative flex items-center justify-center gap-4 px-8 py-5 rounded-[1.5rem] transition-all duration-300 shadow-xl shadow-primary/20",
                                     forcedMode === 'listen'

@@ -6,8 +6,6 @@ import { useListen, type ListenMode } from "@/lib/hooks/use-listen";
 import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
-import { getVoiceConfig, determineSourceType, VoiceConfig } from "@/lib/actions/voice-cache";
-import { Button } from "./ui/button";
 import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, RotateCcw, ArrowLeft, MessageSquare, Zap, Users, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
@@ -36,37 +34,26 @@ export function ListenMode({
     skipCharacters = [],
     showStageDirections = true
 }: ListenModeProps) {
+    const hasUserCharacters = userCharacters.length > 0;
+
     // Configuration state
     const [listenMode, setListenMode] = useState<ListenMode>("full");
     const [ttsProvider, setTtsProvider] = useState<TTSProvider>("browser");
     const [announceCharacter, setAnnounceCharacter] = useState(false);
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [hasStarted, setHasStarted] = useState(false);
+    const [hasAiVoiceAccess, setHasAiVoiceAccess] = useState(false);
+    const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(true);
 
     // Playback Speed: 3 positions (Normal=1.0, Accéléré=1.25, Très rapide=1.5)
     const [playbackSpeed, setPlaybackSpeed] = useState<"normal" | "fast" | "veryfast">("normal");
     const speedMultiplier = playbackSpeed === "normal" ? 1.0 : playbackSpeed === "fast" ? 1.25 : 1.5;
+    type ScriptLineWithOriginalIndex = typeof script.lines[number] & { originalIndex: number };
 
-    // Premium / Feature State
-    const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
-    const [isLoadingStatus, setIsLoadingStatus] = useState(true);
-
-    // Voice Config State
-    const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, string>>({});
-
-    // Didascalies detection
-    const hasDidascalies = useMemo(() =>
-        script.characters.some(c =>
-            c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
-        ), [script.characters]);
-    const [skipDidascalies, setSkipDidascalies] = useState(true);
-
-    const effectiveSkipCharacters = useMemo(() => {
-        const didascalieChars = hasDidascalies && skipDidascalies
-            ? script.characters.filter(c => c.toLowerCase().includes("didascalie"))
-            : [];
-        return [...new Set([...skipCharacters, ...didascalieChars])];
-    }, [skipCharacters, hasDidascalies, skipDidascalies, script.characters]);
+    const effectiveSkipCharacters = useMemo(
+        () => [...new Set(skipCharacters)],
+        [skipCharacters]
+    );
 
     const quickStartSettings = useMemo(() => {
         if (typeof window !== 'undefined') {
@@ -81,56 +68,23 @@ export function ListenMode({
         const fetchCapabilities = async () => {
             try {
                 const capabilities = await getUserCapabilities(troupeId);
-                setIsPremiumUnlocked(capabilities.isPremium);
-
-                if (capabilities.features.aiVoices || capabilities.isPremium) {
+                const canUseAiVoices = capabilities.features.aiVoices || capabilities.isPremium;
+                setHasAiVoiceAccess(canUseAiVoices);
+                if (canUseAiVoices) {
                     setTtsProvider("elevenlabs");
                 } else {
                     setTtsProvider("browser");
                 }
             } catch (error) {
                 console.error("Failed to fetch user capabilities", error);
+                setHasAiVoiceAccess(false);
+                setTtsProvider("browser");
             } finally {
-                setIsLoadingStatus(false);
+                setIsLoadingCapabilities(false);
             }
         };
         fetchCapabilities();
     }, [troupeId]);
-
-    // Fetch voice config
-    useEffect(() => {
-        const fetchVoiceConfig = async () => {
-            const sourceType = await determineSourceType(isPublicScript, troupeId, playId);
-            const sourceId = playId || scriptId;
-            if (!sourceId) return;
-
-            try {
-                const config = await getVoiceConfig(sourceType, sourceId);
-                if (config) {
-                    const assignments: Record<string, string> = {};
-                    config.forEach(c => {
-                        assignments[c.character_name] = c.voice;
-                    });
-
-                    if (Object.keys(assignments).length > 0) {
-                        setOpenaiVoiceAssignments(assignments);
-                    } else {
-                        // Fallback: ElevenLabs default distribution
-                        const VOICES = ["21m00Tcm4TlvDq8ikWAM", "pNInz6obpgDQGcFmaJgB", "EXAVITQu4vr4xnNLMQyw", "ErXw9S1k3MpBy928U4cm", "MF3mGyEYCl7XYW7Lyk9p", "TxGEqnHW47ic3A7NWmsG"];
-                        const localAssignments: Record<string, string> = {};
-                        script.characters.forEach((char, index) => {
-                            localAssignments[char] = VOICES[index % VOICES.length];
-                        });
-                        setOpenaiVoiceAssignments(localAssignments);
-                    }
-                }
-            } catch (error) {
-                console.error("Failed to fetch voice config", error);
-            }
-        };
-
-        if (scriptId || playId) fetchVoiceConfig();
-    }, [scriptId, playId, troupeId, isPublicScript, script.characters]);
 
     const {
         currentLineIndex,
@@ -156,7 +110,6 @@ export function ListenMode({
         ttsProvider,
         announceCharacter,
         initialLineIndex: startLineIndex,
-        openaiVoiceAssignments,
         skipCharacters: effectiveSkipCharacters,
         playId,
         scriptId,
@@ -194,6 +147,7 @@ export function ListenMode({
     }, [status, hasStarted, onExit, releaseWakeLock]);
 
     const handleStart = async () => {
+        if (isLoadingCapabilities) return;
         setHasStarted(true);
         requestWakeLock();
         start();
@@ -201,8 +155,9 @@ export function ListenMode({
 
     const startQuick = () => {
         if (quickStartSettings) {
+            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
             setListenMode(quickStartSettings.listenMode);
-            setTtsProvider(quickStartSettings.ttsProvider);
+            setTtsProvider(enforcedProvider);
             setAnnounceCharacter(quickStartSettings.announceCharacter);
             setStartLineIndex(quickStartSettings.startLineIndex || 0);
             handleStart();
@@ -210,15 +165,17 @@ export function ListenMode({
     };
 
     const handleStartWithSave = () => {
+        const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
         if (typeof window !== 'undefined') {
             localStorage.setItem(`souffleur_listen_settings_${playId || scriptId}`, JSON.stringify({
                 listenMode,
-                ttsProvider,
+                ttsProvider: enforcedProvider,
                 announceCharacter,
                 startLineIndex,
                 timestamp: Date.now()
             }));
         }
+        setTtsProvider(enforcedProvider);
         handleStart();
     };
 
@@ -242,9 +199,16 @@ export function ListenMode({
         });
     };
 
-    const filteredLines = useMemo(() =>
-        filterScriptLines(script.lines, showStageDirections),
-        [script.lines, showStageDirections]
+    const filteredLines = useMemo(
+        () =>
+            filterScriptLines(
+                script.lines.map((line, originalIndex) => ({
+                    ...line,
+                    originalIndex
+                })),
+                showStageDirections
+            ) as ScriptLineWithOriginalIndex[],
+        [script, showStageDirections]
     );
 
     if (!hasStarted) {
@@ -264,15 +228,34 @@ export function ListenMode({
                                     <Headphones className="w-8 h-8 md:w-10 md:h-10 text-teal-500" /> Mode Écoute
                                 </h2>
                                 {quickStartSettings && (
-                                    <button onClick={startQuick} className="mt-2 py-2 px-3 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 text-[10px] font-bold uppercase tracking-wider hover:bg-teal-500/20 flex items-center gap-2 transition-all w-fit">
+                                    <button
+                                        onClick={startQuick}
+                                        disabled={isLoadingCapabilities}
+                                        className={cn(
+                                            "mt-2 py-2 px-3 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all w-fit",
+                                            isLoadingCapabilities
+                                                ? "bg-teal-500/5 border-teal-500/10 text-teal-500/50 cursor-not-allowed"
+                                                : "bg-teal-500/10 border-teal-500/20 text-teal-400 hover:bg-teal-500/20"
+                                        )}
+                                    >
                                         <span>⚡</span> Reprendre
                                     </button>
                                 )}
                             </div>
                         </div>
 
-                        <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                            <Sparkles className="w-3 h-3" /> Voix Premium ElevenLabs Actives
+                        <div
+                            className={cn(
+                                "p-4 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2",
+                                ttsProvider === "elevenlabs"
+                                    ? "bg-orange-500/10 border border-orange-500/20 text-orange-400"
+                                    : "bg-zinc-500/10 border border-zinc-500/20 text-zinc-300"
+                            )}
+                        >
+                            <Sparkles className="w-3 h-3" />
+                            {ttsProvider === "elevenlabs"
+                                ? "Voix Premium ElevenLabs Actives"
+                                : "Voix Navigateur Actives"}
                         </div>
 
                         <div className="space-y-4">
@@ -303,8 +286,21 @@ export function ListenMode({
                                 ].map((m) => {
                                     const isActive = listenMode === m.id;
                                     const Icon = m.icon;
+                                    const isDisabled = !hasUserCharacters && m.id !== "full";
                                     return (
-                                        <button key={m.id} onClick={() => setListenMode(m.id as any)} className={cn("relative p-3 rounded-xl border flex flex-col items-start gap-2 transition-all", isActive ? "bg-teal-500/10 border-teal-500/50" : "bg-white/5 border-transparent hover:bg-white/10")}>
+                                        <button
+                                            key={m.id}
+                                            onClick={() => !isDisabled && setListenMode(m.id as ListenMode)}
+                                            disabled={isDisabled}
+                                            className={cn(
+                                                "relative p-3 rounded-xl border flex flex-col items-start gap-2 transition-all",
+                                                isDisabled
+                                                    ? "bg-white/5 border-transparent opacity-40 cursor-not-allowed"
+                                                    : isActive
+                                                        ? "bg-teal-500/10 border-teal-500/50"
+                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                            )}
+                                        >
                                             <div className={cn("w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1", isActive ? "bg-teal-500 text-white" : "bg-white/10 text-muted-foreground")}>
                                                 <Icon className="w-3 h-3" />
                                             </div>
@@ -314,6 +310,11 @@ export function ListenMode({
                                     );
                                 })}
                             </div>
+                            {!hasUserCharacters && (
+                                <p className="text-[10px] text-muted-foreground">
+                                    Les modes Réplique et Solo nécessitent un personnage sélectionné.
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-4">
@@ -343,7 +344,7 @@ export function ListenMode({
                                     return (
                                         <button
                                             key={s.id}
-                                            onClick={() => setPlaybackSpeed(s.id as any)}
+                                            onClick={() => setPlaybackSpeed(s.id as "normal" | "fast" | "veryfast")}
                                             className={cn(
                                                 "relative p-3 rounded-xl text-center transition-all duration-300 border",
                                                 isActive
@@ -361,7 +362,16 @@ export function ListenMode({
                             </div>
                         </div>
 
-                        <button onClick={handleStartWithSave} className="w-full group py-4 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold uppercase tracking-wider shadow-lg flex items-center justify-center gap-3 transition-all">
+                        <button
+                            onClick={handleStartWithSave}
+                            disabled={isLoadingCapabilities}
+                            className={cn(
+                                "w-full group py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg flex items-center justify-center gap-3 transition-all",
+                                isLoadingCapabilities
+                                    ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                                    : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white"
+                            )}
+                        >
                             <span>Lancer l'écoute</span> <Headphones className="w-5 h-5" />
                         </button>
                     </div>
@@ -394,11 +404,12 @@ export function ListenMode({
                 </div>
 
                 <div ref={containerRef} className={cn("flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar transition-opacity duration-300", isFirstScrollRef.current ? "opacity-0" : "opacity-100")}>
-                    {filteredLines.map((line, index) => {
-                        const isActive = index === currentLineIndex;
+                    {filteredLines.map((line) => {
+                        const originalIndex = line.originalIndex;
+                        const isActive = originalIndex === currentLineIndex;
                         const isUser = isUserLine(line.character);
                         return (
-                            <div key={line.id} ref={(el) => { if (el) lineRefs.current.set(index, el); }} className={cn("transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4", isActive ? "bg-muted/30 dark:bg-white/10 scale-105 border border-border opacity-100 shadow-xl" : "opacity-40 scale-95")}>
+                            <div key={line.id} ref={(el) => { if (el) lineRefs.current.set(originalIndex, el); }} className={cn("transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4", isActive ? "bg-muted/30 dark:bg-white/10 scale-105 border border-border opacity-100 shadow-xl" : "opacity-40 scale-95")}>
                                 {line.character !== "INDICATIONS" && <p className={cn("text-xs font-bold uppercase tracking-widest mb-3", isActive ? "text-foreground" : "text-muted-foreground")}>{line.character}</p>}
                                 <p className={cn("leading-relaxed font-serif", isActive ? "text-xl md:text-3xl text-foreground" : "text-base md:text-lg text-muted-foreground")}>
                                     {isActive && status === "playing" && <span className="inline-block w-2 h-2 rounded-full bg-cyan-500 animate-pulse mr-3" />}

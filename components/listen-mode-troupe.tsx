@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ParsedScript } from "@/lib/types";
 import { useListen, ListenMode } from "@/lib/hooks/use-listen";
+import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
-import { getVoiceConfig, determineSourceType, VoiceConfig } from "@/lib/actions/voice-cache";
-import { Button } from "./ui/button";
-import { Play, Pause, SkipForward, SkipBack, X, Sparkles, Headphones, RotateCcw, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, Check, Lock, StickyNote } from "lucide-react";
+import { Play, Pause, SkipForward, SkipBack, X, Sparkles, Headphones, RotateCcw, ArrowLeft, MessageSquare, Zap, Users, Check, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
@@ -31,90 +30,47 @@ export function ListenModeTroupe({
     skipCharacters = [],
     privateNotes = []
 }: ListenModeTroupeProps) {
+    const hasUserCharacters = userCharacters.length > 0;
+
     // Configuration state
     const [listenMode, setListenMode] = useState<ListenMode>("full");
-    const [ttsProvider, setTtsProvider] = useState<"browser" | "openai">("browser");
+    const [ttsProvider, setTtsProvider] = useState<TTSProvider>("browser");
     const [announceCharacter, setAnnounceCharacter] = useState(false);
     const [startLineIndex, setStartLineIndex] = useState(0);
     const [hasStarted, setHasStarted] = useState(false);
+    const [hasAiVoiceAccess, setHasAiVoiceAccess] = useState(false);
+    const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(true);
 
     // Premium / Feature State
-    const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
-    const [isLoadingStatus, setIsLoadingStatus] = useState(true);
-
-    // Voice Config State
-    const [existingVoiceConfig, setExistingVoiceConfig] = useState<VoiceConfig[] | null>(null);
-    const [openaiVoiceAssignments, setOpenaiVoiceAssignments] = useState<Record<string, string>>({});
-
-    // Didascalies detection - MERGE WITH PASSED SKIP CHARACTERS
-    const hasDidascalies = useMemo(() =>
-        script.characters.some(c =>
-            c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
-        ), [script.characters]);
-
-    // Default to skipping if technical roles are passed OR didascalies found
-    const [shouldSkip, setShouldSkip] = useState(true);
-
-    // Calculate final list of ignored characters
-    const effectiveSkippedCharacters = useMemo(() => {
-        if (!shouldSkip) return [];
-
-        const internalDidascalies = script.characters.filter(c =>
-            c.toLowerCase().includes("didascalie") || c.toLowerCase() === "didascalies"
-        );
-
-        return [...new Set([...internalDidascalies, ...skipCharacters])];
-    }, [shouldSkip, script.characters, skipCharacters]);
+    const effectiveSkippedCharacters = useMemo(
+        () => [...new Set(skipCharacters)],
+        [skipCharacters]
+    );
 
     // Fetch User Capabilities
     useEffect(() => {
         const fetchCapabilities = async () => {
             try {
                 const capabilities = await getUserCapabilities(troupeId);
-                setIsPremiumUnlocked(capabilities.isPremium);
-
-                if (!capabilities.features.advancedModes && listenMode !== "full") {
-                    setListenMode("full");
-                }
-                if (!capabilities.features.aiVoices && ttsProvider === "openai") {
+                const canUseAiVoices = capabilities.features.aiVoices || capabilities.isPremium;
+                setHasAiVoiceAccess(canUseAiVoices);
+                if (canUseAiVoices) {
+                    setTtsProvider("elevenlabs");
+                } else {
                     setTtsProvider("browser");
                 }
             } catch (error) {
                 console.error("Failed to fetch user capabilities", error);
+                setHasAiVoiceAccess(false);
+                setTtsProvider("browser");
             } finally {
-                setIsLoadingStatus(false);
+                setIsLoadingCapabilities(false);
             }
         };
         fetchCapabilities();
     }, [troupeId]);
 
-    // Fetch existing voice config
-    useEffect(() => {
-        const fetchVoiceConfig = async () => {
-            const sourceType = await determineSourceType(false, troupeId, playId);
-
-            try {
-                const config = await getVoiceConfig(sourceType, playId);
-                if (config) {
-                    setExistingVoiceConfig(config);
-                    const assignments: Record<string, string> = {};
-                    config.forEach(c => {
-                        assignments[c.character_name] = c.voice as string;
-                    });
-                    setOpenaiVoiceAssignments(assignments);
-                }
-            } catch (error) {
-                console.error("Failed to fetch voice config", error);
-            }
-        };
-
-        if (playId) {
-            fetchVoiceConfig();
-        }
-    }, [playId, troupeId]);
-
     const {
-        currentLine,
         currentLineIndex,
         status,
         progress,
@@ -127,9 +83,6 @@ export function ListenModeTroupe({
         next,
         previous,
         replay,
-        voices,
-        voiceAssignments,
-        setVoiceForRole,
         isLoadingAudio
     } = useListen({
         script,
@@ -138,7 +91,6 @@ export function ListenModeTroupe({
         ttsProvider,
         announceCharacter,
         initialLineIndex: startLineIndex,
-        openaiVoiceAssignments,
         skipCharacters: effectiveSkippedCharacters,
         playId,
         troupeId
@@ -208,6 +160,7 @@ export function ListenModeTroupe({
     }, [hasStarted, status, pause, resume, next, previous, replay]);
 
     const handleStart = async () => {
+        if (isLoadingCapabilities) return;
         // No mic needed for listen mode - just start playback
         setHasStarted(true);
         requestWakeLock();
@@ -247,8 +200,9 @@ export function ListenModeTroupe({
 
     const startQuick = () => {
         if (quickStartSettings) {
+            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
             setListenMode(quickStartSettings.listenMode);
-            setTtsProvider(quickStartSettings.ttsProvider);
+            setTtsProvider(enforcedProvider);
             setAnnounceCharacter(quickStartSettings.announceCharacter);
             setStartLineIndex(quickStartSettings.startLineIndex || 0);
             handleStart();
@@ -256,15 +210,17 @@ export function ListenModeTroupe({
     };
 
     const handleStartWithSave = () => {
+        const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
         if (typeof window !== 'undefined') {
             localStorage.setItem(`souffleur_listen_settings_${playId}`, JSON.stringify({
                 listenMode,
-                ttsProvider,
+                ttsProvider: enforcedProvider,
                 announceCharacter,
                 startLineIndex,
                 timestamp: Date.now()
             }));
         }
+        setTtsProvider(enforcedProvider);
         handleStart();
     };
 
@@ -298,7 +254,13 @@ export function ListenModeTroupe({
                                 {quickStartSettings && (
                                     <button
                                         onClick={startQuick}
-                                        className="mt-2 py-2 px-3 rounded-lg bg-teal-500/10 border border-teal-500/20 text-teal-400 text-[10px] font-bold uppercase tracking-wider hover:bg-teal-500/20 flex items-center gap-2 transition-all w-fit"
+                                        disabled={isLoadingCapabilities}
+                                        className={cn(
+                                            "mt-2 py-2 px-3 rounded-lg border text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all w-fit",
+                                            isLoadingCapabilities
+                                                ? "bg-teal-500/5 border-teal-500/10 text-teal-500/50 cursor-not-allowed"
+                                                : "bg-teal-500/10 border-teal-500/20 text-teal-400 hover:bg-teal-500/20"
+                                        )}
                                     >
                                         <span>⚡</span> Reprendre (derniers réglages)
                                     </button>
@@ -344,13 +306,17 @@ export function ListenModeTroupe({
                                     ].map((m) => {
                                         const isActive = listenMode === m.id;
                                         const Icon = m.icon;
+                                        const isDisabled = !hasUserCharacters && m.id !== "full";
                                         return (
                                             <button
                                                 key={m.id}
-                                                onClick={() => setListenMode(m.id as any)}
+                                                onClick={() => !isDisabled && setListenMode(m.id as ListenMode)}
+                                                disabled={isDisabled}
                                                 className={cn(
                                                     "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
-                                                    isActive
+                                                    isDisabled
+                                                        ? "bg-white/5 border-transparent opacity-40 cursor-not-allowed"
+                                                        : isActive
                                                         ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
                                                         : "bg-white/5 border-transparent hover:bg-white/10"
                                                 )}
@@ -371,6 +337,11 @@ export function ListenModeTroupe({
                                         );
                                     })}
                                 </div>
+                                {!hasUserCharacters && (
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Les modes Réplique et Solo nécessitent un personnage sélectionné.
+                                    </p>
+                                )}
                             </div>
 
                             {/* 2. OPTIONS (VOIX & NOMS) */}
@@ -380,32 +351,31 @@ export function ListenModeTroupe({
                                     Options
                                 </label>
                                 <div className="grid grid-cols-2 gap-3">
-                                    {/* Voice Toggle */}
-                                    <button
-                                        onClick={() => setTtsProvider(prev => prev === 'openai' ? 'browser' : 'openai')}
+                                    {/* Voice Status (provider policy enforced by subscription) */}
+                                    <div
                                         className={cn(
-                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
-                                            ttsProvider === "openai"
+                                            "relative p-3 rounded-xl text-left border flex items-center gap-3",
+                                            ttsProvider === "elevenlabs"
                                                 ? "bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                                                : "bg-white/5 border-transparent hover:bg-white/10"
+                                                : "bg-white/5 border-white/10"
                                         )}
                                     >
                                         <div className={cn(
                                             "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                            ttsProvider === "openai" ? "bg-emerald-500 text-white" : "bg-white/10 text-muted-foreground"
+                                            ttsProvider === "elevenlabs" ? "bg-emerald-500 text-white" : "bg-white/10 text-muted-foreground"
                                         )}>
-                                            {ttsProvider === "openai" ? <Sparkles className="w-3 h-3" /> : <Headphones className="w-3 h-3" />}
+                                            {ttsProvider === "elevenlabs" ? <Sparkles className="w-3 h-3" /> : <Headphones className="w-3 h-3" />}
                                         </div>
                                         <div>
-                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "openai" ? "text-emerald-400" : "text-muted-foreground")}>
-                                                {ttsProvider === "openai" ? "AI Neural" : "Standard"}
+                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "elevenlabs" ? "text-emerald-400" : "text-muted-foreground")}>
+                                                {ttsProvider === "elevenlabs" ? "ElevenLabs" : "Navigateur"}
                                             </div>
                                             <div className="text-[9px] text-muted-foreground mt-0.5">
-                                                {ttsProvider === "openai" ? "Haute qualité" : "Voix système"}
+                                                {ttsProvider === "elevenlabs" ? "Voix premium actives" : "Voix système actives"}
                                             </div>
                                         </div>
-                                        {ttsProvider === "openai" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
-                                    </button>
+                                        {ttsProvider === "elevenlabs" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
+                                    </div>
 
                                     {/* Announce Names Toggle */}
                                     <button
@@ -442,7 +412,13 @@ export function ListenModeTroupe({
                         <div className="pt-4">
                             <button
                                 onClick={handleStartWithSave}
-                                className="w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                                disabled={isLoadingCapabilities}
+                                className={cn(
+                                    "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg",
+                                    isLoadingCapabilities
+                                        ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                                        : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                                )}
                             >
                                 <span className="font-bold text-sm tracking-wider uppercase">Lancer l'écoute</span>
                                 <Headphones className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />

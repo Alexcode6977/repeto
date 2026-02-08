@@ -125,7 +125,7 @@ export function PlayDashboardClient({
                 onExit={() => setViewMode("dashboard")}
                 playId={play.id}
                 troupeId={troupeId}
-                skipCharacters={technicalRoleNames}
+                skipCharacters={ignoredChars.length > 0 ? ignoredChars : technicalRoleNames}
                 privateNotes={privateNotes}
             />
         );
@@ -165,7 +165,7 @@ export function PlayDashboardClient({
                 settings={sessionSettings}
                 playId={play.id}
                 userId={userId}
-                skipCharacters={technicalRoleNames}
+                skipCharacters={ignoredChars.length > 0 ? ignoredChars : technicalRoleNames}
                 privateNotes={privateNotes}
             />
         );
@@ -584,5 +584,4 @@ export function PlayDashboardClient({
         </div >
     );
 }
-
 

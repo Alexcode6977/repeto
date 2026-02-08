@@ -1,7 +1,6 @@
 "use client";
 
 import { useAITTS } from "@/lib/hooks/use-ai-tts";
-import { OpenAIVoice } from "@/app/actions/tts";
 import { Play, Pause, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

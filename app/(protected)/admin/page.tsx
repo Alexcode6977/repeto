@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle, Clock, MessageSquare, Star, Filter, ChevronDown, ChevronUp, Save, Loader2, AlertCircle, Users, Crown, ToggleLeft, ToggleRight, BookOpen, Mic } from "lucide-react";
+import { ArrowLeft, CheckCircle, Clock, MessageSquare, Star, ChevronDown, ChevronUp, Save, Loader2, AlertCircle, Users, Crown, ToggleLeft, ToggleRight, BookOpen, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAllFeedback, updateFeedbackStatus, getFeedbackStats, isAdmin, getAllUsers, toggleUserPremium, getLibraryScripts, LibraryScriptEntry } from "./actions";
-import { updateVoiceAssignment, OpenAIVoice } from "@/lib/actions/voice-cache";
+import { updateVoiceAssignment } from "@/lib/actions/voice-cache";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VoicePreviewButton } from "@/components/voice-preview-button";
+import { getElevenLabsVoices, type ElevenLabsVoice } from "@/app/actions/elevenlabs";
 
 type FeedbackStatus = "pending" | "resolved" | "in_progress";
 
@@ -36,16 +37,6 @@ interface UserProfile {
     email?: string;
 }
 
-// VOICES constant
-const VOICES: { id: OpenAIVoice; name: string; gender: string }[] = [
-    { id: 'alloy', name: 'Alloy', gender: 'Neutre' },
-    { id: 'echo', name: 'Echo', gender: 'Masculin' },
-    { id: 'fable', name: 'Fable', gender: 'Masculin (British)' },
-    { id: 'onyx', name: 'Onyx', gender: 'Masculin (Grave)' },
-    { id: 'nova', name: 'Nova', gender: 'Féminin' },
-    { id: 'shimmer', name: 'Shimmer', gender: 'Féminin (Mature)' },
-];
-
 export default function AdminPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -60,6 +51,7 @@ export default function AdminPage() {
     const [activeTab, setActiveTab] = useState<"feedback" | "users" | "library">("feedback");
     const [togglingPremium, setTogglingPremium] = useState<string | null>(null);
     const [libraryScripts, setLibraryScripts] = useState<LibraryScriptEntry[]>([]);
+    const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
     const [updatingVoice, setUpdatingVoice] = useState<string | null>(null);
     const [expandedScriptId, setExpandedScriptId] = useState<string | null>(null);
 
@@ -68,16 +60,18 @@ export default function AdminPage() {
             const admin = await isAdmin();
             setAuthorized(admin);
             if (admin) {
-                const [feedbackData, statsData, usersData, libraryData] = await Promise.all([
+                const [feedbackData, statsData, usersData, libraryData, voicesData] = await Promise.all([
                     getAllFeedback(),
                     getFeedbackStats(),
                     getAllUsers(),
                     getLibraryScripts(),
+                    getElevenLabsVoices(),
                 ]);
                 setFeedbacks(feedbackData);
                 setStats(statsData);
                 setUsers(usersData);
                 setLibraryScripts(libraryData);
+                setElevenLabsVoices(voicesData);
             }
             setLoading(false);
         };
@@ -126,10 +120,17 @@ export default function AdminPage() {
         setTogglingPremium(null);
     };
 
-    const handleLibraryVoiceUpdate = async (scriptId: string, charName: string, voice: OpenAIVoice) => {
+    const handleLibraryVoiceUpdate = async (scriptId: string, charName: string, voice: string) => {
         setUpdatingVoice(`${scriptId}-${charName}`);
         try {
-            const result = await updateVoiceAssignment('library_script', scriptId, charName, voice);
+            const result = await updateVoiceAssignment(
+                "library_script",
+                scriptId,
+                charName,
+                voice,
+                "elevenlabs",
+                { stability: 0.5, similarity_boost: 0.75 }
+            );
             if (result.success) {
                 // local update
                 setLibraryScripts(prev => prev.map(script => {
@@ -187,7 +188,7 @@ export default function AdminPage() {
             <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
                 <AlertCircle className="w-16 h-16 text-red-400" />
                 <h1 className="text-2xl font-bold text-foreground">Accès refusé</h1>
-                <p className="text-muted-foreground">Vous n'avez pas les droits admin.</p>
+                <p className="text-muted-foreground">Vous n&apos;avez pas les droits admin.</p>
                 <Button onClick={() => router.push("/dashboard")} variant="outline">
                     Retour au dashboard
                 </Button>
@@ -205,7 +206,7 @@ export default function AdminPage() {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-bold text-foreground">Admin Panel</h1>
-                        <p className="text-sm text-muted-foreground">Gérer l'application</p>
+                        <p className="text-sm text-muted-foreground">Gérer l&apos;application</p>
                     </div>
                 </div>
             </div>
@@ -564,8 +565,12 @@ export default function AdminPage() {
                                     <div className="p-4 pt-0 border-t border-white/5 bg-black/20 animate-in slide-in-from-top-2 duration-200">
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                                             {script.characters.map((charName) => {
-                                                const currentVoice = script.voiceConfigs.find((c: any) => c.character_name === charName)?.voice;
+                                                const currentVoice = script.voiceConfigs.find(
+                                                    (config: { character_name: string; voice?: string }) => config.character_name === charName
+                                                )?.voice;
                                                 const isLoading = updatingVoice === `${script.id}-${charName}`;
+                                                const hasVoiceInList = !!currentVoice && elevenLabsVoices.some(v => v.voice_id === currentVoice);
+                                                const selectValue = hasVoiceInList ? currentVoice : "";
 
                                                 return (
                                                     <div key={charName} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border">
@@ -578,8 +583,8 @@ export default function AdminPage() {
 
                                                         <div className="w-[180px] flex items-center gap-2">
                                                             <Select
-                                                                value={currentVoice || ""}
-                                                                onValueChange={(val) => handleLibraryVoiceUpdate(script.id, charName, val as OpenAIVoice)}
+                                                                value={selectValue || ""}
+                                                                onValueChange={(val) => handleLibraryVoiceUpdate(script.id, charName, val)}
                                                                 disabled={isLoading}
                                                             >
                                                                 <SelectTrigger className="h-8 text-xs border-dashed border-primary/30">
@@ -593,14 +598,20 @@ export default function AdminPage() {
                                                                     )}
                                                                 </SelectTrigger>
                                                                 <SelectContent>
-                                                                    {VOICES.map((v) => (
-                                                                        <SelectItem key={v.id} value={v.id}>
-                                                                            <span className="flex items-center gap-2">
-                                                                                <span>{v.name}</span>
-                                                                                <span className="text-[10px] text-muted-foreground opacity-50">({v.gender})</span>
-                                                                            </span>
-                                                                        </SelectItem>
-                                                                    ))}
+                                                                    {elevenLabsVoices.length > 0 ? (
+                                                                        elevenLabsVoices.map((v) => (
+                                                                            <SelectItem key={v.voice_id} value={v.voice_id}>
+                                                                                <span className="flex items-center gap-2">
+                                                                                    <span>{v.name}</span>
+                                                                                    <span className="text-[10px] text-muted-foreground opacity-50">({v.category})</span>
+                                                                                </span>
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    ) : (
+                                                                        <div className="p-2 text-xs text-muted-foreground text-center">
+                                                                            Aucune voix ElevenLabs disponible.
+                                                                        </div>
+                                                                    )}
                                                                 </SelectContent>
                                                             </Select>
                                                             {currentVoice && <VoicePreviewButton voice={currentVoice} />}

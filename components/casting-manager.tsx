@@ -1,12 +1,10 @@
 'use client';
 
 import { updateCasting } from "@/lib/actions/play";
-import { updateVoiceAssignment, VoiceConfig, OpenAIVoice } from "@/lib/actions/voice-cache";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { updateVoiceAssignment, VoiceConfig } from "@/lib/actions/voice-cache";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect } from "react";
-import { Check, User, Mic, Play } from "lucide-react";
-import { Button } from "./ui/button";
+import { Mic } from "lucide-react";
 import { VoicePreviewButton } from "./voice-preview-button";
 import { getElevenLabsVoices, ElevenLabsVoice } from "@/app/actions/elevenlabs";
 
@@ -20,14 +18,14 @@ interface CastingManagerProps {
     initialVoiceConfigs: VoiceConfig[] | null;
 }
 
-const OPENAI_VOICES_LIST: { id: string; name: string; gender: string }[] = [
-    { id: 'alloy', name: 'Alloy', gender: 'Neutre' },
-    { id: 'echo', name: 'Echo', gender: 'Masculin' },
-    { id: 'fable', name: 'Fable', gender: 'Masculin (British)' },
-    { id: 'onyx', name: 'Onyx', gender: 'Masculin (Grave)' },
-    { id: 'nova', name: 'Nova', gender: 'Féminin' },
-    { id: 'shimmer', name: 'Shimmer', gender: 'Féminin (Mature)' },
-];
+const LEGACY_VOICE_LABELS: Record<string, string> = {
+    alloy: "Rachel (migrée)",
+    echo: "Adam (migrée)",
+    fable: "Antoni (migrée)",
+    onyx: "Josh (migrée)",
+    nova: "Bella (migrée)",
+    shimmer: "Elli (migrée)",
+};
 
 export function CastingManager({
     playId,
@@ -96,10 +94,8 @@ export function CastingManager({
         if (!isAdmin) return;
         setLoadingState(prev => ({ ...prev, [`voice-${charName}`]: true }));
         try {
-            // Determine provider
-            const isOpenAI = OPENAI_VOICES_LIST.some(v => v.id === voiceId);
-            const provider = isOpenAI ? 'openai' : 'elevenlabs';
-            const settings = isOpenAI ? {} : { stability: 0.5, similarity_boost: 0.75 };
+            const provider = "elevenlabs";
+            const settings = { stability: 0.5, similarity_boost: 0.75 };
 
             const result = await updateVoiceAssignment('troupe_play', playId, charName, voiceId, provider, settings, troupeId);
             if (result.success) {
@@ -116,10 +112,9 @@ export function CastingManager({
     };
 
     const getVoiceName = (voiceId: string) => {
-        const openai = OPENAI_VOICES_LIST.find(v => v.id === voiceId);
-        if (openai) return openai.name;
         const el = elevenLabsVoices.find(v => v.voice_id === voiceId);
         if (el) return el.name;
+        if (voiceId in LEGACY_VOICE_LABELS) return LEGACY_VOICE_LABELS[voiceId];
         return "Voix Inconnue";
     };
 

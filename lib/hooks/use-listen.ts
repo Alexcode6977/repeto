@@ -22,7 +22,6 @@ interface UseListenProps {
     ttsProvider?: TTSProvider;
     announceCharacter?: boolean;
     initialLineIndex?: number;
-    openaiVoiceAssignments?: Record<string, string>;
     skipCharacters?: string[];
     playId?: string;
     scriptId?: string;
@@ -136,7 +135,7 @@ export function useListen({
             const type = await determineSourceType(isPublicScript, troupeId, playId);
             setSourceType(type);
 
-            if (ttsProvider === "openai" || ttsProvider === "elevenlabs") {
+    if (ttsProvider === "elevenlabs") {
                 const sourceId = playId || scriptId || "";
                 if (sourceId && script.characters) {
                     await ensureVoiceConfig(type, sourceId, script.characters, troupeId);
@@ -148,7 +147,7 @@ export function useListen({
     }, [isPublicScript, troupeId, playId, ttsProvider, scriptId, script.characters]);
 
     useEffect(() => {
-        if ((ttsProvider !== "openai" && ttsProvider !== "elevenlabs") || status === "finished") return;
+        if (ttsProvider !== "elevenlabs" || status === "finished") return;
 
         const sourceId = playId || scriptId || "";
         if (!sourceId) return;
@@ -371,7 +370,7 @@ export function useListen({
                         async (textToSpeak, isDirection) => {
                             if (!isValid()) return;
 
-                            if ((ttsProvider === "openai" || ttsProvider === "elevenlabs") && sourceId && line.character) {
+                            if (ttsProvider === "elevenlabs" && sourceId && line.character) {
                                 setIsLoadingAudio(true);
                                 try {
                                     const audioUrl = await audioQueueRef.current.getUrl(

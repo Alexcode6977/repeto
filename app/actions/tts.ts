@@ -1,6 +1,5 @@
 "use server";
 
-import OpenAI from "openai";
 import { createClient } from "@/lib/supabase/server";
 import crypto from "crypto";
 import { hasAiVoiceAccess } from "@/lib/subscription";
@@ -11,19 +10,22 @@ import {
     getCharacterVoice
 } from "@/lib/actions/voice-cache";
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
 
-export type OpenAIVoice = "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
-const OPENAI_VOICES = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+// Legacy mapping for historical OpenAI voice ids still present in old configs.
+const LEGACY_OPENAI_TO_ELEVENLABS: Record<string, string> = {
+    alloy: "21m00Tcm4TlvDq8ikWAM",   // Rachel
+    echo: "pNInz6obpgDQGcFmaJgB",    // Adam
+    fable: "ErXw9S1k3MpBy928U4cm",   // Antoni
+    onyx: "TxGEqnHW47ic3A7NWmsG",    // Josh
+    nova: "EXAVITQu4vr4xnNLMQyw",    // Bella
+    shimmer: "MF3mGyEYCl7XYW7Lyk9p", // Elli
+};
 
-// Helper to determine provider from voice ID if not specified
-function inferProvider(voice: string): 'openai' | 'elevenlabs' {
-    // If it's a UUID/ID (usually 20 chars), it's ElevenLabs. 
-    // If it's one of the 6 OpenAI names, it's OpenAI.
-    if (OPENAI_VOICES.includes(voice)) return 'openai';
-    return 'elevenlabs';
+function normalizeElevenLabsVoiceId(voice: string): string {
+    const candidate = (voice || "").trim();
+    if (!candidate) return DEFAULT_ELEVENLABS_VOICE;
+    return LEGACY_OPENAI_TO_ELEVENLABS[candidate] || candidate;
 }
 
 async function generateElevenLabsAudio(text: string, voiceId: string, settings?: any): Promise<ArrayBuffer> {
@@ -60,7 +62,7 @@ async function generateElevenLabsAudio(text: string, voiceId: string, settings?:
 
 export async function synthesizeSpeech(
     text: string,
-    voice: string = "21m00Tcm4TlvDq8ikWAM", // Default to Rachel (ElevenLabs)
+    voice: string = DEFAULT_ELEVENLABS_VOICE,
     troupeId?: string
 ): Promise<{ audio: string } | { error: string }> {
     try {
@@ -76,12 +78,12 @@ export async function synthesizeSpeech(
             return { error: "Abonnement Solo Pro ou Troupe requis pour les voix IA." };
         }
 
-        // Determine provider
-        const provider = inferProvider(voice);
+        const provider = "elevenlabs" as const;
+        const voiceId = normalizeElevenLabsVoiceId(voice);
 
         // --- CACHING LOGIC ---
         // 1. Create a unique hash for the request (Text + Voice + Provider)
-        const contentToHash = `${text.trim()}|${voice}|${provider}`;
+        const contentToHash = `${text.trim()}|${voiceId}|${provider}`;
         const textHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
 
         // 2. Check if we already have this audio in our cache
@@ -101,28 +103,13 @@ export async function synthesizeSpeech(
             return { audio: publicUrlData.publicUrl };
         }
 
-        console.log(`[TTS] Cache MISS for hash ${textHash.substring(0, 8)} - Generating via ${provider}...`);
+        console.log(`[TTS] Cache MISS for hash ${textHash.substring(0, 8)} - Generating via ElevenLabs...`);
 
         let buffer: ArrayBuffer;
-
-        if (provider === 'openai') {
-            if (!process.env.OPENAI_API_KEY) {
-                return { error: "OPENAI_API_KEY not configured" };
-            }
-            const response = await openai.audio.speech.create({
-                model: "tts-1",
-                voice: voice as OpenAIVoice,
-                input: text,
-                response_format: "mp3",
-            });
-            buffer = await response.arrayBuffer();
-        } else {
-            // ElevenLabs
-            try {
-                buffer = await generateElevenLabsAudio(text, voice);
-            } catch (e: any) {
-                return { error: e.message };
-            }
+        try {
+            buffer = await generateElevenLabsAudio(text, voiceId);
+        } catch (e: any) {
+            return { error: e.message };
         }
 
         // 3. Store the file in Supabase Storage
@@ -150,7 +137,7 @@ export async function synthesizeSpeech(
                 audio_path: fileName,
                 metadata: {
                     text: text.substring(0, 100),
-                    voice: voice,
+                    voice: voiceId,
                     provider: provider,
                     generated_by: user.id
                 }
@@ -200,11 +187,13 @@ export async function synthesizeSpeechWithPlayCache(
             return { error: `Aucune voix configurée pour ${characterName}. Veuillez d'abord configurer les voix.` };
         }
 
-        const { voice, provider, settings } = voiceConfig;
+        const { voice, settings } = voiceConfig;
+        const provider = "elevenlabs" as const;
+        const voiceId = normalizeElevenLabsVoiceId(voice);
 
         // --- HASH CALCULATION ---
         // We need the hash to check the cache specifically for this segment text
-        const contentToHash = `${text.trim()}|${voice}|${provider}`;
+        const contentToHash = `${text.trim()}|${voiceId}|${provider}`;
         const textHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
 
         // 1. Check play-based cache first (using Hash)
@@ -214,28 +203,14 @@ export async function synthesizeSpeechWithPlayCache(
             return { audio: cachedAudioUrl };
         }
 
-        console.log(`[TTS Play Cache] MISS for ${characterName} line ${lineIndex} - Generating with voice ${voice} (${provider})...`);
+        console.log(`[TTS Play Cache] MISS for ${characterName} line ${lineIndex} - Generating with ElevenLabs voice ${voiceId}...`);
 
         // 3. Generate audio
         let buffer: ArrayBuffer;
-
-        if (provider === 'openai') {
-            if (!process.env.OPENAI_API_KEY) return { error: "OPENAI_API_KEY not configured" };
-
-            const response = await openai.audio.speech.create({
-                model: "tts-1",
-                voice: voice as OpenAIVoice,
-                input: text,
-                response_format: "mp3",
-            });
-            buffer = await response.arrayBuffer();
-        } else {
-            // ElevenLabs
-            try {
-                buffer = await generateElevenLabsAudio(text, voice, settings);
-            } catch (e: any) {
-                return { error: e.message };
-            }
+        try {
+            buffer = await generateElevenLabsAudio(text, voiceId, settings);
+        } catch (e: any) {
+            return { error: e.message };
         }
 
         // contentToHash and textHash already calculated above
@@ -274,4 +249,3 @@ export async function synthesizeSpeechWithPlayCache(
         return { error: error.message || "Failed to synthesize speech" };
     }
 }
-
