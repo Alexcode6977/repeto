@@ -13,6 +13,8 @@ interface AudioRequest {
     isDirection: boolean;
 }
 
+type PreloadProgressCallback = (completed: number, total: number) => void;
+
 export class AudioQueue {
     // Cache maps a unique key to a Promise that resolves to the audio URL (or null if error)
     private cache = new Map<string, Promise<string | null>>();
@@ -31,10 +33,7 @@ export class AudioQueue {
         return `${req.sourceType}:${req.sourceId}:${req.lineIndex}:${req.character}:${directionMarker}:${req.text.trim().substring(0, 30)}`;
     }
 
-    /**
-     * Preload multiple lines (lookahead)
-     */
-    public preload(
+    private buildRequests(
         lines: ScriptLine[],
         startingIndex: number,
         count: number,
@@ -42,8 +41,7 @@ export class AudioQueue {
         sourceId: string,
         troupeId: string | undefined,
         showDirections: boolean
-    ) {
-        // 1. Identify requests to make
+    ): AudioRequest[] {
         const requests: AudioRequest[] = [];
 
         for (let i = 0; i < count; i++) {
@@ -53,11 +51,9 @@ export class AudioQueue {
             const line = lines[index];
             if (!line) continue;
 
-            // Logic duplicated from playLineSequentially / useListen to ensure matching requests
             const segments = parseSegments(line.text);
 
             if (!showDirections) {
-                // Case: Directions DISABLED
                 const dialogueText = segments
                     .filter(s => !s.isDirection)
                     .map(s => s.text)
@@ -67,7 +63,7 @@ export class AudioQueue {
                 if (dialogueText.length > 0) {
                     requests.push({
                         text: dialogueText,
-                        character: line.character, // Character speaks
+                        character: line.character,
                         lineIndex: index,
                         sourceType,
                         sourceId,
@@ -76,7 +72,6 @@ export class AudioQueue {
                     });
                 }
             } else {
-                // Case: Directions ENABLED
                 for (const segment of segments) {
                     if (!segment.text.trim()) continue;
 
@@ -85,7 +80,7 @@ export class AudioQueue {
                         if (cleanText) {
                             requests.push({
                                 text: cleanText,
-                                character: "didascalies", // Narrator speaks directions
+                                character: "didascalies",
                                 lineIndex: index,
                                 sourceType,
                                 sourceId,
@@ -110,21 +105,101 @@ export class AudioQueue {
             }
         }
 
-        // 2. Trigger fetches for missing cache entries
+        return requests;
+    }
+
+    private enqueueRequests(requests: AudioRequest[]): Promise<string | null>[] {
+        const uniqueRequests = new Map<string, Promise<string | null>>();
+
         requests.forEach(req => {
             const key = this.getCacheKey(req);
-            if (!this.cache.has(key)) {
-                // console.log(`[AudioQueue] Preloading: ${req.text.substring(0, 20)}...`);
-                const promise = this.fetchAudio(req);
+            let promise = this.cache.get(key);
+
+            if (!promise) {
+                promise = this.fetchAudio(req);
                 this.cache.set(key, promise);
             }
+
+            uniqueRequests.set(key, promise);
         });
 
-        // 3. Cleanup Cache (Simple LRU approximation: delete first keys)
         if (this.cache.size > this.maxCacheSize) {
             const keysToDelete = Array.from(this.cache.keys()).slice(0, this.cache.size - this.maxCacheSize);
             keysToDelete.forEach(k => this.cache.delete(k));
         }
+
+        return Array.from(uniqueRequests.values());
+    }
+
+    /**
+     * Preload multiple lines (lookahead)
+     */
+    public preload(
+        lines: ScriptLine[],
+        startingIndex: number,
+        count: number,
+        sourceType: SourceType,
+        sourceId: string,
+        troupeId: string | undefined,
+        showDirections: boolean
+    ) {
+        const requests = this.buildRequests(
+            lines,
+            startingIndex,
+            count,
+            sourceType,
+            sourceId,
+            troupeId,
+            showDirections
+        );
+        this.enqueueRequests(requests);
+    }
+
+    public async preloadWithProgress(
+        lines: ScriptLine[],
+        startingIndex: number,
+        count: number,
+        sourceType: SourceType,
+        sourceId: string,
+        troupeId: string | undefined,
+        showDirections: boolean,
+        onProgress?: PreloadProgressCallback
+    ): Promise<{ total: number; completed: number }> {
+        const requests = this.buildRequests(
+            lines,
+            startingIndex,
+            count,
+            sourceType,
+            sourceId,
+            troupeId,
+            showDirections
+        );
+        const promises = this.enqueueRequests(requests);
+        const total = promises.length;
+
+        if (onProgress) {
+            onProgress(0, total);
+        }
+
+        if (total === 0) {
+            return { total: 0, completed: 0 };
+        }
+
+        let completed = 0;
+        await Promise.all(
+            promises.map(async (promise) => {
+                try {
+                    await promise;
+                } finally {
+                    completed += 1;
+                    if (onProgress) {
+                        onProgress(completed, total);
+                    }
+                }
+            })
+        );
+
+        return { total, completed };
     }
 
     /**

@@ -378,12 +378,6 @@ export function RehearsalMode({
         let didStart = false;
 
         try {
-            setStartupProgress(15);
-            setStartupStep("Préchargement audio...");
-            const preloadPromise = preparePlaybackStart(startLineIndex).catch((e) => {
-                console.warn("[Rehearsal] Preload start skipped", e);
-            });
-
             // SERVER-SIDE VALIDATION: Validate and sanitize settings before starting
             setStartupProgress(25);
             setStartupStep("Vérification des droits et paramètres...");
@@ -454,9 +448,22 @@ export function RehearsalMode({
                 return;
             }
 
-            setStartupProgress(85);
-            setStartupStep("Finalisation du préchargement...");
-            await preloadPromise;
+            setStartupProgress(65);
+            setStartupStep("Préparation des premières répliques...");
+            try {
+                await preparePlaybackStart(startLineIndex, (completed, total) => {
+                    const safeTotal = total > 0 ? total : 1;
+                    const ratio = Math.min(completed / safeTotal, 1);
+                    const mappedProgress = Math.round(65 + ratio * 30);
+
+                    setStartupProgress((previous) => Math.max(previous, mappedProgress));
+                    if (total > 0) {
+                        setStartupStep(`Préparation des premières répliques (${completed}/${total})...`);
+                    }
+                });
+            } catch (e) {
+                console.warn("[Rehearsal] Preload start skipped", e);
+            }
 
             setStartupProgress(100);
             setStartupStep("Prêt, lancement...");
@@ -1223,6 +1230,17 @@ export function RehearsalMode({
             <Portal>
                 <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
             </Portal>
+
+            {!showFeedbackModal && !showUpgradeModal && !sessionStatsForRecap && (
+                <button
+                    onClick={handleExit}
+                    aria-label="Quitter la répétition"
+                    className="md:hidden fixed right-4 z-[90] p-2.5 rounded-full bg-black/65 border border-white/20 text-white hover:text-red-300 active:scale-95 transition-all backdrop-blur-sm shadow-xl"
+                    style={{ top: "calc(env(safe-area-inset-top, 0px) + 10px)" }}
+                >
+                    <X className="w-5 h-5" />
+                </button>
+            )}
 
             {/* Outer Responsive Wrapper with Dynamic Background */}
             <div className={cn(

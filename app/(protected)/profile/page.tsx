@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle, Download, BarChart2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { deleteAccount, getInvoices, Invoice } from "./actions";
+import { deleteAccount, getInvoices, Invoice, syncAndGetProfileSubscription } from "./actions";
 import { getFeedbackHistory, getFeedbackStats, FeedbackEntry } from "../dashboard/feedback-actions";
 import { cn } from "@/lib/utils";
 import { ThemeSwitcher } from "@/components/theme-switcher";
@@ -56,20 +56,14 @@ export default function ProfilePage() {
             setUser(user);
 
             if (user) {
-                // Load profile with first_name and subscription fields
-                const { data: profile } = await supabase
-                    .from("profiles")
-                    .select("first_name, subscription_tier, subscription_status, subscription_end_date, stripe_customer_id, cancel_at_period_end")
-                    .eq("id", user.id)
-                    .single();
-
-                if (profile) {
-                    if (profile.first_name) setFirstName(profile.first_name);
-                    setSubscriptionTier((profile.subscription_tier as SubscriptionTier) || 'free');
-                    setSubscriptionStatus(profile.subscription_status || 'inactive');
-                    setSubscriptionEndDate(profile.subscription_end_date || null);
-                    setStripeCustomerId(profile.stripe_customer_id || null);
-                    setCancelAtPeriodEnd(profile.cancel_at_period_end || false);
+                const snapshot = await syncAndGetProfileSubscription();
+                if (snapshot) {
+                    if (snapshot.firstName) setFirstName(snapshot.firstName);
+                    setSubscriptionTier(snapshot.subscriptionTier || 'free');
+                    setSubscriptionStatus(snapshot.subscriptionStatus || 'inactive');
+                    setSubscriptionEndDate(snapshot.subscriptionEndDate || null);
+                    setStripeCustomerId(snapshot.stripeCustomerId || null);
+                    setCancelAtPeriodEnd(snapshot.cancelAtPeriodEnd || false);
                 }
             }
 

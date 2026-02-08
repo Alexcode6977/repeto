@@ -333,13 +333,28 @@ export function useRehearsal({
         );
     };
 
-    const preparePlaybackStart = async (fromIndex?: number) => {
+    const preparePlaybackStart = async (
+        fromIndex?: number,
+        onProgress?: (completed: number, total: number) => void
+    ) => {
         const sourceId = playId || scriptId;
-        if (!sourceId || (ttsProvider !== "openai" && ttsProvider !== "elevenlabs")) return;
+        if (!sourceId || (ttsProvider !== "openai" && ttsProvider !== "elevenlabs")) {
+            if (onProgress) onProgress(1, 1);
+            return { total: 0, completed: 0 };
+        }
 
         const startIdx = Math.max(0, fromIndex ?? initialLineIndex);
         console.log(`[RehearsalPerf] priming audio buffer from line ${startIdx}`);
-        preloadAroundIndex(startIdx, 6);
+        return audioQueueRef.current.preloadWithProgress(
+            script.lines,
+            startIdx,
+            6,
+            sourceType,
+            sourceId,
+            troupeId,
+            showStageDirections,
+            onProgress
+        );
     };
 
     // Find next valid line index (skipping skipCharacters)
@@ -725,11 +740,12 @@ export function useRehearsal({
                         } else {
                             const remaining = 2 - retryCountRef.current;
                             const hintAudio = remaining === 0 ? "Dernier essai." : "Encore une fois.";
+                            const correctedSpokenText = spokenText.trim() || line.text;
 
                             // Restore full correction: "Tu as dit X. Il fallait dire Y."
                             // DELAY: Wait for mic to fully release before speaking (fix for iPhone cutoff)
                             await new Promise(r => setTimeout(r, 200));
-                            await speak(`Tu as dit : ${transcript}. Il fallait dire : ${line.text}. ${hintAudio}`, voiceAssignments["ASSISTANT"], "ASSISTANT");
+                            await speak(`Tu as dit : ${transcript}. Il fallait dire : ${correctedSpokenText}. ${hintAudio}`, voiceAssignments["ASSISTANT"], "ASSISTANT");
 
                             setFeedback(null);
                             retryCountRef.current = retryCountRef.current + 1;

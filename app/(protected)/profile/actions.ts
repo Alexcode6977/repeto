@@ -2,8 +2,10 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
+import type Stripe from "stripe";
 
-import { getStripe } from "@/lib/stripe";
+import { getStripe, getTierFromPriceId } from "@/lib/stripe";
+import type { SubscriptionTier } from "@/lib/subscription";
 
 export interface Invoice {
     id: string;
@@ -13,6 +15,151 @@ export interface Invoice {
     status: string | null;
     pdf: string | null;
     number: string | null;
+}
+
+interface ProfileSubscriptionSnapshot {
+    firstName: string | null;
+    subscriptionTier: SubscriptionTier;
+    subscriptionStatus: string;
+    subscriptionEndDate: string | null;
+    stripeCustomerId: string | null;
+    cancelAtPeriodEnd: boolean;
+}
+
+function mapStripeStatus(status: string): string {
+    const statusMap: Record<string, string> = {
+        active: "active",
+        trialing: "trialing",
+        past_due: "past_due",
+        unpaid: "inactive",
+        canceled: "canceled",
+        incomplete: "inactive",
+        incomplete_expired: "inactive",
+        paused: "inactive",
+    };
+    return statusMap[status] || "inactive";
+}
+
+function getSubscriptionPeriodEndIso(subscription: Stripe.Subscription): string | null {
+    const currentPeriodEnd = (subscription as unknown as { current_period_end?: number }).current_period_end;
+    if (typeof currentPeriodEnd !== "number") return null;
+    return new Date(currentPeriodEnd * 1000).toISOString();
+}
+
+export async function syncAndGetProfileSubscription(): Promise<ProfileSubscriptionSnapshot | null> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("first_name, subscription_tier, subscription_status, subscription_end_date, stripe_customer_id, cancel_at_period_end, stripe_subscription_id")
+        .eq("id", user.id)
+        .single();
+
+    if (!profile) return null;
+
+    const snapshot: ProfileSubscriptionSnapshot = {
+        firstName: profile.first_name || null,
+        subscriptionTier: (profile.subscription_tier as SubscriptionTier) || "free",
+        subscriptionStatus: profile.subscription_status || "inactive",
+        subscriptionEndDate: profile.subscription_end_date || null,
+        stripeCustomerId: profile.stripe_customer_id || null,
+        cancelAtPeriodEnd: profile.cancel_at_period_end || false,
+    };
+
+    if (!profile.stripe_customer_id) {
+        return snapshot;
+    }
+
+    const shouldReconcile =
+        snapshot.subscriptionTier === "free" ||
+        ["inactive", "canceled"].includes(snapshot.subscriptionStatus) ||
+        !profile.stripe_subscription_id;
+
+    if (!shouldReconcile) {
+        return snapshot;
+    }
+
+    try {
+        const stripe = getStripe();
+        const subscriptions = await stripe.subscriptions.list({
+            customer: profile.stripe_customer_id,
+            status: "all",
+            limit: 20,
+        });
+
+        // Personal subscription only: ignore troupe-linked subscriptions.
+        const personalSubs = subscriptions.data.filter((sub) => !sub.metadata?.troupe_id);
+        if (personalSubs.length === 0) {
+            return snapshot;
+        }
+
+        const statusPriority: Record<string, number> = {
+            active: 5,
+            trialing: 4,
+            past_due: 3,
+            unpaid: 2,
+            canceled: 1,
+            incomplete: 0,
+            incomplete_expired: 0,
+            paused: 0,
+        };
+
+        const bestSub = personalSubs
+            .slice()
+            .sort((a, b) => {
+                const byStatus = (statusPriority[b.status] || 0) - (statusPriority[a.status] || 0);
+                if (byStatus !== 0) return byStatus;
+                return b.created - a.created;
+            })[0];
+
+        if (!bestSub) {
+            return snapshot;
+        }
+
+        const stripeTier = getTierFromPriceId(bestSub.items.data[0]?.price.id || "");
+        const stripeStatus = mapStripeStatus(bestSub.status);
+        const periodEndIso = getSubscriptionPeriodEndIso(bestSub);
+        const stripeCancelAtPeriodEnd = !!bestSub.cancel_at_period_end;
+
+        const shouldUpdate =
+            profile.subscription_tier !== stripeTier ||
+            profile.subscription_status !== stripeStatus ||
+            profile.stripe_subscription_id !== bestSub.id ||
+            (periodEndIso && profile.subscription_end_date !== periodEndIso) ||
+            profile.cancel_at_period_end !== stripeCancelAtPeriodEnd;
+
+        if (shouldUpdate) {
+            const updatePayload: Record<string, string | boolean | null> = {
+                subscription_tier: stripeTier,
+                subscription_status: stripeStatus,
+                stripe_subscription_id: bestSub.id,
+                cancel_at_period_end: stripeCancelAtPeriodEnd,
+            };
+            if (periodEndIso) {
+                updatePayload.subscription_end_date = periodEndIso;
+            }
+
+            await supabase
+                .from("profiles")
+                .update(updatePayload)
+                .eq("id", user.id);
+        }
+
+        return {
+            ...snapshot,
+            subscriptionTier: stripeTier,
+            subscriptionStatus: stripeStatus,
+            subscriptionEndDate: periodEndIso || snapshot.subscriptionEndDate,
+            cancelAtPeriodEnd: stripeCancelAtPeriodEnd,
+            stripeCustomerId: profile.stripe_customer_id,
+        };
+    } catch (e) {
+        console.error("[ProfileSubscription] Stripe reconciliation failed:", e);
+        return snapshot;
+    }
 }
 
 export async function getInvoices(): Promise<Invoice[]> {
