@@ -109,25 +109,6 @@ export async function signup(formData: FormData) {
     redirect("/auth/check-email");
 }
 
-export async function forgotPassword(formData: FormData) {
-    const supabase = await createClient();
-    const headersList = await headers();
-    const origin = getBaseUrlFromHost(
-        headersList.get("x-forwarded-host") || headersList.get("host")
-    );
-
-    const email = formData.get("email") as string;
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/auth/callback?next=/reset-password`,
-    });
-
-    if (error) {
-        redirect("/forgot-password?error=" + encodeURIComponent(error.message));
-    }
-
-    redirect("/forgot-password?message=" + encodeURIComponent("L'email de réinitialisation a été envoyé."));
-}
 
 export async function resetPassword(formData: FormData) {
     const supabase = await createClient();
@@ -138,8 +119,10 @@ export async function resetPassword(formData: FormData) {
     });
 
     if (error) {
+        console.error("[Auth Action] resetPassword error:", error.message);
         redirect("/reset-password?error=" + encodeURIComponent(error.message));
     }
 
+    console.log("[Auth Action] Password updated successfully");
     redirect("/login?message=" + encodeURIComponent("Votre mot de passe a été mis à jour avec succès."));
 }

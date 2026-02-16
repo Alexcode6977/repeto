@@ -1,13 +1,47 @@
-import { forgotPassword } from "../actions";
-import { Sparkles, ArrowRight, Mail } from "lucide-react";
-import Link from "next/link";
+"use client";
 
-export default async function ForgotPasswordPage({
-    searchParams,
-}: {
-    searchParams: Promise<{ message?: string; error?: string }>;
-}) {
-    const { message, error } = await searchParams;
+import { createClient } from "@/lib/supabase/client";
+import { Sparkles, ArrowRight, Mail, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+export default function ForgotPasswordPage() {
+    const searchParams = useSearchParams();
+    const [submitMessage, setSubmitMessage] = useState<string | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const queryError = searchParams.get("error");
+    const queryMessage = searchParams.get("message");
+    const hasSubmitFeedback = submitError !== null || submitMessage !== null;
+    const error = hasSubmitFeedback ? submitError : queryError;
+    const message = hasSubmitFeedback ? submitMessage : (!queryError ? queryMessage : null);
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setIsLoading(true);
+        setSubmitMessage(null);
+        setSubmitError(null);
+
+        const formData = new FormData(e.currentTarget);
+        const email = formData.get("email") as string;
+        const supabase = createClient();
+
+        // Use getBaseUrlFromHost or similar but on client we can just use window.location.origin
+        const origin = window.location.origin;
+
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo: `${origin}/reset-password`,
+        });
+
+        if (resetError) {
+            console.error("[Auth] resetPasswordForEmail error:", resetError.message);
+            setSubmitError(resetError.message);
+        } else {
+            setSubmitMessage("L'email de réinitialisation a été envoyé. Vérifiez votre boîte de réception.");
+        }
+        setIsLoading(false);
+    };
 
     return (
         <div className="dark min-h-screen w-full flex items-center justify-center bg-[#0a0a0f] text-foreground font-sans p-6 overflow-hidden relative">
@@ -53,7 +87,7 @@ export default async function ForgotPasswordPage({
                         </div>
                     )}
 
-                    <form className="space-y-6 relative z-10">
+                    <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
                         <div className="space-y-2">
                             <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
                                 Email
@@ -65,26 +99,36 @@ export default async function ForgotPasswordPage({
                                     name="email"
                                     type="email"
                                     required
+                                    disabled={isLoading}
                                     className="w-full bg-black/40 border border-white/10 rounded-2xl pl-14 pr-6 py-4 text-lg text-white 
                                         focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-black/60
                                         hover:border-white/20 hover:bg-black/50
-                                        transition-all duration-200 placeholder:text-muted-foreground/50 font-medium"
+                                        transition-all duration-200 placeholder:text-muted-foreground/50 font-medium
+                                        disabled:opacity-50 disabled:cursor-not-allowed"
                                     placeholder="nom@exemple.com"
                                 />
                             </div>
                         </div>
 
                         <button
-                            formAction={forgotPassword}
+                            type="submit"
+                            disabled={isLoading}
                             className="w-full bg-gradient-to-r from-primary to-emerald-600 hover:from-primary/90 hover:to-emerald-600/90 
                                 text-white font-bold text-lg py-4 rounded-2xl 
                                 transition-all duration-300 
                                 shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40
                                 active:scale-[0.98] hover:scale-[1.02]
-                                flex items-center justify-center gap-2 group mt-8"
+                                flex items-center justify-center gap-2 group mt-8
+                                disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            Envoyer le lien
-                            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                            {isLoading ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                <>
+                                    Envoyer le lien
+                                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                                </>
+                            )}
                         </button>
                     </form>
 
