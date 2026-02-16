@@ -3,10 +3,10 @@
 import { createClient } from "@/lib/supabase/client";
 import { Sparkles, ArrowRight, Mail, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordPageContent() {
     const searchParams = useSearchParams();
     const [submitMessage, setSubmitMessage] = useState<string | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -145,5 +145,13 @@ export default function ForgotPasswordPage() {
             </div>
 
         </div>
+    );
+}
+
+export default function ForgotPasswordPage() {
+    return (
+        <Suspense fallback={null}>
+            <ForgotPasswordPageContent />
+        </Suspense>
     );
 }

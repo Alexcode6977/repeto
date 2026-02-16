@@ -5,7 +5,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { Sparkles, ArrowRight, Lock, Loader2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 const EMAIL_OTP_TYPES: EmailOtpType[] = [
     "signup",
@@ -32,7 +32,7 @@ function normalizeRecoveryError(message: string): string {
     return message;
 }
 
-export default function ResetPasswordPage() {
+function ResetPasswordPageContent() {
     const searchParams = useSearchParams();
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -271,5 +271,13 @@ export default function ResetPasswordPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={null}>
+            <ResetPasswordPageContent />
+        </Suspense>
     );
 }
