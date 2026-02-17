@@ -4,7 +4,7 @@ import { useSpeech } from "./use-speech";
 import { useAITTS } from "./use-ai-tts";
 import { calculateSimilarity, stripStageDirections } from "../similarity";
 import { offlineManager } from "../offline/offline-manager";
-import { getSceneCharacters, isUserLine as checkIsUserLine } from "../utils";
+import { getCollectiveMembersForLine, getSceneCharacters, isUserLine as checkIsUserLine } from "../utils";
 import { COLLECTIVE_ROLES } from "../constants";
 import { AudioQueue } from "../audio/audio-queue";
 import { type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
@@ -288,8 +288,9 @@ export function useRehearsal({
         const idx = specificLineIndex !== undefined ? specificLineIndex : currentLineIndex;
         const sceneStartIdx = getSceneStartIndex(idx);
         const activeChars = sceneCharactersMap.get(sceneStartIdx);
+        const collectiveMembers = getCollectiveMembersForLine(script, idx);
 
-        return checkIsUserLine(lineChar, userCharacters, activeChars);
+        return checkIsUserLine(lineChar, userCharacters, activeChars, collectiveMembers);
     };
 
     const togglePause = () => {

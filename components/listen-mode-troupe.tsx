@@ -7,7 +7,7 @@ import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { Play, Pause, SkipForward, SkipBack, X, Sparkles, Headphones, RotateCcw, ArrowLeft, MessageSquare, Zap, Users, Check, StickyNote } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { PRIVATE_NOTE_CHAR } from "./script-viewer";
 
@@ -193,6 +193,7 @@ export function ListenModeTroupe({
         }
         return null;
     }, [playId]);
+    const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
 
     // Current scene detection
     const currentScene = script.scenes?.find((scene, idx) => {
@@ -201,13 +202,11 @@ export function ListenModeTroupe({
     });
 
     // Helper to check if line is user's
-    const isUserLine = (lineChar: string) => {
-        const normalizedLineChar = lineChar.toLowerCase().trim();
-        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-        return userCharacters.some(userChar => {
-            const normalizedUserChar = userChar.toLowerCase().trim();
-            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-        });
+    const isUserLine = (lineChar: string, lineIndex: number) => {
+        const sceneStartIdx = getSceneStartIndexForLine(script, lineIndex);
+        const activeChars = sceneCharactersMap.get(sceneStartIdx);
+        const collectiveMembers = getCollectiveMembersForLine(script, lineIndex);
+        return checkIsUserLine(lineChar, userCharacters, activeChars, collectiveMembers);
     };
 
     const startQuick = () => {
@@ -491,7 +490,7 @@ export function ListenModeTroupe({
                 >
                     {script.lines.map((line, index) => {
                         const isActive = index === currentLineIndex;
-                        const isUser = isUserLine(line.character);
+                        const isUser = isUserLine(line.character, index);
 
                         return (
                             <div

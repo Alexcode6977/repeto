@@ -7,7 +7,7 @@ import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, ArrowLeft, MessageSquare, Zap, Users, Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { filterScriptLines, parseSegments } from "@/lib/utils/stage-directions";
 
@@ -62,6 +62,8 @@ export function ListenMode({
         }
         return null;
     }, [playId, scriptId]);
+
+    const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
 
     // Fetch Capabilities
     useEffect(() => {
@@ -190,13 +192,11 @@ export function ListenMode({
         return currentLineIndex >= scene.index && (!nextScene || currentLineIndex < nextScene.index);
     });
 
-    const isUserLine = (lineChar: string) => {
-        const normalizedLineChar = lineChar.toLowerCase().trim();
-        const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
-        return userCharacters.some(userChar => {
-            const normalizedUserChar = userChar.toLowerCase().trim();
-            return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
-        });
+    const isUserLine = (lineChar: string, lineIndex: number) => {
+        const sceneStartIdx = getSceneStartIndexForLine(script, lineIndex);
+        const activeChars = sceneCharactersMap.get(sceneStartIdx);
+        const collectiveMembers = getCollectiveMembersForLine(script, lineIndex);
+        return checkIsUserLine(lineChar, userCharacters, activeChars, collectiveMembers);
     };
 
     const filteredLines = useMemo(
@@ -407,7 +407,7 @@ export function ListenMode({
                     {filteredLines.map((line) => {
                         const originalIndex = line.originalIndex;
                         const isActive = originalIndex === currentLineIndex;
-                        const isUser = isUserLine(line.character);
+                        const isUser = isUserLine(line.character, originalIndex);
                         return (
                             <div key={line.id} ref={(el) => { if (el) lineRefs.current.set(originalIndex, el); }} className={cn("transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4", isActive ? "bg-muted/30 dark:bg-white/10 scale-105 border border-border opacity-100 shadow-xl" : "opacity-40 scale-95")}>
                                 {line.character !== "INDICATIONS" && <p className={cn("text-xs font-bold uppercase tracking-widest mb-3", isActive ? "text-foreground" : "text-muted-foreground")}>{line.character}</p>}

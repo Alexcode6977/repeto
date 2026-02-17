@@ -4,7 +4,7 @@ import { useState, useRef, useMemo } from "react";
 import { ParsedScript } from "@/lib/types";
 import { Button } from "./ui/button";
 import { ArrowLeft, Highlighter, Layout, Download } from "lucide-react";
-import { cn, isUserLine, getSceneCharacters } from "@/lib/utils";
+import { cn, getCollectiveMembersForLine, getSceneCharacters, isUserLine } from "@/lib/utils";
 import { ScriptSettings } from "./script-setup";
 import { exportToPdf } from "@/lib/pdf-export";
 import { filterScriptLines, parseSegments } from "@/lib/utils/stage-directions";
@@ -86,8 +86,9 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
         script.lines.forEach((line, index) => {
             const sceneInfo = getCurrentSceneInfo(index);
             const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
+            const collectiveMembers = getCollectiveMembersForLine(script, index);
 
-            if (isUserLine(line.character, userCharacters, activeChars)) {
+            if (isUserLine(line.character, userCharacters, activeChars, collectiveMembers)) {
                 counter++;
                 map.set(line.id, counter);
             }
@@ -133,7 +134,8 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
         return stageFilteredLines.filter((line) => {
             const sceneInfo = getCurrentSceneInfo(line.originalIndex);
             const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
-            const isUser = isUserLine(line.character, userCharacters, activeChars);
+            const collectiveMembers = getCollectiveMembersForLine(script, line.originalIndex);
+            const isUser = isUserLine(line.character, userCharacters, activeChars, collectiveMembers);
 
             if (isUser) return true;
 
@@ -142,7 +144,8 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                 if (nextLine) {
                     const nextSceneInfo = getCurrentSceneInfo(line.originalIndex + 1);
                     const nextActiveChars = nextSceneInfo ? sceneCharactersMap.get(nextSceneInfo.startIndex) : undefined;
-                    return isUserLine(nextLine.character, userCharacters, nextActiveChars) && !shouldSkipLine(nextLine.character);
+                    const nextCollectiveMembers = getCollectiveMembersForLine(script, line.originalIndex + 1);
+                    return isUserLine(nextLine.character, userCharacters, nextActiveChars, nextCollectiveMembers) && !shouldSkipLine(nextLine.character);
                 }
             }
             return false;
@@ -223,7 +226,8 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                             {filteredLines.map((line, idx) => {
                                 const sceneInfo = getCurrentSceneInfo((line as any).originalIndex);
                                 const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
-                                const isUser = isUserLine(line.character, userCharacters, activeChars);
+                                const collectiveMembers = getCollectiveMembersForLine(script, (line as any).originalIndex);
+                                const isUser = isUserLine(line.character, userCharacters, activeChars, collectiveMembers);
 
                                 const lineNumber = userLineNumbers.get(line.id);
                                 // The map keys are ORIGINAL indexes (from scenes array), so we need to find if this line starts a scene

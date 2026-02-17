@@ -12,11 +12,31 @@ export interface ScriptScene {
     title: string;
 }
 
+export interface ScriptCollectiveMapping {
+    label: string;
+    members: string[];
+}
+
+export interface ScriptSceneCollectiveMapping extends ScriptCollectiveMapping {
+    scene_index: number;
+}
+
+export interface ScriptMappings {
+    canonical_characters: string[];
+    aliases: Record<string, string>;
+    collectives: {
+        global: ScriptCollectiveMapping[];
+        by_scene: ScriptSceneCollectiveMapping[];
+    };
+}
+
 export interface ParsedScript {
     title?: string;
     lines: ScriptLine[];
     characters: string[];
     scenes: ScriptScene[];
+    schema_version?: number;
+    mappings?: ScriptMappings;
 }
 
 export interface ScriptMetadata {

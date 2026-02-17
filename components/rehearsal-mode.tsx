@@ -11,7 +11,7 @@ import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Loader2, X, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote } from "lucide-react";
-import { cn, getSceneCharacters, isUserLine } from "@/lib/utils";
+import { cn, getCollectiveMembersForLine, getSceneCharacters, isUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { FeedbackModal, FeedbackData } from "./feedback-modal";
@@ -880,7 +880,8 @@ export function RehearsalMode({
     const isUserLineHelper = (line: ScriptLine, index: number) => {
         const sceneStartIdx = getSceneStartIndex(index);
         const activeChars = sceneCharactersMap.get(sceneStartIdx);
-        return isUserLine(line.character, userCharacters, activeChars);
+        const collectiveMembers = getCollectiveMembersForLine(script, index);
+        return isUserLine(line.character, userCharacters, activeChars, collectiveMembers);
     };
 
     const isUserTurn = currentLine && isUserLineHelper(currentLine, currentLineIndex);

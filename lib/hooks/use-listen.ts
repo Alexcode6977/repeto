@@ -8,7 +8,7 @@ import { getPlayRecordings } from "../actions/recordings";
 import { determineSourceType, type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
 import { playLineSequentially } from "../audio/sequencer";
 import { AudioQueue } from "../audio/audio-queue";
-import { getSceneCharacters } from "../utils";
+import { getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine } from "../utils";
 import { COLLECTIVE_ROLES } from "../constants";
 
 
@@ -181,11 +181,12 @@ export function useListen({
     }, []);
 
     // === HELPERS ===
-    const isUserLine = useCallback((char: string) => {
-        if (!char || !userCharacters?.length) return false;
-        const n = char.toLowerCase().trim();
-        return userCharacters.some(u => n === u.toLowerCase().trim() || n.includes(u.toLowerCase().trim()));
-    }, [userCharacters]);
+    const isUserLine = useCallback((char: string, index: number) => {
+        const sceneStartIdx = getSceneStartIndexForLine(script, index);
+        const activeChars = sceneCharactersMap.get(sceneStartIdx);
+        const collectiveMembers = getCollectiveMembersForLine(script, index);
+        return checkIsUserLine(char, userCharacters, activeChars, collectiveMembers);
+    }, [sceneCharactersMap, script, userCharacters]);
 
     const shouldSkipLine = useCallback((char: string) => {
         const n = char.toLowerCase().trim();
@@ -201,14 +202,14 @@ export function useListen({
             if (mode === "full") {
                 indices.push(i);
             } else if (mode === "check") {
-                if (isUserLine(line.character)) indices.push(i);
+                if (isUserLine(line.character, i)) indices.push(i);
             } else if (mode === "cue") {
-                if (isUserLine(line.character)) {
+                if (isUserLine(line.character, i)) {
                     indices.push(i);
                 } else {
                     let next = i + 1;
                     while (next < script.lines.length && shouldSkipLine(script.lines[next].character)) next++;
-                    if (next < script.lines.length && isUserLine(script.lines[next].character)) indices.push(i);
+                    if (next < script.lines.length && isUserLine(script.lines[next].character, next)) indices.push(i);
                 }
             }
         }
