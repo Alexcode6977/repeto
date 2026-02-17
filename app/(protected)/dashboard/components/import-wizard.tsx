@@ -111,10 +111,17 @@ export function ImportWizard({
             setIsImporting(true);
             setImportProgress(96);
         } else {
+            const diagnosticsStartMs = Date.now();
+            const baseElapsed = aiImportElapsedSec;
             setAiImportProgress((prev) => Math.max(prev, 90));
             diagnosticsProgressInterval = setInterval(() => {
-                setAiImportProgress((prev) => (prev < 97 ? prev + 1 : prev));
-            }, 1500);
+                const diagnosticsElapsed = Math.floor((Date.now() - diagnosticsStartMs) / 1000);
+                const totalElapsed = baseElapsed + diagnosticsElapsed;
+                const stagedProgress = 90 + Math.floor(7 * (1 - Math.exp(-diagnosticsElapsed / 120)));
+
+                setAiImportElapsedSec(totalElapsed);
+                setAiImportProgress((prev) => Math.max(prev, Math.min(97, stagedProgress)));
+            }, 1000);
             aiImportIntervalsRef.current.push(diagnosticsProgressInterval);
         }
 
@@ -207,9 +214,9 @@ export function ImportWizard({
             : "Préparation de l'import...";
 
     const getFormattingProgress = (elapsedSec: number) => {
-        const mainCurve = 14 + (70 * (1 - Math.exp(-elapsedSec / 110))); // ~14 -> ~84
-        const overtime = elapsedSec > 240 ? Math.min(6, (elapsedSec - 240) / 90) : 0; // ~84 -> ~90
-        return Math.floor(Math.min(90, mainCurve + overtime));
+        const mainCurve = 14 + (60 * (1 - Math.exp(-elapsedSec / 95))); // ~14 -> ~74
+        const overtime = elapsedSec > 120 ? Math.min(14, (elapsedSec - 120) / 24) : 0; // ~74 -> ~88
+        return Math.floor(Math.min(88, mainCurve + overtime));
     };
 
     const importTimeline = useMemo(() => {

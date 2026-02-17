@@ -77,12 +77,34 @@ IMPORTANT
 - Retourner UNIQUEMENT le script nettoye final.
 - Ne retourner aucune explication, aucun commentaire, aucun markdown.`;
 
-const AI_CLEANING_PRIMARY_MODEL = process.env.OPENAI_IMPORT_CLEANING_MODEL || "gpt-5-pro";
-const AI_CLEANING_FALLBACK_MODELS = ["gpt-5", "gpt-5-mini"];
-const AI_DIAGNOSTICS_PRIMARY_MODEL = process.env.OPENAI_IMPORT_DIAGNOSTICS_MODEL || "gpt-5-pro";
-const AI_DIAGNOSTICS_FALLBACK_MODELS = ["gpt-5", "gpt-5-mini"];
-const DIAGNOSTICS_MAX_LINES = 2200;
-const DIAGNOSTICS_MAX_LINE_TEXT = 240;
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Math.floor(parsed);
+}
+
+function parseModelList(value: string | undefined): string[] {
+    if (!value) return [];
+    return value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+const AI_IMPORT_PROFILE = (process.env.OPENAI_IMPORT_PROFILE || "eco").toLowerCase();
+const AI_CLEANING_PRIMARY_MODEL = process.env.OPENAI_IMPORT_CLEANING_MODEL || (AI_IMPORT_PROFILE === "max" ? "gpt-5-pro" : "gpt-5-mini");
+const AI_CLEANING_FALLBACK_MODELS = parseModelList(process.env.OPENAI_IMPORT_CLEANING_FALLBACK_MODELS);
+const AI_DIAGNOSTICS_PRIMARY_MODEL = process.env.OPENAI_IMPORT_DIAGNOSTICS_MODEL || (AI_IMPORT_PROFILE === "max" ? "gpt-5-pro" : "gpt-5-mini");
+const AI_DIAGNOSTICS_FALLBACK_MODELS = parseModelList(process.env.OPENAI_IMPORT_DIAGNOSTICS_FALLBACK_MODELS);
+
+const AI_CLEANING_MAX_INPUT_CHARS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_MAX_INPUT_CHARS, AI_IMPORT_PROFILE === "max" ? 110000 : 65000);
+const AI_CLEANING_MAX_OUTPUT_TOKENS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_MAX_OUTPUT_TOKENS, AI_IMPORT_PROFILE === "max" ? 16000 : 7000);
+const AI_DIAGNOSTICS_MAX_OUTPUT_TOKENS = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_MAX_OUTPUT_TOKENS, AI_IMPORT_PROFILE === "max" ? 7000 : 2200);
+const AI_CLEANING_TIMEOUT_MS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_TIMEOUT_MS, AI_IMPORT_PROFILE === "max" ? 240000 : 120000);
+const AI_DIAGNOSTICS_TIMEOUT_MS = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_TIMEOUT_MS, AI_IMPORT_PROFILE === "max" ? 180000 : 90000);
+
+const DIAGNOSTICS_MAX_LINES = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_MAX_LINES, AI_IMPORT_PROFILE === "max" ? 2200 : 1400);
+const DIAGNOSTICS_MAX_LINE_TEXT = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_MAX_LINE_TEXT, AI_IMPORT_PROFILE === "max" ? 240 : 180);
 
 type ImportDecisionStatus = "accept" | "reject";
 
@@ -165,6 +187,25 @@ function extractResponsesOutputText(response: unknown): string {
 function isTimeoutError(error: unknown): boolean {
     const candidate = error as { code?: string; message?: string };
     return candidate.code === "ETIMEDOUT" || (typeof candidate.message === "string" && candidate.message.includes("timeout"));
+}
+
+function isQuotaOrBillingError(error: unknown): boolean {
+    const candidate = error as {
+        code?: string;
+        message?: string;
+        error?: { code?: string; type?: string; message?: string };
+    };
+
+    const code = (candidate.code || candidate.error?.code || "").toLowerCase();
+    const message = `${candidate.message || ""} ${candidate.error?.message || ""}`.toLowerCase();
+
+    if (code === "insufficient_quota" || code === "billing_hard_limit_reached") return true;
+    return (
+        message.includes("exceeded your current quota")
+        || message.includes("insufficient_quota")
+        || message.includes("billing")
+        || message.includes("credit balance")
+    );
 }
 
 function getErrorMessage(error: unknown): string {
@@ -607,25 +648,23 @@ Ne renvoie que du JSON valide.`;
 }
 
 /**
- * Clean and restructure a messy script using AI (gpt-5-pro fallback gpt-5)
+ * Clean and restructure a messy script using AI.
  * Returns canonical text expected by parseScript ([CHAR], dialogue, (didascalies), ACTE/SCENE)
  */
 export async function cleanScriptWithAI(rawText: string): Promise<string | { error: string }> {
     try {
         console.log("[AI Clean] Starting AI cleaning, text length:", rawText.length);
 
-        // Limit text length to avoid very long processing times
-        const MAX_INPUT_CHARS = 120000;
         let textToProcess = rawText;
 
-        if (rawText.length > MAX_INPUT_CHARS) {
-            console.log("[AI Clean] Text too long, truncating from", rawText.length, "to", MAX_INPUT_CHARS);
-            textToProcess = rawText.substring(0, MAX_INPUT_CHARS);
+        if (rawText.length > AI_CLEANING_MAX_INPUT_CHARS) {
+            console.log("[AI Clean] Text too long, truncating from", rawText.length, "to", AI_CLEANING_MAX_INPUT_CHARS);
+            textToProcess = rawText.substring(0, AI_CLEANING_MAX_INPUT_CHARS);
         }
 
         const openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
-            timeout: 240000, // 4 minute timeout max before fallback model
+            timeout: AI_CLEANING_TIMEOUT_MS,
         });
 
         const modelsToTry = [
@@ -644,10 +683,10 @@ export async function cleanScriptWithAI(rawText: string): Promise<string | { err
                         { role: "system", content: AI_CLEANING_PROMPT },
                         { role: "user", content: textToProcess },
                     ],
-                    reasoning: model === "gpt-5-pro" && textToProcess.length > 100000
-                        ? { effort: "high" }
-                        : { effort: "medium" },
-                    max_output_tokens: 20000,
+                    reasoning: AI_IMPORT_PROFILE === "max"
+                        ? (model === "gpt-5-pro" && textToProcess.length > 100000 ? { effort: "high" } : { effort: "medium" })
+                        : { effort: "low" },
+                    max_output_tokens: AI_CLEANING_MAX_OUTPUT_TOKENS,
                 });
 
                 const cleanedText = extractResponsesOutputText(response);
@@ -661,6 +700,9 @@ export async function cleanScriptWithAI(rawText: string): Promise<string | { err
             } catch (err: unknown) {
                 lastError = err;
                 console.warn(`[AI Clean] Model ${model} failed:`, getErrorMessage(err));
+                if (isQuotaOrBillingError(err)) {
+                    break;
+                }
             }
         }
 
@@ -671,6 +713,10 @@ export async function cleanScriptWithAI(rawText: string): Promise<string | { err
         // Handle timeout specifically
         if (isTimeoutError(error)) {
             return { error: "Le nettoyage IA a pris trop de temps. Essayez avec un PDF plus court." };
+        }
+
+        if (isQuotaOrBillingError(error)) {
+            return { error: "Quota OpenAI depasse. Rechargez les credits ou utilisez un modele moins couteux via OPENAI_IMPORT_PROFILE=eco." };
         }
 
         return { error: getErrorMessage(error) || "Erreur lors du nettoyage IA (modele indisponible ou reponse invalide)." };
@@ -788,7 +834,7 @@ export async function runImportDiagnosticsAction(
 
         const openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
-            timeout: 180000,
+            timeout: AI_DIAGNOSTICS_TIMEOUT_MS,
         });
 
         const modelsToTry = [
@@ -812,8 +858,8 @@ export async function runImportDiagnosticsAction(
                         { role: "system", content: prompt },
                         { role: "user", content: payloadStr },
                     ],
-                    reasoning: { effort: "medium" },
-                    max_output_tokens: 10000,
+                    reasoning: AI_IMPORT_PROFILE === "max" ? { effort: "medium" } : { effort: "low" },
+                    max_output_tokens: AI_DIAGNOSTICS_MAX_OUTPUT_TOKENS,
                 });
 
                 const output = extractResponsesOutputText(response);
@@ -830,12 +876,18 @@ export async function runImportDiagnosticsAction(
             } catch (err: unknown) {
                 lastError = err;
                 console.warn(`[AI Diagnostics] Model ${model} failed:`, getErrorMessage(err));
+                if (isQuotaOrBillingError(err)) {
+                    break;
+                }
             }
         }
 
         throw lastError || new Error("Aucun modele n'a retourne de diagnostics exploitables.");
     } catch (error: unknown) {
         console.error("[AI Diagnostics] Error:", error);
+        if (isQuotaOrBillingError(error)) {
+            return { error: "Quota OpenAI depasse. Rechargez les credits avant le scan final." };
+        }
         return { error: getErrorMessage(error) || "Erreur lors du scan IA." };
     }
 }
