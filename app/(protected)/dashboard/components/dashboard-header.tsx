@@ -117,7 +117,7 @@ export function DashboardHeader({
             <div className="hidden md:flex w-full items-center justify-between">
                 <div className="text-left">
                     <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">
-                        Bonjour,{" "}
+                        <span className="font-medium opacity-80">Bonjour,</span>{" "}
                         <span className="text-primary">{userName || "Artiste"}</span>
                     </h1>
                     <p className="text-base text-muted-foreground font-medium tracking-wide uppercase">
@@ -156,7 +156,7 @@ export function DashboardHeader({
                             placeholder="Rechercher un script..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 h-12 text-sm backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-background/50 focus:border-primary/30 transition-all shadow-sm hover:shadow-lg hover:border-white/20"
+                            className="w-full bg-background/50 dark:bg-muted/20 border border-border/50 rounded-2xl pl-12 pr-4 h-12 text-sm backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-background focus:border-primary/50 transition-all shadow-sm hover:shadow-md"
                         />
                     </div>
 

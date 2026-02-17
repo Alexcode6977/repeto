@@ -86,24 +86,143 @@ export function ScriptCard({
             onClick={() => !isRenaming && onLoad(script)}
             style={{ animationDelay: `${index * 100}ms` }}
             className={`
-        group relative aspect-[3/4] md:aspect-[4/5] bg-card border border-border rounded-[2rem] overflow-hidden cursor-pointer card-3d hover-glow 
-        active:scale-[0.98] md:hover:border-primary/50 md:hover:shadow-2xl md:hover:shadow-primary/10 transition-all duration-300 animate-bounce-in
-        ${script.is_public ? "border-amber-500/20" : ""}
+        group relative aspect-[3/4] md:aspect-[4/5] 
+        bg-card dark:bg-card/50 
+        border-0 dark:border dark:border-border 
+        rounded-[2rem] overflow-hidden cursor-pointer 
+        card-3d 
+        shadow-sm hover:shadow-xl dark:shadow-none
+        active:scale-[0.98] 
+        md:hover:translate-y-[-4px]
+        transition-all duration-300 animate-bounce-in
+        ${script.is_public ? "ring-2 ring-amber-500/20" : ""}
       `}
         >
-            {/* Card Background gradient */}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background z-10" />
+            {/* --- TOP: COVER ART (Gradient) --- */}
+            <div className="absolute top-0 left-0 right-0 h-[45%] bg-gradient-to-br from-primary/5 via-primary/10 to-transparent dark:from-primary/20 dark:to-transparent flex items-center justify-center overflow-hidden">
+                {/* Decorative Circle Behind Icon */}
+                <div className="absolute w-24 h-24 bg-primary/20 rounded-full blur-2xl transform group-hover:scale-150 transition-transform duration-700" />
 
-            {/* Mobile Actions Menu - Top Left */}
-            <div className="absolute top-4 left-4 z-30 md:hidden" onClick={(e) => e.stopPropagation()}>
+                <FileText
+                    className={`relative z-10 w-16 h-16 transition-transform duration-500 group-hover:scale-110 group-hover:-rotate-3 ${script.is_public ? "text-amber-500" : "text-primary/60 dark:text-foreground/80"}`}
+                    strokeWidth={1.5}
+                />
+            </div>
+
+            {/* --- MIDDLE: Public Badge --- */}
+            {script.is_public && (
+                <div className="absolute top-4 right-4 z-20 bg-amber-500/10 backdrop-blur-md border border-amber-500/20 text-amber-600 dark:text-amber-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1">
+                    <Globe className="w-3 h-3" />
+                    Shared
+                </div>
+            )}
+
+            {/* --- BOTTOM: Content --- */}
+            <div className="absolute bottom-0 left-0 right-0 top-[45%] p-5 flex flex-col justify-between bg-card z-20">
+
+                <div className="flex flex-col pt-2">
+                    {/* Date or Meta (Optional, can add later) */}
+
+                    {/* Title */}
+                    {isRenaming ? (
+                        <form
+                            onSubmit={handleRenameSubmit}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mb-1"
+                        >
+                            <input
+                                autoFocus
+                                type="text"
+                                value={tempTitle}
+                                onChange={(e) => setTempTitle(e.target.value)}
+                                onBlur={() => handleRenameSubmit()}
+                                className="w-full bg-muted/50 border border-primary/20 rounded-lg px-2 py-1 text-foreground text-xl font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            />
+                        </form>
+                    ) : (
+                        <div className="group/title flex items-start justify-between gap-2 mb-1">
+                            <h3 className="text-xl font-bold text-foreground leading-snug line-clamp-2" title={script.title}>
+                                {script.title || "Script Sans Titre"}
+                            </h3>
+                            {script.is_owner && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsRenaming(true);
+                                    }}
+                                    className="opacity-0 group-hover/title:opacity-100 text-muted-foreground hover:text-primary transition-opacity p-1"
+                                >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Metadata */}
+                    <div className="flex items-center gap-3 text-xs md:text-sm font-medium text-muted-foreground mt-1">
+                        <span className="flex items-center gap-1">
+                            {script.characterCount} rôles
+                        </span>
+                        <span className="w-1 h-1 bg-muted-foreground/30 rounded-full" />
+                        <span className="flex items-center gap-1">
+                            {script.lineCount} répliques
+                        </span>
+                    </div>
+                </div>
+
+                {/* Desktop Hover Actions (Now visible at bottom) */}
+                <div className="hidden md:flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
+                    {/* Settings Button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full"
+                        onClick={(e) => { e.stopPropagation(); onSettings(script); }}
+                    >
+                        <Settings2 className="w-4 h-4" />
+                    </Button>
+
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/5 rounded-full"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onShowStats?.(script);
+                        }}
+                    >
+                        <BarChart2 className="w-4 h-4" />
+                    </Button>
+
+                    <div onClick={(e) => e.stopPropagation()}>
+                        {/* We style the DownloadButton trigger to match locally if possible, usually it renders a button */}
+                        <DownloadButton scriptId={script.id} className="h-9 w-9 border-0 hover:bg-muted text-muted-foreground" showLabel={false} />
+                    </div>
+
+                    {(script.is_owner || isAdminUser) && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-500/5 rounded-full"
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                        </Button>
+                    )}
+                </div>
+            </div>
+
+            {/* Mobile Actions Menu - Keep Top Left for ease */}
+            <div className="absolute top-3 left-3 z-30 md:hidden" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="bg-white/10 backdrop-blur-md border border-white/20 text-foreground rounded-full w-9 h-9 hover:bg-white/20"
+                            className="bg-white/60 dark:bg-black/40 backdrop-blur-md border border-white/20 text-foreground rounded-full w-8 h-8"
                         >
-                            <MoreHorizontal className="w-5 h-5" />
+                            <MoreHorizontal className="w-4 h-4" />
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-48">
@@ -111,7 +230,6 @@ export function ScriptCard({
                             <Settings2 className="w-4 h-4 mr-2" />
                             Réglages
                         </DropdownMenuItem>
-                        {/* Stats Mobile Item */}
                         <DropdownMenuItem onClick={() => onShowStats?.(script)}>
                             <BarChart2 className="w-4 h-4 mr-2" />
                             Statistiques
@@ -128,145 +246,16 @@ export function ScriptCard({
                                 showLabel
                             />
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {(script.is_owner || isAdminUser) && (
-                            <DropdownMenuItem
-                                onClick={handleDelete}
-                                disabled={isDeleting}
-                                className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
-                            >
-                                {isDeleting ? (
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                )}
-                                Supprimer
-                            </DropdownMenuItem>
-                        )}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-
-            {/* Public Badge - Floating */}
-            {script.is_public && (
-                <div className="absolute top-4 right-4 z-20 bg-amber-500/20 backdrop-blur-md border border-amber-500/30 text-amber-300 px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-lg">
-                    <Globe className="w-3 h-3" />
-                    Shared
-                </div>
-            )}
-
-            {/* Icon / Preview - Large & Centered */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-20 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700">
-                <FileText
-                    className={`w-32 h-32 md:w-40 md:h-40 ${script.is_public ? "text-amber-500" : "text-foreground"
-                        }`}
-                />
-            </div>
-
-            {/* Content - Bottom Aligned */}
-            <div className="absolute bottom-0 left-0 right-0 p-5 z-20 flex flex-col justify-end h-full">
-                <div className="mb-4">
-                    {isRenaming ? (
-                        <form
-                            onSubmit={handleRenameSubmit}
-                            onClick={(e) => e.stopPropagation()}
-                            className="mb-2"
-                        >
-                            <input
-                                autoFocus
-                                type="text"
-                                value={tempTitle}
-                                onChange={(e) => setTempTitle(e.target.value)}
-                                onBlur={() => handleRenameSubmit()}
-                                className="w-full bg-white/20 border border-white/30 rounded-lg px-2 py-1 text-foreground text-lg font-bold focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            />
-                        </form>
-                    ) : (
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                            <h3 className="text-2xl md:text-xl font-bold text-foreground leading-tight drop-shadow-md truncate flex-1">
-                                {script.title || "Script Sans Titre"}
-                            </h3>
-                            {script.is_owner && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setIsRenaming(true);
-                                    }}
-                                    className="text-foreground/40 hover:text-foreground transition-colors"
-                                >
-                                    <Edit3 className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
-                    )}
-                    <div className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground/80 uppercase tracking-wider">
-                        <span>{script.characterCount} rôles</span>
-                        <span className="w-1 h-1 bg-gray-500 rounded-full" />
-                        <span>{script.lineCount} répliques</span>
-                    </div>
-                </div>
-
-                {/* Desktop Hover Actions */}
-                <div className="hidden md:flex items-center gap-3 opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
-                    {/* Settings Button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="bg-white/10 hover:bg-primary/20 hover:text-primary text-foreground rounded-xl"
-                        onClick={(e) => { e.stopPropagation(); onSettings(script); }}
-                    >
-                        <Settings2 className="w-4 h-4" />
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="bg-white/10 hover:bg-blue-500/20 hover:text-blue-400 text-foreground rounded-xl"
-                        title="Voir les statistiques"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onShowStats?.(script);
-                        }}
-                    >
-                        <BarChart2 className="w-4 h-4" />
-                    </Button>
-
-                    <div onClick={(e) => e.stopPropagation()}>
-                        <DownloadButton scriptId={script.id} className="bg-white/10 hover:bg-white/20 text-white border-0 w-12 h-12" />
-                    </div>
-
-                    {(script.is_owner || isAdminUser) && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-foreground rounded-xl"
+                        <DropdownMenuItem
                             onClick={handleDelete}
                             disabled={isDeleting}
+                            className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
                         >
-                            {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                        </Button>
-                    )}
-                    {isAdminUser && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className={`rounded-xl ${script.is_public
-                                ? "bg-amber-500/20 text-amber-400"
-                                : "bg-white/10 text-muted-foreground"
-                                }`}
-                            onClick={handleToggle}
-                            disabled={isToggling}
-                        >
-                            {isToggling ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : script.is_public ? (
-                                <Globe className="w-4 h-4" />
-                            ) : (
-                                <Lock className="w-4 h-4" />
-                            )}
-                        </Button>
-                    )}
-                </div>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Supprimer
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
     );

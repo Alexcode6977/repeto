@@ -73,7 +73,7 @@ export function ImportWizard({
     const [aiImportCancelled, setAiImportCancelled] = useState(false);
 
     // Choice screen state
-    const [importChoice, setImportChoice] = useState<"choice" | "pdf" | "catalog">("choice");
+    const [importChoice, setImportChoice] = useState<"choice" | "catalog">("choice");
     //const [isPending, startTransition] = useTransition(); // Using local isImporting instead for now or need wrapping
     const [_isPending, startTransition] = useTransition();
 
@@ -473,45 +473,87 @@ export function ImportWizard({
                 </div>
             )}
 
-            {/* 3. IMPORT CHOICE SCREEN */}
+            {/* 3. IMPORT CHOICE SCREEN (NEW 3-COLUMN LAYOUT) */}
             {showImportGuide && importChoice === "choice" && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={() => { setShowImportGuide(false); setImportChoice("choice"); }}>
-                    <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => { setShowImportGuide(false); setImportChoice("choice"); }} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={() => { setShowImportGuide(false); }}>
+                    <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-5xl shadow-2xl animate-in zoom-in-95 duration-200 relative" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setShowImportGuide(false); }} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
 
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-extrabold text-foreground">Importer une pièce</h2>
-                            <p className="text-muted-foreground mt-2">Choisissez votre méthode d'import</p>
+                        <div className="text-center mb-10">
+                            <h2 className="text-3xl font-extrabold text-foreground tracking-tight">Importer une pièce</h2>
+                            <p className="text-muted-foreground mt-2 text-lg">Choisissez votre méthode d'import</p>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                            {/* Import PDF */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* 1. Catalog Import */}
                             <button
-                                onClick={() => setImportChoice("pdf")}
-                                className="flex items-center gap-4 p-5 bg-primary/10 border border-primary/30 rounded-2xl hover:bg-primary/20 transition-all group"
+                                onClick={() => setImportChoice("catalog")}
+                                className="cursor-pointer group relative flex flex-col h-full text-left"
                             >
-                                <div className="w-14 h-14 bg-primary/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                                    <Upload className="w-7 h-7 text-primary" />
-                                </div>
-                                <div className="text-left">
-                                    <h3 className="font-bold text-foreground text-lg">Importer mon texte</h3>
-                                    <p className="text-muted-foreground text-sm">Importer un PDF de ma pièce</p>
+                                <div className="absolute inset-0 bg-amber-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-amber-500/50" />
+                                <div className="bg-card border border-border hover:border-amber-500/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl w-full">
+                                    <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-500/20 transition-colors">
+                                        <BookOpen className="w-10 h-10 text-amber-500" />
+                                    </div>
+                                    <h3 className="font-bold text-xl text-foreground mb-3">Importer à partir du catalogue Repeto</h3>
+                                    <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
+                                        Choisissez une pièce de théâtre directement depuis notre catalogue.
+                                    </p>
+                                    <div className="w-full py-3 rounded-xl bg-amber-500/10 text-amber-600 font-bold group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                                        Parcourir le catalogue
+                                    </div>
                                 </div>
                             </button>
 
-                            {/* Import from Catalog */}
-                            <button
-                                onClick={() => setImportChoice("catalog")}
-                                className="flex items-center gap-4 p-5 bg-amber-500/10 border border-amber-500/30 rounded-2xl hover:bg-amber-500/20 transition-all group"
-                            >
-                                <div className="w-14 h-14 bg-amber-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                                    <BookOpen className="w-7 h-7 text-amber-400" />
+                            {/* 2. Format Repeto Import (Classic) */}
+                            <label className="cursor-pointer group relative flex flex-col h-full">
+                                <div className="absolute inset-0 bg-primary/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-primary/50" />
+                                <div className="bg-card border border-border hover:border-primary/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl">
+                                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
+                                        <Upload className="w-10 h-10 text-primary" />
+                                    </div>
+                                    <h3 className="font-bold text-xl text-foreground mb-3">Importer votre texte au format Repeto</h3>
+                                    <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
+                                        Pour les PDF déjà bien formatés (standard Repeto).
+                                        <br />
+                                        <span className="font-mono text-xs opacity-70 mt-2 block">[NOM] + Réplique</span>
+                                    </p>
+                                    <div className="w-full py-3 rounded-xl bg-primary/10 text-primary font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                        Importer mon PDF
+                                    </div>
                                 </div>
-                                <div className="text-left">
-                                    <h3 className="font-bold text-foreground text-lg">Importer du catalogue</h3>
-                                    <p className="text-muted-foreground text-sm">Choisir une pièce de la bibliothèque</p>
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    className="hidden"
+                                    onChange={(e) => { setShowImportGuide(false); handleFileChange(e); }}
+                                />
+                            </label>
+
+                            {/* 3. Assistant Repeto Import (AI) */}
+                            <label className="cursor-pointer group relative flex flex-col h-full">
+                                <div className="absolute inset-0 bg-emerald-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-emerald-500/50" />
+                                <div className="bg-card border border-border hover:border-emerald-500/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl">
+                                    <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-emerald-500/20 transition-colors">
+                                        <Sparkles className="w-10 h-10 text-emerald-500" />
+                                    </div>
+                                    <h3 className="font-bold text-xl text-foreground mb-3">Importer votre texte avec l'assistant Repeto</h3>
+                                    <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
+                                        Pour les PDF bruts. Converti en <span className="font-semibold">standard Repeto</span>.
+                                        <br />
+                                        <span className="text-emerald-500 text-xs font-semibold mt-2 block">L'assistant détecte et aide à gérer les répliques.</span>
+                                    </p>
+                                    <div className="w-full py-3 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                                        PDF + Assistant Repeto
+                                    </div>
                                 </div>
-                            </button>
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    className="hidden"
+                                    onChange={handleAiFileChange}
+                                />
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -528,128 +570,6 @@ export function ImportWizard({
                     }}
                     onError={onError}
                 />
-            )}
-
-            {/* 5. IMPORT GUIDE (TIER BASED) - PDF Flow */}
-            {showImportGuide && importChoice === "pdf" && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={() => !isAiImporting && setImportChoice("choice")}>
-                    {/* ... Content based on User Tier ... */}
-
-                    {/* REGULAR USERS OR ADMIN DURING IMPORT */}
-                    {(userTier === "free") ? (
-                        // FREE TIER UI
-                        <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
-                            <div className="absolute -top-20 -left-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-                            <div className="absolute -bottom-20 -right-20 w-40 h-40 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-                            <div className="text-center mb-8"><h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Nouveau Format PDF</h2><p className="text-muted-foreground mt-2">Votre PDF doit utiliser le nouveau format avec crochets</p></div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                <div className="bg-muted/30 border border-border rounded-2xl p-6"><h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><span className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center text-sm">1</span>Format requis</h3><div className="bg-background rounded-xl p-4 font-mono text-sm space-y-2 text-muted-foreground"><p><span className="text-primary font-bold">[NOM]</span></p><p>Texte du dialogue</p><p><span className="text-amber-500">(didascalie)</span></p></div></div>
-                                <div className="bg-muted/30 border border-border rounded-2xl p-6"><h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2"><span className="w-7 h-7 bg-primary/20 rounded-full flex items-center justify-center text-sm">2</span>Exemple complet</h3><div className="bg-background rounded-xl p-4 font-mono text-xs space-y-1 text-muted-foreground"><p><span className="text-primary">[MARIE]</span></p><p>Où est Pierre ?</p><p className="opacity-50">&nbsp;</p><p><span className="text-primary">[JEAN]</span></p><p>(souriant) Parti au marché.</p></div></div>
-                            </div>
-                            <div className="flex justify-center">
-                                <div className="relative group">
-                                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/30 transition-all" />
-                                    <Button className="relative py-7 px-12 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg shadow-xl" asChild>
-                                        <label className="cursor-pointer flex items-center justify-center gap-3">
-                                            <Upload className="w-6 h-6" />J'ai préparé mon PDF, Importer
-                                            <input type="file" accept=".pdf" className="hidden" onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }} />
-                                        </label>
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    ) : (
-                        // AI TIER UI (Standard for Pro/Troupe OR Admin)
-                        <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                            {!isAiImporting && <button onClick={() => setImportChoice("choice")} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>}
-                            <div className="absolute -top-20 -left-20 w-40 h-40 bg-green-500/10 rounded-full blur-3xl pointer-events-none" />
-
-                            {isAiImporting ? (
-                                <div className="py-4">
-                                    {aiImportSuccess ? (
-                                        <div className="text-center py-8">
-                                            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30"><Check className="w-10 h-10 text-white" /></div>
-                                            <h3 className="text-2xl font-bold text-foreground mb-2">Import réussi !</h3>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-6">
-                                            <div className="text-center mb-6"><h3 className="text-xl font-bold text-foreground">Analyse Intelligente en cours...</h3></div>
-                                            <div className="p-4 rounded-2xl border bg-muted/30 border-primary/30">
-                                                <div className="flex items-center gap-3 mb-2"><Loader2 className="w-4 h-4 animate-spin text-primary" /><span className="font-medium text-foreground">Traitement Automatique étape {aiImportStep}</span></div>
-                                                <div className="ml-7">
-                                                    <div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-1000" style={{ width: `${aiImportProgress}%` }} /></div>
-                                                </div>
-                                            </div>
-                                            <div className="pt-4 border-t border-border mt-4"><Button variant="ghost" onClick={cancelAiImport} className="w-full text-muted-foreground hover:text-foreground">Annuler l'import</Button></div>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="space-y-6">
-                                    <div className="text-center">
-                                        <h2 className="text-3xl font-extrabold text-foreground tracking-tight">📝 Import PDF</h2>
-                                        <p className="text-muted-foreground mt-2">Choisissez le mode import selon la qualite de votre PDF.</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="bg-muted/30 border border-border rounded-2xl p-4">
-                                            <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                                                <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">1</span>
-                                                Mode classique
-                                            </h3>
-                                            <div className="bg-background rounded-xl p-3 text-xs space-y-2 text-muted-foreground">
-                                                <p>Utilisez ce mode si votre PDF est deja bien structure.</p>
-                                                <p className="font-mono">
-                                                    <span className="text-primary font-bold">[NOM]</span> + replique + <span className="text-amber-500">(didascalie)</span>
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <div className="bg-muted/30 border border-border rounded-2xl p-4">
-                                            <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                                                <span className="w-6 h-6 bg-primary/20 rounded-full flex items-center justify-center text-xs">2</span>
-                                                Mode IA (nettoyage)
-                                            </h3>
-                                            <div className="bg-background rounded-xl p-3 text-xs space-y-2 text-muted-foreground">
-                                                <p>Utilisez ce mode pour un PDF brut/OCR ou mal formate.</p>
-                                                <p>Le script sera converti automatiquement en format compatible parseur.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <Button className="py-6 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base shadow-xl" asChild>
-                                            <label className="cursor-pointer flex items-center justify-center gap-3">
-                                                <Upload className="w-5 h-5" />
-                                                PDF classique
-                                                <input
-                                                    type="file"
-                                                    accept=".pdf"
-                                                    className="hidden"
-                                                    onChange={(e) => { setShowImportGuide(false); setImportChoice("choice"); handleFileChange(e); }}
-                                                />
-                                            </label>
-                                        </Button>
-
-                                        <Button className="py-6 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base shadow-xl" asChild>
-                                            <label className="cursor-pointer flex items-center justify-center gap-3">
-                                                <Sparkles className="w-5 h-5" />
-                                                PDF + Nettoyage IA
-                                                <input
-                                                    type="file"
-                                                    accept=".pdf"
-                                                    className="hidden"
-                                                    onChange={handleAiFileChange}
-                                                />
-                                            </label>
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
             )}
         </>
     );
