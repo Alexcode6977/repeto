@@ -918,7 +918,7 @@ export function RehearsalMode({
 
         return (
             <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center pt-safe">
-                <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative w-full">
+                <Card className="bg-card/90 dark:bg-black/40 backdrop-blur-2xl border-border/60 dark:border-white/10 shadow-2xl overflow-hidden relative w-full">
                     {/* Background Gradient Blobs */}
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -928,7 +928,7 @@ export function RehearsalMode({
                         <div className="space-y-6">
                             <button
                                 onClick={onExit}
-                                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider group"
+                                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors uppercase tracking-wider group"
                             >
                                 <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
                                 Retour
@@ -963,12 +963,11 @@ export function RehearsalMode({
                                 <select
                                     value={startLineIndex}
                                     onChange={(e) => setStartLineIndex(Number(e.target.value))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer hover:bg-white/10 transition-colors"
-                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+                                    className="w-full bg-muted/60 dark:bg-white/5 border border-border/70 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-foreground dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer hover:bg-muted/80 dark:hover:bg-white/10 transition-colors"
                                 >
-                                    <option value={0} className="bg-zinc-900">Début du script</option>
+                                    <option value={0} className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">Début du script</option>
                                     {script.scenes?.map((scene, i) => (
-                                        <option key={`scene-${scene.index}-${i}`} value={scene.index} className="bg-zinc-900">
+                                        <option key={`scene-${scene.index}-${i}`} value={scene.index} className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">
                                             {scene.title}
                                         </option>
                                     ))}
@@ -997,17 +996,17 @@ export function RehearsalMode({
                                                     "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
                                                     isActive
                                                         ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
-                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                                 )}
                                             >
                                                 <div className={cn(
                                                     "w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1",
-                                                    isActive ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                    isActive ? "bg-violet-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                                 )}>
                                                     <Icon className="w-3 h-3" />
                                                 </div>
                                                 <div>
-                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-violet-700 dark:text-white" : "text-muted-foreground")}>
                                                         {v.label}
                                                     </div>
                                                 </div>
@@ -1040,17 +1039,17 @@ export function RehearsalMode({
                                                     "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
                                                     isActive
                                                         ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
-                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                                 )}
                                             >
                                                 <div className={cn(
                                                     "w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1",
-                                                    isActive ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                    isActive ? "bg-violet-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                                 )}>
                                                     <Icon className="w-3 h-3" />
                                                 </div>
                                                 <div>
-                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-violet-700 dark:text-white" : "text-muted-foreground")}>
                                                         {m.label}
                                                     </div>
                                                 </div>
@@ -1082,10 +1081,10 @@ export function RehearsalMode({
                                                     "relative p-3 rounded-xl text-center transition-all duration-300 border",
                                                     isActive
                                                         ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
-                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                                 )}
                                             >
-                                                <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-violet-700 dark:text-white" : "text-muted-foreground")}>
                                                     {t.label}
                                                 </div>
                                                 {isActive && <Check className="w-3 h-3 text-violet-400 absolute top-2 right-2" />}
@@ -1116,10 +1115,10 @@ export function RehearsalMode({
                                                     "relative p-3 rounded-xl text-center transition-all duration-300 border",
                                                     isActive
                                                         ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
-                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                                 )}
                                             >
-                                                <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-violet-700 dark:text-white" : "text-muted-foreground")}>
                                                     {s.label}
                                                 </div>
                                                 {isActive && <Check className="w-3 h-3 text-violet-400 absolute top-2 right-2" />}
@@ -1181,7 +1180,7 @@ export function RehearsalMode({
                 <button
                     onClick={handleExit}
                     aria-label="Quitter la répétition"
-                    className="md:hidden fixed right-4 z-[90] p-2.5 rounded-full bg-black/65 border border-white/20 text-white hover:text-red-300 active:scale-95 transition-all backdrop-blur-sm shadow-xl"
+                    className="md:hidden fixed right-4 z-[90] p-2.5 rounded-full bg-card/90 dark:bg-black/65 border border-border/70 dark:border-white/20 text-foreground dark:text-white hover:text-red-500 dark:hover:text-red-300 active:scale-95 transition-all backdrop-blur-sm shadow-xl"
                     style={{ top: "calc(env(safe-area-inset-top, 0px) + 10px)" }}
                 >
                     <X className="w-5 h-5" />

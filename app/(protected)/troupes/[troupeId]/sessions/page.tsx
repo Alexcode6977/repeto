@@ -29,7 +29,7 @@ export default async function SessionsPage({
                     <h1 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-foreground mb-2">
                         Séances
                     </h1>
-                    <p className="text-gray-400 font-medium flex items-center gap-2">
+                    <p className="text-muted-foreground font-medium flex items-center gap-2">
                         <ClipboardList className="w-4 h-4" />
                         Planifiez vos répétitions et consultez vos feedbacks
                     </p>

@@ -111,7 +111,7 @@ export function AnnotatorGrid({ actorsInScene, playId, context }: AnnotatorGridP
         <div className="flex-1 flex flex-col overflow-hidden bg-background keyboard-inset">
 
             {/* 1. Header Area (Static) */}
-            <div className="p-4 border-b border-white/5 bg-black/5 flex items-center justify-between shrink-0">
+            <div className="p-4 border-b border-border/40 dark:border-white/5 bg-muted/20 dark:bg-black/5 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
                     <StickyNote className="w-4 h-4 text-amber-500" />
                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground">
@@ -125,12 +125,12 @@ export function AnnotatorGrid({ actorsInScene, playId, context }: AnnotatorGridP
             </div>
 
             {/* 2. Input Area (Now at the top) */}
-            <div className="p-4 border-b border-white/5 bg-black/20 space-y-3 shrink-0">
+            <div className="p-4 border-b border-border/40 dark:border-white/5 bg-muted/40 dark:bg-black/20 space-y-3 shrink-0">
                 <textarea
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     placeholder={selectedTargetType === 'tech' ? "Instruction technique..." : "Indication de jeu..."}
-                    className="w-full h-24 bg-white/10 border border-white/15 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-amber-500/60 text-white placeholder:text-white/40 custom-scrollbar"
+                    className="w-full h-24 bg-background/80 dark:bg-white/10 border border-border/60 dark:border-white/15 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-amber-500/60 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-white/40 custom-scrollbar"
                 />
                 <Button
                     onClick={handleSend}
@@ -161,12 +161,12 @@ export function AnnotatorGrid({ actorsInScene, playId, context }: AnnotatorGridP
                                         "cursor-pointer group flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all duration-200",
                                         isSelected
                                             ? "bg-amber-500/10 border-amber-500/40 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/20"
-                                            : "bg-muted/30 border-white/5 hover:border-white/10 hover:bg-muted/50"
+                                            : "bg-muted/30 border-border/40 dark:border-white/5 hover:border-border/60 dark:hover:border-white/10 hover:bg-muted/50"
                                     )}
                                 >
                                     <Avatar className={cn(
                                         "w-10 h-10 border transition-transform duration-200",
-                                        isSelected ? "border-amber-500 scale-110" : "border-white/10"
+                                        isSelected ? "border-amber-500 scale-110" : "border-border/60 dark:border-white/10"
                                     )}>
                                         <AvatarImage src={actor.avatar} />
                                         <AvatarFallback className={cn(
@@ -188,7 +188,7 @@ export function AnnotatorGrid({ actorsInScene, playId, context }: AnnotatorGridP
                             );
                         })}
                         {actorsInScene.length === 0 && (
-                            <div className="col-span-full py-4 text-center text-[10px] text-muted-foreground italic bg-white/5 rounded-xl border border-dashed border-white/10">
+                            <div className="col-span-full py-4 text-center text-[10px] text-muted-foreground italic bg-muted/30 dark:bg-white/5 rounded-xl border border-dashed border-border/60 dark:border-white/10">
                                 Aucun personnage présent
                             </div>
                         )}
@@ -211,7 +211,7 @@ export function AnnotatorGrid({ actorsInScene, playId, context }: AnnotatorGridP
                                         "cursor-pointer p-4 rounded-xl flex flex-col items-center justify-center gap-2 border transition-all active:scale-95",
                                         isSelected
                                             ? "bg-amber-500/10 border-amber-500/40"
-                                            : cn("bg-muted/20 border-white/5 hover:bg-muted/40", role.bg)
+                                            : cn("bg-muted/20 border-border/40 dark:border-white/5 hover:bg-muted/40", role.bg)
                                     )}
                                 >
                                     <role.icon className={cn("w-5 h-5", isSelected ? "text-amber-500" : role.color)} />

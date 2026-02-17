@@ -137,10 +137,10 @@ export function AnnotatorClient({ play, troupeId, troupeMembers, guests }: Annot
                 <div className="flex items-center gap-2 min-w-0">
                     <span className="hidden sm:inline text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-2">Afficher :</span>
                     <Select value={viewSceneIdx.toString()} onValueChange={(val) => setViewSceneIdx(parseInt(val))}>
-                        <SelectTrigger className="w-[140px] sm:w-[240px] h-9 bg-muted/50 border-white/5 font-bold text-xs ring-offset-background focus:ring-amber-500/20">
+                        <SelectTrigger className="w-[140px] sm:w-[240px] h-9 bg-muted/50 border-border/60 dark:border-white/5 font-bold text-xs ring-offset-background focus:ring-amber-500/20">
                             <SelectValue placeholder="Sélectionner une scène" />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#15151a] border-white/10">
+                        <SelectContent className="bg-popover dark:bg-[#15151a] border-border dark:border-white/10">
                             {scenes.map((scene, idx) => (
                                 <SelectItem key={`select-${idx}`} value={idx.toString()} className="text-xs font-bold focus:bg-amber-500 focus:text-black">
                                     {idx + 1}. {scene.title}
@@ -155,7 +155,7 @@ export function AnnotatorClient({ play, troupeId, troupeMembers, guests }: Annot
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
 
                 {/* LEFT: SCRIPT (2/3) */}
-                <div className="flex-[2] min-w-0 md:border-r border-border/10 bg-black/20 overflow-hidden">
+                <div className="flex-[2] min-w-0 md:border-r border-border/10 bg-muted/40 dark:bg-black/20 overflow-hidden">
                     <InteractiveScriptViewer
                         script={script}
                         currentSceneIdx={viewSceneIdx}

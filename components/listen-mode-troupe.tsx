@@ -241,7 +241,7 @@ export function ListenModeTroupe({
 
         return (
             <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center">
-                <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative w-full">
+                <Card className="bg-card/90 dark:bg-black/40 backdrop-blur-2xl border-border/60 dark:border-white/10 shadow-2xl overflow-hidden relative w-full">
                     {/* Background Gradient Blobs (Teal/Cyan) */}
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -251,7 +251,7 @@ export function ListenModeTroupe({
                         <div className="space-y-6">
                             <button
                                 onClick={onExit}
-                                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider group"
+                                className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors uppercase tracking-wider group"
                             >
                                 <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
                                 Retour
@@ -292,12 +292,11 @@ export function ListenModeTroupe({
                                 <select
                                     value={startLineIndex}
                                     onChange={(e) => setStartLineIndex(Number(e.target.value))}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none cursor-pointer hover:bg-white/10 transition-colors"
-                                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center', backgroundSize: '16px' }}
+                                    className="w-full bg-muted/60 dark:bg-white/5 border border-border/70 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-foreground dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none cursor-pointer hover:bg-muted/80 dark:hover:bg-white/10 transition-colors"
                                 >
-                                    <option value={0} className="bg-zinc-900">Début du script</option>
+                                    <option value={0} className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">Début du script</option>
                                     {script.scenes?.map((scene) => (
-                                        <option key={scene.index} value={scene.index} className="bg-zinc-900">
+                                        <option key={scene.index} value={scene.index} className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">
                                             {scene.title}
                                         </option>
                                     ))}
@@ -312,7 +311,7 @@ export function ListenModeTroupe({
                                 </label>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     {[
-                                        { id: "full", label: "Intégrale", sub: "Tout le texte", icon: Users },
+                                        { id: "full", label: "Intégral", sub: "Tout le texte", icon: Users },
                                         { id: "cue", label: "Réplique", sub: "Juste les cues", icon: MessageSquare },
                                         { id: "check", label: "Solo", sub: "Mes lignes", icon: Zap },
                                     ].map((m) => {
@@ -327,20 +326,20 @@ export function ListenModeTroupe({
                                                 className={cn(
                                                     "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-col items-start gap-2",
                                                     isDisabled
-                                                        ? "bg-white/5 border-transparent opacity-40 cursor-not-allowed"
+                                                        ? "bg-muted/40 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed"
                                                         : isActive
                                                         ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
-                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                                 )}
                                             >
                                                 <div className={cn(
                                                     "w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1",
-                                                    isActive ? "bg-teal-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                    isActive ? "bg-teal-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                                 )}>
                                                     <Icon className="w-3 h-3" />
                                                 </div>
                                                 <div>
-                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                    <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-teal-700 dark:text-white" : "text-muted-foreground")}>
                                                         {m.label}
                                                     </div>
                                                 </div>
@@ -369,12 +368,12 @@ export function ListenModeTroupe({
                                             "relative p-3 rounded-xl text-left border flex items-center gap-3",
                                             ttsProvider === "elevenlabs"
                                                 ? "bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                                                : "bg-white/5 border-white/10"
+                                                : "bg-muted/40 dark:bg-white/5 border-border/60 dark:border-white/10"
                                         )}
                                     >
                                         <div className={cn(
                                             "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                            ttsProvider === "elevenlabs" ? "bg-emerald-500 text-white" : "bg-white/10 text-muted-foreground"
+                                            ttsProvider === "elevenlabs" ? "bg-emerald-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                         )}>
                                             {ttsProvider === "elevenlabs" ? <Sparkles className="w-3 h-3" /> : <Headphones className="w-3 h-3" />}
                                         </div>
@@ -396,12 +395,12 @@ export function ListenModeTroupe({
                                             "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
                                             announceCharacter
                                                 ? "bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-                                                : "bg-white/5 border-transparent hover:bg-white/10"
+                                                : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                         )}
                                     >
                                         <div className={cn(
                                             "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                            announceCharacter ? "bg-indigo-500 text-white" : "bg-white/10 text-muted-foreground"
+                                            announceCharacter ? "bg-indigo-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                         )}>
                                             <span className="text-xs">📢</span>
                                         </div>

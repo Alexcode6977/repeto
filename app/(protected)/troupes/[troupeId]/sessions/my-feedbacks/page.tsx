@@ -1,9 +1,8 @@
 import { getMyFeedbacks } from "@/lib/actions/session";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MessageSquare, User, ChevronLeft } from "lucide-react";
+import { Calendar, MessageSquare, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 export default async function MyFeedbacksPage({
     params
@@ -39,10 +38,10 @@ export default async function MyFeedbacksPage({
             {/* Feedbacks Timeline */}
             <div className="grid gap-6">
                 {feedbacks.length === 0 ? (
-                    <div className="p-20 text-center rounded-3xl bg-card border-2 border-dashed border-white/5">
-                        <MessageSquare className="w-12 h-12 text-gray-800 mx-auto mb-4" />
+                    <div className="p-20 text-center rounded-3xl bg-card border-2 border-dashed border-border/60 dark:border-white/5">
+                        <MessageSquare className="w-12 h-12 text-muted-foreground dark:text-gray-800 mx-auto mb-4" />
                         <p className="text-muted-foreground font-bold text-lg">Aucun retour pour le moment.</p>
-                        <p className="text-gray-600 text-sm">Ils apparaîtront ici après vos prochaines répétitions.</p>
+                        <p className="text-muted-foreground dark:text-gray-600 text-sm">Ils apparaîtront ici après vos prochaines répétitions.</p>
                     </div>
                 ) : (
                     feedbacks.map((fb: any) => (
@@ -91,9 +90,9 @@ export default async function MyFeedbacksPage({
                                         </p>
                                     </div>
                                 )}
-                                <div className="p-6 rounded-2xl bg-background/20 border border-white/5 relative">
-                                    <p className="text-lg text-gray-200 leading-relaxed font-medium italic">
-                                        "{fb.text}"
+                                <div className="p-6 rounded-2xl bg-muted/30 dark:bg-background/20 border border-border/60 dark:border-white/5 relative">
+                                    <p className="text-lg text-foreground dark:text-gray-200 leading-relaxed font-medium italic">
+                                        {`"${fb.text}"`}
                                     </p>
                                 </div>
                             </CardContent>

@@ -48,10 +48,15 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
     };
 
     const handleConfirm = (mode: 'reader' | 'rehearsal' | 'listen') => {
-        if (mode === 'listen' || selectedChar) {
-            onConfirm(selectedChar, mode, ignoredTechnical, showStageDirections);
+        if (!selectedChar) {
+            return;
         }
+        onConfirm(selectedChar, mode, ignoredTechnical, showStageDirections);
     };
+
+    const listenModes = ["Intégral", "Réplique", "Solo"];
+    const listenLabel = `Audio (${listenModes.join(" / ")})`;
+    const listenDisabledLabel = "Personnage requis";
 
     const isSelectionRequired = !selectedChar;
 
@@ -171,20 +176,25 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
                         {/* ÉCOUTER */}
                         <button
                             onClick={() => handleConfirm('listen')}
+                            disabled={isSelectionRequired}
                             className={cn(
                                 "group flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border transition-all duration-300",
-                                "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/15 hover:border-cyan-500/50 active:scale-95"
+                                isSelectionRequired
+                                    ? "opacity-40 cursor-not-allowed bg-card border-border"
+                                    : "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/15 hover:border-cyan-500/50 active:scale-95"
                             )}
                         >
                             <div className={cn(
                                 "w-12 h-12 rounded-full flex items-center justify-center transition-transform",
-                                "bg-cyan-500/20 group-hover:scale-110"
+                                isSelectionRequired ? "bg-muted/20" : "bg-cyan-500/20 group-hover:scale-110"
                             )}>
-                                <Headphones className="w-6 h-6 text-cyan-400" />
+                                <Headphones className={cn("w-6 h-6", isSelectionRequired ? "text-muted-foreground" : "text-cyan-400")} />
                             </div>
                             <div className="text-center">
                                 <h3 className="text-sm font-black text-foreground uppercase tracking-wider">Écouter</h3>
-                                <p className="text-cyan-300 text-[9px] hidden md:block">Audio</p>
+                                <p className={cn("text-[9px] hidden md:block", isSelectionRequired ? "text-muted-foreground/70" : "text-cyan-300")}>
+                                    {isSelectionRequired ? listenDisabledLabel : listenLabel}
+                                </p>
                             </div>
                         </button>
 
@@ -247,7 +257,7 @@ export function ScriptViewerSingle({ script, onConfirm, onBack }: ScriptViewerSi
                 {/* Helper text */}
                 {isSelectionRequired && (
                     <p className="text-center text-muted-foreground/50 text-xs animate-pulse">
-                        ↑ Sélectionnez un personnage pour lire ou répéter
+                        ↑ Sélectionnez un personnage pour lire, écouter ou répéter
                     </p>
                 )}
             </div>

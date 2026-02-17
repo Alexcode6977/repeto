@@ -51,7 +51,7 @@ export const StoriesFooter = memo(function StoriesFooter({
     if (scripts.length === 0) return null;
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-background/90 backdrop-blur-2xl border-t border-white/5 pb-8 pt-4 px-0">
+        <div className="fixed bottom-0 left-0 right-0 z-[90] md:hidden bg-background/90 backdrop-blur-2xl border-t border-border/60 dark:border-white/5 pb-8 pt-4 px-0">
             {/* Gradient Masks */}
             <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-background to-transparent z-20 pointer-events-none" />
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-background to-transparent z-20 pointer-events-none" />
@@ -63,7 +63,7 @@ export const StoriesFooter = memo(function StoriesFooter({
             >
                 {/* SLIDING PILL (The Ghost) */}
                 <div
-                    className="absolute h-14 bg-gradient-to-br from-primary/20 to-purple-500/20 border border-white/10 rounded-2xl transition-all duration-300 ease-out shadow-[0_0_20px_rgba(var(--primary-rgb),0.2)] z-0"
+                    className="absolute h-14 bg-gradient-to-br from-primary/20 to-purple-500/20 border border-border/60 dark:border-white/10 rounded-2xl transition-all duration-300 ease-out shadow-[0_0_20px_rgba(var(--primary-rgb),0.2)] z-0"
                     style={{
                         left: pillStyle.left,
                         width: pillStyle.width,

@@ -41,7 +41,7 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
             {/* Header / Global Scene Context Indicator */}
             <div
                 className={cn(
-                    "p-6 border-b border-white/5 backdrop-blur-sm sticky top-0 z-20 cursor-pointer transition-all",
+                    "p-6 border-b border-border/40 dark:border-white/5 backdrop-blur-sm sticky top-0 z-20 cursor-pointer transition-all",
                     context.type === 'scene' && context.index === currentSceneIdx
                         ? "bg-amber-500/10 border-amber-500/30"
                         : "bg-background/80 hover:bg-background"
@@ -72,11 +72,11 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
 
                 {/* Private Scene Note Display */}
                 {sceneNote && (
-                    <div className="mt-4 p-3 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-200 text-sm italic relative group">
+                    <div className="mt-4 p-3 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-200 text-sm italic relative group">
                         <div className="absolute -top-2 -right-2 bg-blue-500 text-black p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                             <StickyNote className="w-3 h-3" />
                         </div>
-                        <span className="font-bold not-italic mr-2 text-blue-400">[Note Perso]</span>
+                        <span className="font-bold not-italic mr-2 text-blue-600 dark:text-blue-400">[Note Perso]</span>
                         {sceneNote.text}
                     </div>
                 )}
@@ -97,9 +97,9 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
                         <div key={`${line.id}-${idx}`} className="relative">
                             {/* Private Note Display (Line Level) */}
                             {lineNote && (
-                                <div className="mt-2 ml-6 p-2 rounded border border-blue-500/20 bg-blue-500/5 text-blue-300 text-xs flex gap-2 items-start animate-in slide-in-from-top-1">
-                                    <StickyNote className="w-3 h-3 mt-0.5 shrink-0 text-blue-400" />
-                                    <span><span className="font-bold text-blue-400">[Note Perso]</span> {lineNote.text}</span>
+                                <div className="mt-2 ml-6 p-2 rounded border border-blue-500/20 bg-blue-500/5 text-blue-700 dark:text-blue-300 text-xs flex gap-2 items-start animate-in slide-in-from-top-1">
+                                    <StickyNote className="w-3 h-3 mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                                    <span><span className="font-bold text-blue-600 dark:text-blue-400">[Note Perso]</span> {lineNote.text}</span>
                                 </div>
                             )}
 
@@ -108,7 +108,7 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
                                     "group relative rounded-xl transition-all duration-200 cursor-pointer border-2",
                                     isSelected
                                         ? "bg-amber-500/5 border-amber-500/30 shadow-[0_0_30px_-10px_rgba(245,158,11,0.2)] px-6 py-4"
-                                        : "border-transparent hover:bg-white/5 px-6 py-3"
+                                        : "border-transparent hover:bg-muted/50 dark:hover:bg-white/5 px-6 py-3"
                                 )}
                                 onClick={() => {
                                     if (isSelected) {
@@ -135,14 +135,14 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
                                 <div className={cn(
                                     "transition-all",
                                     isDirectorNote ? "bg-purple-500/10 border-l-4 border-purple-500/50 p-4 rounded-r-lg" :
-                                        isDirection ? "italic text-muted-foreground/80 pl-4 border-l border-white/10" : ""
+                                        isDirection ? "italic text-muted-foreground/80 pl-4 border-l border-border/60 dark:border-white/10" : ""
                                 )}>
                                     {isDirectorNote ? (
                                         <div className="flex flex-col gap-1">
                                             <span className="text-[10px] font-black uppercase tracking-widest text-purple-400 opacity-70">
                                                 Note Metteur en Scène
                                             </span>
-                                            <p className="font-medium text-purple-50 text-sm leading-relaxed">
+                                            <p className="font-medium text-purple-800 dark:text-purple-50 text-sm leading-relaxed">
                                                 {line.text}
                                             </p>
                                         </div>
@@ -161,7 +161,7 @@ export function InteractiveScriptViewer({ script, currentSceneIdx, context, setC
                                             <p className={cn(
                                                 "leading-relaxed",
                                                 line.type === 'dialogue' ? "font-serif text-lg text-foreground/90" : "text-xs",
-                                                isSelected && line.type === 'dialogue' && "text-white"
+                                                isSelected && line.type === 'dialogue' && "text-foreground dark:text-white"
                                             )}>
                                                 {line.text}
                                             </p>

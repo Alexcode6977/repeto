@@ -214,13 +214,13 @@ export function ListenMode({
     if (!hasStarted) {
         return (
             <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
-                <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative w-full">
+                <Card className="bg-card/90 dark:bg-black/40 backdrop-blur-2xl border-border/60 dark:border-white/10 shadow-2xl overflow-hidden relative w-full">
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
                     <div className="p-6 md:p-8 space-y-8 relative z-10">
                         <div className="space-y-6">
-                            <button onClick={onExit} className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider group">
+                            <button onClick={onExit} className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors uppercase tracking-wider group">
                                 <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" /> Retour
                             </button>
                             <div className="space-y-2">
@@ -265,11 +265,11 @@ export function ListenMode({
                             <select
                                 value={startLineIndex}
                                 onChange={(e) => setStartLineIndex(Number(e.target.value))}
-                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none cursor-pointer"
+                                className="w-full bg-muted/60 dark:bg-white/5 border border-border/70 dark:border-white/10 rounded-xl px-4 py-3 text-sm font-bold text-foreground dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-teal-500/50 appearance-none cursor-pointer"
                             >
-                                <option value={0} className="bg-zinc-900">Début du script</option>
+                                <option value={0} className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">Début du script</option>
                                 {script.scenes?.map((scene, i) => (
-                                    <option key={`scene-${scene.index}-${i}`} value={scene.index} className="bg-zinc-900">{scene.title}</option>
+                                    <option key={`scene-${scene.index}-${i}`} value={scene.index} className="bg-background text-foreground dark:bg-zinc-900 dark:text-zinc-100">{scene.title}</option>
                                 ))}
                             </select>
                         </div>
@@ -280,7 +280,7 @@ export function ListenMode({
                             </label>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 {[
-                                    { id: "full", label: "Intégrale", icon: Users },
+                                    { id: "full", label: "Intégral", icon: Users },
                                     { id: "cue", label: "Réplique", icon: MessageSquare },
                                     { id: "check", label: "Solo", icon: Zap },
                                 ].map((m) => {
@@ -295,16 +295,16 @@ export function ListenMode({
                                             className={cn(
                                                 "relative p-3 rounded-xl border flex flex-col items-start gap-2 transition-all",
                                                 isDisabled
-                                                    ? "bg-white/5 border-transparent opacity-40 cursor-not-allowed"
+                                                    ? "bg-muted/40 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed"
                                                     : isActive
                                                         ? "bg-teal-500/10 border-teal-500/50"
-                                                        : "bg-white/5 border-transparent hover:bg-white/10"
+                                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                             )}
                                         >
-                                            <div className={cn("w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1", isActive ? "bg-teal-500 text-white" : "bg-white/10 text-muted-foreground")}>
+                                            <div className={cn("w-6 h-6 rounded-full flex items-center justify-center transition-colors mb-1", isActive ? "bg-teal-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground")}>
                                                 <Icon className="w-3 h-3" />
                                             </div>
-                                            <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>{m.label}</div>
+                                            <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-teal-700 dark:text-white" : "text-muted-foreground")}>{m.label}</div>
                                             {isActive && <Check className="w-3 h-3 text-teal-400 absolute top-3 right-3" />}
                                         </button>
                                     );
@@ -318,8 +318,8 @@ export function ListenMode({
                         </div>
 
                         <div className="space-y-4">
-                            <button onClick={() => setAnnounceCharacter(!announceCharacter)} className={cn("w-full p-3 rounded-xl border flex items-center gap-3 transition-all", announceCharacter ? "bg-indigo-500/20 border-indigo-500/50" : "bg-white/5 border-transparent hover:bg-white/10")}>
-                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", announceCharacter ? "bg-indigo-500 text-white" : "bg-white/10")}>📢</div>
+                            <button onClick={() => setAnnounceCharacter(!announceCharacter)} className={cn("w-full p-3 rounded-xl border flex items-center gap-3 transition-all", announceCharacter ? "bg-indigo-500/20 border-indigo-500/50" : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10")}>
+                                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", announceCharacter ? "bg-indigo-500 text-white" : "bg-muted dark:bg-white/10")}>📢</div>
                                 <div className="text-left">
                                     <div className={cn("text-xs font-bold uppercase tracking-wide", announceCharacter ? "text-indigo-400" : "text-muted-foreground")}>Noms</div>
                                     <div className="text-[9px] text-muted-foreground">{announceCharacter ? "Annoncés" : "Masqués"}</div>
@@ -349,10 +349,10 @@ export function ListenMode({
                                                 "relative p-3 rounded-xl text-center transition-all duration-300 border",
                                                 isActive
                                                     ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
-                                                    : "bg-white/5 border-transparent hover:bg-white/10"
+                                                    : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                             )}
                                         >
-                                            <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                            <div className={cn("text-[10px] font-bold uppercase tracking-wide", isActive ? "text-teal-700 dark:text-white" : "text-muted-foreground")}>
                                                 {s.label}
                                             </div>
                                             {isActive && <Check className="w-3 h-3 text-teal-400 absolute top-2 right-2" />}

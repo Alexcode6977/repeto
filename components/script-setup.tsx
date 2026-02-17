@@ -37,7 +37,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
 
     return (
         <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-20 animate-in fade-in slide-in-from-bottom-6 duration-700">
-            <Card className="bg-black/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden relative">
+            <Card className="bg-card/90 dark:bg-black/40 backdrop-blur-2xl border-border/60 dark:border-white/10 shadow-2xl overflow-hidden relative">
                 {/* Background Gradient Blobs */}
                 <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
                 <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -47,7 +47,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                     <div className="space-y-6">
                         <button
                             onClick={onBack}
-                            className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-white transition-colors uppercase tracking-wider group"
+                            className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors uppercase tracking-wider group"
                         >
                             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
                             Changer de rôle
@@ -58,7 +58,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                                 Configuration
                             </h2>
                             <p className="text-muted-foreground/80 text-sm font-medium">
-                                Rôle : <span className="text-violet-300 font-bold">{character}</span>
+                                Rôle : <span className="text-violet-600 dark:text-violet-300 font-bold">{character}</span>
                             </p>
                         </div>
                     </div>
@@ -88,17 +88,17 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                                                 "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-2",
                                                 isActive
                                                     ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
-                                                    : "bg-white/5 border-transparent hover:bg-white/10"
+                                                    : "bg-muted/50 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                             )}
                                         >
                                             <div className={cn(
                                                 "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                                isActive ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                isActive ? "bg-violet-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                             )}>
                                                 <Icon className="w-4 h-4" />
                                             </div>
                                             <div className="flex-1">
-                                                <div className={cn("text-xs font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                <div className={cn("text-xs font-bold uppercase tracking-wide", isActive ? "text-violet-700 dark:text-white" : "text-muted-foreground")}>
                                                     {v.label}
                                                 </div>
                                                 <div className="text-[10px] text-muted-foreground/70 leading-tight">
@@ -134,17 +134,17 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                                                 "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-2",
                                                 isActive
                                                     ? "bg-violet-500/10 border-violet-500/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]"
-                                                    : "bg-white/5 border-transparent hover:bg-white/10"
+                                                    : "bg-muted/50 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                             )}
                                         >
                                             <div className={cn(
                                                 "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                                isActive ? "bg-violet-500 text-white" : "bg-white/10 text-muted-foreground"
+                                                isActive ? "bg-violet-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                             )}>
                                                 <Icon className="w-4 h-4" />
                                             </div>
                                             <div className="flex-1">
-                                                <div className={cn("text-xs font-bold uppercase tracking-wide", isActive ? "text-white" : "text-muted-foreground")}>
+                                                <div className={cn("text-xs font-bold uppercase tracking-wide", isActive ? "text-violet-700 dark:text-white" : "text-muted-foreground")}>
                                                     {m.label}
                                                 </div>
                                                 <div className="text-[10px] text-muted-foreground/70 leading-tight">

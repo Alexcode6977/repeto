@@ -231,6 +231,7 @@ export function PlayDashboardClient({
     // Exclude technical roles from the "Available/Other" list
     const otherCharacters = play.play_characters?.filter((c: any) => c.actor_id !== userId && !isTechnical(c.character_name)) || [];
     const allCharacters = [...myCharacterObjs, ...otherCharacters];
+    const hasSelectedCharacter = Boolean(rehearsalChars && rehearsalChars.length > 0);
 
     // Helper to start standard modes
     const startMode = (mode: "reader" | "rehearsal" | "listen") => {
@@ -263,7 +264,7 @@ export function PlayDashboardClient({
                                 <Info className="w-5 h-5 text-muted-foreground" />
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="w-[90%] max-w-sm rounded-3xl bg-card border-white/10">
+                        <DialogContent className="w-[90%] max-w-sm rounded-3xl bg-card border-border/60 dark:border-white/10">
                             <DialogHeader>
                                 <DialogTitle>Statistiques de la pièce</DialogTitle>
                             </DialogHeader>
@@ -299,7 +300,7 @@ export function PlayDashboardClient({
                                     <Settings className="w-5 h-5 text-muted-foreground" />
                                 </Button>
                             </DialogTrigger>
-                            <DialogContent className="w-[95%] max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl bg-black/95 border-white/10">
+                            <DialogContent className="w-[95%] max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl bg-card dark:bg-black/95 border-border/60 dark:border-white/10">
                                 <DialogHeader>
                                     <DialogTitle>Distribution</DialogTitle>
                                 </DialogHeader>
@@ -377,10 +378,10 @@ export function PlayDashboardClient({
                                 <div className={cn(
                                     "w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold border-2 transition-all",
                                     isMe
-                                        ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(124,58,237,0.5)] scale-105"
-                                        : rehearsalChars?.includes(char.character_name)
-                                            ? "bg-white text-black border-white"
-                                            : "bg-muted text-muted-foreground border-transparent"
+                                            ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(124,58,237,0.5)] scale-105"
+                                            : rehearsalChars?.includes(char.character_name)
+                                                ? "bg-foreground text-background border-foreground dark:bg-white dark:text-black dark:border-white"
+                                                : "bg-muted text-muted-foreground border-transparent"
                                 )}>
                                     {char.name.substring(0, 2).toUpperCase()}
                                 </div>
@@ -420,27 +421,31 @@ export function PlayDashboardClient({
 
                 {/* ÉCOUTER - Common */}
                 <Card
-                    className="border-0 active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl bg-teal-500/10 hover:bg-teal-500/20"
+                    className={cn(
+                        "border-0 transition-all flex flex-col items-center justify-center gap-3 p-6 text-center rounded-3xl",
+                        hasSelectedCharacter
+                            ? "cursor-pointer active:scale-95 bg-teal-500/10 hover:bg-teal-500/20"
+                            : "opacity-45 cursor-not-allowed bg-muted/40"
+                    )}
                     onClick={() => {
-                        if (rehearsalChars && rehearsalChars.length > 0) {
-                            // Already selected -> Go directly to Listen
-                            setViewMode("listen");
-                        } else {
-                            // Not selected -> Go to Selection (Forced: Listen)
-                            startMode("listen");
+                        if (!hasSelectedCharacter) {
+                            return;
                         }
+                        setViewMode("listen");
                         trigger('medium');
                     }}
                 >
                     <div className={cn(
                         "w-14 h-14 rounded-full flex items-center justify-center",
-                        "bg-teal-500/20 text-teal-400"
+                        hasSelectedCharacter ? "bg-teal-500/20 text-teal-400" : "bg-muted text-muted-foreground"
                     )}>
                         <Headphones className="w-7 h-7" />
                     </div>
                     <div>
-                        <h3 className={cn("font-bold text-lg", "text-teal-400")}>Écouter</h3>
-                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", "text-teal-400/60")}>Le script</p>
+                        <h3 className={cn("font-bold text-lg", hasSelectedCharacter ? "text-teal-400" : "text-muted-foreground")}>Écouter</h3>
+                        <p className={cn("text-[10px] uppercase font-bold tracking-wider", hasSelectedCharacter ? "text-teal-400/60" : "text-muted-foreground/70")}>
+                            {hasSelectedCharacter ? "Le script" : "Personnage requis"}
+                        </p>
                     </div>
                 </Card>
 
@@ -544,7 +549,7 @@ export function PlayDashboardClient({
                             <Button
                                 size="icon"
                                 variant="secondary"
-                                className="h-6 w-6 rounded-full bg-black/50 hover:bg-black/80 text-white"
+                                className="h-6 w-6 rounded-full bg-[rgba(0,0,0,0.5)] hover:bg-[rgba(0,0,0,0.8)] text-white"
                                 onClick={() => setVideoEnabled(false)}
                             >
                                 <span className="sr-only">Fermer</span>
@@ -566,7 +571,7 @@ export function PlayDashboardClient({
                         </LiveKitRoom>
 
                         {/* Invite Link Helper */}
-                        <div className="absolute bottom-2 left-2 z-20 bg-black/60 px-2 py-1 rounded-md text-[10px] text-white backdrop-blur-md flex gap-2 items-center cursor-pointer hover:bg-black/80"
+                        <div className="absolute bottom-2 left-2 z-20 bg-[rgba(0,0,0,0.6)] px-2 py-1 rounded-md text-[10px] text-white backdrop-blur-md flex gap-2 items-center cursor-pointer hover:bg-[rgba(0,0,0,0.8)]"
                             onClick={() => {
                                 const url = `${window.location.origin}/invite/${videoRoom}`;
                                 // We probably need a better invite link that redirects to this page and opens video
@@ -584,4 +589,3 @@ export function PlayDashboardClient({
         </div >
     );
 }
-

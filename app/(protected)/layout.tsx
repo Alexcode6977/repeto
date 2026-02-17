@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { GlobalHeader } from "@/components/global-header";
 import { IosInstallPrompt } from "@/components/ios-install-prompt";
 import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
+import { ProtectedThemeScope } from "@/components/protected-theme-scope";
 
 export default async function ProtectedLayout({
     children,
@@ -27,7 +28,8 @@ export default async function ProtectedLayout({
     const isAdmin = isPlatformAdminEmail(user.email);
 
     return (
-        <div className="min-h-screen bg-transparent flex flex-col font-sans">
+        <div className="protected-shell min-h-screen bg-transparent flex flex-col font-sans">
+            <ProtectedThemeScope />
             {/* Shared Header - Conditionally rendered via client component */}
             <GlobalHeader displayName={displayName} isAdmin={isAdmin} />
 

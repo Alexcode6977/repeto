@@ -75,7 +75,7 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
     }
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 h-auto pb-[env(safe-area-inset-bottom,20px)] pt-3 bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-white/10 z-[100] flex items-center justify-around px-4 md:hidden shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 h-auto pb-[env(safe-area-inset-bottom,20px)] pt-3 bg-card/95 dark:bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-border/60 dark:border-white/10 z-[100] flex items-center justify-around px-4 md:hidden shadow-2xl">
             {navItems.map((item) => (
                 <Link
                     key={item.href}
@@ -85,12 +85,12 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
                         "flex flex-col items-center justify-center gap-1 flex-1 h-full min-h-[50px] transition-all duration-300 group play-click-target",
                         item.active
                             ? "text-primary"
-                            : "text-muted-foreground hover:text-white"
+                            : "text-muted-foreground hover:text-foreground dark:hover:text-white"
                     )}
                 >
                     <div className={cn(
                         "p-1 rounded-xl transition-all duration-300 relative",
-                        item.active ? "bg-primary/10" : "bg-transparent group-hover:bg-white/5"
+                        item.active ? "bg-primary/10" : "bg-transparent group-hover:bg-muted/60 dark:group-hover:bg-white/5"
                     )}>
                         <item.icon className={cn(
                             "w-5 h-5 transition-transform duration-300",

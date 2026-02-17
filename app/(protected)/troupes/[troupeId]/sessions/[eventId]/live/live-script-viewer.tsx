@@ -276,7 +276,7 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
                                             <span className="text-[10px] font-black uppercase tracking-widest text-purple-400">
                                                 Note
                                             </span>
-                                            <p className="font-medium text-purple-100 text-sm">
+                                            <p className="font-medium text-purple-800 dark:text-purple-100 text-sm">
                                                 {line.text.replace('[NOTE] ', '')}
                                             </p>
                                         </div>

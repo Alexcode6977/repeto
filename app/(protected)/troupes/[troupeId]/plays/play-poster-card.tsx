@@ -58,7 +58,7 @@ export function PlayPosterCard({
                 className={cn("group block relative w-full", aspectClass || (isCompact ? "aspect-square" : "aspect-[2/3]"))}
             >
                 {/* Main Card Container */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-xl border border-white/5 bg-card">
+                <div className="absolute inset-0 rounded-2xl overflow-hidden shadow-xl border border-[rgba(255,255,255,0.08)] bg-card">
 
                     {/* Generative Cover / Background */}
                     <div className={cn(
@@ -67,7 +67,7 @@ export function PlayPosterCard({
                     )} />
 
                     {/* Noise/Texture Overlay */}
-                    <div className="absolute inset-0 bg-black/10 opacity-50 mix-blend-overlay" />
+                    <div className="absolute inset-0 bg-[rgba(0,0,0,0.14)] opacity-50 mix-blend-overlay" />
 
                     {/* Gradient Overlay for Text Readability */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
@@ -82,9 +82,13 @@ export function PlayPosterCard({
                         {!isCompact && (
                             <div className="absolute top-4 right-4 flex gap-2 items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
                                 <div onClick={(e) => e.preventDefault()}>
-                                    <DownloadButton scriptId={play.id} troupeId={troupeId} className="bg-black/20 hover:bg-black/40 text-white border-white/20" />
+                                    <DownloadButton
+                                        scriptId={play.id}
+                                        troupeId={troupeId}
+                                        className="bg-[rgba(0,0,0,0.24)] hover:bg-[rgba(0,0,0,0.45)] text-white border-[rgba(255,255,255,0.24)]"
+                                    />
                                 </div>
-                                <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                                <div className="w-10 h-10 rounded-full bg-[rgba(255,255,255,0.12)] backdrop-blur-md flex items-center justify-center border border-[rgba(255,255,255,0.24)]">
                                     <span className="text-white text-lg">→</span>
                                 </div>
                             </div>
@@ -92,8 +96,8 @@ export function PlayPosterCard({
 
                         {/* Meta Badges - Hidden on compact */}
                         {!isCompact && (
-                            <div className="flex gap-2 mb-3 opacity-80 text-xs font-semibold tracking-wider text-white/90">
-                                <Badge variant="outline" className="bg-black/20 border-white/20 backdrop-blur-sm text-white hover:bg-black/40">
+                            <div className="flex gap-2 mb-3 opacity-80 text-xs font-semibold tracking-wider text-[rgba(255,255,255,0.9)]">
+                                <Badge variant="outline" className="bg-[rgba(0,0,0,0.24)] border-[rgba(255,255,255,0.24)] backdrop-blur-sm text-white hover:bg-[rgba(0,0,0,0.45)]">
                                     {sceneCount} SCÈNES
                                 </Badge>
                             </div>
@@ -112,8 +116,8 @@ export function PlayPosterCard({
 
                         {/* Stats Row - Simplified on compact */}
                         <div className={cn(
-                            "flex items-center text-white/60 font-medium",
-                            isCompact ? "text-[10px] mt-1" : "text-sm gap-4 pt-2 border-t border-white/10 mt-2"
+                            "flex items-center text-[rgba(255,255,255,0.65)] font-medium",
+                            isCompact ? "text-[10px] mt-1" : "text-sm gap-4 pt-2 border-t border-[rgba(255,255,255,0.18)] mt-2"
                         )}>
                             <div className="flex items-center gap-1">
                                 <Users className={isCompact ? "w-3 h-3" : "w-4 h-4"} />

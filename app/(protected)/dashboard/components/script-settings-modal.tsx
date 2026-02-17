@@ -10,7 +10,7 @@ interface ScriptSettingsModalProps {
     scriptTitle: string;
     characters: string[];
     onClose: () => void;
-    onSave?: () => void;
+    onSave?: () => void | Promise<void>;
 }
 
 export function ScriptSettingsModal({
@@ -61,8 +61,8 @@ export function ScriptSettingsModal({
                     characters={characters}
                     initialAssignments={initialAssignments}
                     onClose={onClose}
-                    onSave={() => {
-                        onSave?.();
+                    onSave={async () => {
+                        await onSave?.();
                         onClose();
                     }}
                 />

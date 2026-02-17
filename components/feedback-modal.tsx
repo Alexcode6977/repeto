@@ -75,10 +75,10 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-md p-4">
-            <div className="bg-gradient-to-b from-[#1f1f1f] to-[#141414] border border-white/10 rounded-3xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 fade-in duration-300">
+            <div className="bg-card dark:bg-gradient-to-b dark:from-[#1f1f1f] dark:to-[#141414] border border-border/60 dark:border-white/10 rounded-3xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 fade-in duration-300">
 
                 {/* Header with Repeto */}
-                <div className="relative p-6 pb-4 text-center border-b border-white/10">
+                <div className="relative p-6 pb-4 text-center border-b border-border/50 dark:border-white/10">
                     <button
                         onClick={onClose}
                         className="absolute right-4 top-4 text-muted-foreground hover:text-foreground transition-colors"
@@ -104,7 +104,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                     </p>
 
                     {/* Session Summary - Detailed Dashboard */}
-                    <div className="mt-4 w-full bg-card/50 rounded-xl p-4 border border-white/5 space-y-4">
+                    <div className="mt-4 w-full bg-card/50 rounded-xl p-4 border border-border/40 dark:border-white/5 space-y-4">
                         <div className="flex justify-between items-center text-xs text-muted-foreground mb-2">
                             <span>{sessionData.scriptTitle}</span>
                             <span>{formatDuration(sessionData.durationSeconds)}</span>
@@ -121,7 +121,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-muted-foreground">Lignes vues</p>
-                                <p className="text-2xl font-bold text-white">
+                                <p className="text-2xl font-bold text-foreground dark:text-white">
                                     {sessionData.linesRehearsed}
                                 </p>
                             </div>
@@ -199,7 +199,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                             value={whatWorked}
                             onChange={(e) => setWhatWorked(e.target.value)}
                             placeholder="La reconnaissance vocale, l'interface..."
-                            className="w-full h-20 bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
+                            className="w-full h-20 bg-card border border-border/60 dark:border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
                         />
                     </div>
 
@@ -213,7 +213,7 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                             value={whatDidntWork}
                             onChange={(e) => setWhatDidntWork(e.target.value)}
                             placeholder="Bug, confusion, fonctionnalité manquante..."
-                            className="w-full h-20 bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
+                            className="w-full h-20 bg-card border border-border/60 dark:border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
                         />
                     </div>
 
@@ -228,12 +228,12 @@ export function FeedbackModal({ isOpen, onClose, onSubmit, sessionData }: Feedba
                             value={improvementIdeas}
                             onChange={(e) => setImprovementIdeas(e.target.value)}
                             placeholder="Ce serait cool si..."
-                            className="w-full h-16 bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
+                            className="w-full h-16 bg-card border border-border/60 dark:border-white/10 rounded-xl px-4 py-3 text-foreground text-sm placeholder:text-gray-600 dark:placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 resize-none transition-all"
                         />
                     </div>
 
                     {error && (
-                        <p className="text-red-400 text-sm text-center bg-red-500/10 py-2 px-4 rounded-lg">{error}</p>
+                        <p className="text-red-700 dark:text-red-400 text-sm text-center bg-red-500/10 py-2 px-4 rounded-lg">{error}</p>
                     )}
 
                     {/* Submit */}

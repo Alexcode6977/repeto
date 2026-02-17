@@ -24,7 +24,7 @@ export function GlobalHeader({ displayName, isAdmin }: GlobalHeaderProps) {
     }
 
     return (
-        <header className="fixed top-0 left-0 right-0 w-full p-4 md:p-6 flex items-center justify-between z-[100] backdrop-blur-xl bg-background/60 border-b border-white/5 transition-all duration-300">
+        <header className="fixed top-0 left-0 right-0 w-full p-4 md:p-6 flex items-center justify-between z-[100] backdrop-blur-xl bg-background/60 border-b border-border/50 transition-all duration-300">
             <Link href="/dashboard" className="flex items-center gap-2 group">
                 {/* Small Logo */}
                 <div className="w-10 h-10 rounded-xl bg-secondary/20 border border-border flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
@@ -36,7 +36,7 @@ export function GlobalHeader({ displayName, isAdmin }: GlobalHeaderProps) {
 
             <div className="flex items-center gap-3">
                 <Link href="/troupes">
-                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer mr-2">
+                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer mr-2">
                         <TripleMask className="w-6 h-6" />
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">Troupes</span>
                     </div>
@@ -56,7 +56,7 @@ export function GlobalHeader({ displayName, isAdmin }: GlobalHeaderProps) {
                 )}
 
                 <Link href="/profile">
-                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-3 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer">
+                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-3 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer">
                         <User className="w-4 h-4 text-primary" />
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">
                             {displayName}

@@ -138,6 +138,25 @@ export default function Home() {
 
   // --- SCRIPT ACTIONS (Passed to Grid) ---
 
+  const openScriptViewer = async (scriptId: string, isPublic: boolean) => {
+    setIsLoadingDetail(true);
+    setError(null);
+    try {
+      const fullScript = await getScriptById(scriptId);
+      if (fullScript) {
+        setScript(fullScript as unknown as ParsedScript);
+        setSelectedScriptMeta({ id: scriptId, isPublic });
+        setViewMode("viewer");
+      } else {
+        setError("Impossible de charger le script.");
+      }
+    } catch (err) {
+      setError("Erreur lors du chargement du script.");
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
   const handleLoadScript = async (s: ScriptMetadata) => {
     // ENFORCE VOICE CONFIGURATION
     // First-time check: If no voices configured, force open Casting Studio
@@ -161,22 +180,7 @@ export default function Home() {
       return;
     }
 
-    setIsLoadingDetail(true);
-    setError(null);
-    try {
-      const fullScript = await getScriptById(s.id);
-      if (fullScript) {
-        setScript(fullScript as unknown as ParsedScript);
-        setSelectedScriptMeta({ id: s.id, isPublic: s.is_public || false });
-      } else {
-        setError("Impossible de charger le script.");
-      }
-    } catch (err) {
-      setError("Erreur lors du chargement du script.");
-    } finally {
-      setIsLoadingDetail(false);
-      setViewMode("viewer");
-    }
+    await openScriptViewer(s.id, s.is_public || false);
   };
 
   const handleRenameScript = async (id: string, newTitle: string) => {
@@ -303,7 +307,7 @@ export default function Home() {
     return (
       <div className="w-full flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4">
         {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 animate-in slide-in-from-top-2 w-full max-w-2xl">
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-700 dark:text-red-200 animate-in slide-in-from-top-2 w-full max-w-2xl">
             <AlertCircle className="h-5 w-5" />
             {error}
           </div>
@@ -348,7 +352,7 @@ export default function Home() {
       <div className="px-6 md:px-12 animate-in fade-in zoom-in duration-500">
         {/* Error */}
         {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-200 mb-6 animate-in slide-in-from-top-2">
+          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-700 dark:text-red-200 mb-6 animate-in slide-in-from-top-2">
             <AlertCircle className="h-5 w-5" />
             {error}
           </div>
@@ -407,6 +411,19 @@ export default function Home() {
           scriptTitle={settingsScript.title}
           characters={settingsScript.characters}
           onClose={() => setSettingsScript(null)}
+          onSave={async () => {
+            const savedScriptId = settingsScript.id;
+            const savedScriptPublic = scriptsList.find((item) => item.id === savedScriptId)?.is_public || false;
+
+            setScriptsList((prev) =>
+              prev.map((item) =>
+                item.id === savedScriptId ? { ...item, hasVoiceConfig: true } : item
+              )
+            );
+
+            await openScriptViewer(savedScriptId, savedScriptPublic);
+            void refreshScripts();
+          }}
         />
       )}
     </div>

@@ -220,7 +220,7 @@ export function ScriptCard({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="bg-white/60 dark:bg-black/40 backdrop-blur-md border border-white/20 text-foreground rounded-full w-8 h-8"
+                            className="bg-muted/70 dark:bg-black/40 backdrop-blur-md border border-border/60 dark:border-white/20 text-foreground rounded-full w-8 h-8"
                         >
                             <MoreHorizontal className="w-4 h-4" />
                         </Button>
@@ -249,7 +249,7 @@ export function ScriptCard({
                         <DropdownMenuItem
                             onClick={handleDelete}
                             disabled={isDeleting}
-                            className="text-red-400 focus:text-red-400 focus:bg-red-500/10"
+                            className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400 focus:bg-red-500/10"
                         >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Supprimer

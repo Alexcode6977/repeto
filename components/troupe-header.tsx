@@ -37,7 +37,7 @@ export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHea
             {/* Right: Navigation (Mirrors Global Header) */}
             <div className="flex items-center gap-3">
                 <Link href="/troupes">
-                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer">
+                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer">
                         <span className="text-xl">🎭</span>
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">Troupes</span>
                     </div>
@@ -55,7 +55,7 @@ export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHea
                 )}
 
                 <Link href="/profile">
-                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-3 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-white/10 transition-colors cursor-pointer">
+                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-3 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer">
                         <User className="w-4 h-4 text-primary" />
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">
                             {displayName}

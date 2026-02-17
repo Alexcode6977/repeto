@@ -83,7 +83,7 @@ export function PrivateAnnotatorClient({ play, script, privateNotes }: PrivateAn
             {/* TOP BAR */}
             <div className="h-14 shrink-0 border-b border-border/50 bg-background/50 backdrop-blur-md mobile-heavy-surface flex items-center justify-between gap-2 px-4 z-20">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full hover:bg-white/5">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full hover:bg-muted/70 dark:hover:bg-white/5">
                         <ArrowLeft className="w-5 h-5" />
                     </Button>
                     <div className="flex flex-col">
@@ -99,10 +99,10 @@ export function PrivateAnnotatorClient({ play, script, privateNotes }: PrivateAn
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-2 md:inline hidden">Afficher :</span>
                     <Select value={viewSceneIdx.toString()} onValueChange={(val) => setViewSceneIdx(parseInt(val))}>
-                        <SelectTrigger className="w-[130px] sm:w-[220px] md:w-[240px] h-9 bg-muted/50 border-white/5 font-bold text-xs ring-offset-background focus:ring-blue-500/20">
+                        <SelectTrigger className="w-[130px] sm:w-[220px] md:w-[240px] h-9 bg-muted/50 border-border/60 dark:border-white/5 font-bold text-xs ring-offset-background focus:ring-blue-500/20">
                             <SelectValue placeholder="Sélectionner une scène" />
                         </SelectTrigger>
-                        <SelectContent className="bg-[#15151a] border-white/10">
+                        <SelectContent className="bg-popover dark:bg-[#15151a] border-border dark:border-white/10">
                             {scenes.map((scene, idx) => (
                                 <SelectItem key={`select-${idx}`} value={idx.toString()} className="text-xs font-bold focus:bg-blue-500 focus:text-white">
                                     {idx + 1}. {scene.title}
@@ -117,7 +117,7 @@ export function PrivateAnnotatorClient({ play, script, privateNotes }: PrivateAn
             <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
 
                 {/* LEFT: SCRIPT (2/3) */}
-                <div className="flex-[2] min-w-0 md:border-r border-border/10 bg-black/20 overflow-hidden relative">
+                <div className="flex-[2] min-w-0 md:border-r border-border/10 bg-muted/40 dark:bg-black/20 overflow-hidden relative">
                     <InteractiveScriptViewer
                         script={script}
                         currentSceneIdx={viewSceneIdx}
@@ -128,7 +128,7 @@ export function PrivateAnnotatorClient({ play, script, privateNotes }: PrivateAn
                 </div>
 
                 {/* RIGHT: EDITOR PANEL (1/3) */}
-                <div className="flex-[1] min-w-0 md:min-w-[300px] bg-background overflow-hidden h-full flex flex-col border-t md:border-t-0 md:border-l border-white/5 keyboard-inset">
+                <div className="flex-[1] min-w-0 md:min-w-[300px] bg-background overflow-hidden h-full flex flex-col border-t md:border-t-0 md:border-l border-border/40 dark:border-white/5 keyboard-inset">
                     {context.type === 'none' ? (
                         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4 opacity-50">
                             <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center">
@@ -144,25 +144,25 @@ export function PrivateAnnotatorClient({ play, script, privateNotes }: PrivateAn
                     ) : (
                         <div className="flex flex-col h-full">
                             {/* Header */}
-                            <div className="p-4 border-b border-white/5 bg-blue-500/5 shrink-0">
+                            <div className="p-4 border-b border-border/40 dark:border-white/5 bg-blue-500/5 shrink-0">
                                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 flex items-center gap-2">
                                     <StickyNote className="w-4 h-4" />
                                     {context.type === 'scene' ? "Note de Scène" : "Note sur Réplique"}
                                 </span>
                                 {context.type === 'line' && (
-                                    <p className="mt-2 text-xs italic text-muted-foreground line-clamp-2 border-l-2 border-white/10 pl-3">
+                                    <p className="mt-2 text-xs italic text-muted-foreground line-clamp-2 border-l-2 border-border/60 dark:border-white/10 pl-3">
                                         &quot;{context.lineContent}&quot;
                                     </p>
                                 )}
                             </div>
 
                             {/* Input Block (Top) */}
-                            <div className="p-4 space-y-3 border-b border-white/5 bg-black/20 shrink-0">
+                            <div className="p-4 space-y-3 border-b border-border/40 dark:border-white/5 bg-muted/40 dark:bg-black/20 shrink-0">
                                 <textarea
                                     value={noteText}
                                     onChange={(e) => setNoteText(e.target.value)}
                                     placeholder="Écrivez votre note personnelle ici..."
-                                    className="w-full h-32 bg-white/10 border border-white/15 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-blue-500/60 text-white placeholder:text-white/40 custom-scrollbar"
+                                    className="w-full h-32 bg-background/80 dark:bg-white/10 border border-border/60 dark:border-white/15 rounded-xl text-sm p-3 resize-none focus:outline-none focus:border-blue-500/60 text-foreground dark:text-white placeholder:text-muted-foreground dark:placeholder:text-white/40 custom-scrollbar"
                                     autoFocus
                                 />
                                 <Button

@@ -55,7 +55,7 @@ export function DeletePlayButton({ playId, playTitle }: DeletePlayButtonProps) {
                     <Trash2 className="h-4 w-4 transition-transform group-hover/delete:scale-110" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#121212] border-border text-foreground rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <DialogContent className="bg-card dark:bg-[#121212] border-border text-foreground rounded-3xl" onClick={(e) => e.stopPropagation()}>
                 <DialogHeader>
                     <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4 border border-red-500/20 mx-auto">
                         <AlertTriangle className="h-6 w-6" />

@@ -83,7 +83,7 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
                             transition={{ delay: i * 0.05 }}
-                            className="relative group aspect-square lg:aspect-[4/5] bg-card/40 rounded-[2rem] border border-white/5 hover:border-primary/20 transition-all overflow-hidden flex flex-col items-center justify-center p-4"
+                            className="relative group aspect-square lg:aspect-[4/5] bg-card/40 rounded-[2rem] border border-border/40 dark:border-white/5 hover:border-primary/20 transition-all overflow-hidden flex flex-col items-center justify-center p-4"
                         >
                             {/* Avatar */}
                             <div className="w-20 h-20 rounded-full border-4 border-background shadow-xl mb-4 group-hover:scale-105 transition-transform">
@@ -106,13 +106,13 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
 
                             {/* HOVER ACTIONS (Desktop/Touch) */}
                             {!isReadOnly && (
-                                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 p-6 z-20">
+                                <div className="absolute inset-0 bg-foreground/55 dark:bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 p-6 z-20">
                                     <Button
                                         onClick={() => {
                                             setSelectedActorId(actor.id);
                                             setInteractionType('feedback');
                                         }}
-                                        className="w-full bg-blue-500/20 hover:bg-blue-500 text-blue-200 hover:text-white border border-blue-500/50 rounded-xl"
+                                        className="w-full bg-blue-500/20 hover:bg-blue-500 text-blue-800 dark:text-blue-200 hover:text-white border border-blue-500/50 rounded-xl"
                                     >
                                         <MessageSquare className="w-4 h-4 mr-2" />
                                         Feedback
@@ -122,7 +122,7 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
                                             setSelectedActorId(actor.id);
                                             setInteractionType('direction');
                                         }}
-                                        className="w-full bg-purple-500/20 hover:bg-purple-500 text-purple-200 hover:text-white border border-purple-500/50 rounded-xl"
+                                        className="w-full bg-purple-500/20 hover:bg-purple-500 text-purple-800 dark:text-purple-200 hover:text-white border border-purple-500/50 rounded-xl"
                                     >
                                         <StickyNote className="w-4 h-4 mr-2" />
                                         Direction
@@ -149,17 +149,17 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setSelectedActorId(null)}
-                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+                            className="fixed inset-0 bg-black/45 dark:bg-black/60 backdrop-blur-sm z-40"
                         />
                         <motion.div
                             initial={{ y: "100%" }}
                             animate={{ y: 0 }}
                             exit={{ y: "100%" }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="fixed inset-x-0 bottom-0 z-50 bg-[#15151a] border-t border-white/10 rounded-t-[2rem] p-6 pb-8 shadow-2xl max-w-2xl mx-auto"
+                            className="fixed inset-x-0 bottom-0 z-50 bg-card dark:bg-[#15151a] border-t border-border/60 dark:border-white/10 rounded-t-[2rem] p-6 pb-8 shadow-2xl max-w-2xl mx-auto"
                         >
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                                <h3 className="text-xl font-black text-foreground dark:text-white flex items-center gap-2">
                                     {interactionType === 'feedback' ? (
                                         <>
                                             <MessageSquare className="w-5 h-5 text-blue-400" />
@@ -177,7 +177,7 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
                                 </Button>
                             </div>
 
-                            <p className="text-sm text-gray-400 mb-4">
+                            <p className="text-sm text-muted-foreground mb-4">
                                 {interactionType === 'feedback'
                                     ? "Ce message sera visible dans le rapport de session (éphémère)."
                                     : "Ce message sera ajouté au script comme une didascalie (permanent)."}
@@ -188,7 +188,7 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
                                     value={feedbackText}
                                     onChange={(e) => setFeedbackText(e.target.value)}
                                     placeholder={interactionType === 'feedback' ? "Bravo pour l'énergie..." : "Joue cette scène avec..."}
-                                    className="w-full min-h-[140px] bg-black/20 border border-white/10 rounded-2xl text-base p-4 resize-none focus:outline-none focus:border-primary/50 text-white placeholder:text-gray-600"
+                                    className="w-full min-h-[140px] bg-muted/60 dark:bg-black/20 border border-border/70 dark:border-white/10 rounded-2xl text-base p-4 resize-none focus:outline-none focus:border-primary/50 text-foreground dark:text-white placeholder:text-muted-foreground"
                                     autoFocus
                                 />
                                 <Button

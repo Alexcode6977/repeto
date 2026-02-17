@@ -375,7 +375,7 @@ export function ImportWizard({
             {/* 2. VALIDATION MODAL */}
             {validationModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 p-4">
-                    <div className="bg-[#121212] border border-white/10 p-6 rounded-3xl w-full max-w-xl shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] flex flex-col">
+                    <div className="bg-card dark:bg-[#121212] border border-border/60 dark:border-white/10 p-6 rounded-3xl w-full max-w-xl shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] flex flex-col">
                         <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-foreground/50 hover:text-foreground" onClick={() => setValidationModalOpen(false)}>
                             <X className="w-5 h-5" />
                         </Button>
@@ -450,7 +450,7 @@ export function ImportWizard({
                                                         <SelectValue placeholder="Ne pas fusionner" />
                                                     </div>
                                                 </SelectTrigger>
-                                                <SelectContent className="bg-[#1a1a1a] border-white/10">
+                                                <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
                                                     <SelectItem value="none" className="text-xs">Ne pas fusionner</SelectItem>
                                                     {detectedCharacters
                                                         .filter((candidate) => candidate !== char && candidate !== characterAliases[char])

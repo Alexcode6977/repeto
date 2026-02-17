@@ -176,15 +176,15 @@ export function AvatarSelector({ currentAvatarUrl, userId, onAvatarChange }: Ava
                     </div>
                 </div>
             </SheetTrigger>
-            <SheetContent side="bottom" className="rounded-t-3xl bg-[#0a0a0f] border-white/10 px-5 pt-5 pb-8 max-h-[70vh]">
+            <SheetContent side="bottom" className="rounded-t-3xl bg-card dark:bg-[#0a0a0f] border-border/60 dark:border-white/10 px-5 pt-5 pb-8 max-h-[70vh]">
                 {/* === CROP VIEW === */}
                 {imageToCrop ? (
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
-                            <button onClick={() => setImageToCrop(null)} className="text-muted-foreground hover:text-white transition-colors">
+                            <button onClick={() => setImageToCrop(null)} className="text-muted-foreground hover:text-foreground dark:hover:text-white transition-colors">
                                 <ArrowLeft className="w-5 h-5" />
                             </button>
-                            <h3 className="text-lg font-semibold text-white">Recadrer la photo</h3>
+                            <h3 className="text-lg font-semibold text-foreground dark:text-white">Recadrer la photo</h3>
                         </div>
 
                         {/* Cropper area - fixed small size */}
@@ -236,7 +236,7 @@ export function AvatarSelector({ currentAvatarUrl, userId, onAvatarChange }: Ava
                     /* === SELECTION VIEW === */
                     <>
                         <SheetHeader className="mb-4">
-                            <SheetTitle className="text-lg text-white">Changer ma photo</SheetTitle>
+                            <SheetTitle className="text-lg text-foreground dark:text-white">Changer ma photo</SheetTitle>
                         </SheetHeader>
 
                         <div className="space-y-5">
@@ -249,13 +249,13 @@ export function AvatarSelector({ currentAvatarUrl, userId, onAvatarChange }: Ava
                             )}
 
                             {/* Upload from gallery */}
-                            <label className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer">
+                            <label className="flex items-center gap-3 p-3 rounded-xl bg-muted/40 dark:bg-white/5 border border-border/60 dark:border-white/10 hover:bg-muted/60 dark:hover:bg-white/10 transition-all cursor-pointer">
                                 <input type="file" className="hidden" accept="image/*" onChange={handleFileSelect} disabled={isUploading} />
                                 <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
                                     <ImageIcon className="w-5 h-5 text-primary" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-white">Importer depuis la galerie</p>
+                                    <p className="text-sm font-medium text-foreground dark:text-white">Importer depuis la galerie</p>
                                     <p className="text-xs text-muted-foreground">JPG, PNG • 5 Mo max</p>
                                 </div>
                             </label>
