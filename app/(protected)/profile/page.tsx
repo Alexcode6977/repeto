@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { SubscriptionCard } from "@/components/subscription-card";
 import { SubscriptionTier } from "@/lib/subscription";
+import { AvatarSelector } from "@/components/avatar-selector";
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -21,6 +22,7 @@ export default function ProfilePage() {
     const [isEditingName, setIsEditingName] = useState(false);
     const [editedName, setEditedName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [feedbackHistory, setFeedbackHistory] = useState<FeedbackEntry[]>([]);
     const [stats, setStats] = useState({ totalSessions: 0, averageRating: 0, totalDuration: 0 });
     const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
@@ -62,6 +64,7 @@ export default function ProfilePage() {
                     setSubscriptionTier(snapshot.subscriptionTier || 'free');
                     setSubscriptionStatus(snapshot.subscriptionStatus || 'inactive');
                     setSubscriptionEndDate(snapshot.subscriptionEndDate || null);
+                    setAvatarUrl(snapshot.avatarUrl || null);
                     setStripeCustomerId(snapshot.stripeCustomerId || null);
                     setCancelAtPeriodEnd(snapshot.cancelAtPeriodEnd || false);
                 }
@@ -154,9 +157,11 @@ export default function ProfilePage() {
 
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 pb-8 border-b border-border">
-                <div className="w-24 h-24 rounded-full bg-linear-to-br from-primary to-purple-600 flex items-center justify-center shadow-2xl ring-4 ring-border">
-                    <UserIcon className="w-10 h-10 text-primary-foreground" />
-                </div>
+                <AvatarSelector
+                    currentAvatarUrl={avatarUrl}
+                    userId={user?.id}
+                    onAvatarChange={(url) => setAvatarUrl(url)}
+                />
                 <div className="text-center md:text-left space-y-2">
                     <div className="flex items-center justify-center md:justify-start gap-2">
                         {isEditingName ? (

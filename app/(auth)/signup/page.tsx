@@ -2,6 +2,7 @@ import { SignupForm } from "./signup-form";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AppleSignInButton } from "@/components/apple-sign-in-button";
 
 export default async function SignupPage({
     searchParams,
@@ -36,10 +37,11 @@ export default async function SignupPage({
             {/* FORM SECTION (Middle ~60-70%) */}
             <div className="w-full max-w-sm flex-1 flex flex-col justify-center relative z-10 gap-4">
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                     <GoogleSignInButton label="S'inscrire avec Google" />
+                    {/* <AppleSignInButton label="S'inscrire avec Apple" /> */}
 
-                    <div className="relative">
+                    <div className="relative pt-2">
                         <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t border-white/10" />
                         </div>

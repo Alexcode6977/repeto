@@ -3,6 +3,7 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { AppleSignInButton } from "@/components/apple-sign-in-button";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 
 export default async function LoginPage({
@@ -49,10 +50,11 @@ export default async function LoginPage({
                     </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                     <GoogleSignInButton label="Se connecter avec Google" />
+                    {/* <AppleSignInButton label="Se connecter avec Apple" /> */}
 
-                    <div className="relative">
+                    <div className="relative pt-2">
                         <div className="absolute inset-0 flex items-center">
                             <span className="w-full border-t border-white/10" />
                         </div>

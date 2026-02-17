@@ -24,6 +24,7 @@ interface ProfileSubscriptionSnapshot {
     subscriptionEndDate: string | null;
     stripeCustomerId: string | null;
     cancelAtPeriodEnd: boolean;
+    avatarUrl: string | null;
 }
 
 function mapStripeStatus(status: string): string {
@@ -54,7 +55,7 @@ export async function syncAndGetProfileSubscription(): Promise<ProfileSubscripti
 
     const { data: profile } = await supabase
         .from("profiles")
-        .select("first_name, subscription_tier, subscription_status, subscription_end_date, stripe_customer_id, cancel_at_period_end, stripe_subscription_id")
+        .select("first_name, subscription_tier, subscription_status, subscription_end_date, stripe_customer_id, cancel_at_period_end, stripe_subscription_id, avatar_url")
         .eq("id", user.id)
         .single();
 
@@ -67,6 +68,7 @@ export async function syncAndGetProfileSubscription(): Promise<ProfileSubscripti
         subscriptionEndDate: profile.subscription_end_date || null,
         stripeCustomerId: profile.stripe_customer_id || null,
         cancelAtPeriodEnd: profile.cancel_at_period_end || false,
+        avatarUrl: profile.avatar_url || null,
     };
 
     if (!profile.stripe_customer_id) {
@@ -155,6 +157,7 @@ export async function syncAndGetProfileSubscription(): Promise<ProfileSubscripti
             subscriptionEndDate: periodEndIso || snapshot.subscriptionEndDate,
             cancelAtPeriodEnd: stripeCancelAtPeriodEnd,
             stripeCustomerId: profile.stripe_customer_id,
+            avatarUrl: profile.avatar_url || null,
         };
     } catch (e) {
         console.error("[ProfileSubscription] Stripe reconciliation failed:", e);

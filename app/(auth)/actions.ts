@@ -34,6 +34,30 @@ export async function signInWithGoogle() {
     }
 }
 
+export async function signInWithApple() {
+    const supabase = await createClient();
+    const headersList = await headers();
+    const origin = getBaseUrlFromHost(
+        headersList.get("x-forwarded-host") || headersList.get("host")
+    );
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "apple",
+        options: {
+            redirectTo: `${origin}/auth/callback`,
+        },
+    });
+
+    if (error) {
+        console.error("[Apple OAuth] signInWithOAuth error:", error);
+        redirect("/login?error=" + encodeURIComponent(error.message));
+    }
+
+    if (data.url) {
+        redirect(data.url);
+    }
+}
+
 
 export async function login(formData: FormData) {
     const supabase = await createClient();
