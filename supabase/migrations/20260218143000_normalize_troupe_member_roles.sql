@@ -11,16 +11,17 @@ WITH normalized AS (
         tm.ctid AS row_id,
         COALESCE(
             ARRAY(
-                SELECT DISTINCT r
+                SELECT r
                 FROM unnest(COALESCE(tm.roles, ARRAY[]::text[])) AS r
                 WHERE r = ANY (ARRAY['admin', 'adjoint', 'metteur_en_scene', 'member'])
-                ORDER BY CASE r
+                GROUP BY r
+                ORDER BY MIN(CASE r
                     WHEN 'admin' THEN 1
                     WHEN 'adjoint' THEN 2
                     WHEN 'metteur_en_scene' THEN 3
                     WHEN 'member' THEN 4
                     ELSE 999
-                END
+                END)
             ),
             ARRAY[]::text[]
         ) AS cleaned_roles
