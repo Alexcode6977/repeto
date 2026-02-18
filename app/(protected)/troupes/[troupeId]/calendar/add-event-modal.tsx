@@ -7,8 +7,12 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, Loader2, Plus } from "lucide-react";
+import { CalendarDays, Loader2, Plus, Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface AddEventModalProps {
     troupeId: string;
@@ -34,14 +38,14 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
     const setOpen = isControlled ? onOpenChange : setInternalOpen;
 
     const [title, setTitle] = useState("");
-    const [date, setDate] = useState("");
+    const [date, setDate] = useState<Date | undefined>(defaultDate || new Date());
     const [startTime, setStartTime] = useState("18:00");
     const [endTime, setEndTime] = useState("20:00");
     const [recurrence, setRecurrence] = useState<"none" | "weekly">("none");
 
     useEffect(() => {
         if (!open) return;
-        setDate(toInputDate(defaultDate || new Date()));
+        setDate(defaultDate || new Date());
         setFormError(null);
     }, [open, defaultDate]);
 
@@ -68,8 +72,9 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
             return;
         }
 
-        const start = new Date(`${date}T${startTime}`);
-        const end = new Date(`${date}T${endTime}`);
+        const dateStr = toInputDate(date);
+        const start = new Date(`${dateStr}T${startTime}`);
+        const end = new Date(`${dateStr}T${endTime}`);
 
         if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
             setFormError("Horaires invalides.");
@@ -115,18 +120,18 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
 
             <DialogContent
                 className={cn(
-                    "z-[220] border-border/60 dark:border-white/10 p-0 overflow-hidden max-h-[88vh]",
-                    "fixed bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0 max-w-none rounded-t-[2rem] rounded-b-none",
+                    "z-[220] border-border/60 dark:border-white/10 p-0 overflow-hidden flex flex-col",
+                    "fixed bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0 max-w-none rounded-t-[2rem] rounded-b-none max-h-[90vh]",
                     "md:fixed md:top-[50%] md:left-[50%] md:translate-x-[-50%] md:translate-y-[-50%] md:max-w-[460px] md:rounded-3xl",
-                    "bg-card/95 dark:bg-[#0a0a0f]/98 backdrop-blur-2xl shadow-[0_-10px_45px_rgba(15,23,42,0.15)] dark:shadow-[0_-20px_80px_rgba(0,0,0,0.8)]"
+                    "bg-card dark:bg-[#0a0a0f] shadow-[0_-10px_45px_rgba(15,23,42,0.15)] dark:shadow-[0_-20px_80px_rgba(0,0,0,0.8)]"
                 )}
             >
-                <div className="flex md:hidden justify-center pt-3 pb-1">
+                <div className="flex md:hidden justify-center pt-3 pb-1 shrink-0">
                     <div className="w-10 h-1 rounded-full bg-foreground/20 dark:bg-white/20" />
                 </div>
 
-                <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-4 md:px-8 md:pb-8 md:pt-7">
-                    <DialogHeader className="mb-5 space-y-2">
+                <div className="flex flex-col flex-1 min-h-0 px-5 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-4 md:px-8 md:pb-8 md:pt-7">
+                    <DialogHeader className="mb-5 space-y-2 shrink-0">
                         <DialogTitle className="text-2xl font-black tracking-tight text-foreground dark:text-white md:text-center">
                             Nouvel événement
                         </DialogTitle>
@@ -160,8 +165,8 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
 interface FormProps {
     title: string;
     setTitle: (v: string) => void;
-    date: string;
-    setDate: (v: string) => void;
+    date: Date | undefined;
+    setDate: (v: Date | undefined) => void;
     startTime: string;
     setStartTime: (v: string) => void;
     endTime: string;
@@ -191,8 +196,8 @@ function AddEventForm({
     setFormError,
 }: FormProps) {
     return (
-        <form onSubmit={handleSubmit} className="flex flex-col max-h-[76vh]">
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0" noValidate>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1 min-h-0">
                 <div className="rounded-2xl border border-border/60 dark:border-white/10 bg-muted/20 dark:bg-white/[0.03] p-4 space-y-4">
                     <div className="grid gap-1.5">
                         <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground dark:text-white/60 ml-1">
@@ -212,23 +217,35 @@ function AddEventForm({
                     </div>
 
                     <div className="grid gap-1.5">
-                        <Label htmlFor="date" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground dark:text-white/60 ml-1">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground dark:text-white/60 ml-1">
                             Date
                         </Label>
-                        <div className="relative">
-                            <CalendarDays className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground dark:text-white/50" />
-                            <Input
-                                id="date"
-                                type="date"
-                                value={date}
-                                onChange={(e) => {
-                                    setDate(e.target.value);
-                                    if (formError) setFormError(null);
-                                }}
-                                required
-                                className="h-12 rounded-xl border-border/70 dark:border-white/15 bg-background/90 dark:bg-white/10 pl-10 pr-4 text-sm font-semibold text-foreground dark:text-white hover:border-border dark:hover:border-white/30 focus-visible:ring-primary/60 appearance-none [color-scheme:light] dark:[color-scheme:dark]"
-                            />
-                        </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "h-12 w-full justify-start text-left font-normal",
+                                        "rounded-xl border-border/70 dark:border-white/15 bg-background/90 dark:bg-white/10 px-4 text-sm font-semibold text-foreground dark:text-white hover:border-border dark:hover:border-white/30 hover:bg-transparent",
+                                        !date && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {date ? format(date, "PPP", { locale: fr }) : <span>Choisir une date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={date}
+                                    onSelect={(d) => {
+                                        setDate(d);
+                                        if (formError) setFormError(null);
+                                    }}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -297,7 +314,7 @@ function AddEventForm({
                 )}
             </div>
 
-            <div className="pt-4">
+            <div className="pt-4 shrink-0">
                 <Button
                     type="submit"
                     disabled={isLoading}

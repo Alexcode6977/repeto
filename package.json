@@ -54,6 +54,7 @@
     "openai": "^6.10.0",
     "pdf-parse": "^1.1.1",
     "react": "19.2.1",
+    "react-day-picker": "^9.13.2",
     "react-dom": "19.2.1",
     "react-easy-crop": "^5.5.6",
     "recharts": "^3.7.0",
