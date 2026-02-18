@@ -1,16 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-    Check,
     Loader2,
     Upload,
     X,
-    UserPlus,
-    Edit3,
     BookOpen,
-    Crown,
     Sparkles,
 } from "lucide-react";
 import {
@@ -42,6 +38,8 @@ interface ImportWizardProps {
 }
 
 type ValidationDecision = "accept" | "reject";
+type ValidationStep = 1 | 2 | 3;
+type ClassicImportStage = "read" | "detect" | "parse_pass_1" | "parse_pass_2" | "parse_pass_3" | "diagnostics";
 
 interface CollectiveResolutionState {
     label: string;
@@ -49,6 +47,24 @@ interface CollectiveResolutionState {
     sceneIndex?: number;
     members: string[];
 }
+
+const CLASSIC_IMPORT_STAGE_ORDER: ClassicImportStage[] = [
+    "read",
+    "detect",
+    "parse_pass_1",
+    "parse_pass_2",
+    "parse_pass_3",
+    "diagnostics",
+];
+
+const CLASSIC_IMPORT_STAGE_LABELS: Record<ClassicImportStage, string> = {
+    read: "Lecture du fichier",
+    detect: "Détection des personnages",
+    parse_pass_1: "Parsing passe 1",
+    parse_pass_2: "Parsing passe 2",
+    parse_pass_3: "Parsing passe 3",
+    diagnostics: "Vérification finale",
+};
 
 export function ImportWizard({
     showImportGuide,
@@ -58,18 +74,13 @@ export function ImportWizard({
 }: ImportWizardProps) {
     // --- STATE ---
     const [isImporting, setIsImporting] = useState(false);
-    const [currentFile, setCurrentFile] = useState<File | null>(null);
-    const [validationModalOpen, setValidationModalOpen] = useState(false);
-    const [detectedCharacters, setDetectedCharacters] = useState<string[]>([]);
-    const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
-    const [customTitle, setCustomTitle] = useState("");
     const [importProgress, setImportProgress] = useState(0);
-
-    // Character editing in Validation Modal
-    const [newCharName, setNewCharName] = useState("");
-    const [editingChar, setEditingChar] = useState<string | null>(null);
-    const [tempCharName, setTempCharName] = useState("");
-    const [validationMessage, setValidationMessage] = useState<string | null>(null);
+    const [classicCurrentStage, setClassicCurrentStage] = useState<ClassicImportStage | null>(null);
+    const [classicCompletedStages, setClassicCompletedStages] = useState<ClassicImportStage[]>([]);
+    const [classicSkippedStages, setClassicSkippedStages] = useState<ClassicImportStage[]>([]);
+    const [classicImportActivity, setClassicImportActivity] = useState("Préparation...");
+    const [classicImportLogs, setClassicImportLogs] = useState<string[]>([]);
+    const [classicImportElapsedSec, setClassicImportElapsedSec] = useState(0);
 
     // Final IA diagnostics validation (shared by classic + IA import)
     const [diagnosticsModalOpen, setDiagnosticsModalOpen] = useState(false);
@@ -78,6 +89,8 @@ export function ImportWizard({
     const [diagnosticsDecisions, setDiagnosticsDecisions] = useState<Record<string, ValidationDecision>>({});
     const [aliasTargetsById, setAliasTargetsById] = useState<Record<string, string>>({});
     const [collectiveResolutionsById, setCollectiveResolutionsById] = useState<Record<string, CollectiveResolutionState>>({});
+    const [validationStep, setValidationStep] = useState<ValidationStep>(1);
+    const [collectivePreviewIndexById, setCollectivePreviewIndexById] = useState<Record<string, number>>({});
 
     // AI Import State
     const [isAiImporting, setIsAiImporting] = useState(false);
@@ -89,11 +102,13 @@ export function ImportWizard({
 
     // Choice screen state
     const [importChoice, setImportChoice] = useState<"choice" | "catalog">("choice");
-    //const [isPending, startTransition] = useTransition(); // Using local isImporting instead for now or need wrapping
-    const [, startTransition] = useTransition();
 
     const aiImportIntervalsRef = useRef<NodeJS.Timeout[]>([]);
     const aiImportCancelledRef = useRef(false);
+    const classicImportStartedAtRef = useRef<number | null>(null);
+    const classicImportTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const classicCurrentStageRef = useRef<ClassicImportStage | null>(null);
+    const classicHeartbeatAtSecRef = useRef<number>(-1);
 
     const resetDiagnosticsState = () => {
         setDiagnosticsModalOpen(false);
@@ -102,15 +117,83 @@ export function ImportWizard({
         setDiagnosticsDecisions({});
         setAliasTargetsById({});
         setCollectiveResolutionsById({});
+        setValidationStep(1);
+        setCollectivePreviewIndexById({});
     };
 
-    const prepareDiagnosticsValidation = async (parsedScript: ParsedScript, finalTitle: string, useLegacyProgress = true) => {
+    const stopClassicImportTimer = () => {
+        if (classicImportTimerRef.current) {
+            clearInterval(classicImportTimerRef.current);
+            classicImportTimerRef.current = null;
+        }
+    };
+
+    const resetClassicImportUI = () => {
+        stopClassicImportTimer();
+        classicImportStartedAtRef.current = null;
+        classicCurrentStageRef.current = null;
+        classicHeartbeatAtSecRef.current = -1;
+        setClassicCurrentStage(null);
+        setClassicCompletedStages([]);
+        setClassicSkippedStages([]);
+        setClassicImportActivity("Préparation...");
+        setClassicImportLogs([]);
+        setClassicImportElapsedSec(0);
+        setImportProgress(0);
+    };
+
+    const startClassicImportTimer = () => {
+        stopClassicImportTimer();
+        classicImportStartedAtRef.current = Date.now();
+        classicHeartbeatAtSecRef.current = -1;
+        setClassicImportElapsedSec(0);
+        classicImportTimerRef.current = setInterval(() => {
+            if (!classicImportStartedAtRef.current) return;
+            const elapsed = Math.max(0, Math.floor((Date.now() - classicImportStartedAtRef.current) / 1000));
+            setClassicImportElapsedSec(elapsed);
+            if (
+                elapsed > 0
+                && elapsed % 8 === 0
+                && elapsed !== classicHeartbeatAtSecRef.current
+                && classicCurrentStageRef.current
+            ) {
+                classicHeartbeatAtSecRef.current = elapsed;
+                const stageLabel = CLASSIC_IMPORT_STAGE_LABELS[classicCurrentStageRef.current];
+                pushClassicImportLog(`${stageLabel} toujours en cours...`);
+            }
+        }, 1000);
+    };
+
+    const pushClassicImportLog = (message: string) => {
+        setClassicImportLogs((prev) => {
+            const elapsed = classicImportStartedAtRef.current
+                ? Math.max(0, Math.floor((Date.now() - classicImportStartedAtRef.current) / 1000))
+                : 0;
+            const stamp = `[${String(Math.floor(elapsed / 60)).padStart(2, "0")}:${String(elapsed % 60).padStart(2, "0")}]`;
+            return [...prev, `${stamp} ${message}`].slice(-8);
+        });
+    };
+
+    useEffect(() => {
+        return () => {
+            stopClassicImportTimer();
+            aiImportIntervalsRef.current.forEach((id) => clearInterval(id));
+            aiImportIntervalsRef.current = [];
+        };
+    }, []);
+
+    useEffect(() => {
+        classicCurrentStageRef.current = classicCurrentStage;
+    }, [classicCurrentStage]);
+
+    const prepareDiagnosticsValidation = async (
+        parsedScript: ParsedScript,
+        finalTitle: string,
+        useLegacyProgress = true
+    ): Promise<boolean> => {
         let diagnosticsProgressInterval: NodeJS.Timeout | null = null;
 
-        if (useLegacyProgress) {
-            setIsImporting(true);
-            setImportProgress(96);
-        } else {
+        if (!useLegacyProgress) {
             const diagnosticsStartMs = Date.now();
             const baseElapsed = aiImportElapsedSec;
             setAiImportProgress((prev) => Math.max(prev, 90));
@@ -125,52 +208,56 @@ export function ImportWizard({
             aiImportIntervalsRef.current.push(diagnosticsProgressInterval);
         }
 
-        const scriptWithTitle: ParsedScript = {
-            ...parsedScript,
-            title: finalTitle,
-        };
-
-        const diagnostics = await runImportDiagnosticsAction(scriptWithTitle, scriptWithTitle.characters);
-
-        if (diagnosticsProgressInterval) {
-            clearInterval(diagnosticsProgressInterval);
-        }
-
-        if (useLegacyProgress) {
-            setIsImporting(false);
-            setImportProgress(100);
-        } else {
-            setAiImportProgress((prev) => Math.max(prev, 98));
-        }
-
-        if ("error" in diagnostics) {
-            onError(diagnostics.error);
-            return;
-        }
-
-        const decisionState: Record<string, ValidationDecision> = {};
-
-        const aliasTargets: Record<string, string> = {};
-        diagnostics.aliasSuggestions.forEach((item) => {
-            aliasTargets[item.id] = item.target;
-        });
-
-        const collectiveState: Record<string, CollectiveResolutionState> = {};
-        diagnostics.collectiveSuggestions.forEach((item) => {
-            collectiveState[item.id] = {
-                label: item.label,
-                scope: item.scope,
-                sceneIndex: item.sceneIndex,
-                members: [...item.members],
+        try {
+            const scriptWithTitle: ParsedScript = {
+                ...parsedScript,
+                title: finalTitle,
             };
-        });
 
-        setPendingScriptForSave(scriptWithTitle);
-        setDiagnosticsResult(diagnostics);
-        setDiagnosticsDecisions(decisionState);
-        setAliasTargetsById(aliasTargets);
-        setCollectiveResolutionsById(collectiveState);
-        setDiagnosticsModalOpen(true);
+            const diagnostics = await runImportDiagnosticsAction(scriptWithTitle);
+
+            if (!useLegacyProgress) {
+                setAiImportProgress((prev) => Math.max(prev, 98));
+            }
+
+            if ("error" in diagnostics) {
+                onError(diagnostics.error);
+                return false;
+            }
+
+            const decisionState: Record<string, ValidationDecision> = {};
+
+            const aliasTargets: Record<string, string> = {};
+            diagnostics.aliasSuggestions.forEach((item) => {
+                aliasTargets[item.id] = item.target;
+            });
+
+            const collectiveState: Record<string, CollectiveResolutionState> = {};
+            const collectivePreviewIndexes: Record<string, number> = {};
+            diagnostics.collectiveSuggestions.forEach((item) => {
+                collectiveState[item.id] = {
+                    label: item.label,
+                    scope: item.scope,
+                    sceneIndex: item.sceneIndex,
+                    members: [...item.members],
+                };
+                collectivePreviewIndexes[item.id] = 0;
+            });
+
+            setPendingScriptForSave(scriptWithTitle);
+            setDiagnosticsResult(diagnostics);
+            setDiagnosticsDecisions(decisionState);
+            setAliasTargetsById(aliasTargets);
+            setCollectiveResolutionsById(collectiveState);
+            setCollectivePreviewIndexById(collectivePreviewIndexes);
+            setValidationStep(1);
+            setDiagnosticsModalOpen(true);
+            return true;
+        } finally {
+            if (diagnosticsProgressInterval) {
+                clearInterval(diagnosticsProgressInterval);
+            }
+        }
     };
 
     const diagnosticsPendingCount = useMemo(() => {
@@ -178,14 +265,177 @@ export function ImportWizard({
         return diagnosticsResult.blockingDecisions.filter((decision) => !diagnosticsDecisions[decision.id]).length;
     }, [diagnosticsResult, diagnosticsDecisions]);
 
+    const aliasPendingCount = useMemo(() => {
+        if (!diagnosticsResult) return 0;
+        return diagnosticsResult.aliasSuggestions.filter((item) => !diagnosticsDecisions[item.id]).length;
+    }, [diagnosticsResult, diagnosticsDecisions]);
+
+    const collectivePendingCount = useMemo(() => {
+        if (!diagnosticsResult) return 0;
+        return diagnosticsResult.collectiveSuggestions.filter((item) => !diagnosticsDecisions[item.id]).length;
+    }, [diagnosticsResult, diagnosticsDecisions]);
+
+    const scenePendingCount = useMemo(() => {
+        if (!diagnosticsResult) return 0;
+        return diagnosticsResult.sceneDiagnostics.filter((item) => !diagnosticsDecisions[item.id]).length;
+    }, [diagnosticsResult, diagnosticsDecisions]);
+
+    const frozenCanonicalCharacters = useMemo(() => {
+        if (!diagnosticsResult) return [] as string[];
+
+        const canonicalSet = new Set(
+            diagnosticsResult.canonicalCharacters
+                .map((value) => value.toUpperCase().trim())
+                .filter(Boolean)
+        );
+
+        diagnosticsResult.aliasSuggestions.forEach((alias) => {
+            const decision = diagnosticsDecisions[alias.id];
+            const source = alias.source.toUpperCase().trim();
+            const target = (aliasTargetsById[alias.id] || alias.target || "").toUpperCase().trim();
+
+            if (decision === "accept" && target) {
+                canonicalSet.delete(source);
+                canonicalSet.add(target);
+            } else if (decision === "reject") {
+                canonicalSet.add(source);
+            }
+        });
+
+        return Array.from(canonicalSet).sort((a, b) => a.localeCompare(b, "fr"));
+    }, [diagnosticsResult, diagnosticsDecisions, aliasTargetsById]);
+
     const sceneDisplayByStartIndex = useMemo(() => {
         const map = new Map<number, string>();
         const scenes = pendingScriptForSave?.scenes || [];
         scenes.forEach((scene, order) => {
-            map.set(scene.index, scene.title || `Scene ${order + 1}`);
+            map.set(scene.index, scene.title || `Scène ${order + 1}`);
         });
         return map;
     }, [pendingScriptForSave]);
+
+    const sceneIssueLabel = (issue: "uncertain_boundary" | "ambiguous_label" | "other") => {
+        if (issue === "ambiguous_label") return "Libellé ambigu";
+        if (issue === "uncertain_boundary") return "Limite de scène incertaine";
+        return "Point de contrôle";
+    };
+
+    const collectivePreviewById = useMemo(() => {
+        const previews: Record<string, { samples: string[]; rationale: string; sceneCharacters: string[] }> = {};
+        if (!diagnosticsResult || !pendingScriptForSave) return previews;
+
+        const canonicalSet = new Set(frozenCanonicalCharacters);
+        const lines = pendingScriptForSave.lines || [];
+        const scenes = pendingScriptForSave.scenes || [];
+
+        const orderedScenes = [...scenes].sort((a, b) => a.index - b.index);
+        const getSceneBounds = (sceneIndex?: number) => {
+            if (typeof sceneIndex !== "number") return { start: 0, end: lines.length };
+            const currentIdx = orderedScenes.findIndex((scene) => scene.index === sceneIndex);
+            if (currentIdx === -1) return { start: 0, end: lines.length };
+            const start = orderedScenes[currentIdx].index;
+            const end = currentIdx + 1 < orderedScenes.length ? orderedScenes[currentIdx + 1].index : lines.length;
+            return { start, end };
+        };
+
+        diagnosticsResult.collectiveSuggestions.forEach((collective) => {
+            const { start, end } = getSceneBounds(collective.scope === "scene" ? collective.sceneIndex : undefined);
+            const scopeLines = lines.slice(start, end);
+            const label = (collective.label || "").toUpperCase().trim();
+
+            const sceneCharacters = Array.from(new Set(
+                scopeLines
+                    .filter((line) => line.type === "dialogue")
+                    .map((line) => (line.character || "").toUpperCase().trim())
+                    .filter((character) => canonicalSet.has(character))
+            ));
+
+            const directMatches = scopeLines
+                .filter((line) => line.type === "dialogue" && (line.character || "").toUpperCase().trim() === label)
+                .slice(0, 5);
+
+            const fallback = scopeLines
+                .filter((line) => line.type === "dialogue")
+                .slice(0, 5);
+
+            const samples = (directMatches.length > 0 ? directMatches : fallback).map((line) => {
+                const text = (line.text || "").replace(/\s+/g, " ").trim();
+                const cropped = text.length > 180 ? `${text.slice(0, 177)}...` : text;
+                return `${line.character}: ${cropped}`;
+            });
+
+            const memberCount = (collective.members || []).length;
+            const sceneCharacterCount = sceneCharacters.length;
+            const rationale = collective.scope === "scene"
+                ? `Suggestion: ${memberCount} membre(s) proposé(s). Dans cette scène, ${sceneCharacterCount} personnage(s) canonique(s) parlent. Je propose cette liaison car ce collectif apparaît dans ce contexte de scène.`
+                : `Suggestion globale: ${memberCount} membre(s) proposé(s). Le libellé collectif réapparaît à plusieurs endroits du script avec ce groupe.`;
+
+            previews[collective.id] = {
+                samples,
+                rationale,
+                sceneCharacters,
+            };
+        });
+
+        return previews;
+    }, [diagnosticsResult, pendingScriptForSave, frozenCanonicalCharacters]);
+
+    const scenePreviewById = useMemo(() => {
+        const previews: Record<string, { suggestion: string; checks: string[]; samples: string[] }> = {};
+        if (!diagnosticsResult || !pendingScriptForSave) return previews;
+
+        const lines = pendingScriptForSave.lines || [];
+        const scenes = [...(pendingScriptForSave.scenes || [])].sort((a, b) => a.index - b.index);
+        const canonicalSet = new Set(frozenCanonicalCharacters);
+
+        const getSceneBounds = (sceneIndex: number) => {
+            const currentIdx = scenes.findIndex((scene) => scene.index === sceneIndex);
+            if (currentIdx === -1) return { start: 0, end: lines.length };
+            const start = scenes[currentIdx].index;
+            const end = currentIdx + 1 < scenes.length ? scenes[currentIdx + 1].index : lines.length;
+            return { start, end };
+        };
+
+        diagnosticsResult.sceneDiagnostics.forEach((sceneDiagnostic) => {
+            const { start, end } = getSceneBounds(sceneDiagnostic.sceneIndex);
+            const sceneLines = lines.slice(start, end).filter((line) => line.type === "dialogue");
+
+            const unknownLabels = Array.from(new Set(sceneLines
+                .map((line) => (line.character || "").toUpperCase().trim())
+                .filter((label) => label && !canonicalSet.has(label))
+            ));
+
+            const samples = sceneLines
+                .slice(0, 4)
+                .map((line) => {
+                    const text = (line.text || "").replace(/\s+/g, " ").trim();
+                    const cropped = text.length > 180 ? `${text.slice(0, 177)}...` : text;
+                    return `${line.character}: ${cropped}`;
+                });
+
+            const suggestion = sceneDiagnostic.issue === "ambiguous_label"
+                ? `Suggestion: conserver la scène telle quelle, puis vérifier que les libellés non canoniques (${unknownLabels.join(", ") || "aucun"}) sont bien traités en alias ou collectif.`
+                : `Suggestion: conserver ce découpage si les premières répliques de la scène forment un bloc cohérent.`;
+
+            const checks = sceneDiagnostic.issue === "ambiguous_label"
+                ? [
+                    "Vérifier que chaque libellé de locuteur est mappé ou rejeté.",
+                    "Confirmer que les premières répliques appartiennent bien à cette scène.",
+                ]
+                : [
+                    "Comparer les 2 à 4 premières répliques avec la scène précédente.",
+                    "Confirmer qu’un changement de contexte justifie la coupe.",
+                ];
+
+            previews[sceneDiagnostic.id] = {
+                suggestion,
+                checks,
+                samples,
+            };
+        });
+
+        return previews;
+    }, [diagnosticsResult, pendingScriptForSave, frozenCanonicalCharacters]);
 
     const aiStepLabel = aiImportStep === 1
         ? "Extraction du PDF"
@@ -251,92 +501,149 @@ export function ImportWizard({
         ];
     }, [aiImportStep, aiImportElapsedSec]);
 
+    const classicImportTimeline = useMemo(() => {
+        const doneSet = new Set(classicCompletedStages);
+        const skippedSet = new Set(classicSkippedStages);
+        return CLASSIC_IMPORT_STAGE_ORDER.map((stage) => {
+            const isDone = doneSet.has(stage);
+            const isSkipped = skippedSet.has(stage);
+            const isActive = classicCurrentStage === stage && !isDone;
+            return {
+                stage,
+                label: CLASSIC_IMPORT_STAGE_LABELS[stage],
+                status: isDone ? (isSkipped ? "skipped" : "done") : isActive ? "active" : "pending",
+                detail: isDone ? (isSkipped ? "Ignoré" : "Terminé") : isActive ? "En cours" : "En attente",
+            };
+        });
+    }, [classicCompletedStages, classicSkippedStages, classicCurrentStage]);
+
     // --- HANDLERS (LEGACY / STANDARD) ---
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
+    const runClassicImportFlow = async (file: File) => {
+        const completedStages = new Set<ClassicImportStage>();
+        const skippedStages = new Set<ClassicImportStage>();
 
-        setCurrentFile(file);
-        const formData = new FormData();
-        formData.append("file", file);
+        const setClassicStageActive = (stage: ClassicImportStage, activity: string, log?: string) => {
+            setClassicCurrentStage(stage);
+            setClassicImportActivity(activity);
+            if (log) pushClassicImportLog(log);
+        };
 
-        setIsImporting(true);
-        setImportProgress(20);
-        setValidationMessage(null); // Reset message
-
-        startTransition(async () => {
-
-            const result = await detectCharactersAction(formData);
-            setIsImporting(false);
-
-            if ("error" in result) {
-                onError(result.error);
-            } else {
-                setDetectedCharacters(result.characters || []);
-                setSelectedCharacters(result.characters || []);
-                setCustomTitle(result.title || file.name.replace(".pdf", ""));
-                setValidationModalOpen(true);
+        const markClassicStageDone = (stage: ClassicImportStage, log?: string) => {
+            if (!completedStages.has(stage)) {
+                completedStages.add(stage);
+                const nextCompleted = Array.from(completedStages);
+                setClassicCompletedStages(nextCompleted);
+                setImportProgress(Math.round((nextCompleted.length / CLASSIC_IMPORT_STAGE_ORDER.length) * 100));
             }
-            e.target.value = "";
-        });
-    };
+            if (log) pushClassicImportLog(log);
+        };
 
-    const startDeepParsing = async () => {
-        if (!currentFile || selectedCharacters.length === 0) return;
+        const markClassicStageSkipped = (stage: ClassicImportStage, log?: string) => {
+            if (!skippedStages.has(stage)) {
+                skippedStages.add(stage);
+                setClassicSkippedStages(Array.from(skippedStages));
+            }
+            markClassicStageDone(stage, log);
+        };
 
-        setValidationModalOpen(false);
-        setIsImporting(true); // Re-use isImporting for progress modal
-        setImportProgress(0);
-
-        // Fake progress
-        const interval = setInterval(() => {
-            setImportProgress((prev) => (prev < 90 ? prev + 1 : prev));
-        }, 1000);
+        resetClassicImportUI();
+        setIsImporting(true);
+        startClassicImportTimer();
+        setClassicStageActive("read", "Lecture du fichier PDF...", `Fichier reçu: ${file.name}`);
+        markClassicStageDone("read", "Lecture du fichier terminée.");
+        setClassicStageActive("detect", "Détection des personnages en cours...", "Détection automatique des personnages lancée.");
 
         try {
-            const formData = new FormData();
-            formData.append("file", currentFile);
+            const detectFormData = new FormData();
+            detectFormData.append("file", file);
 
-            const result = await finalizeParsingAction(formData, selectedCharacters);
+            const detected = await detectCharactersAction(detectFormData);
+            if ("error" in detected) {
+                onError(detected.error);
+                return;
+            }
 
-            clearInterval(interval);
-            setImportProgress(100);
+            const normalizedCharacters = Array.from(
+                new Set((detected.characters || []).map((item) => item.toUpperCase().trim()).filter(Boolean))
+            );
 
-            if ("error" in result) {
-                onError(result.error);
-                setCurrentFile(null); // Reset on error to allow retry
-                setIsImporting(false);
-                setShowImportGuide(false);
-            } else {
-                // CHECK FOR NEWLY DETECTED CHARACTERS (Strict Mode)
-                if (result.detectedButIgnored && result.detectedButIgnored.length > 0) {
-                    // Filter out already detected ones to be sure
-                    const newChars = result.detectedButIgnored.filter(c => !detectedCharacters.includes(c));
+            if (normalizedCharacters.length === 0) {
+                onError("Aucun personnage n'a été détecté automatiquement.");
+                return;
+            }
+            markClassicStageDone("detect", `${normalizedCharacters.length} personnage(s) détecté(s).`);
 
-                    if (newChars.length > 0) {
-                        // WE NEED CONFIRMATION
-                        setIsImporting(false); // Stop progress modal
+            let whitelist = [...normalizedCharacters];
+            let finalResult: ParsedScript | null = null;
 
-                        // Add new characters to the list AND select them
-                        setDetectedCharacters(prev => [...prev, ...newChars]);
-                        setSelectedCharacters(prev => [...prev, ...newChars]);
+            for (let pass = 0; pass < 3; pass += 1) {
+                const stage = (["parse_pass_1", "parse_pass_2", "parse_pass_3"][pass] as ClassicImportStage);
+                setClassicStageActive(
+                    stage,
+                    `Parsing en cours (passe ${pass + 1}/3)...`,
+                    `Parsing passe ${pass + 1} démarrée.`
+                );
 
-                        setValidationMessage(`⚠️ L'analyse approfondie a détecté ${newChars.length} personnage(s) supplémentaire(s). Veuillez confirmer.`);
-                        setValidationModalOpen(true);
-                        return; // STOP HERE
-                    }
+                const parseFormData = new FormData();
+                parseFormData.append("file", file);
+                const parsed = await finalizeParsingAction(parseFormData, whitelist);
+
+                if ("error" in parsed) {
+                    onError(parsed.error);
+                    return;
                 }
 
-                await prepareDiagnosticsValidation(result, customTitle);
-                setCurrentFile(null);
+                finalResult = parsed;
+                const lineCount = parsed.lines?.length || 0;
+                const extraCharacters = (parsed.detectedButIgnored || [])
+                    .map((item) => item.toUpperCase().trim())
+                    .filter((item) => item.length > 0 && !whitelist.includes(item));
+
+                if (extraCharacters.length === 0) {
+                    markClassicStageDone(stage, `Passe ${pass + 1} terminée (${lineCount} répliques).`);
+                    for (let skippedPass = pass + 1; skippedPass < 3; skippedPass += 1) {
+                        const skippedStage = (["parse_pass_1", "parse_pass_2", "parse_pass_3"][skippedPass] as ClassicImportStage);
+                        markClassicStageSkipped(skippedStage, `Passe ${skippedPass + 1} non nécessaire.`);
+                    }
+                    break;
+                }
+
+                markClassicStageDone(
+                    stage,
+                    `Passe ${pass + 1} terminée (${lineCount} répliques). ${extraCharacters.length} libellé(s) supplémentaire(s) détecté(s).`
+                );
+                whitelist = [...whitelist, ...extraCharacters];
             }
-        } catch {
-            onError("Erreur lors de l'analyse approfondie.");
-            setIsImporting(false);
-            setCurrentFile(null);
+
+            if (!finalResult) {
+                onError("Impossible de finaliser le parsing du script.");
+                return;
+            }
+
+            setClassicStageActive("diagnostics", "Vérification finale en cours...", "Analyse finale lancée (alias, collectifs, scènes).");
+            const finalTitle = detected.title || file.name.replace(".pdf", "");
+            const diagnosticsReady = await prepareDiagnosticsValidation(finalResult, finalTitle);
+            if (!diagnosticsReady) return;
+
+            markClassicStageDone("diagnostics", "Vérification finale terminée.");
+            setClassicImportActivity("Analyse terminée. Ouverture de la validation...");
             setShowImportGuide(false);
+        } catch {
+            onError("Erreur lors de l'import classique.");
+            setShowImportGuide(false);
+        } finally {
+            stopClassicImportTimer();
+            setIsImporting(false);
+            setImportProgress(0);
         }
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+        await runClassicImportFlow(file);
     };
 
 
@@ -418,7 +725,17 @@ export function ImportWizard({
                     title: result.title || file.name.replace(".pdf", ""),
                 };
 
-                await prepareDiagnosticsValidation(finalScript, finalScript.title || file.name.replace(".pdf", ""), false);
+                const diagnosticsReady = await prepareDiagnosticsValidation(
+                    finalScript,
+                    finalScript.title || file.name.replace(".pdf", ""),
+                    false
+                );
+                if (!diagnosticsReady) {
+                    setIsAiImporting(false);
+                    setAiImportStep(0);
+                    setAiImportProgress(0);
+                    return;
+                }
                 setAiImportProgress(100);
                 setIsAiImporting(false);
                 setAiImportStep(0);
@@ -440,39 +757,6 @@ export function ImportWizard({
     };
 
     // --- UI HELPERS ---
-
-    const addCharacter = () => {
-        if (!newCharName.trim()) return;
-        const name = newCharName.trim().toUpperCase();
-        if (!detectedCharacters.includes(name)) {
-            setDetectedCharacters((prev) => [...prev, name]);
-            setSelectedCharacters((prev) => [...prev, name]);
-        }
-        setNewCharName("");
-    };
-
-    const handleRenameCharacter = (oldName: string) => {
-        const finalNewName = tempCharName.trim().toUpperCase();
-        if (!finalNewName || finalNewName === oldName) {
-            setEditingChar(null);
-            return;
-        }
-        setDetectedCharacters((prev) =>
-            prev.map((c) => (c === oldName ? finalNewName : c))
-        );
-        setSelectedCharacters((prev) =>
-            prev.map((c) => (c === oldName ? finalNewName : c))
-        );
-        setEditingChar(null);
-    };
-
-    const toggleCharacter = (char: string) => {
-        setSelectedCharacters((prev) =>
-            prev.includes(char)
-                ? prev.filter((c) => c !== char)
-                : [...prev, char]
-        );
-    };
 
     const setDiagnosticsDecision = (id: string, decision: ValidationDecision) => {
         setDiagnosticsDecisions((prev) => ({ ...prev, [id]: decision }));
@@ -498,6 +782,30 @@ export function ImportWizard({
         });
     };
 
+    const setCollectivePreviewOffset = (collectiveId: string, direction: "prev" | "next") => {
+        const max = (collectivePreviewById[collectiveId]?.samples.length || 0) - 1;
+        if (max <= 0) return;
+        setCollectivePreviewIndexById((prev) => {
+            const current = prev[collectiveId] ?? 0;
+            const next = direction === "next"
+                ? Math.min(max, current + 1)
+                : Math.max(0, current - 1);
+            return { ...prev, [collectiveId]: next };
+        });
+    };
+
+    const setValidationStepSafely = (nextStep: ValidationStep) => {
+        if (nextStep === 2 && aliasPendingCount > 0) {
+            onError("Traitez d'abord toutes les suggestions d'alias.");
+            return;
+        }
+        if (nextStep === 3 && (aliasPendingCount > 0 || collectivePendingCount > 0)) {
+            onError("Terminez d'abord les alias puis les rôles collectifs.");
+            return;
+        }
+        setValidationStep(nextStep);
+    };
+
     const finalizeImportWithDiagnostics = async () => {
         if (!pendingScriptForSave || !diagnosticsResult) return;
 
@@ -520,6 +828,7 @@ export function ImportWizard({
 
         const globalCollectives: ScriptMappings["collectives"]["global"] = [];
         const bySceneCollectives: ScriptMappings["collectives"]["by_scene"] = [];
+        const frozenCanonicalSet = new Set(frozenCanonicalCharacters);
 
         acceptedCollectives.forEach((collective) => {
             const resolution = collectiveResolutionsById[collective.id] || {
@@ -529,7 +838,11 @@ export function ImportWizard({
                 members: collective.members,
             };
 
-            const members = Array.from(new Set((resolution.members || []).map((member) => member.toUpperCase().trim()).filter(Boolean)));
+            const members = Array.from(new Set(
+                (resolution.members || [])
+                    .map((member) => member.toUpperCase().trim())
+                    .filter((member) => member && frozenCanonicalSet.has(member))
+            ));
             if (members.length === 0) return;
 
             if (resolution.scope === "scene" && typeof resolution.sceneIndex === "number") {
@@ -547,7 +860,7 @@ export function ImportWizard({
             });
         });
 
-        const canonicalCharacters = diagnosticsResult.canonicalCharacters.map((c) => c.toUpperCase().trim()).filter(Boolean);
+        const canonicalCharacters = [...frozenCanonicalCharacters];
         const mappings: ScriptMappings = {
             canonical_characters: canonicalCharacters,
             aliases,
@@ -576,7 +889,6 @@ export function ImportWizard({
 
         await onImportComplete();
         resetDiagnosticsState();
-        setValidationModalOpen(false);
         setShowImportGuide(false);
     };
 
@@ -584,29 +896,62 @@ export function ImportWizard({
 
     if (!showImportGuide) {
         // Still show progress modals if working
-        if (!isImporting && !isAiImporting && !validationModalOpen && !diagnosticsModalOpen) return null;
+        if (!isImporting && !isAiImporting && !diagnosticsModalOpen) return null;
     }
 
     return (
         <>
             {/* 1. PROGRESS MODAL (LEGACY / DEEP PARSING) */}
-            {isImporting && !isAiImporting && (
+            {isImporting && !isAiImporting && !diagnosticsModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-                    {/* Same style as previous modal */}
-                    <div className="bg-popover border border-primary/20 p-8 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(124,58,237,0.3)] animate-in zoom-in-95 duration-200">
-                        <div className="text-center space-y-6">
+                    <div className="bg-popover border border-primary/20 p-8 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(124,58,237,0.3)] animate-in zoom-in-95 duration-200">
+                        <div className="text-center space-y-5">
                             <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto skeleton-shimmer">
                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
                             </div>
                             <div>
-                                <h3 className="text-xl font-bold text-foreground mb-2">Analyse approfondie...</h3>
-                                <p className="text-muted-foreground text-sm">Repeto relie chaque réplique à son personnage</p>
+                                <h3 className="text-xl font-bold text-foreground mb-2">Analyse du script</h3>
+                                <p className="text-muted-foreground text-sm">{classicImportActivity}</p>
+                                <p className="text-xs text-primary mt-1">Temps écoulé: {classicImportElapsedSec}s</p>
                             </div>
                             <div className="space-y-2">
                                 <div className="h-3 bg-white/10 rounded-full overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-primary to-purple-400 rounded-full transition-all duration-300 ease-out" style={{ width: `${Math.min(importProgress, 100)}%` }} />
                                 </div>
                                 <p className="text-primary font-bold text-lg">{Math.round(importProgress)}%</p>
+                                <p className="text-[11px] text-muted-foreground">Progression réelle par étapes validées</p>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Étapes du traitement</p>
+                                <div className="space-y-2">
+                                    {classicImportTimeline.map((item) => (
+                                        <div key={item.stage} className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2 min-w-0">
+                                                <span className={`w-2 h-2 rounded-full shrink-0 ${item.status === "done" ? "bg-emerald-400" : item.status === "skipped" ? "bg-amber-300" : item.status === "active" ? "bg-cyan-400 animate-pulse" : "bg-white/20"}`} />
+                                                <span className={`text-xs truncate ${item.status === "pending" ? "text-muted-foreground" : "text-foreground"}`}>
+                                                    {item.label}
+                                                </span>
+                                            </div>
+                                            <span className={`text-[11px] shrink-0 ${item.status === "done" ? "text-emerald-400" : item.status === "skipped" ? "text-amber-300" : item.status === "active" ? "text-cyan-400" : "text-muted-foreground"}`}>
+                                                {item.detail}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-left">
+                                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Journal d&apos;analyse</p>
+                                {classicImportLogs.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground">Initialisation...</p>
+                                ) : (
+                                    <div className="space-y-1">
+                                        {classicImportLogs.map((entry, index) => (
+                                            <p key={`${entry}-${index}`} className="text-xs text-foreground/90">
+                                                {entry}
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -675,73 +1020,7 @@ export function ImportWizard({
                 </div>
             )}
 
-            {/* 2. VALIDATION MODAL */}
-            {validationModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 p-4">
-                    <div className="bg-card dark:bg-[#121212] border border-border/60 dark:border-white/10 p-6 rounded-3xl w-full max-w-xl shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] flex flex-col">
-                        <Button variant="ghost" size="icon" className="absolute top-4 right-4 text-foreground/50 hover:text-foreground" onClick={() => setValidationModalOpen(false)}>
-                            <X className="w-5 h-5" />
-                        </Button>
-                        <div className="mb-6">
-                            <h2 className="text-2xl font-bold text-foreground">Prêt à importer ?</h2>
-                            <p className="text-muted-foreground text-sm mt-1">
-                                Vérifiez la liste canonique des personnages. Ensuite, la vérification finale proposera les fusions, collectifs et scènes à valider.
-                            </p>
-                            {validationMessage && (
-                                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3 text-amber-500 text-sm animate-in fade-in slide-in-from-top-2">
-                                    <div className="w-5 h-5 shrink-0 mt-0.5"><Crown className="w-5 h-5" /></div>
-                                    <p className="font-medium">{validationMessage}</p>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-6 flex-1 overflow-y-auto pr-2">
-                            <div className="space-y-2">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Titre du script</label>
-                                <input type="text" value={customTitle} onChange={(e) => setCustomTitle(e.target.value)} className="w-full bg-card border border-white/10 rounded-xl px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ex: Roméo et Juliette" />
-                            </div>
-                            <div className="space-y-3">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Personnages ({selectedCharacters.length})</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {detectedCharacters.map(char => (
-                                        <div key={char} className="space-y-2">
-                                            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${selectedCharacters.includes(char) ? 'bg-primary/20 border-primary/50 text-foreground' : 'bg-card border-white/10 text-muted-foreground hover:bg-white/10'}`}>
-                                                <div onClick={() => toggleCharacter(char)} className={`w-5 h-5 rounded flex items-center justify-center border shrink-0 cursor-pointer ${selectedCharacters.includes(char) ? 'bg-primary border-primary' : 'border-white/20'}`}>
-                                                    {selectedCharacters.includes(char) && <Check className="w-3 h-3 text-foreground" />}
-                                                </div>
-                                                {editingChar === char ? (
-                                                    <input autoFocus type="text" value={tempCharName} onChange={(e) => setTempCharName(e.target.value)} onBlur={() => handleRenameCharacter(char)} onKeyDown={(e) => e.key === 'Enter' && handleRenameCharacter(char)} className="flex-1 bg-white/10 border-none rounded px-2 py-0.5 text-foreground focus:outline-none" />
-                                                ) : (
-                                                    <div className="flex-1 flex items-center justify-between min-w-0">
-                                                        <div className="flex flex-col min-w-0" onClick={() => toggleCharacter(char)}>
-                                                            <span className="font-semibold truncate cursor-pointer">{char}</span>
-                                                        </div>
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-foreground/30 hover:text-foreground" onClick={(e) => { e.stopPropagation(); setEditingChar(char); setTempCharName(char); }}>
-                                                            <Edit3 className="w-3 h-3" />
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex gap-2 pt-2">
-                                    <input type="text" value={newCharName} onChange={(e) => setNewCharName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCharacter()} className="flex-1 bg-card border border-white/10 rounded-xl px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" placeholder="Ajouter un personnage..." />
-                                    <Button variant="outline" size="icon" onClick={addCharacter} className="rounded-xl border-white/10 hover:bg-white/10">
-                                        <UserPlus className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                        <Button onClick={startDeepParsing} disabled={selectedCharacters.length === 0} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 rounded-2xl text-lg shadow-lg mt-6">
-                            Lancer l&apos;analyse finale
-                        </Button>
-                    </div>
-                </div>
-            )}
-
-            {/* 3. IA DIAGNOSTICS MODAL (BLOQUANT) */}
+            {/* 2. DIAGNOSTICS MODAL (BLOQUANT) */}
             {diagnosticsModalOpen && diagnosticsResult && (
                 <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-black/85 backdrop-blur-sm animate-in fade-in duration-300 p-4">
                     <div className="bg-card dark:bg-[#121212] border border-border/60 dark:border-white/10 p-6 rounded-3xl w-full max-w-3xl shadow-2xl relative animate-in zoom-in-95 max-h-[90vh] flex flex-col">
@@ -767,197 +1046,335 @@ export function ImportWizard({
                             </div>
                         </div>
 
-                        <div className="space-y-6 flex-1 overflow-y-auto pr-2">
-                            <div className="space-y-3">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Liste canonique ({diagnosticsResult.canonicalCharacters.length})</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {diagnosticsResult.canonicalCharacters.map((character) => (
-                                        <span key={`canonical-${character}`} className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/30">
-                                            {character}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                    Suggestions de fusion / alias ({diagnosticsResult.aliasSuggestions.length})
-                                </label>
-                                {diagnosticsResult.aliasSuggestions.length === 0 && (
-                                    <p className="text-xs text-muted-foreground">Aucune fusion suggérée.</p>
-                                )}
-                                <div className="space-y-2">
-                                    {diagnosticsResult.aliasSuggestions.map((alias) => {
-                                        const decision = diagnosticsDecisions[alias.id];
-                                        return (
-                                            <div key={alias.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="text-sm font-semibold">{alias.source}</span>
-                                                    <span className="text-xs text-muted-foreground">→</span>
-                                                    <Select
-                                                        value={aliasTargetsById[alias.id] || alias.target}
-                                                        onValueChange={(value) => setAliasTargetsById((prev) => ({ ...prev, [alias.id]: value }))}
-                                                    >
-                                                        <SelectTrigger className="h-8 w-[220px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
-                                                            {diagnosticsResult.canonicalCharacters
-                                                                .filter((candidate) => candidate !== alias.source)
-                                                                .map((candidate) => (
-                                                                <SelectItem key={`${alias.id}-${candidate}`} value={candidate} className="text-xs uppercase">
-                                                                    {candidate}
-                                                                </SelectItem>
-                                                                ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <span className="text-[10px] text-muted-foreground">Confiance {(alias.confidence * 100).toFixed(0)}%</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">{alias.reason}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant={decision === "accept" ? "default" : "outline"}
-                                                        className="h-7 text-xs"
-                                                        onClick={() => setDiagnosticsDecision(alias.id, "accept")}
-                                                    >
-                                                        Accepter
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant={decision === "reject" ? "default" : "outline"}
-                                                        className="h-7 text-xs"
-                                                        onClick={() => setDiagnosticsDecision(alias.id, "reject")}
-                                                    >
-                                                        Rejeter
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                    Rôles collectifs ({diagnosticsResult.collectiveSuggestions.length})
-                                </label>
-                                {diagnosticsResult.collectiveSuggestions.length === 0 && (
-                                    <p className="text-xs text-muted-foreground">Aucun rôle collectif suggéré.</p>
-                                )}
-                                <div className="space-y-2">
-                                    {diagnosticsResult.collectiveSuggestions.map((collective) => {
-                                        const decision = diagnosticsDecisions[collective.id];
-                                        const state = collectiveResolutionsById[collective.id];
-                                        const members = state?.members || [];
-                                        return (
-                                            <div key={collective.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="text-sm font-semibold">{collective.label}</span>
-                                                    <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded bg-white/10 border border-white/10">
-                                                        {collective.scope === "scene"
-                                                            ? (sceneDisplayByStartIndex.get(collective.sceneIndex ?? -1) || `Scene ${collective.sceneIndex}`)
-                                                            : "Global"}
-                                                    </span>
-                                                    <span className="text-[10px] text-muted-foreground">Confiance {(collective.confidence * 100).toFixed(0)}%</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">{collective.reason}</p>
-
-                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                                    {diagnosticsResult.canonicalCharacters.map((candidate) => {
-                                                        const selected = members.includes(candidate);
-                                                        return (
-                                                            <button
-                                                                key={`${collective.id}-${candidate}`}
-                                                                type="button"
-                                                                onClick={() => toggleCollectiveMember(collective.id, candidate)}
-                                                                className={`text-left text-xs px-2 py-1 rounded-lg border transition-colors ${selected ? "bg-primary/20 border-primary/40 text-foreground" : "bg-card border-white/10 text-muted-foreground hover:bg-white/10"}`}
-                                                            >
-                                                                {candidate}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-
-                                                <div className="flex items-center gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant={decision === "accept" ? "default" : "outline"}
-                                                        className="h-7 text-xs"
-                                                        disabled={members.length === 0}
-                                                        onClick={() => setDiagnosticsDecision(collective.id, "accept")}
-                                                    >
-                                                        Accepter
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant={decision === "reject" ? "default" : "outline"}
-                                                        className="h-7 text-xs"
-                                                        onClick={() => setDiagnosticsDecision(collective.id, "reject")}
-                                                    >
-                                                        Rejeter
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="space-y-3">
-                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                    Scènes à confirmer ({diagnosticsResult.sceneDiagnostics.length})
-                                </label>
-                                {diagnosticsResult.sceneDiagnostics.length === 0 && (
-                                    <p className="text-xs text-muted-foreground">Aucune ambiguïté de scène détectée.</p>
-                                )}
-                                <div className="space-y-2">
-                                    {diagnosticsResult.sceneDiagnostics.map((sceneItem) => {
-                                        const decision = diagnosticsDecisions[sceneItem.id];
-                                        return (
-                                            <div key={sceneItem.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="text-sm font-semibold">
-                                                        {sceneDisplayByStartIndex.get(sceneItem.sceneIndex) || `Scene ${sceneItem.sceneIndex}`}
-                                                    </span>
-                                                    <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded bg-white/10 border border-white/10">
-                                                        {sceneItem.issue}
-                                                    </span>
-                                                    <span className="text-[10px] text-muted-foreground">Confiance {(sceneItem.confidence * 100).toFixed(0)}%</span>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground">{sceneItem.reason}</p>
-                                                <div className="flex items-center gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant={decision === "accept" ? "default" : "outline"}
-                                                        className="h-7 text-xs"
-                                                        onClick={() => setDiagnosticsDecision(sceneItem.id, "accept")}
-                                                    >
-                                                        Confirmer
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant={decision === "reject" ? "default" : "outline"}
-                                                        className="h-7 text-xs"
-                                                        onClick={() => setDiagnosticsDecision(sceneItem.id, "reject")}
-                                                    >
-                                                        Rejeter
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+                        <div className="grid grid-cols-3 gap-2 mb-5">
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 1 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => setValidationStep(1)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">1. Alias</p>
+                                <p className="text-[11px] text-muted-foreground">{aliasPendingCount} restant(s)</p>
+                            </button>
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 2 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => setValidationStepSafely(2)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">2. Collectifs</p>
+                                <p className="text-[11px] text-muted-foreground">{collectivePendingCount} restant(s)</p>
+                            </button>
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 3 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => setValidationStepSafely(3)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">3. Scènes</p>
+                                <p className="text-[11px] text-muted-foreground">{scenePendingCount} restant(s)</p>
+                            </button>
                         </div>
 
-                        <Button
-                            onClick={finalizeImportWithDiagnostics}
-                            disabled={diagnosticsPendingCount > 0}
-                            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-6 rounded-2xl text-lg shadow-lg mt-6"
-                        >
-                            Valider et sauvegarder le script
-                        </Button>
+                        <div className="space-y-6 flex-1 overflow-y-auto pr-2">
+                            {validationStep === 1 && (
+                                <div className="space-y-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                        Étape 1 · Suggestions de liaison / alias ({diagnosticsResult.aliasSuggestions.length})
+                                    </label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Validez les alias puis la liste canonique sera figée automatiquement pour la suite.
+                                    </p>
+                                    {diagnosticsResult.aliasSuggestions.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">Aucune liaison suggérée.</p>
+                                    )}
+                                    <div className="space-y-2">
+                                        {diagnosticsResult.aliasSuggestions.map((alias) => {
+                                            const decision = diagnosticsDecisions[alias.id];
+                                            return (
+                                                <div key={alias.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-sm font-semibold">{alias.source}</span>
+                                                        <span className="text-xs text-muted-foreground">→</span>
+                                                        <Select
+                                                            value={aliasTargetsById[alias.id] || alias.target}
+                                                            onValueChange={(value) => setAliasTargetsById((prev) => ({ ...prev, [alias.id]: value }))}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-[220px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
+                                                                {diagnosticsResult.canonicalCharacters
+                                                                    .filter((candidate) => candidate !== alias.source)
+                                                                    .map((candidate) => (
+                                                                        <SelectItem key={`${alias.id}-${candidate}`} value={candidate} className="text-xs uppercase">
+                                                                            {candidate}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <span className="text-[10px] text-muted-foreground">Confiance {(alias.confidence * 100).toFixed(0)}%</span>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground">{alias.reason}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            size="sm"
+                                                            variant={decision === "accept" ? "default" : "outline"}
+                                                            className="h-7 text-xs"
+                                                            onClick={() => setDiagnosticsDecision(alias.id, "accept")}
+                                                        >
+                                                            Accepter
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            variant={decision === "reject" ? "default" : "outline"}
+                                                            className="h-7 text-xs"
+                                                            onClick={() => setDiagnosticsDecision(alias.id, "reject")}
+                                                        >
+                                                            Rejeter
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {validationStep > 1 && (
+                                <div className="space-y-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                        Liste canonique figée ({frozenCanonicalCharacters.length})
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {frozenCanonicalCharacters.map((character) => (
+                                            <span key={`frozen-${character}`} className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary border border-primary/30">
+                                                {character}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {validationStep === 2 && (
+                                <div className="space-y-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                        Étape 2 · Rôles collectifs à valider ({diagnosticsResult.collectiveSuggestions.length})
+                                    </label>
+                                    {diagnosticsResult.collectiveSuggestions.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">Aucun rôle collectif suggéré.</p>
+                                    )}
+                                    <div className="space-y-2">
+                                        {diagnosticsResult.collectiveSuggestions.map((collective) => {
+                                            const decision = diagnosticsDecisions[collective.id];
+                                            const state = collectiveResolutionsById[collective.id];
+                                            const members = state?.members || [];
+                                            const previewData = collectivePreviewById[collective.id];
+                                            const previewLines = previewData?.samples || [];
+                                            const previewIndex = collectivePreviewIndexById[collective.id] || 0;
+                                            const currentLine = previewLines[Math.min(previewIndex, Math.max(0, previewLines.length - 1))];
+                                            return (
+                                                <div key={collective.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                                    <div className="grid gap-3 md:grid-cols-[1fr_360px]">
+                                                        <div className="space-y-2">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className="text-sm font-semibold">{collective.label}</span>
+                                                                <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded bg-white/10 border border-white/10">
+                                                                    {collective.scope === "scene"
+                                                                        ? (sceneDisplayByStartIndex.get(collective.sceneIndex ?? -1) || `Scène ${collective.sceneIndex}`)
+                                                                        : "Tout le script"}
+                                                                </span>
+                                                                <span className="text-[10px] text-muted-foreground">Confiance {(collective.confidence * 100).toFixed(0)}%</span>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground">{previewData?.rationale || collective.reason}</p>
+
+                                                            <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                                                                <p className="text-[11px] text-muted-foreground">
+                                                                    Je suggère ce mapping car les locuteurs canoniques visibles dans ce périmètre sont:
+                                                                    <span className="text-foreground"> {(previewData?.sceneCharacters || []).join(", ") || "aucun"}</span>.
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                                                {frozenCanonicalCharacters.map((candidate) => {
+                                                                    const selected = members.includes(candidate);
+                                                                    return (
+                                                                        <button
+                                                                            key={`${collective.id}-${candidate}`}
+                                                                            type="button"
+                                                                            onClick={() => toggleCollectiveMember(collective.id, candidate)}
+                                                                            className={`text-left text-xs px-2 py-1 rounded-lg border transition-colors ${selected ? "bg-primary/20 border-primary/40 text-foreground" : "bg-card border-white/10 text-muted-foreground hover:bg-white/10"}`}
+                                                                        >
+                                                                            {candidate}
+                                                                        </button>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            <div className="flex items-center gap-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant={decision === "accept" ? "default" : "outline"}
+                                                                    className="h-7 text-xs"
+                                                                    disabled={members.length === 0}
+                                                                    onClick={() => setDiagnosticsDecision(collective.id, "accept")}
+                                                                >
+                                                                    Accepter
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant={decision === "reject" ? "default" : "outline"}
+                                                                    className="h-7 text-xs"
+                                                                    onClick={() => setDiagnosticsDecision(collective.id, "reject")}
+                                                                >
+                                                                    Rejeter
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="rounded-lg border border-white/10 bg-card/50 p-3 space-y-2">
+                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Aperçu du texte</p>
+                                                            {previewLines.length === 0 && (
+                                                                <p className="text-xs text-muted-foreground">Aucun extrait disponible pour ce rôle collectif.</p>
+                                                            )}
+                                                            {previewLines.length > 0 && (
+                                                                <>
+                                                                    <p className="text-xs text-foreground/90 leading-relaxed">{currentLine}</p>
+                                                                    <div className="flex items-center justify-between">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 text-xs"
+                                                                            disabled={previewIndex === 0}
+                                                                            onClick={() => setCollectivePreviewOffset(collective.id, "prev")}
+                                                                        >
+                                                                            Précédent
+                                                                        </Button>
+                                                                        <span className="text-[11px] text-muted-foreground">
+                                                                            {previewIndex + 1}/{previewLines.length}
+                                                                        </span>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 text-xs"
+                                                                            disabled={previewIndex >= previewLines.length - 1}
+                                                                            onClick={() => setCollectivePreviewOffset(collective.id, "next")}
+                                                                        >
+                                                                            Suivant
+                                                                        </Button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {validationStep === 3 && (
+                                <div className="space-y-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                        Étape 3 · Scènes à confirmer ({diagnosticsResult.sceneDiagnostics.length})
+                                    </label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Confirmer = conserver la suggestion de découpage. Rejeter = ignorer l&apos;alerte.
+                                    </p>
+                                    {diagnosticsResult.sceneDiagnostics.length === 0 && (
+                                        <p className="text-xs text-muted-foreground">Aucune ambiguïté de scène détectée.</p>
+                                    )}
+                                    <div className="space-y-2">
+                                        {diagnosticsResult.sceneDiagnostics.map((sceneItem) => {
+                                            const decision = diagnosticsDecisions[sceneItem.id];
+                                            const preview = scenePreviewById[sceneItem.id];
+                                            return (
+                                                <div key={sceneItem.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                                    <div className="grid gap-3 md:grid-cols-[1fr_340px]">
+                                                        <div className="space-y-2">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className="text-sm font-semibold">
+                                                                    {sceneDisplayByStartIndex.get(sceneItem.sceneIndex) || `Scène ${sceneItem.sceneIndex}`}
+                                                                </span>
+                                                                <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded bg-white/10 border border-white/10">
+                                                                    {sceneIssueLabel(sceneItem.issue)}
+                                                                </span>
+                                                                <span className="text-[10px] text-muted-foreground">Confiance {(sceneItem.confidence * 100).toFixed(0)}%</span>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground">{preview?.suggestion || sceneItem.reason}</p>
+                                                            <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                                                                <p className="text-[11px] text-muted-foreground mb-1">Vérifications proposées:</p>
+                                                                <div className="space-y-1">
+                                                                    {(preview?.checks || []).map((check) => (
+                                                                        <p key={`${sceneItem.id}-${check}`} className="text-xs text-foreground/90">- {check}</p>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant={decision === "accept" ? "default" : "outline"}
+                                                                    className="h-7 text-xs"
+                                                                    onClick={() => setDiagnosticsDecision(sceneItem.id, "accept")}
+                                                                >
+                                                                    Confirmer
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant={decision === "reject" ? "default" : "outline"}
+                                                                    className="h-7 text-xs"
+                                                                    onClick={() => setDiagnosticsDecision(sceneItem.id, "reject")}
+                                                                >
+                                                                    Rejeter
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="rounded-lg border border-white/10 bg-card/50 p-3">
+                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Exemples de répliques</p>
+                                                            <div className="space-y-1">
+                                                                {(preview?.samples || []).length === 0 && (
+                                                                    <p className="text-xs text-muted-foreground">Aucun extrait disponible.</p>
+                                                                )}
+                                                                {(preview?.samples || []).map((sample) => (
+                                                                    <p key={`${sceneItem.id}-${sample}`} className="text-xs text-foreground/90 leading-relaxed">{sample}</p>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-6 flex items-center justify-between gap-3">
+                            <Button
+                                variant="outline"
+                                className="h-10"
+                                disabled={validationStep === 1}
+                                onClick={() => setValidationStep((prev) => (Math.max(1, prev - 1) as ValidationStep))}
+                            >
+                                Étape précédente
+                            </Button>
+
+                            {validationStep < 3 ? (
+                                <Button
+                                    className="h-10 px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
+                                    onClick={() => setValidationStepSafely((validationStep + 1) as ValidationStep)}
+                                    disabled={(validationStep === 1 && aliasPendingCount > 0) || (validationStep === 2 && collectivePendingCount > 0)}
+                                >
+                                    Continuer vers l&apos;étape {validationStep + 1}
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={finalizeImportWithDiagnostics}
+                                    disabled={diagnosticsPendingCount > 0}
+                                    className="px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                                >
+                                    Valider et sauvegarder le script
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

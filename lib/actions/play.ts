@@ -2,7 +2,24 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { ParsedScript, ScriptLine } from '@/lib/types';
+import { ParsedScript } from '@/lib/types';
+
+function normalizeCharacterLabel(value: string): string {
+    return (value || '').toUpperCase().replace(/\s+/g, ' ').trim();
+}
+
+function resolveCanonicalCharacters(script: ParsedScript): string[] {
+    const source = script.mappings?.canonical_characters?.length
+        ? script.mappings.canonical_characters
+        : (script.characters || []);
+    return Array.from(new Set(source.map((item) => normalizeCharacterLabel(item)).filter(Boolean)));
+}
+
+function resolveLineCharacterToCanonical(script: ParsedScript, rawCharacter: string): string {
+    const normalized = normalizeCharacterLabel(rawCharacter);
+    const mapped = script.mappings?.aliases?.[normalized];
+    return mapped ? normalizeCharacterLabel(mapped) : normalized;
+}
 
 export async function createPlay(
     troupeId: string,
@@ -53,10 +70,11 @@ export async function createPlay(
     // We map parsed characters to DB records
     const characterMap = new Map<string, string>(); // Name -> UUID
 
-    if (parsedScript.characters && parsedScript.characters.length > 0) {
-        const charInserts = parsedScript.characters.map(name => ({
+    const canonicalCharacters = resolveCanonicalCharacters(parsedScript);
+    if (canonicalCharacters.length > 0) {
+        const charInserts = canonicalCharacters.map((name) => ({
             play_id: play.id,
-            name: name
+            name
         }));
 
         const { data: chars, error: charError } = await supabase
@@ -68,7 +86,7 @@ export async function createPlay(
             console.error('Error creating characters:', charError);
             // Non-blocking but effectively breaks casting capability.
         } else {
-            chars.forEach(c => characterMap.set(c.name, c.id));
+            chars.forEach((c) => characterMap.set(normalizeCharacterLabel(c.name), c.id));
         }
     }
 
@@ -79,9 +97,6 @@ export async function createPlay(
 
     // We need real indices for scenes.
     // Assumption: parsedScript.scenes is sorted by index.
-
-    let currentSceneId: string | null = null;
-    let sceneCharacterBuffer = new Set<string>(); // Character IDs in current scene
 
     // Helper to flush current scene characters
     const flushSceneCharacters = async (sceneId: string, charIds: Set<string>) => {
@@ -106,11 +121,6 @@ export async function createPlay(
         .select();
 
     if (!sceneError && createdScenes) {
-        // Now we need to figure out which characters are in which scene.
-        // We iterate lines.
-        let sceneIndex = 0;
-        let currentSceneObj = createdScenes.find(s => s.order_index === 0);
-
         // Map order_index -> scene_id
         const sceneIdMap = new Map(createdScenes.map(s => [s.order_index, s.id]));
 
@@ -129,7 +139,8 @@ export async function createPlay(
             for (let j = sceneStart; j < sceneEnd; j++) {
                 const line = parsedScript.lines[j];
                 if (line.type === 'dialogue' && line.character) {
-                    const charId = characterMap.get(line.character);
+                    const resolvedCharacter = resolveLineCharacterToCanonical(parsedScript, line.character);
+                    const charId = characterMap.get(resolvedCharacter);
                     if (charId) {
                         actorsInScene.add(charId);
                     }
@@ -195,7 +206,7 @@ export async function getPlayDetails(playId: string) {
 
     // Sort scenes by index
     if (play.play_scenes) {
-        play.play_scenes.sort((a: any, b: any) => a.order_index - b.order_index);
+        play.play_scenes.sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index);
     }
 
     return play;
@@ -215,7 +226,7 @@ export async function updateCasting(characterId: string, actorId: string | null,
 
     if (!character) throw new Error('Character not found');
 
-    const troupeId = (character.plays as any)?.troupe_id;
+    const troupeId = (character.plays as { troupe_id?: string } | null)?.troupe_id;
     if (!troupeId) throw new Error('Troupe not found');
 
     // Verify user has permission (Admin or Metteur en scène)
@@ -333,23 +344,27 @@ export async function getScriptDetails(scriptId: string) {
     // Normalize to match "Play" structure for OfflineManager
     // Personal scripts store the ParsedScript in 'content' column
     const content = script.content as ParsedScript;
+    const canonicalCharacters = resolveCanonicalCharacters(content);
 
     return {
         id: script.id,
         title: script.title,
-        script_content: content,
+        script_content: {
+            ...content,
+            characters: canonicalCharacters,
+        },
         // Mock DB relations from JSON content
         play_scenes: content.scenes?.map((s, i) => ({
             id: `local_scene_${i}`,
             title: s.title,
             order_index: i
         })) || [],
-        play_characters: content.characters?.map((name, i) => ({
+        play_characters: canonicalCharacters.map((name, i) => ({
             id: `local_char_${i}`,
             name: name,
             actor_id: null, // Personal scripts usually have no actor assignments in DB
             profile: null
-        })) || [],
+        })),
         is_script: true // Flag to identify origin
     };
 }

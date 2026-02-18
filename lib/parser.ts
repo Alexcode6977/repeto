@@ -306,8 +306,8 @@ function scoreCharacterName(name: string): number {
             // OK - this is a valid character pattern
         } else if (validTitles.includes(firstWord)) {
             // OK - AUTRE GASCON, MONSIEUR JOURDAIN, etc.
-        } else if (firstWord === "VOIX") {
-            // OK for VOIX DE... VOIX OFF...
+        } else if (words.length >= 2 && /\b(?:DE|DU|DES|D'|OF|FROM)\b/i.test(upper)) {
+            // OK for descriptive speaker labels ending with a likely name core
         } else {
             return 0;
         }
@@ -364,23 +364,29 @@ function scoreCharacterName(name: string): number {
 }
 
 /**
- * Normalize "VOIX DE X" patterns to just "X"
+ * Extract a compact speaker core from a descriptive label.
+ * Example: "QUALIFIER DE ANNETTE" -> "ANNETTE"
  */
-function extractVoixName(name: string): string {
-    let result = name.trim();
+function extractSpeakerCore(name: string): string {
+    const trimmed = name.trim().replace(/\s+/g, " ");
+    if (!trimmed) return trimmed;
 
-    if (result.toUpperCase().startsWith("VOIX")) {
-        // Remove "VOIX" prefix
-        result = result.replace(/^VOIX\s+/i, "");
+    const normalized = trimmed.replace(/\bD'/gi, "DE ");
+    const splitByLinkers = normalized
+        .split(/\b(?:DE|DU|DES|OF|FROM)\b/i)
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
 
-        // Try to extract name after DE/DU/D'/etc
-        const match = result.match(/(?:DE\s+|DU\s+|D'|')(.+)$/i);
-        if (match && match[1].trim().length > 2) {
-            result = match[1].trim();
-        }
-    }
+    if (splitByLinkers.length < 2) return trimmed;
 
-    return result;
+    const tail = splitByLinkers[splitByLinkers.length - 1];
+    const tailWords = tail.split(/\s+/).filter(Boolean);
+    const fullWords = trimmed.split(/\s+/).filter(Boolean);
+
+    if (tailWords.length === 0) return trimmed;
+    if (tailWords.length <= 2 && fullWords.length >= 2) return tail;
+
+    return trimmed;
 }
 
 /**
@@ -447,9 +453,9 @@ function extractTitle(lines: string[]): string | undefined {
  */
 
 export interface ParserOptions {
-    autoGroupCharacters?: boolean; // If false, "VOIX DE X" is not normalized to "X" automatically
+    autoGroupCharacters?: boolean; // If false, descriptive labels are not compacted to a name core
     strictWhitelist?: boolean;     // If true, only allowed characters are kept. Others are ignored or mapped.
-    preserveOriginalName?: boolean; // If true, keeps the original name in dialogue: [ANNETTE] (Voix d'Annette) ...
+    preserveOriginalName?: boolean; // If true, keeps the original raw label in dialogue: [ANNETTE] (LABEL ORIGINAL) ...
 }
 
 /**
@@ -565,13 +571,13 @@ export function detectCharactersHeuristic(rawText: string, options: ParserOption
 
             // Apply auto-grouping only if enabled (default: true)
             const shouldAutoGroup = options.autoGroupCharacters !== false;
-            const finalName = shouldAutoGroup ? extractVoixName(charName) : charName;
+            const finalName = shouldAutoGroup ? extractSpeakerCore(charName) : charName;
 
             const score = scoreCharacterName(finalName);
             const isCollective = isCollectiveSpeakerLabel(finalName);
 
             // Lowered threshold from 0.75 to 0.6 for better detection in first pass
-            // We want to catch "VOIX DE X" even if it looks a bit weird
+            // We want to catch descriptive speaker labels even when OCR is noisy.
             if (score > 0.6 || isCollective) {
 
                 const normalized = finalName.toUpperCase();
@@ -701,7 +707,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                 let detectedName = rawName;
 
                 if (shouldAutoGroup) {
-                    detectedName = extractVoixName(rawName);
+                    detectedName = extractSpeakerCore(rawName);
                 }
                 detectedName = detectedName.toUpperCase();
 
@@ -737,31 +743,6 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
                             // Let's skip to be safe and report it.
                             continue;
                         }
-                    }
-                }
-
-                const upperFinal = finalName.toUpperCase();
-                if (upperFinal === "TOUS" || upperFinal === "TOUTES" || upperFinal === "ENSEMBLE") {
-                    if (validatedCharacters && validatedCharacters.length > 0) {
-                        finalName = validatedCharacters.join(", ");
-                    }
-                } else if (/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i.test(upperFinal)) {
-                    const match = upperFinal.match(/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i);
-                    const countMap: Record<string, number> = { "DEUX": 2, "TROIS": 3, "QUATRE": 4, "CINQ": 5 };
-                    const label = match?.[1]?.toUpperCase() || "DEUX";
-                    const count = /^\d$/.test(label) ? Number(label) : (countMap[label] || 2);
-
-                    const candidates: string[] = [];
-                    for (let j = strictLastSpeakers.length - 1; j >= 0; j--) {
-                        const s = strictLastSpeakers[j];
-                        if (!candidates.includes(s.name)) {
-                            candidates.push(s.name);
-                        }
-                        if (candidates.length >= count) break;
-                    }
-
-                    if (candidates.length >= 2) {
-                        finalName = candidates.reverse().join(", ");
                     }
                 }
 
@@ -1111,7 +1092,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
 
             let finalName = rawName;
             if (shouldAutoGroup) {
-                finalName = extractVoixName(rawName);
+                finalName = extractSpeakerCore(rawName);
             }
             finalName = finalName.toUpperCase();
 
@@ -1254,7 +1235,7 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
 
         if (matched && potentialName) {
             // Normalize the name
-            let finalName = extractVoixName(potentialName);
+            let finalName = extractSpeakerCore(potentialName);
 
             // Special handling for collective speech: allow them to bypass standard scoring
             const upperName = finalName.toUpperCase();
@@ -1297,38 +1278,8 @@ export function parseScript(rawText: string, validatedCharacters?: string[], ali
 
                     const upper = finalName.toUpperCase();
 
-                    // 1. Resolve "TOUS" / "TOUTES"
-                    if (upper === "TOUS" || upper === "TOUTES" || upper === "ENSEMBLE") {
-                        if (validatedCharacters && validatedCharacters.length > 0) {
-                            finalName = validatedCharacters.join(", ");
-                        }
-                    }
-                    // 2. Resolve "LES DEUX" / "LES TROIS" etc.
-                    else if (/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i.test(upper)) {
-                        const match = upper.match(/^(?:TOUS(?:\s+LES)?|TOUTES(?:\s+LES)?|LES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-5])/i);
-                        const countMap: Record<string, number> = { "DEUX": 2, "TROIS": 3, "QUATRE": 4, "CINQ": 5 };
-                        const label = match?.[1]?.toUpperCase() || "DEUX";
-                        const count = /^\d$/.test(label) ? Number(label) : (countMap[label] || 2);
-
-                        const genderTarget = upper.includes("HOMME") || upper.includes("GARÇON") ? 'M' :
-                            upper.includes("FEMME") || upper.includes("FILLE") ? 'F' : 'unknown';
-
-                        const candidates: string[] = [];
-                        for (let j = lastSpeakers.length - 1; j >= 0; j--) {
-                            const s = lastSpeakers[j];
-                            if (candidates.includes(s.name)) continue;
-                            if (genderTarget === 'unknown' || s.gender === genderTarget || s.gender === 'unknown') {
-                                candidates.push(s.name);
-                            }
-                            if (candidates.length >= count) break;
-                        }
-
-                        if (candidates.length >= 2) {
-                            finalName = candidates.reverse().join(", ");
-                        }
-                    }
-                    // 3. Resolve explicit joined names (e.g., "PACAREL ET LANDERNAU")
-                    else if (upper.includes(" ET ") || (upper.includes(",") && upper.length > 5)) {
+                    // Resolve explicit joined names (e.g., "PACAREL ET LANDERNAU")
+                    if (upper.includes(" ET ") || (upper.includes(",") && upper.length > 5)) {
                         const parts = upper.split(/ ET |, /i).map(p => p.trim());
                         const resolvedParts = parts.map(part => {
                             if (charWhitelist && charWhitelist.has(part)) return part;

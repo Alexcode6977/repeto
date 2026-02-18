@@ -227,9 +227,311 @@ function buildCanonicalCharacters(characters: string[]): string[] {
     return Array.from(unique).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
+function resolveCanonicalCharactersFromScript(script: Partial<ParsedScript> | null | undefined): string[] {
+    const fromMappings = script?.mappings?.canonical_characters;
+    if (Array.isArray(fromMappings) && fromMappings.length > 0) {
+        return buildCanonicalCharacters(fromMappings);
+    }
+    return buildCanonicalCharacters(script?.characters || []);
+}
+
 function normalizeConfidence(value: unknown, fallback = 0.5): number {
     if (typeof value !== "number" || Number.isNaN(value)) return fallback;
     return Math.max(0, Math.min(1, value));
+}
+
+function normalizeForMatching(value: string): string {
+    return normalizeCharacterLabel(value)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9\s']/g, " ")
+        .replace(/'+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+const LINKING_STOP_WORDS = new Set([
+    "DE", "DU", "DES", "D", "LE", "LA", "LES", "L", "ET", "A", "AU", "AUX", "THE", "OF",
+]);
+
+function tokenizeLabelForMatching(value: string): string[] {
+    const normalized = normalizeForMatching(value);
+    if (!normalized) return [];
+    return normalized
+        .split(" ")
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2 && !LINKING_STOP_WORDS.has(token));
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function levenshteinDistance(a: string, b: string): number {
+    const matrix: number[][] = Array.from({ length: b.length + 1 }, () => Array(a.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i += 1) matrix[0][i] = i;
+    for (let j = 0; j <= b.length; j += 1) matrix[j][0] = j;
+
+    for (let j = 1; j <= b.length; j += 1) {
+        for (let i = 1; i <= a.length; i += 1) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[j][i] = Math.min(
+                matrix[j][i - 1] + 1,
+                matrix[j - 1][i] + 1,
+                matrix[j - 1][i - 1] + cost
+            );
+        }
+    }
+
+    return matrix[b.length][a.length];
+}
+
+function similarityRatio(a: string, b: string): number {
+    const left = normalizeForMatching(a);
+    const right = normalizeForMatching(b);
+    if (!left || !right) return 0;
+    if (left === right) return 1;
+    const distance = levenshteinDistance(left, right);
+    return Math.max(0, 1 - (distance / Math.max(left.length, right.length)));
+}
+
+function buildDialogueCountByLabel(script: ParsedScript): Map<string, number> {
+    const counts = new Map<string, number>();
+    (script.lines || []).forEach((line) => {
+        if (line.type !== "dialogue") return;
+        const label = normalizeCharacterLabel(line.character || "");
+        if (!label) return;
+        counts.set(label, (counts.get(label) || 0) + 1);
+    });
+    return counts;
+}
+
+function buildLabelScenes(script: ParsedScript): Map<string, Set<number>> {
+    const byLabel = new Map<string, Set<number>>();
+    (script.lines || []).forEach((line, idx) => {
+        if (line.type !== "dialogue") return;
+        const label = normalizeCharacterLabel(line.character || "");
+        if (!label) return;
+        const sceneStart = getSceneStartForLine(script, idx);
+        const set = byLabel.get(label) || new Set<number>();
+        set.add(sceneStart);
+        byLabel.set(label, set);
+    });
+    return byLabel;
+}
+
+function computeJaccard(left: Set<number> | undefined, right: Set<number> | undefined): number {
+    if (!left || !right || left.size === 0 || right.size === 0) return 0;
+    let intersection = 0;
+    left.forEach((value) => {
+        if (right.has(value)) intersection += 1;
+    });
+    const union = left.size + right.size - intersection;
+    return union > 0 ? intersection / union : 0;
+}
+
+function buildContextVotes(
+    script: ParsedScript,
+    canonicalSet: Set<string>
+): Map<string, Map<string, number>> {
+    const votes = new Map<string, Map<string, number>>();
+    const lines = script.lines || [];
+    const WINDOW = 6;
+
+    const addVote = (source: string, target: string, score: number) => {
+        const sourceVotes = votes.get(source) || new Map<string, number>();
+        sourceVotes.set(target, (sourceVotes.get(target) || 0) + score);
+        votes.set(source, sourceVotes);
+    };
+
+    for (let idx = 0; idx < lines.length; idx += 1) {
+        const line = lines[idx];
+        if (line.type !== "dialogue") continue;
+
+        const source = normalizeCharacterLabel(line.character || "");
+        if (!source || canonicalSet.has(source) || isCollectiveLabelCandidate(source)) continue;
+
+        let previousCanonical: string | null = null;
+        for (let p = idx - 1; p >= Math.max(0, idx - WINDOW); p -= 1) {
+            const candidate = lines[p];
+            if (candidate.type !== "dialogue") continue;
+            const label = normalizeCharacterLabel(candidate.character || "");
+            if (canonicalSet.has(label) && !isCollectiveLabelCandidate(label)) {
+                previousCanonical = label;
+                break;
+            }
+        }
+
+        let nextCanonical: string | null = null;
+        for (let n = idx + 1; n <= Math.min(lines.length - 1, idx + WINDOW); n += 1) {
+            const candidate = lines[n];
+            if (candidate.type !== "dialogue") continue;
+            const label = normalizeCharacterLabel(candidate.character || "");
+            if (canonicalSet.has(label) && !isCollectiveLabelCandidate(label)) {
+                nextCanonical = label;
+                break;
+            }
+        }
+
+        if (previousCanonical) addVote(source, previousCanonical, 0.6);
+        if (nextCanonical) addVote(source, nextCanonical, 0.6);
+    }
+
+    return votes;
+}
+
+function isLikelyCanonicalCharacterLabel(label: string, dialogueCount: number): boolean {
+    if (!label) return false;
+    if (isCollectiveLabelCandidate(label)) return false;
+    if (extractPotentialSpeakerParts(label).length > 1) return false;
+
+    const tokens = tokenizeLabelForMatching(label);
+    const hasRelationalLinker = /\b(?:DE|DU|DES|OF|FROM)\b/i.test(label);
+
+    if (dialogueCount >= 3) return true;
+    if (tokens.length <= 2 && label.length <= 22) return true;
+    if (!hasRelationalLinker && tokens.length <= 3 && label.length <= 26) return true;
+    return false;
+}
+
+function buildDeterministicAliasSuggestionsFromScript(
+    script: ParsedScript,
+    allCandidateCharacters: string[],
+    canonicalCharacters: string[]
+): AliasSuggestion[] {
+    const allLabels = Array.from(new Set(allCandidateCharacters.map((value) => normalizeCharacterLabel(value)).filter(Boolean)));
+    const canonicalSet = new Set(canonicalCharacters);
+    const dialogueCounts = buildDialogueCountByLabel(script);
+    const sceneByLabel = buildLabelScenes(script);
+    const contextVotes = buildContextVotes(script, canonicalSet);
+    const suggestions = new Map<string, AliasSuggestion>();
+
+    const unresolvedSources = allLabels.filter((label) => (
+        !canonicalSet.has(label)
+        && !isCollectiveLabelCandidate(label)
+        && extractPotentialSpeakerParts(label).length <= 1
+    ));
+
+    for (const source of unresolvedSources) {
+        const sourceTokens = tokenizeLabelForMatching(source);
+        const sourceScenes = sceneByLabel.get(source);
+        const sourceCount = dialogueCounts.get(source) || 1;
+        const votes = contextVotes.get(source) || new Map<string, number>();
+        const totalVotes = Array.from(votes.values()).reduce((acc, value) => acc + value, 0);
+
+        let bestCandidate: AliasSuggestion | null = null;
+
+        for (const target of canonicalCharacters) {
+            if (source === target) continue;
+            if (isCollectiveLabelCandidate(target)) continue;
+
+            const targetTokens = tokenizeLabelForMatching(target);
+            const targetScenes = sceneByLabel.get(target);
+            const targetCount = dialogueCounts.get(target) || 1;
+            const isTokenSubset = targetTokens.length > 0 && targetTokens.every((token) => sourceTokens.includes(token));
+            const hasStrictWordMatch = new RegExp(`(?:^|\\s)${escapeRegExp(target)}(?:$|\\s)`, "i").test(source);
+            const sim = similarityRatio(source, target);
+            const sceneSimilarity = computeJaccard(sourceScenes, targetScenes);
+            const targetVotes = votes.get(target) || 0;
+            const contextScore = totalVotes > 0 ? targetVotes / totalVotes : 0;
+
+            let confidence = 0;
+            let reason = "Appellation alternative détectée. Vérifiez si elle correspond au personnage canonique proposé.";
+
+            if (isTokenSubset && sourceTokens.length > targetTokens.length) {
+                const coverage = targetTokens.length / sourceTokens.length;
+                confidence = 0.56 + (coverage * 0.22) + (targetCount >= sourceCount ? 0.08 : 0) + (hasStrictWordMatch ? 0.1 : 0);
+                reason = "Le libellé semble être une variante descriptive du personnage canonique.";
+            } else if (sim >= 0.86 && target.length <= source.length) {
+                confidence = 0.5 + (sim * 0.35) + (targetCount >= sourceCount ? 0.06 : 0);
+                reason = "Le libellé semble proche d’une autre appellation déjà canonique.";
+            } else if (contextScore >= 0.45 || (sceneSimilarity >= 0.6 && contextScore >= 0.2)) {
+                confidence = 0.42 + (contextScore * 0.34) + (sceneSimilarity * 0.2);
+                reason = "Le contexte des répliques suggère une liaison avec ce personnage canonique.";
+            }
+
+            confidence = Math.max(0, Math.min(0.98, confidence));
+            if (confidence < 0.4) continue;
+
+            const candidate: AliasSuggestion = {
+                id: `alias:${source}->${target}`,
+                source,
+                target,
+                confidence,
+                reason,
+                requiresDecision: true,
+            };
+
+            if (!bestCandidate || candidate.confidence > bestCandidate.confidence) {
+                bestCandidate = candidate;
+            }
+        }
+
+        if (bestCandidate) {
+            suggestions.set(bestCandidate.id, bestCandidate);
+        }
+    }
+
+    return Array.from(suggestions.values()).sort((a, b) => b.confidence - a.confidence);
+}
+
+function resolveCanonicalCharactersAndAliasSuggestions(
+    script: ParsedScript,
+    canonicalCharactersInput?: string[]
+): { canonicalCharacters: string[]; deterministicAliasSuggestions: AliasSuggestion[] } {
+    const sourceCharacters = buildCanonicalCharacters(
+        canonicalCharactersInput && canonicalCharactersInput.length > 0
+            ? canonicalCharactersInput
+            : (script.characters || [])
+    ).filter((label) => !isCollectiveLabelCandidate(label) && extractPotentialSpeakerParts(label).length <= 1);
+
+    const dialogueCounts = buildDialogueCountByLabel(script);
+    const canonicalSet = new Set<string>();
+    sourceCharacters.forEach((label) => {
+        if (isLikelyCanonicalCharacterLabel(label, dialogueCounts.get(label) || 0)) {
+            canonicalSet.add(label);
+        }
+    });
+
+    if (canonicalSet.size === 0) {
+        sourceCharacters.forEach((label) => canonicalSet.add(label));
+    }
+
+    const canonicalCandidates = Array.from(canonicalSet).sort((a, b) => a.localeCompare(b, "fr"));
+    const deterministicAliasSuggestions = buildDeterministicAliasSuggestionsFromScript(
+        script,
+        sourceCharacters,
+        canonicalCandidates
+    );
+
+    let canonicalCharacters = Array.from(canonicalSet).sort((a, b) => a.localeCompare(b, "fr"));
+    if (canonicalCharacters.length === 0) {
+        canonicalCharacters = sourceCharacters;
+    }
+
+    const canonicalTargetSet = new Set(canonicalCharacters);
+    const filteredDeterministicAliasSuggestions = deterministicAliasSuggestions.filter((item) => canonicalTargetSet.has(item.target));
+
+    return {
+        canonicalCharacters,
+        deterministicAliasSuggestions: filteredDeterministicAliasSuggestions,
+    };
+}
+
+function mergeAliasSuggestions(preferred: AliasSuggestion[], extras: AliasSuggestion[]): AliasSuggestion[] {
+    const buildKey = (item: AliasSuggestion) => `${normalizeCharacterLabel(item.source)}->${normalizeCharacterLabel(item.target)}`;
+    const merged = new Map<string, AliasSuggestion>();
+    preferred.forEach((item) => {
+        merged.set(buildKey(item), item);
+    });
+    extras.forEach((item) => {
+        const key = buildKey(item);
+        const existing = merged.get(key);
+        if (!existing || item.confidence > existing.confidence) {
+            merged.set(key, item);
+        }
+    });
+    return Array.from(merged.values()).sort((a, b) => b.confidence - a.confidence);
 }
 
 interface AiDiagnosticsRaw {
@@ -295,7 +597,7 @@ function buildBlockingDecisions(
             id: item.id,
             kind: "collective" as const,
             label: item.scope === "scene"
-                ? `${item.label} (Scene ${item.sceneIndex})`
+                ? `${item.label} (Scène ${item.sceneIndex})`
                 : item.label,
             reason: item.reason,
             confidence: item.confidence,
@@ -304,7 +606,7 @@ function buildBlockingDecisions(
         ...sceneDiagnostics.map((item) => ({
             id: item.id,
             kind: "scene" as const,
-            label: `Scene ${item.sceneIndex}`,
+            label: `Scène ${item.sceneIndex}`,
             reason: item.reason,
             confidence: item.confidence,
             requiresDecision: true as const,
@@ -403,8 +705,8 @@ function buildDeterministicCollectiveSuggestions(
             members,
             confidence: members.length > 0 ? 0.7 : 0.45,
             reason: isSceneScoped
-                ? "Collectif detecte automatiquement pour cette scene. Validation requise."
-                : "Collectif detecte automatiquement. Verification des membres requise.",
+                ? "Rôle collectif détecté dans cette scène à partir des locuteurs présents. Vérifiez les membres proposés."
+                : "Rôle collectif détecté pour l’ensemble du script. Vérifiez les membres proposés.",
             requiresDecision: true,
         });
     });
@@ -461,7 +763,31 @@ function mergeDiagnosticsWithDeterministicCollectives(
     }
 
     const normalizedCollectiveSuggestions = Array.from(normalizedCollectiveMap.values());
-    const normalizedSceneDiagnostics = Array.from(normalizedSceneDiagnosticMap.values());
+    const byScene = new Map<number, SceneDiagnostic[]>();
+    Array.from(normalizedSceneDiagnosticMap.values())
+        .filter((item) => item.issue !== "other")
+        .forEach((item) => {
+            const list = byScene.get(item.sceneIndex) || [];
+            list.push(item);
+            byScene.set(item.sceneIndex, list);
+        });
+
+    const normalizedSceneDiagnostics: SceneDiagnostic[] = [];
+    byScene.forEach((items) => {
+        const sorted = [...items].sort((a, b) => {
+            const issuePriority = (issue: SceneDiagnostic["issue"]) => (
+                issue === "ambiguous_label" ? 2 : issue === "uncertain_boundary" ? 1 : 0
+            );
+            const byIssue = issuePriority(b.issue) - issuePriority(a.issue);
+            if (byIssue !== 0) return byIssue;
+            return b.confidence - a.confidence;
+        });
+
+        const best = sorted[0];
+        if (best && best.confidence >= 0.65) {
+            normalizedSceneDiagnostics.push(best);
+        }
+    });
 
     const deterministicCollectives = buildDeterministicCollectiveSuggestions(
         script,
@@ -493,6 +819,8 @@ function sanitizeAiDiagnostics(raw: AiDiagnosticsRaw, canonicalCharacters: strin
         const target = normalizeCharacterLabel(candidate.target || "");
 
         if (!source || !target || source === target) continue;
+        if (isCollectiveLabelCandidate(source) || isCollectiveLabelCandidate(target)) continue;
+        if (extractPotentialSpeakerParts(source).length > 1) continue;
         if (!canonicalSet.has(target)) continue;
 
         const id = `alias:${source}->${target}`;
@@ -504,7 +832,7 @@ function sanitizeAiDiagnostics(raw: AiDiagnosticsRaw, canonicalCharacters: strin
             source,
             target,
             confidence: normalizeConfidence(candidate.confidence, 0.65),
-            reason: (candidate.reason || "Suggestion d'alias detectee.").trim(),
+            reason: "Appellation alternative détectée. Vérifiez si elle correspond au personnage canonique proposé.",
             requiresDecision: true,
         });
     }
@@ -537,7 +865,9 @@ function sanitizeAiDiagnostics(raw: AiDiagnosticsRaw, canonicalCharacters: strin
             sceneIndex,
             members,
             confidence: normalizeConfidence(candidate.confidence, 0.65),
-            reason: (candidate.reason || "Suggestion de role collectif detectee.").trim(),
+            reason: scope === "scene"
+                ? "Rôle collectif détecté pour cette scène. Vérifiez les membres."
+                : "Rôle collectif détecté pour l’ensemble du script. Vérifiez les membres.",
             requiresDecision: true,
         });
     }
@@ -564,7 +894,11 @@ function sanitizeAiDiagnostics(raw: AiDiagnosticsRaw, canonicalCharacters: strin
             sceneIndex,
             issue,
             confidence: normalizeConfidence(candidate.confidence, 0.5),
-            reason: (candidate.reason || "A verifier.").trim(),
+            reason: issue === "ambiguous_label"
+                ? "Un libellé de locuteur semble ambigu dans cette scène."
+                : issue === "uncertain_boundary"
+                    ? "La limite de cette scène semble incertaine."
+                    : "Un point de contrôle a été détecté sur cette scène.",
             requiresDecision: true,
         });
     }
@@ -643,6 +977,7 @@ FORMAT JSON OBLIGATOIRE
 
 IMPORTANT
 - sceneIndex doit utiliser la valeur "scene_index" fournie dans les scenes du payload.
+- Tous les champs "reason" doivent etre ecrits en francais.
 
 Ne renvoie que du JSON valide.`;
 }
@@ -816,11 +1151,10 @@ export async function runImportDiagnosticsAction(
             return { error: "Veuillez vous connecter pour lancer le scan IA." };
         }
 
-        const canonicalCharacters = buildCanonicalCharacters(
-            canonicalCharactersInput && canonicalCharactersInput.length > 0
-                ? canonicalCharactersInput
-                : (script.characters || [])
-        );
+        const {
+            canonicalCharacters,
+            deterministicAliasSuggestions,
+        } = resolveCanonicalCharactersAndAliasSuggestions(script, canonicalCharactersInput);
 
         if (canonicalCharacters.length === 0) {
             return buildEmptyDiagnostics(canonicalCharacters);
@@ -828,7 +1162,15 @@ export async function runImportDiagnosticsAction(
 
         if (!process.env.OPENAI_API_KEY) {
             console.warn("[AI Diagnostics] OPENAI_API_KEY absent, fallback diagnostics vide.");
-            const fallback = buildEmptyDiagnostics(canonicalCharacters);
+            const fallback = {
+                ...buildEmptyDiagnostics(canonicalCharacters),
+                aliasSuggestions: deterministicAliasSuggestions,
+                blockingDecisions: buildBlockingDecisions(
+                    deterministicAliasSuggestions,
+                    [],
+                    []
+                ),
+            };
             return mergeDiagnosticsWithDeterministicCollectives(fallback, script);
         }
 
@@ -864,8 +1206,22 @@ export async function runImportDiagnosticsAction(
 
                 const output = extractResponsesOutputText(response);
                 const raw = parseAiDiagnosticsJson(output);
+                const sanitized = sanitizeAiDiagnostics(raw, canonicalCharacters);
+                const mergedAliasSuggestions = mergeAliasSuggestions(
+                    sanitized.aliasSuggestions,
+                    deterministicAliasSuggestions
+                );
+
                 const diagnostics = mergeDiagnosticsWithDeterministicCollectives(
-                    sanitizeAiDiagnostics(raw, canonicalCharacters),
+                    {
+                        ...sanitized,
+                        aliasSuggestions: mergedAliasSuggestions,
+                        blockingDecisions: buildBlockingDecisions(
+                            mergedAliasSuggestions,
+                            sanitized.collectiveSuggestions,
+                            sanitized.sceneDiagnostics
+                        ),
+                    },
                     script
                 );
                 console.log(
@@ -1049,6 +1405,7 @@ export async function saveScriptWithImportValidation(
 
         const finalScript: ParsedScript = {
             ...script,
+            characters: validated.sanitized.canonical_characters,
             schema_version: 2,
             mappings: validated.sanitized,
         };
@@ -1180,15 +1537,18 @@ export async function getScripts() {
         return [];
     }
 
-    return data.map((row) => ({
-        id: row.id,
-        title: row.title,
-        created_at: row.created_at,
-        characterCount: row.content?.characters?.length || 0,
-        lineCount: row.content?.lines?.length || 0,
-        is_public: row.is_public || false,
-        is_owner: true, // Always true since we only fetch user's scripts
-    }));
+    return data.map((row) => {
+        const content = row.content as ParsedScript | undefined;
+        return {
+            id: row.id,
+            title: row.title,
+            created_at: row.created_at,
+            characterCount: resolveCanonicalCharactersFromScript(content).length,
+            lineCount: content?.lines?.length || 0,
+            is_public: row.is_public || false,
+            is_owner: true, // Always true since we only fetch user's scripts
+        };
+    });
 }
 
 export async function togglePublicStatus(scriptId: string, currentStatus: boolean) {
@@ -1231,10 +1591,14 @@ export async function getScriptById(id: string) {
         throw new Error("Unauthorized access to this script.");
     }
 
+    const content = data.content as ParsedScript;
+    const canonicalCharacters = resolveCanonicalCharactersFromScript(content);
+
     return {
         id: data.id,
         title: data.title,
-        ...data.content,
+        ...content,
+        characters: canonicalCharacters,
         created_at: data.created_at,
         is_public: data.is_public
     };
@@ -1518,7 +1882,7 @@ export async function detectCharactersAction(formData: FormData): Promise<{ titl
             cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
         }
 
-        // Use autoGroupCharacters: false to detect "VOIX DE X" as separate chars
+        // Keep descriptive speaker labels separated at detection stage
         return detectCharactersHeuristic(cleanRawText, { autoGroupCharacters: false });
     } catch (error: any) {
 
