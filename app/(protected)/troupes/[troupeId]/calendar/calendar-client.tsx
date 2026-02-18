@@ -13,6 +13,7 @@ interface CalendarWrapperProps {
     userId: string;
     members: any[];
     isAdmin: boolean;
+    canViewSessionPages: boolean;
     troupeId: string;
 }
 
@@ -23,6 +24,7 @@ export function CalendarClient({
     userId,
     members,
     isAdmin,
+    canViewSessionPages,
     troupeId
 }: CalendarWrapperProps) {
     const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -59,6 +61,7 @@ export function CalendarClient({
                 userId={userId}
                 members={members}
                 isAdmin={isAdmin}
+                canViewSessionPages={canViewSessionPages}
                 onDayClick={isAdmin ? handleOpenAddEvent : undefined}
             />
 

@@ -15,10 +15,19 @@ interface EventDetailsModalProps {
     isOpen: boolean;
     onClose: () => void;
     isAdmin: boolean;
+    canViewSessionPages: boolean;
     currentUserId: string;
 }
 
-export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin, currentUserId }: EventDetailsModalProps) {
+export function EventDetailsModal({
+    event,
+    members,
+    isOpen,
+    onClose,
+    isAdmin,
+    canViewSessionPages,
+    currentUserId
+}: EventDetailsModalProps) {
     // Merge members with their attendance status
     const [attendances, setAttendances] = useState<Record<string, string>>({});
     const [updating, setUpdating] = useState<string | null>(null);
@@ -65,11 +74,13 @@ export function EventDetailsModal({ event, members, isOpen, onClose, isAdmin, cu
                             {event.title}
                             {event.type === 'rehearsal' && <Badge variant="outline">Répétition</Badge>}
                         </div>
-                        <Link href={`/troupes/${event.troupe_id}/sessions/${event.id}`}>
-                            <Badge className="cursor-pointer hover:bg-primary/90 flex items-center gap-1">
-                                Voir la séance <ExternalLink className="w-3 h-3" />
-                            </Badge>
-                        </Link>
+                        {canViewSessionPages && (
+                            <Link href={`/troupes/${event.troupe_id}/sessions/${event.id}`}>
+                                <Badge className="cursor-pointer hover:bg-primary/90 flex items-center gap-1">
+                                    Voir la séance <ExternalLink className="w-3 h-3" />
+                                </Badge>
+                            </Link>
+                        )}
                     </DialogTitle>
                     <DialogDescription>
                         {new Date(event.start_time).toLocaleDateString()} • {new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

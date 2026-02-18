@@ -1,9 +1,10 @@
 import { getTroupeSessions } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
-import { canManageTroupe, canDirectTroupe } from "@/lib/utils/roles";
+import { canManageSessions, canViewSessions } from "@/lib/utils/roles";
 import { SessionListClient } from "../session-list-client";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export default async function MobileSessionListPage({
     params
@@ -12,8 +13,12 @@ export default async function MobileSessionListPage({
 }) {
     const { troupeId } = await params;
     const troupe = await getTroupeDetails(troupeId);
+    if (!troupe || !canViewSessions(troupe.my_roles)) {
+        redirect(`/troupes/${troupeId}`);
+    }
+
     const sessions = await getTroupeSessions(troupeId);
-    const isAdmin = canManageTroupe(troupe?.my_roles) || canDirectTroupe(troupe?.my_roles);
+    const isAdmin = canManageSessions(troupe.my_roles);
 
     return (
         <div className="space-y-6 pb-20">

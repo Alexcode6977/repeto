@@ -1,9 +1,10 @@
 import { getTroupeSessions } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
-import { canManageContent } from "@/lib/utils/roles";
+import { canManageSessions, canViewSessions } from "@/lib/utils/roles";
 import { Button } from "@/components/ui/button";
 import { ClipboardList, MessageSquare } from "lucide-react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SessionListClient } from "./session-list-client";
 import { SessionsMobileChoices } from "./sessions-mobile-choices";
 
@@ -14,10 +15,14 @@ export default async function SessionsPage({
 }) {
     const { troupeId } = await params;
     const troupe = await getTroupeDetails(troupeId);
+    if (!troupe || !canViewSessions(troupe.my_roles)) {
+        redirect(`/troupes/${troupeId}`);
+    }
+
     const sessions = await getTroupeSessions(troupeId);
 
-    // Admin, Adjoint, or Metteur en scène can manage sessions
-    const canManage = canManageContent(troupe?.my_roles);
+    // Session workflow is managed by metteur en scène.
+    const canManage = canManageSessions(troupe.my_roles);
     const isAdmin = canManage;
 
     return (

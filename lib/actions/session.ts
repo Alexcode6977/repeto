@@ -1,9 +1,61 @@
 'use server';
 
-import { canManageTroupe, canDirectTroupe } from '@/lib/utils/roles';
+import { canManageSessions } from '@/lib/utils/roles';
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+
+type SessionActionClient = Awaited<ReturnType<typeof createClient>>;
+
+async function resolveSessionManagerScopeByEventId(supabase: SessionActionClient, eventId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data: event } = await supabase
+        .from('events')
+        .select('troupe_id')
+        .eq('id', eventId)
+        .single();
+
+    if (!event?.troupe_id) return null;
+
+    const { data: membership } = await supabase
+        .from('troupe_members')
+        .select('roles')
+        .eq('troupe_id', event.troupe_id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (!canManageSessions(membership?.roles)) return null;
+
+    return {
+        userId: user.id,
+        troupeId: event.troupe_id as string,
+        roles: membership?.roles || [],
+    };
+}
+
+async function requireSessionManagerByEventId(supabase: SessionActionClient, eventId: string) {
+    const scope = await resolveSessionManagerScopeByEventId(supabase, eventId);
+    if (!scope) {
+        throw new Error('Forbidden');
+    }
+    return scope;
+}
+
+async function requireSessionManagerByRawNoteId(supabase: SessionActionClient, noteId: string) {
+    const { data: note } = await supabase
+        .from('session_raw_notes')
+        .select('event_id')
+        .eq('id', noteId)
+        .single();
+
+    if (!note?.event_id) {
+        throw new Error('Note introuvable');
+    }
+
+    return requireSessionManagerByEventId(supabase, note.event_id);
+}
 
 /**
  * Fetch all rehearsal events for a troupe with their planning status.
@@ -45,8 +97,8 @@ export async function getTroupeSessions(troupeId: string) {
             .single();
 
         if (membership) {
-            // Admins, Adjoints, and Directors can see drafts
-            canViewDrafts = canManageTroupe(membership.roles) || canDirectTroupe(membership.roles);
+            // Session managers (metteur en scène) can see drafts and processing.
+            canViewDrafts = canManageSessions(membership.roles);
         }
     }
 
@@ -58,13 +110,12 @@ export async function getTroupeSessions(troupeId: string) {
 
     // Members see:
     // a) Sessions with NO plan (Generic events) - assumed visible
-    // b) Sessions with a plan that is 'upcoming', 'processing' (maybe restricted), 'validated'
+    // b) Sessions with a plan that is 'upcoming' or 'validated'
     return data.filter((event: any) => {
         const plan = Array.isArray(event.session_plans) ? event.session_plans[0] : event.session_plans;
 
         if (!plan) return true; // No plan = Visible (Generic event)
-        // Members typically see upcoming and validated. Processing might be visible as "pending"
-        return ['upcoming', 'processing', 'validated'].includes(plan.status);
+        return ['upcoming', 'validated'].includes(plan.status);
     });
 }
 
@@ -163,6 +214,7 @@ export async function saveSessionPlan(
     title?: string
 ) {
     const supabase = await createClient();
+    await requireSessionManagerByEventId(supabase, eventId);
 
     // Deduplicate scenes (Keep for backward compatibility / indexing)
     const uniqueScenesMap = new Map();
@@ -222,6 +274,7 @@ export async function saveSessionPlan(
  */
 export async function updateSessionStatus(eventId: string, status: 'preparation' | 'upcoming' | 'processing' | 'validated') {
     const supabase = await createClient();
+    await requireSessionManagerByEventId(supabase, eventId);
 
     const { error } = await supabase
         .from('session_plans')
@@ -252,6 +305,7 @@ export async function saveRawNote(
     context?: any
 ) {
     const supabase = await createClient();
+    await requireSessionManagerByEventId(supabase, eventId);
 
     const { error } = await supabase
         .from('session_raw_notes')
@@ -275,6 +329,8 @@ export async function saveRawNote(
  */
 export async function getRawNotes(eventId: string) {
     const supabase = await createClient();
+    const scope = await resolveSessionManagerScopeByEventId(supabase, eventId);
+    if (!scope) return [];
 
     const { data, error } = await supabase
         .from('session_raw_notes')
@@ -291,6 +347,7 @@ export async function getRawNotes(eventId: string) {
 
 export async function updateRawNote(noteId: string, text: string) {
     const supabase = await createClient();
+    await requireSessionManagerByRawNoteId(supabase, noteId);
     const { error } = await supabase
         .from('session_raw_notes')
         .update({ text })
@@ -304,6 +361,7 @@ export async function updateRawNote(noteId: string, text: string) {
 
 export async function deleteRawNote(noteId: string) {
     const supabase = await createClient();
+    await requireSessionManagerByRawNoteId(supabase, noteId);
     const { error } = await supabase
         .from('session_raw_notes')
         .delete()
@@ -328,6 +386,7 @@ export async function submitSessionFeedback(
     status: 'pending' | 'published' = 'published'
 ) {
     const supabase = await createClient();
+    await requireSessionManagerByEventId(supabase, eventId);
 
     const { error } = await supabase
         .from('rehearsal_feedbacks')
@@ -352,6 +411,7 @@ export async function submitSessionFeedback(
  */
 export async function publishSessionFeedbacks(eventId: string) {
     const supabase = await createClient();
+    await requireSessionManagerByEventId(supabase, eventId);
 
     const { error } = await supabase
         .from('rehearsal_feedbacks')

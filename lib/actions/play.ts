@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { ParsedScript } from '@/lib/types';
+import { canManageContent } from '@/lib/utils/roles';
 
 function normalizeCharacterLabel(value: string): string {
     return (value || '').toUpperCase().replace(/\s+/g, ' ').trim();
@@ -43,10 +44,10 @@ export async function createPlay(
         .single();
 
     const roles = member?.roles || [];
-    const canCreate = roles.includes('admin') || roles.includes('metteur_en_scene');
+    const canCreate = canManageContent(roles);
 
     if (!canCreate) {
-        throw new Error('Seul l\'administrateur ou le metteur en scène peut ajouter une pièce.');
+        throw new Error('Seul le metteur en scène peut ajouter une pièce.');
     }
 
     // 1. Create Play
@@ -229,7 +230,7 @@ export async function updateCasting(characterId: string, actorId: string | null,
     const troupeId = (character.plays as { troupe_id?: string } | null)?.troupe_id;
     if (!troupeId) throw new Error('Troupe not found');
 
-    // Verify user has permission (Admin or Metteur en scène)
+    // Verify user has permission (Metteur en scène)
     const { data: membership } = await supabase
         .from('troupe_members')
         .select('roles')
@@ -238,9 +239,9 @@ export async function updateCasting(characterId: string, actorId: string | null,
         .single();
 
     const roles = membership?.roles || [];
-    const canManage = roles.includes('admin') || roles.includes('metteur_en_scene');
+    const canManage = canManageContent(roles);
     if (!canManage) {
-        throw new Error('Seul l\'administrateur ou le metteur en scène peut modifier le casting.');
+        throw new Error('Seul le metteur en scène peut modifier le casting.');
     }
 
     // Update casting
@@ -300,7 +301,7 @@ export async function deletePlayAction(playId: string) {
 
     if (!play) throw new Error('Play not found');
 
-    // Verify user has permission (Admin or Metteur en scène)
+    // Verify user has permission (Metteur en scène)
     const { data: membership } = await supabase
         .from('troupe_members')
         .select('roles')
@@ -309,9 +310,9 @@ export async function deletePlayAction(playId: string) {
         .single();
 
     const roles = membership?.roles || [];
-    const canManage = roles.includes('admin') || roles.includes('metteur_en_scene');
+    const canManage = canManageContent(roles);
     if (!canManage) {
-        throw new Error('Seul l\'administrateur ou le metteur en scène peut supprimer une pièce.');
+        throw new Error('Seul le metteur en scène peut supprimer une pièce.');
     }
 
     // Delete play

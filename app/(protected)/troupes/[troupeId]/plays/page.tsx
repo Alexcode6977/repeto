@@ -6,7 +6,7 @@ import { Plus, BookOpen } from "lucide-react";
 import { DeletePlayButton } from "./delete-play-button";
 import { PlayPosterCard } from "./play-poster-card";
 import { PlaysCarousel } from "./plays-carousel";
-import { canManageContent, hasRole } from "@/lib/utils/roles";
+import { canManageContent, canManageTroupe } from "@/lib/utils/roles";
 
 export default async function TroupePlaysPage({
     params
@@ -21,7 +21,7 @@ export default async function TroupePlaysPage({
 
     // Check permissions using centralized utility
     const canManage = canManageContent(troupe.my_roles);
-    const isAdmin = hasRole(troupe.my_roles, 'admin');
+    const isAdmin = canManageTroupe(troupe.my_roles);
 
     return (
         <div className="space-y-12">

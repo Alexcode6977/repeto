@@ -9,6 +9,7 @@ import { EventDetailsModal } from "./event-details-modal";
 interface CalendarUpcomingListProps {
     events: any[];
     userId: string;
+    canViewSessionPages: boolean;
 }
 
 // Event type colors
@@ -19,7 +20,7 @@ const EVENT_TYPES: Record<string, { color: string; borderColor: string; label: s
     other: { color: "text-yellow-500", borderColor: "border-l-yellow-500", label: "Événement" }
 };
 
-export function CalendarUpcomingList({ events, userId }: CalendarUpcomingListProps) {
+export function CalendarUpcomingList({ events, userId, canViewSessionPages }: CalendarUpcomingListProps) {
     const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
     const now = new Date();
 
@@ -206,6 +207,7 @@ export function CalendarUpcomingList({ events, userId }: CalendarUpcomingListPro
                 onClose={() => setSelectedEvent(null)}
                 members={[]}
                 isAdmin={false}
+                canViewSessionPages={canViewSessionPages}
                 currentUserId={userId}
             />
         </>

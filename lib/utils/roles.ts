@@ -2,13 +2,35 @@
  * Valid troupe member roles
  */
 export type TroupeRole = 'admin' | 'adjoint' | 'metteur_en_scene' | 'member';
+const ROLE_ORDER: TroupeRole[] = ['admin', 'adjoint', 'metteur_en_scene', 'member'];
+
+/**
+ * Normalize a role set to avoid incoherent combinations.
+ * Rules:
+ * - Only known roles are kept.
+ * - 'admin' and 'adjoint' cannot be combined (keep 'admin').
+ */
+export function normalizeMemberRoles(userRoles: string[] | null | undefined): TroupeRole[] {
+    if (!userRoles || !Array.isArray(userRoles)) return [];
+
+    const unique = Array.from(new Set(
+        userRoles.filter((role): role is TroupeRole => ROLE_ORDER.includes(role as TroupeRole))
+    ));
+
+    // Admin and adjoint are mutually exclusive in the same role set.
+    if (unique.includes('admin') && unique.includes('adjoint')) {
+        const adjointIndex = unique.indexOf('adjoint');
+        unique.splice(adjointIndex, 1);
+    }
+
+    return unique.sort((a, b) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b));
+}
 
 /**
  * Check if a user has a specific role
  */
 export function hasRole(userRoles: string[] | null | undefined, targetRole: TroupeRole): boolean {
-    if (!userRoles || !Array.isArray(userRoles)) return false;
-    return userRoles.includes(targetRole);
+    return normalizeMemberRoles(userRoles).includes(targetRole);
 }
 
 /**
@@ -17,18 +39,18 @@ export function hasRole(userRoles: string[] | null | undefined, targetRole: Trou
  * Roles: Admin, Adjoint
  */
 export function canManageTroupe(userRoles: string[] | null | undefined): boolean {
-    if (!userRoles) return false;
-    return hasRole(userRoles, 'admin') || hasRole(userRoles, 'adjoint');
+    const roles = normalizeMemberRoles(userRoles);
+    return roles.includes('admin') || roles.includes('adjoint');
 }
 
 /**
  * Check if user can DIRECT the troupe
- * (Preparation Seance, Casting)
+ * (Session workflow, Casting)
  * Roles: Metteur en scène
  */
 export function canDirectTroupe(userRoles: string[] | null | undefined): boolean {
-    if (!userRoles) return false;
-    return hasRole(userRoles, 'metteur_en_scene');
+    const roles = normalizeMemberRoles(userRoles);
+    return roles.includes('metteur_en_scene');
 }
 
 /**
@@ -36,35 +58,51 @@ export function canDirectTroupe(userRoles: string[] | null | undefined): boolean
  * Roles: Admin, Adjoint, Metteur en scène
  */
 export function canManageCalendar(userRoles: string[] | null | undefined): boolean {
-    if (!userRoles) return false;
     return canManageTroupe(userRoles) || canDirectTroupe(userRoles);
+}
+
+/**
+ * Check if user can MANAGE SESSIONS
+ * (Preparation, Live controls, Processing, Feedback workflow)
+ * Roles: Metteur en scène
+ */
+export function canManageSessions(userRoles: string[] | null | undefined): boolean {
+    return canDirectTroupe(userRoles);
 }
 
 /**
  * Check if user can ACCESS SCRIPTS & LIVE SESSIONS
  * Roles: Member OR Metteur en scène
- * (Admins must add 'member' role to see this)
+ * (Admin/Adjoint need 'member' or 'metteur_en_scene' to access this scope)
  */
 export function canAccessArtisticContent(userRoles: string[] | null | undefined): boolean {
-    if (!userRoles) return false;
-    // Metteur en scène needs access to scripts to direct
-    return hasRole(userRoles, 'member') || hasRole(userRoles, 'metteur_en_scene');
+    const roles = normalizeMemberRoles(userRoles);
+    return roles.includes('member') || roles.includes('metteur_en_scene');
 }
 
 /**
  * Check if user can MANAGE CONTENT (plays, casting, annotations)
- * Roles: Admin OR Metteur en scène
+ * Roles: Metteur en scène
  */
 export function canManageContent(userRoles: string[] | null | undefined): boolean {
-    if (!userRoles) return false;
-    return hasRole(userRoles, 'admin') || hasRole(userRoles, 'metteur_en_scene');
+    return canDirectTroupe(userRoles);
+}
+
+/**
+ * Check if user can VIEW sessions pages
+ * - Session management access (metteur) OR
+ * - Artistic member access.
+ */
+export function canViewSessions(userRoles: string[] | null | undefined): boolean {
+    return canManageSessions(userRoles) || canAccessArtisticContent(userRoles);
 }
 
 /**
  * Get display names for roles
  */
 export function getRoleLabels(roles: string[]): string {
-    if (!roles || roles.length === 0) return 'Membre';
+    const normalizedRoles = normalizeMemberRoles(roles);
+    if (normalizedRoles.length === 0) return 'Membre';
 
     const roleNames: Record<string, string> = {
         'admin': 'Admin',
@@ -73,11 +111,5 @@ export function getRoleLabels(roles: string[]): string {
         'member': 'Membre'
     };
 
-    // Sort to have Admin first if present
-    const sortedRoles = [...roles].sort((a, b) => {
-        const order = ['admin', 'adjoint', 'metteur_en_scene', 'member'];
-        return order.indexOf(a) - order.indexOf(b);
-    });
-
-    return sortedRoles.map(r => roleNames[r] || r).join(', ');
+    return normalizedRoles.map(r => roleNames[r] || r).join(', ');
 }

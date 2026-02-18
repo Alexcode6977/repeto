@@ -1,10 +1,11 @@
 import { getSessionDetails, getRawNotes, getMyFeedbacks } from "@/lib/actions/session";
-import { getTroupeMembers, getTroupeGuests } from "@/lib/actions/troupe";
+import { getTroupeMembers, getTroupeGuests, getTroupeDetails } from "@/lib/actions/troupe";
 import { SessionPlannerClient } from "./planner-client";
 import { SessionReadOnlyClient } from "./session-readonly-client";
 import { SessionProcessingClient } from "./session-processing-client";
 import { SessionValidatedClient } from "./session-validated-client";
-import { createClient } from "@/lib/supabase/server";
+import { canManageSessions, canViewSessions } from "@/lib/utils/roles";
+import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -14,24 +15,26 @@ export default async function SessionDetailsPage({
     params: Promise<{ troupeId: string; eventId: string }>;
 }) {
     const { troupeId, eventId } = await params;
+    const troupe = await getTroupeDetails(troupeId);
+    if (!troupe || !canViewSessions(troupe.my_roles)) {
+        redirect(`/troupes/${troupeId}`);
+    }
 
     // Fetch basic data
     const sessionData = await getSessionDetails(eventId);
     if (!sessionData) return <div>Séance introuvable</div>;
 
+    const plan = Array.isArray(sessionData.session_plans) ? sessionData.session_plans[0] : sessionData.session_plans;
+    const status = plan?.status || 'preparation';
+    const canManage = canManageSessions(troupe.my_roles);
+
+    // Preparation and processing are restricted to session managers.
+    if ((status === 'preparation' || status === 'processing') && !canManage) {
+        redirect(`/troupes/${troupeId}/sessions`);
+    }
+
     const members = await getTroupeMembers(troupeId);
     const guests = await getTroupeGuests(troupeId);
-
-    // Fetch User
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const currentUserId = user?.id || "";
-
-    // Determine Role
-    const currentUserMember = members.find((m: any) => m.user_id === currentUserId);
-    const isDirector = currentUserMember?.roles?.includes('director') || currentUserMember?.roles?.includes('admin') || false;
-
-    const status = sessionData.session_plans?.status || 'preparation';
 
     // Conditional Data Fetching
     let rawNotes: any[] = [];
@@ -47,7 +50,7 @@ export default async function SessionDetailsPage({
     const renderContent = () => {
         switch (status) {
             case 'upcoming':
-                return <SessionReadOnlyClient sessionData={sessionData} troupeId={troupeId} isDirector={isDirector} members={members} guests={guests} />;
+                return <SessionReadOnlyClient sessionData={sessionData} troupeId={troupeId} isDirector={canManage} members={members} guests={guests} />;
             case 'processing':
                 return <SessionProcessingClient sessionData={sessionData} troupeId={troupeId} rawNotes={rawNotes || []} />;
             case 'validated':

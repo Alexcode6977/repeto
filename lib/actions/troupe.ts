@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { randomBytes } from 'crypto';
-import { canManageTroupe } from '@/lib/utils/roles';
+import { canManageTroupe, normalizeMemberRoles } from '@/lib/utils/roles';
 
 function generateJoinCode(): string {
     return randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
@@ -668,16 +668,14 @@ export async function updateMemberRoles(troupeId: string, userId: string, newRol
         throw new Error("Only admins can change roles");
     }
 
-    // Ensure roles array is valid
-    if (!newRoles || !Array.isArray(newRoles) || newRoles.length === 0) {
-        // Preventing removal of all roles effectively removes the member, which should be done via removeMember.
-        // However, let's just default to member if empty? Or throw error.
-        // Valid roles check could be here.
+    const normalizedRoles = normalizeMemberRoles(newRoles);
+    if (normalizedRoles.length === 0) {
+        throw new Error('Au moins un rôle est requis.');
     }
 
     const { error, data } = await supabase
         .from('troupe_members')
-        .update({ roles: newRoles })
+        .update({ roles: normalizedRoles })
         .eq('troupe_id', troupeId)
         .eq('user_id', userId)
         .select();
@@ -718,7 +716,7 @@ export async function getTroupeSettingsData(troupeId: string) {
         return null;
     }
 
-    // Check if current user is admin-like (admin, adjoint, metteur_en_scene)
+    // Check if current user can manage troupe settings (admin, adjoint)
     const myMembership = troupeData.members.find((m: any) => m.user_id === user.id);
     console.log("Membership found:", myMembership);
 

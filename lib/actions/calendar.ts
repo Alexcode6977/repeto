@@ -3,6 +3,25 @@
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { addWeeks } from "date-fns";
+import { canManageCalendar } from '@/lib/utils/roles';
+
+async function getMembershipRolesForTroupe(troupeId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
+    const { data: membership } = await supabase
+        .from('troupe_members')
+        .select('roles')
+        .eq('troupe_id', troupeId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    return membership?.roles || [];
+}
+
+async function requireCalendarManager(troupeId: string, userId: string, supabase: Awaited<ReturnType<typeof createClient>>) {
+    const roles = await getMembershipRolesForTroupe(troupeId, userId, supabase);
+    if (!canManageCalendar(roles)) {
+        throw new Error('Forbidden');
+    }
+}
 
 export async function getTroupeEvents(troupeId: string, startDate: Date, endDate: Date) {
     const supabase = await createClient();
@@ -40,7 +59,7 @@ export async function createEvent(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // Basic admin check (should be robust)
+    await requireCalendarManager(troupeId, user.id, supabase);
 
     const eventsToInsert = [];
 
@@ -89,11 +108,32 @@ export async function updateAttendance(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
+    const { data: event } = await supabase
+        .from('events')
+        .select('troupe_id')
+        .eq('id', eventId)
+        .maybeSingle();
+
+    if (!event?.troupe_id) {
+        throw new Error('Event introuvable');
+    }
+
+    const roles = await getMembershipRolesForTroupe(event.troupe_id, user.id, supabase);
+    const isCalendarManager = canManageCalendar(roles);
+
     if (status !== 'present' && status !== 'absent') {
         throw new Error('Invalid status. Must be present or absent.');
     }
 
-    const updateData: any = {
+    if (targetGuestId && !isCalendarManager) {
+        throw new Error('Forbidden');
+    }
+
+    if (targetUserId && targetUserId !== user.id && !isCalendarManager) {
+        throw new Error('Forbidden');
+    }
+
+    const updateData: Record<string, string> = {
         event_id: eventId,
         status: status
     };

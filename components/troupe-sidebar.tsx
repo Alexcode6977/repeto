@@ -7,13 +7,11 @@ import {
     LayoutDashboard,
     Calendar,
     BookOpen,
-    Users,
     ChevronLeft,
-    ClipboardList,
-    Settings
+    ClipboardList
 } from "lucide-react";
 
-import { canManageTroupe, canDirectTroupe, canAccessArtisticContent } from "@/lib/utils/roles";
+import { canManageTroupe, canAccessArtisticContent, canViewSessions } from "@/lib/utils/roles";
 
 interface TroupeSidebarProps {
     troupeId: string;
@@ -53,8 +51,8 @@ export function TroupeSidebar({ troupeId, roles }: TroupeSidebarProps) {
             href: `/troupes/${troupeId}/sessions`,
             icon: ClipboardList,
             active: pathname.startsWith(`/troupes/${troupeId}/sessions`),
-            // Visibility: Artistic content (Member or MES)
-            visible: canAccessArtisticContent(roles)
+            // Visibility: members and session managers
+            visible: canViewSessions(roles)
         }
     ];
 

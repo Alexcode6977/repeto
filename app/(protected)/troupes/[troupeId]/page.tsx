@@ -135,7 +135,6 @@ export default async function TroupeDashboard({
                                     key={member.user_id}
                                     member={member}
                                     troupeId={troupeId}
-                                    currentUserId={troupe.created_by}
                                 />
                             ))}
                             {guests.length > 0 && <Separator className="my-4" />}

@@ -7,14 +7,17 @@ import {
     LayoutDashboard,
     Calendar,
     BookOpen,
-    Timer,
-    Settings,
     Users,
     ClipboardList
 } from "lucide-react";
 import { useHaptic } from "@/lib/hooks/use-haptic";
 
-import { canManageTroupe, canDirectTroupe, canAccessArtisticContent } from "@/lib/utils/roles";
+import {
+    canManageTroupe,
+    canAccessArtisticContent,
+    canManageSessions,
+    canViewSessions
+} from "@/lib/utils/roles";
 
 interface TroupeMobileNavProps {
     troupeId: string;
@@ -46,16 +49,16 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
         });
     }
 
-    // 3. Séances (Unified for MES, or just Live for Members)
-    if (canDirectTroupe(roles)) {
+    // 3. Séances
+    if (canManageSessions(roles)) {
         navItems.push({
             label: "Séances",
             href: `/troupes/${troupeId}/sessions`,
             icon: ClipboardList,
             active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
         });
-    } else if (canAccessArtisticContent(roles)) {
-        // Members see only Live
+    } else if (canViewSessions(roles)) {
+        // Artistic members see only Live.
         navItems.push({
             label: "Séance Live",
             href: `/troupes/${troupeId}/sessions/live`,

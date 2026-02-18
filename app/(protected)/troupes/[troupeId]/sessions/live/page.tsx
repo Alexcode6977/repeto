@@ -1,12 +1,13 @@
 import { getTroupeSessions } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
-import { canManageTroupe, canDirectTroupe } from "@/lib/utils/roles";
+import { canManageSessions, canViewSessions } from "@/lib/utils/roles";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Play, Calendar, ChevronRight, Sparkles } from "lucide-react";
+import { Play, Calendar, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PersonalPrepButton } from "./personal-prep-button";
 
 export default async function LiveSessionsPage({
@@ -16,6 +17,10 @@ export default async function LiveSessionsPage({
 }) {
     const { troupeId } = await params;
     const troupe = await getTroupeDetails(troupeId);
+    if (!troupe || !canViewSessions(troupe.my_roles)) {
+        redirect(`/troupes/${troupeId}`);
+    }
+
     const allSessions = await getTroupeSessions(troupeId);
 
     // Only show prepared sessions (with a plan)
@@ -102,13 +107,13 @@ export default async function LiveSessionsPage({
 
                                         <Button asChild size="lg" className={cn(
                                             "rounded-xl font-black text-xs uppercase tracking-widest px-4 md:px-6 h-10 md:h-12 shadow-lg transition-all active:scale-95 whitespace-nowrap",
-                                            (canManageTroupe(troupe?.my_roles) || canDirectTroupe(troupe?.my_roles))
+                                            canManageSessions(troupe.my_roles)
                                                 ? "bg-green-500 hover:bg-green-600 text-foreground shadow-green-500/20"
                                                 : "bg-secondary hover:bg-secondary/80 text-secondary-foreground shadow-secondary/20"
                                         )}>
                                             <Link href={`/troupes/${troupeId}/sessions/${session.id}/live`}>
                                                 <Play className="w-4 h-4 mr-2 fill-current" />
-                                                {(canManageTroupe(troupe?.my_roles) || canDirectTroupe(troupe?.my_roles)) ? "Lancer" : "Voir"}
+                                                {canManageSessions(troupe.my_roles) ? "Lancer" : "Voir"}
                                             </Link>
                                         </Button>
                                     </div>

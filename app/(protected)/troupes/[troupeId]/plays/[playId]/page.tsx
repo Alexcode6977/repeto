@@ -1,6 +1,6 @@
 import { getPlayDetails } from "@/lib/actions/play";
 import { getTroupeGuests, getTroupeDetails } from "@/lib/actions/troupe";
-import { canManageContent, hasRole } from "@/lib/utils/roles";
+import { canManageTroupe, hasRole } from "@/lib/utils/roles";
 import { createClient } from "@/lib/supabase/server";
 import { PlayDashboardClient } from "./play-dashboard-client";
 import { getVoiceConfig } from "@/lib/actions/voice-cache";
@@ -21,7 +21,7 @@ export default async function PlayDashboardPage({
     // Check explicit roles
     const isDirector = hasRole(troupeDetails?.my_roles, 'metteur_en_scene');
     const isMember = hasRole(troupeDetails?.my_roles, 'member');
-    const isAdmin = hasRole(troupeDetails?.my_roles, 'admin'); // Still passed for edge cases, but not used for display logic
+    const isAdmin = canManageTroupe(troupeDetails?.my_roles); // Admin + Adjoint share governance privileges
 
     // Get troupe members for casting dropdown
     const supabase = await createClient();

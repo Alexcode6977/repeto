@@ -3,7 +3,7 @@ import { getTroupeDetails, getTroupeMembers, getTroupeGuests } from "@/lib/actio
 import { createClient } from "@/lib/supabase/server";
 import { CalendarUpcomingList } from "./calendar-upcoming-list";
 import { CalendarClient } from "./calendar-client";
-import { canManageCalendar } from "@/lib/utils/roles";
+import { canManageCalendar, canViewSessions } from "@/lib/utils/roles";
 
 export default async function CalendarPage({
     params,
@@ -47,6 +47,7 @@ export default async function CalendarPage({
     ];
 
     const canManage = canManageCalendar(troupe.my_roles);
+    const canViewSessionPages = canViewSessions(troupe.my_roles);
 
     // Group events by date
     const eventsByDate: Record<number, any[]> = {};
@@ -65,6 +66,7 @@ export default async function CalendarPage({
                 userId={user?.id || ''}
                 members={allMembers}
                 isAdmin={canManage}
+                canViewSessionPages={canViewSessionPages}
                 troupeId={troupeId}
             />
 
@@ -72,6 +74,7 @@ export default async function CalendarPage({
             <CalendarUpcomingList
                 events={events}
                 userId={user?.id || ''}
+                canViewSessionPages={canViewSessionPages}
             />
         </div>
     );

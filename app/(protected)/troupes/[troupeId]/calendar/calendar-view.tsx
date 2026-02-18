@@ -30,6 +30,7 @@ interface CalendarViewProps {
     userId: string;
     members: unknown[];
     isAdmin: boolean;
+    canViewSessionPages: boolean;
     onDayClick?: (date: Date) => void;
 }
 
@@ -41,7 +42,16 @@ const EVENT_COLORS: Record<string, string> = {
     other: "bg-yellow-500"
 };
 
-export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, members, isAdmin, onDayClick }: CalendarViewProps) {
+export function CalendarView({
+    currentMonth,
+    currentYear,
+    eventsByDate,
+    userId,
+    members,
+    isAdmin,
+    canViewSessionPages,
+    onDayClick
+}: CalendarViewProps) {
     const router = useRouter();
     const pathname = usePathname();
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -314,6 +324,7 @@ export function CalendarView({ currentMonth, currentYear, eventsByDate, userId, 
                 onClose={() => setSelectedEvent(null)}
                 members={members}
                 isAdmin={isAdmin}
+                canViewSessionPages={canViewSessionPages}
                 currentUserId={userId}
             />
 

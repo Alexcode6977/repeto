@@ -33,7 +33,7 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
         if (dir === 'next') {
             if (currentSceneIdx < scenes.length - 1) {
                 setCurrentSceneIdx(c => c + 1);
-            } else {
+            } else if (!isReadOnly) {
                 // Last scene -> Open Finish Dialog
                 setShowFinishDialog(true);
             }
@@ -123,7 +123,13 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
                     </div>
 
                     <div className="flex-1 overflow-hidden relative">
-                        <LiveNotesList eventId={sessionData.id} />
+                        {isReadOnly ? (
+                            <div className="h-full flex items-center justify-center p-6 text-center text-sm text-muted-foreground">
+                                Notes de direction non visibles en mode lecture seule.
+                            </div>
+                        ) : (
+                            <LiveNotesList eventId={sessionData.id} />
+                        )}
                     </div>
                 </div>
 
@@ -151,6 +157,7 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
                 <Button
                     size={currentSceneIdx === scenes.length - 1 ? "lg" : "icon"}
                     onClick={() => handleSceneChange('next')}
+                    disabled={isReadOnly && currentSceneIdx === scenes.length - 1}
                     className={cn(
                         "rounded-full transition-all shadow-lg",
                         currentSceneIdx === scenes.length - 1

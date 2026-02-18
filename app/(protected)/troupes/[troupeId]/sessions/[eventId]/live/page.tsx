@@ -1,8 +1,9 @@
 import { getSessionDetails } from "@/lib/actions/session";
 import { getTroupeDetails } from "@/lib/actions/troupe";
-import { canManageTroupe, canDirectTroupe } from "@/lib/utils/roles";
+import { canManageSessions, canViewSessions } from "@/lib/utils/roles";
 import { LiveSessionClient } from "./live-client";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export default async function LiveSessionPage({
     params
@@ -12,9 +13,12 @@ export default async function LiveSessionPage({
     const { troupeId, eventId } = await params;
     const sessionData = await getSessionDetails(eventId);
     const troupe = await getTroupeDetails(troupeId);
+    if (!troupe || !canViewSessions(troupe.my_roles)) {
+        redirect(`/troupes/${troupeId}`);
+    }
 
     // Non-admins/directors are in read-only mode, but allowed to join
-    const canControl = canManageTroupe(troupe?.my_roles) || canDirectTroupe(troupe?.my_roles);
+    const canControl = canManageSessions(troupe.my_roles);
     const isReadOnly = !canControl;
 
     if (!sessionData) return <div>Séance introuvable</div>;

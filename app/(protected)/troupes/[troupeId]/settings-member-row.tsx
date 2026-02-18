@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, MoreVertical, Loader2, Trash2, Check } from "lucide-react";
 import { removeTroupeMember, updateMemberRoles } from "@/lib/actions/troupe";
+import { normalizeMemberRoles } from "@/lib/utils/roles";
 import {
     Popover,
     PopoverContent,
@@ -26,16 +27,25 @@ import {
 import { cn } from "@/lib/utils";
 
 interface SettingsMemberRowProps {
-    member: any;
+    member: {
+        user_id: string;
+        first_name?: string | null;
+        last_name?: string | null;
+        email?: string | null;
+        avatar_url?: string | null;
+        roles?: string[] | null;
+        role?: string | null;
+    };
     troupeId: string;
-    currentUserId: string;
 }
 
-export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsMemberRowProps) {
+export function SettingsMemberRow({ member, troupeId }: SettingsMemberRowProps) {
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
 
-    const currentRoles = Array.isArray(member.roles) ? member.roles : (member.role ? [member.role] : []);
+    const currentRoles = normalizeMemberRoles(
+        Array.isArray(member.roles) ? member.roles : (member.role ? [member.role] : [])
+    );
 
     const handleRoleToggle = async (roleToToggle: string) => {
         setIsLoading(true);
@@ -47,11 +57,12 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                 newRoles.push(roleToToggle);
             }
 
-            // Ensure at least one role? Or allow empty (which effectively is nothing)?
-            // Better to enforce at least 'member' usually, but strict separation implies maybe 'admin' only is valid.
-            // Let's allow any combination.
+            const normalizedNextRoles = normalizeMemberRoles(newRoles);
+            if (normalizedNextRoles.length === 0) {
+                return;
+            }
 
-            await updateMemberRoles(troupeId, member.user_id, newRoles);
+            await updateMemberRoles(troupeId, member.user_id, normalizedNextRoles);
             router.refresh();
         } catch (error) {
             console.error('Error changing roles:', error);
@@ -125,7 +136,7 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                             <AlertDialogDescription>
                                 Êtes-vous sûr de vouloir retirer définitivement <strong>{member.first_name}</strong> de la troupe ?
                                 <br />
-                                Il perdra l'accès à tous les scripts et séances.
+                                Il perdra l&apos;accès à tous les scripts et séances.
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -146,7 +157,7 @@ export function SettingsMemberRow({ member, troupeId, currentUserId }: SettingsM
                     <PopoverContent align="end" className="w-56 p-2">
                         <div className="space-y-1">
                             <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground mb-1">
-                                Rôles (Cumulables)
+                                Rôles (combinaisons validées)
                             </p>
                             {availableRoles.map((role) => {
                                 const isSelected = currentRoles.includes(role.id);

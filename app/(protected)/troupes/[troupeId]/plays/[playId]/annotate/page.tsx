@@ -14,7 +14,7 @@ export default async function AnnotatePage({
 
     if (!play) return <div>Pièce introuvable</div>;
 
-    // Verify permissions (Director/Admin only)
+    // Verify permissions (Metteur en scène only)
     const troupeDetails = await getTroupeDetails(troupeId);
     const canManage = canManageContent(troupeDetails?.my_roles);
 
