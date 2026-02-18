@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Shield, MoreVertical, Loader2, Trash2, Check } from "lucide-react";
 import { removeTroupeMember, updateMemberRoles } from "@/lib/actions/troupe";
 import { normalizeMemberRoles } from "@/lib/utils/roles";
+import type { TroupeRole } from "@/lib/utils/roles";
 import {
     Popover,
     PopoverContent,
@@ -47,7 +48,7 @@ export function SettingsMemberRow({ member, troupeId }: SettingsMemberRowProps) 
         Array.isArray(member.roles) ? member.roles : (member.role ? [member.role] : [])
     );
 
-    const handleRoleToggle = async (roleToToggle: string) => {
+    const handleRoleToggle = async (roleToToggle: TroupeRole) => {
         setIsLoading(true);
         try {
             let newRoles = [...currentRoles];
@@ -84,7 +85,7 @@ export function SettingsMemberRow({ member, troupeId }: SettingsMemberRowProps) 
         }
     };
 
-    const availableRoles = [
+    const availableRoles: { id: TroupeRole; label: string; color: string }[] = [
         { id: 'admin', label: 'Admin', color: 'text-yellow-600 bg-yellow-500/10 border-yellow-500/20' },
         { id: 'adjoint', label: 'Adjoint', color: 'text-blue-600 bg-blue-500/10 border-blue-500/20' },
         { id: 'metteur_en_scene', label: 'Metteur en scène', color: 'text-purple-600 bg-purple-500/10 border-purple-500/20' },
@@ -95,7 +96,7 @@ export function SettingsMemberRow({ member, troupeId }: SettingsMemberRowProps) 
         <div className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-transparent hover:border-border transition-all group">
             <div className="flex items-center gap-4">
                 <Avatar className="h-10 w-10 border border-primary/20">
-                    <AvatarImage src={member.avatar_url} />
+                    <AvatarImage src={member.avatar_url || undefined} />
                     <AvatarFallback className="bg-primary/10 text-primary font-bold">
                         {(member.first_name?.[0] || member.email?.[0] || "?").toUpperCase()}
                     </AvatarFallback>
@@ -104,7 +105,7 @@ export function SettingsMemberRow({ member, troupeId }: SettingsMemberRowProps) 
                     <div className="font-bold text-foreground flex items-center gap-2 flex-wrap">
                         {member.first_name} {member.last_name}
 
-                        {currentRoles.map((role: string) => {
+                        {currentRoles.map((role) => {
                             const roleConfig = availableRoles.find(r => r.id === role);
                             if (!roleConfig) return null;
                             return (
