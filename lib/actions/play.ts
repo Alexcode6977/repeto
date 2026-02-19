@@ -6,7 +6,17 @@ import { ParsedScript } from '@/lib/types';
 import { canManageContent } from '@/lib/utils/roles';
 
 function normalizeCharacterLabel(value: string): string {
-    return (value || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    return (value || '')
+        .replace(/[’ʼ]/g, "'")
+        .toUpperCase()
+        .replace(/[.,:;]+$/g, "")
+        .replace(/^VOIX\s+DE\s+LA\s+/i, "")
+        .replace(/^VOIX\s+DU\s+/i, "")
+        .replace(/^VOIX\s+DES\s+/i, "")
+        .replace(/^VOIX\s+DE\s+/i, "")
+        .replace(/^VOIX\s+(?:[A-ZÀ-ÖØ-Þ]+\s+)*D['’ʼ]\s*/i, "")
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function resolveCanonicalCharacters(script: ParsedScript): string[] {

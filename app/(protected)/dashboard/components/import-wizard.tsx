@@ -13,9 +13,11 @@ import {
     detectCharactersAction,
     finalizeParsingAction,
     importScriptWithAI,
+    prepareThirdImportAction,
     runImportDiagnosticsAction,
     saveScriptWithImportValidation,
     type ImportDiagnosticsResult,
+    type ThirdImportPreparation,
     type ImportValidationSubmission,
 } from "../actions";
 import type { ParsedScript, ScriptMappings } from "@/lib/types";
@@ -39,6 +41,7 @@ interface ImportWizardProps {
 
 type ValidationDecision = "accept" | "reject";
 type ValidationStep = 1 | 2 | 3;
+type ThirdImportStep = 1 | 2 | 3 | 4;
 type ClassicImportStage = "read" | "detect" | "parse_pass_1" | "parse_pass_2" | "parse_pass_3" | "diagnostics";
 
 interface CollectiveResolutionState {
@@ -46,6 +49,22 @@ interface CollectiveResolutionState {
     scope: "global" | "scene";
     sceneIndex?: number;
     members: string[];
+}
+
+interface ThirdCollectiveCandidate {
+    id: string;
+    label: string;
+    scope: "global" | "scene";
+    sceneOrder?: number;
+    sceneOrders: number[];
+    count: number;
+}
+
+interface ThirdSceneWindow {
+    order: number;
+    title: string;
+    start: number;
+    end: number;
 }
 
 const CLASSIC_IMPORT_STAGE_ORDER: ClassicImportStage[] = [
@@ -65,6 +84,132 @@ const CLASSIC_IMPORT_STAGE_LABELS: Record<ClassicImportStage, string> = {
     parse_pass_3: "Parsing passe 3",
     diagnostics: "Vérification finale",
 };
+
+const THIRD_MULTI_TARGET = "__MULTI_PERSONNAGE__";
+
+function normalizeImportLabel(value: string): string {
+    return (value || "")
+        .replace(/[’ʼ]/g, "'")
+        .toUpperCase()
+        .replace(/[.,:;]+$/g, "")
+        .replace(/^VOIX\s+DE\s+LA\s+/i, "")
+        .replace(/^VOIX\s+DU\s+/i, "")
+        .replace(/^VOIX\s+DES\s+/i, "")
+        .replace(/^VOIX\s+DE\s+/i, "")
+        .replace(/^VOIX\s+(?:[A-ZÀ-ÖØ-Þ]+\s+)*D['’ʼ]\s*/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function foldForComparison(value: string): string {
+    return normalizeImportLabel(value)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Z0-9]/g, "");
+}
+
+function isCollectiveLabel(label: string): boolean {
+    const normalized = normalizeImportLabel(label);
+    if (!normalized) return false;
+    if (/^(LES MEMES|LES MÊMES|TOUS|TOUTES|ENSEMBLE)$/.test(normalized)) return true;
+    if (/^(TOUS|TOUTES)\s+LES\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized)) return true;
+    if (/^(TOUS|TOUTES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized)) return true;
+    if (/\bET\b|,|\/|&/.test(normalized)) return true;
+    return false;
+}
+
+function isSceneScopedCollectiveLabel(label: string): boolean {
+    const normalized = normalizeImportLabel(label);
+    return /^(LES MEMES|LES MÊMES|TOUS|TOUTES|ENSEMBLE)$/.test(normalized)
+        || /^(TOUS|TOUTES)\s+LES\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized)
+        || /^(TOUS|TOUTES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized);
+}
+
+function splitCollectiveTokens(label: string): string[] {
+    return normalizeImportLabel(label)
+        .split(/\bET\b|,|\/|&/g)
+        .map((value) => normalizeImportLabel(value))
+        .filter(Boolean);
+}
+
+function isExplicitNamedCollectiveLabel(label: string, canonicalCharacters: string[]): boolean {
+    const tokens = splitCollectiveTokens(label);
+    if (tokens.length < 2) return false;
+    const canonicalSet = new Set(canonicalCharacters.map((value) => normalizeImportLabel(value)));
+    return tokens.every((token) => canonicalSet.has(token));
+}
+
+function levenshteinDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+
+    const matrix: number[][] = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+    for (let i = 0; i <= a.length; i += 1) matrix[i][0] = i;
+    for (let j = 0; j <= b.length; j += 1) matrix[0][j] = j;
+
+    for (let i = 1; i <= a.length; i += 1) {
+        for (let j = 1; j <= b.length; j += 1) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            );
+        }
+    }
+
+    return matrix[a.length][b.length];
+}
+
+function findBestAliasTarget(
+    source: string,
+    candidates: string[],
+    counts: Map<string, number>
+): string | null {
+    const foldedSource = foldForComparison(source);
+    if (!foldedSource) return null;
+
+    let best: { candidate: string; score: number } | null = null;
+    for (const candidate of candidates) {
+        if (candidate === source) continue;
+
+        const foldedCandidate = foldForComparison(candidate);
+        if (!foldedCandidate) continue;
+
+        const distance = levenshteinDistance(foldedSource, foldedCandidate);
+        const maxLen = Math.max(foldedSource.length, foldedCandidate.length);
+        const ratio = maxLen > 0 ? distance / maxLen : 1;
+
+        if (distance > 2 || ratio > 0.34) continue;
+
+        const frequencyBonus = Math.min(10, counts.get(candidate) || 0) / 20;
+        const score = (1 - ratio) + frequencyBonus;
+        if (!best || score > best.score) {
+            best = { candidate, score };
+        }
+    }
+
+    return best?.candidate || null;
+}
+
+function formatSceneLineForReview(line: ParsedScript["lines"][number]): string {
+    if (line.type === "dialogue") {
+        return `[${normalizeImportLabel(line.character)}] ${line.text}`.trim();
+    }
+    return line.text;
+}
+
+function getSceneOrderForLine(sceneStarts: number[], lineIndex: number): number {
+    for (let i = sceneStarts.length - 1; i >= 0; i -= 1) {
+        if (lineIndex >= sceneStarts[i]) return i;
+    }
+    return 0;
+}
+
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
 
 export function ImportWizard({
     showImportGuide,
@@ -99,6 +244,25 @@ export function ImportWizard({
     const [aiImportElapsedSec, setAiImportElapsedSec] = useState(0);
     const [aiImportFileName, setAiImportFileName] = useState("");
     const [aiImportFileSizeMb, setAiImportFileSizeMb] = useState(0);
+    const [isThirdImporting, setIsThirdImporting] = useState(false);
+    const [thirdImportReviewOpen, setThirdImportReviewOpen] = useState(false);
+    const [thirdImportPreview, setThirdImportPreview] = useState<ThirdImportPreparation | null>(null);
+    const [thirdImportPdfUrl, setThirdImportPdfUrl] = useState<string | null>(null);
+    const [thirdImportStep, setThirdImportStep] = useState<ThirdImportStep>(1);
+    const [thirdCharacterLabels, setThirdCharacterLabels] = useState<string[]>([]);
+    const [thirdCharacterCountByLabel, setThirdCharacterCountByLabel] = useState<Record<string, number>>({});
+    const [thirdCharacterTargetByLabel, setThirdCharacterTargetByLabel] = useState<Record<string, string>>({});
+    const [thirdLabelSceneOrdersByLabel, setThirdLabelSceneOrdersByLabel] = useState<Record<string, number[]>>({});
+    const [thirdCollectiveCandidates, setThirdCollectiveCandidates] = useState<ThirdCollectiveCandidate[]>([]);
+    const [thirdCollectiveMembersById, setThirdCollectiveMembersById] = useState<Record<string, string[]>>({});
+    const [thirdCollectiveScopeById, setThirdCollectiveScopeById] = useState<Record<string, "global" | "scene">>({});
+    const [thirdCollectiveSceneOrderById, setThirdCollectiveSceneOrderById] = useState<Record<string, number>>({});
+    const [thirdContextCandidateId, setThirdContextCandidateId] = useState<string | null>(null);
+    const [thirdSceneTitles, setThirdSceneTitles] = useState<string[]>([]);
+    const [thirdSceneStarts, setThirdSceneStarts] = useState<number[]>([]);
+    const [thirdSceneCursor, setThirdSceneCursor] = useState(0);
+    const [thirdSceneReviewedByOrder, setThirdSceneReviewedByOrder] = useState<Record<number, boolean>>({});
+    const [isThirdSaving, setIsThirdSaving] = useState(false);
 
     // Choice screen state
     const [importChoice, setImportChoice] = useState<"choice" | "catalog">("choice");
@@ -179,8 +343,11 @@ export function ImportWizard({
             stopClassicImportTimer();
             aiImportIntervalsRef.current.forEach((id) => clearInterval(id));
             aiImportIntervalsRef.current = [];
+            if (thirdImportPdfUrl) {
+                URL.revokeObjectURL(thirdImportPdfUrl);
+            }
         };
-    }, []);
+    }, [thirdImportPdfUrl]);
 
     useEffect(() => {
         classicCurrentStageRef.current = classicCurrentStage;
@@ -436,6 +603,375 @@ export function ImportWizard({
 
         return previews;
     }, [diagnosticsResult, pendingScriptForSave, frozenCanonicalCharacters]);
+
+    // --- THIRD IMPORT (NO AI) ---
+
+    const thirdCharacterOptions = useMemo(() => {
+        const set = new Set<string>();
+        thirdCharacterLabels.forEach((label) => set.add(label));
+        Object.values(thirdCharacterTargetByLabel).forEach((target) => {
+            const normalized = normalizeImportLabel(target);
+            if (normalized === THIRD_MULTI_TARGET) return;
+            if (normalized) set.add(normalized);
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b, "fr"));
+    }, [thirdCharacterLabels, thirdCharacterTargetByLabel]);
+
+    const thirdCanonicalCharacters = useMemo(() => {
+        const set = new Set<string>();
+        thirdCharacterLabels.forEach((label) => {
+            const target = normalizeImportLabel(thirdCharacterTargetByLabel[label] || label);
+            if (target === THIRD_MULTI_TARGET) return;
+            if (target) set.add(target);
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b, "fr"));
+    }, [thirdCharacterLabels, thirdCharacterTargetByLabel]);
+
+    const thirdAliasMappings = useMemo(() => {
+        const aliases: Record<string, string> = {};
+        thirdCharacterLabels.forEach((label) => {
+            const source = normalizeImportLabel(label);
+            const target = normalizeImportLabel(thirdCharacterTargetByLabel[label] || label);
+            if (target === THIRD_MULTI_TARGET) return;
+            if (source && target && source !== target) {
+                aliases[source] = target;
+            }
+        });
+        return aliases;
+    }, [thirdCharacterLabels, thirdCharacterTargetByLabel]);
+
+    const thirdCharacterPendingCount = useMemo(() => (
+        thirdCharacterLabels.filter((label) => !normalizeImportLabel(thirdCharacterTargetByLabel[label] || "")).length
+    ), [thirdCharacterLabels, thirdCharacterTargetByLabel]);
+
+    const thirdLineCount = thirdImportPreview?.parsedScript.lines.length || 0;
+
+    const thirdSceneWindows = useMemo(() => {
+        if (thirdLineCount === 0) return [] as ThirdSceneWindow[];
+
+        const starts = [...thirdSceneStarts]
+            .map((value) => Math.max(0, Math.min(Math.floor(value), Math.max(0, thirdLineCount - 1))))
+            .sort((a, b) => a - b)
+            .filter((value, index, arr) => index === 0 || value !== arr[index - 1]);
+
+        if (starts.length === 0) starts.push(0);
+
+        return starts.map((start, order) => ({
+            order,
+            title: thirdSceneTitles[order] || `Scène ${order + 1}`,
+            start,
+            end: order + 1 < starts.length ? starts[order + 1] : thirdLineCount,
+        }));
+    }, [thirdLineCount, thirdSceneStarts, thirdSceneTitles]);
+
+    const thirdCurrentScene = useMemo(() => {
+        if (thirdSceneWindows.length === 0) return null;
+        const index = clamp(thirdSceneCursor, 0, thirdSceneWindows.length - 1);
+        return thirdSceneWindows[index];
+    }, [thirdSceneCursor, thirdSceneWindows]);
+
+    const thirdCurrentSceneLines = useMemo(() => {
+        if (!thirdImportPreview || !thirdCurrentScene) return [] as ParsedScript["lines"];
+        return (thirdImportPreview.parsedScript.lines || []).slice(thirdCurrentScene.start, thirdCurrentScene.end);
+    }, [thirdImportPreview, thirdCurrentScene]);
+
+    const thirdBoundaryControl = useMemo(() => {
+        if (!thirdImportPreview || !thirdCurrentScene) return null;
+        if (thirdCurrentScene.order >= thirdSceneWindows.length - 1) return null;
+
+        const nextScene = thirdSceneWindows[thirdCurrentScene.order + 1];
+        const sceneAfterNext = thirdSceneWindows[thirdCurrentScene.order + 2];
+        const min = thirdCurrentScene.start + 1;
+        const max = sceneAfterNext ? sceneAfterNext.start - 1 : Math.max(min, thirdLineCount - 1);
+        const value = nextScene.start;
+        const lines = thirdImportPreview.parsedScript.lines || [];
+
+        const before = lines[Math.max(0, value - 1)] || null;
+        const after = lines[Math.min(lines.length - 1, value)] || null;
+
+        return {
+            min,
+            max,
+            value,
+            before,
+            after,
+            nextSceneTitle: nextScene.title,
+        };
+    }, [thirdImportPreview, thirdCurrentScene, thirdSceneWindows, thirdLineCount]);
+
+    const thirdSceneReviewedCount = useMemo(() => (
+        thirdSceneWindows.filter((scene) => thirdSceneReviewedByOrder[scene.order]).length
+    ), [thirdSceneWindows, thirdSceneReviewedByOrder]);
+
+    const thirdEffectiveCollectiveCandidates = useMemo(() => {
+        const map = new Map<string, ThirdCollectiveCandidate>();
+        thirdCollectiveCandidates.forEach((candidate) => {
+            map.set(candidate.id, {
+                ...candidate,
+                sceneOrders: [...candidate.sceneOrders],
+            });
+        });
+
+        thirdCharacterLabels.forEach((label) => {
+            const target = normalizeImportLabel(thirdCharacterTargetByLabel[label] || "");
+            if (target !== THIRD_MULTI_TARGET) return;
+
+            const normalizedLabel = normalizeImportLabel(label);
+            const alreadyExists = Array.from(map.values()).some((candidate) => candidate.label === normalizedLabel);
+            if (alreadyExists) return;
+
+            const sceneOrders = (thirdLabelSceneOrdersByLabel[normalizedLabel] || []).slice().sort((a, b) => a - b);
+            const defaultScope: "global" | "scene" = (
+                isSceneScopedCollectiveLabel(normalizedLabel)
+                || sceneOrders.length <= 1
+            ) ? "scene" : "global";
+
+            map.set(`manual:${normalizedLabel}`, {
+                id: `manual:${normalizedLabel}`,
+                label: normalizedLabel,
+                scope: defaultScope,
+                sceneOrder: sceneOrders[0] ?? 0,
+                sceneOrders,
+                count: thirdCharacterCountByLabel[normalizedLabel] || 0,
+            });
+        });
+
+        return Array.from(map.values()).sort((a, b) => {
+            const byCount = b.count - a.count;
+            if (byCount !== 0) return byCount;
+            return a.label.localeCompare(b.label, "fr");
+        });
+    }, [
+        thirdCollectiveCandidates,
+        thirdCharacterLabels,
+        thirdCharacterTargetByLabel,
+        thirdLabelSceneOrdersByLabel,
+        thirdCharacterCountByLabel,
+    ]);
+
+    useEffect(() => {
+        if (thirdEffectiveCollectiveCandidates.length === 0) return;
+
+        setThirdCollectiveScopeById((prev) => {
+            const next = { ...prev };
+            let changed = false;
+            thirdEffectiveCollectiveCandidates.forEach((candidate) => {
+                if (!next[candidate.id]) {
+                    next[candidate.id] = candidate.scope;
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+
+        setThirdCollectiveSceneOrderById((prev) => {
+            const next = { ...prev };
+            let changed = false;
+            thirdEffectiveCollectiveCandidates.forEach((candidate) => {
+                const allowed = candidate.sceneOrders.length > 0
+                    ? candidate.sceneOrders
+                    : thirdSceneWindows.map((scene) => scene.order);
+                if (allowed.length === 0) return;
+
+                const preferred = next[candidate.id] ?? candidate.sceneOrder ?? allowed[0];
+                const resolved = allowed.includes(preferred) ? preferred : allowed[0];
+                if (next[candidate.id] !== resolved) {
+                    next[candidate.id] = resolved;
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+
+        setThirdCollectiveMembersById((prev) => {
+            const next = { ...prev };
+            let changed = false;
+            const canonicalSet = new Set(thirdCanonicalCharacters.map((item) => normalizeImportLabel(item)));
+
+            thirdEffectiveCollectiveCandidates.forEach((candidate) => {
+                if (next[candidate.id]) return;
+
+                if (isSceneScopedCollectiveLabel(candidate.label)) {
+                    next[candidate.id] = [...thirdCanonicalCharacters];
+                    changed = true;
+                    return;
+                }
+
+                const tokens = candidate.label
+                    .split(/\bET\b|,|\/|&/g)
+                    .map((value) => normalizeImportLabel(value))
+                    .filter(Boolean);
+
+                next[candidate.id] = Array.from(new Set(
+                    tokens.filter((token) => canonicalSet.has(token))
+                ));
+                changed = true;
+            });
+
+            return changed ? next : prev;
+        });
+    }, [thirdEffectiveCollectiveCandidates, thirdCanonicalCharacters, thirdSceneWindows]);
+
+    const thirdCollectivePendingCount = useMemo(() => {
+        const canonicalSet = new Set(thirdCanonicalCharacters.map((item) => normalizeImportLabel(item)));
+        return thirdEffectiveCollectiveCandidates.filter((candidate) => {
+            const members = Array.from(new Set(
+                (thirdCollectiveMembersById[candidate.id] || [])
+                    .map((value) => normalizeImportLabel(value))
+                    .filter((value) => canonicalSet.has(value))
+            ));
+            return members.length === 0;
+        }).length;
+    }, [thirdCanonicalCharacters, thirdEffectiveCollectiveCandidates, thirdCollectiveMembersById]);
+
+    const thirdCollectiveContextById = useMemo(() => {
+        const byId: Record<string, { sceneOrder: number; sceneTitle: string; lines: ParsedScript["lines"] }> = {};
+        if (!thirdImportPreview || thirdEffectiveCollectiveCandidates.length === 0) return byId;
+
+        const lines = thirdImportPreview.parsedScript.lines || [];
+
+        thirdEffectiveCollectiveCandidates.forEach((candidate) => {
+            const allowedSceneOrders = (candidate.sceneOrders || []).length > 0
+                ? candidate.sceneOrders
+                : thirdSceneWindows.map((scene) => scene.order);
+            if (allowedSceneOrders.length === 0) return;
+
+            const preferredSceneOrder = thirdCollectiveSceneOrderById[candidate.id] ?? candidate.sceneOrder ?? allowedSceneOrders[0];
+            const sceneOrder = allowedSceneOrders.includes(preferredSceneOrder)
+                ? preferredSceneOrder
+                : allowedSceneOrders[0];
+            const sceneWindow = thirdSceneWindows.find((scene) => scene.order === sceneOrder);
+            if (!sceneWindow) return;
+
+            byId[candidate.id] = {
+                sceneOrder,
+                sceneTitle: sceneWindow.title,
+                lines: lines.slice(sceneWindow.start, sceneWindow.end),
+            };
+        });
+
+        return byId;
+    }, [thirdImportPreview, thirdEffectiveCollectiveCandidates, thirdCollectiveSceneOrderById, thirdSceneWindows]);
+
+    const thirdFinalOutput = useMemo(() => {
+        if (!thirdImportPreview) return null;
+
+        const baseScript = thirdImportPreview.parsedScript;
+        const canonical = thirdCanonicalCharacters.map((item) => normalizeImportLabel(item)).filter(Boolean);
+        const canonicalSet = new Set(canonical);
+        const aliasMap = { ...thirdAliasMappings };
+
+        const lines = (baseScript.lines || []).map((line) => {
+            if (line.type !== "dialogue") return line;
+            const source = normalizeImportLabel(line.character);
+            const mapped = normalizeImportLabel(aliasMap[source] || source);
+            return {
+                ...line,
+                character: mapped || source,
+            };
+        });
+
+        const sceneStarts = thirdSceneWindows.map((scene) => scene.start);
+        const scenes = thirdSceneWindows.map((scene) => ({
+            title: scene.title,
+            index: scene.start,
+        }));
+
+        const globalCollectives: ScriptMappings["collectives"]["global"] = [];
+        const bySceneCollectives: ScriptMappings["collectives"]["by_scene"] = [];
+        const globalCollectiveLabels = new Set<string>();
+        const sceneCollectiveLabels = new Set<string>();
+
+        thirdEffectiveCollectiveCandidates.forEach((candidate) => {
+            const resolvedMembers = Array.from(new Set(
+                (thirdCollectiveMembersById[candidate.id] || [])
+                    .map((member) => normalizeImportLabel(member))
+                    .filter((member) => canonicalSet.has(member))
+            ));
+            if (resolvedMembers.length === 0) return;
+
+            const scope = thirdCollectiveScopeById[candidate.id] || candidate.scope;
+            const label = normalizeImportLabel(candidate.label);
+            if (!label) return;
+
+            if (scope === "scene") {
+                const allowedSceneOrders = candidate.sceneOrders.length > 0
+                    ? candidate.sceneOrders
+                    : sceneStarts.map((_, order) => order);
+                if (allowedSceneOrders.length === 0) return;
+
+                const preferredSceneOrder = thirdCollectiveSceneOrderById[candidate.id] ?? candidate.sceneOrder ?? allowedSceneOrders[0];
+                const sceneOrder = allowedSceneOrders.includes(preferredSceneOrder)
+                    ? preferredSceneOrder
+                    : allowedSceneOrders[0];
+                const sceneIndex = sceneStarts[sceneOrder] ?? 0;
+                bySceneCollectives.push({
+                    scene_index: sceneIndex,
+                    label,
+                    members: resolvedMembers,
+                });
+                sceneCollectiveLabels.add(`${sceneIndex}|${label}`);
+                return;
+            }
+
+            globalCollectives.push({
+                label,
+                members: resolvedMembers,
+            });
+            globalCollectiveLabels.add(label);
+        });
+
+        const mappings: ScriptMappings = {
+            canonical_characters: canonical,
+            aliases: aliasMap,
+            collectives: {
+                global: globalCollectives,
+                by_scene: bySceneCollectives,
+            },
+        };
+
+        const unresolved = new Set<string>();
+        lines.forEach((line, lineIndex) => {
+            if (line.type !== "dialogue") return;
+
+            const rawLabel = normalizeImportLabel(line.character);
+            const mappedLabel = normalizeImportLabel(aliasMap[rawLabel] || rawLabel);
+            if (canonicalSet.has(mappedLabel)) return;
+            if (globalCollectiveLabels.has(rawLabel) || globalCollectiveLabels.has(mappedLabel)) return;
+
+            const sceneOrder = getSceneOrderForLine(sceneStarts, lineIndex);
+            const sceneIndex = sceneStarts[sceneOrder] ?? 0;
+            if (sceneCollectiveLabels.has(`${sceneIndex}|${rawLabel}`) || sceneCollectiveLabels.has(`${sceneIndex}|${mappedLabel}`)) {
+                return;
+            }
+
+            unresolved.add(mappedLabel || rawLabel);
+        });
+
+        const finalScript: ParsedScript = {
+            ...baseScript,
+            lines,
+            scenes: scenes.length > 0 ? scenes : [{ index: 0, title: "SCÈNE 1" }],
+            characters: canonical,
+            mappings,
+            schema_version: 2,
+        };
+
+        return {
+            finalScript,
+            mappings,
+            unresolvedLabels: Array.from(unresolved).sort((a, b) => a.localeCompare(b, "fr")),
+        };
+    }, [
+        thirdImportPreview,
+        thirdCanonicalCharacters,
+        thirdAliasMappings,
+        thirdSceneWindows,
+        thirdEffectiveCollectiveCandidates,
+        thirdCollectiveMembersById,
+        thirdCollectiveScopeById,
+        thirdCollectiveSceneOrderById,
+    ]);
 
     const aiStepLabel = aiImportStep === 1
         ? "Extraction du PDF"
@@ -756,6 +1292,306 @@ export function ImportWizard({
         }
     };
 
+    const initializeThirdImportWorkflow = (result: ThirdImportPreparation) => {
+        const lines = result.parsedScript.lines || [];
+        const labelCounts = new Map<string, number>();
+        lines.forEach((line) => {
+            if (line.type !== "dialogue") return;
+            const label = normalizeImportLabel(line.character);
+            if (!label) return;
+            labelCounts.set(label, (labelCounts.get(label) || 0) + 1);
+        });
+
+        const allDialogueLabels = Array.from(labelCounts.keys());
+        const characterLabels = allDialogueLabels
+            .filter((label) => !isCollectiveLabel(label))
+            .sort((a, b) => {
+                const byCount = (labelCounts.get(b) || 0) - (labelCounts.get(a) || 0);
+                return byCount !== 0 ? byCount : a.localeCompare(b, "fr");
+            });
+
+        const characterTargets: Record<string, string> = {};
+        characterLabels.forEach((label) => {
+            const bestAliasTarget = findBestAliasTarget(label, characterLabels, labelCounts);
+            characterTargets[label] = bestAliasTarget || label;
+        });
+
+        const countByLabel = Object.fromEntries(
+            characterLabels.map((label) => [label, labelCounts.get(label) || 0])
+        );
+
+        const orderedScenes = [...(result.parsedScript.scenes || [])].sort((a, b) => a.index - b.index);
+        let sceneStarts = orderedScenes.map((scene) => Math.max(0, Math.floor(scene.index)));
+        let sceneTitles = orderedScenes.map((scene, idx) => scene.title || `Scène ${idx + 1}`);
+        if (sceneStarts.length === 0) {
+            sceneStarts = [0];
+            sceneTitles = ["SCÈNE 1"];
+        }
+
+        const labelSceneOrdersMap = new Map<string, Set<number>>();
+        lines.forEach((line, lineIndex) => {
+            if (line.type !== "dialogue") return;
+            const label = normalizeImportLabel(line.character);
+            if (!label) return;
+            const sceneOrder = getSceneOrderForLine(sceneStarts, lineIndex);
+            if (!labelSceneOrdersMap.has(label)) {
+                labelSceneOrdersMap.set(label, new Set<number>());
+            }
+            labelSceneOrdersMap.get(label)?.add(sceneOrder);
+        });
+
+        const labelSceneOrdersByLabel = Object.fromEntries(
+            Array.from(labelSceneOrdersMap.entries()).map(([label, orders]) => [
+                label,
+                Array.from(orders).sort((a, b) => a - b),
+            ])
+        );
+
+        const collectiveCandidateMap = new Map<string, ThirdCollectiveCandidate>();
+        lines.forEach((line, lineIndex) => {
+            if (line.type !== "dialogue") return;
+            const label = normalizeImportLabel(line.character);
+            if (!isCollectiveLabel(label)) return;
+
+            const defaultScope: "global" | "scene" = isSceneScopedCollectiveLabel(label) ? "scene" : "global";
+            const sceneOrder = getSceneOrderForLine(sceneStarts, lineIndex);
+            const key = defaultScope === "scene"
+                ? `scene:${sceneOrder}:${label}`
+                : `global:${label}`;
+
+            const existing = collectiveCandidateMap.get(key);
+            if (existing) {
+                existing.count += 1;
+                if (!existing.sceneOrders.includes(sceneOrder)) {
+                    existing.sceneOrders.push(sceneOrder);
+                    existing.sceneOrders.sort((a, b) => a - b);
+                }
+                return;
+            }
+
+            collectiveCandidateMap.set(key, {
+                id: key,
+                label,
+                scope: defaultScope,
+                sceneOrder: defaultScope === "scene" ? sceneOrder : undefined,
+                sceneOrders: [sceneOrder],
+                count: 1,
+            });
+        });
+
+        const collectiveCandidates = Array.from(collectiveCandidateMap.values()).sort((a, b) => {
+            const byCount = b.count - a.count;
+            if (byCount !== 0) return byCount;
+            return a.label.localeCompare(b.label, "fr");
+        });
+
+        const initialCanonical = Array.from(new Set(
+            characterLabels
+                .map((label) => normalizeImportLabel(characterTargets[label] || label))
+                .filter(Boolean)
+        ));
+        const initialCanonicalSet = new Set(initialCanonical);
+
+        const collectiveMembersById: Record<string, string[]> = {};
+        const collectiveScopeById: Record<string, "global" | "scene"> = {};
+        const collectiveSceneById: Record<string, number> = {};
+
+        collectiveCandidates.forEach((candidate) => {
+            collectiveScopeById[candidate.id] = candidate.scope;
+            collectiveSceneById[candidate.id] = candidate.sceneOrders[0] ?? candidate.sceneOrder ?? 0;
+
+            if (isSceneScopedCollectiveLabel(candidate.label)) {
+                collectiveMembersById[candidate.id] = [...initialCanonical];
+                return;
+            }
+
+            const tokens = candidate.label
+                .split(/\bET\b|,|\/|&/g)
+                .map((value) => normalizeImportLabel(value))
+                .filter(Boolean);
+
+            collectiveMembersById[candidate.id] = Array.from(new Set(
+                tokens.filter((token) => initialCanonicalSet.has(token))
+            ));
+        });
+
+        setThirdImportStep(1);
+        setThirdCharacterLabels(characterLabels);
+        setThirdCharacterCountByLabel(countByLabel);
+        setThirdCharacterTargetByLabel(characterTargets);
+        setThirdLabelSceneOrdersByLabel(labelSceneOrdersByLabel);
+        setThirdCollectiveCandidates(collectiveCandidates);
+        setThirdCollectiveMembersById(collectiveMembersById);
+        setThirdCollectiveScopeById(collectiveScopeById);
+        setThirdCollectiveSceneOrderById(collectiveSceneById);
+        setThirdContextCandidateId(null);
+        setThirdSceneTitles(sceneTitles);
+        setThirdSceneStarts(sceneStarts);
+        setThirdSceneCursor(0);
+        setThirdSceneReviewedByOrder({});
+        setIsThirdSaving(false);
+    };
+
+    const closeThirdImportReview = () => {
+        setThirdImportReviewOpen(false);
+        setThirdImportPreview(null);
+        setThirdImportStep(1);
+        setThirdCharacterLabels([]);
+        setThirdCharacterCountByLabel({});
+        setThirdCharacterTargetByLabel({});
+        setThirdLabelSceneOrdersByLabel({});
+        setThirdCollectiveCandidates([]);
+        setThirdCollectiveMembersById({});
+        setThirdCollectiveScopeById({});
+        setThirdCollectiveSceneOrderById({});
+        setThirdContextCandidateId(null);
+        setThirdSceneTitles([]);
+        setThirdSceneStarts([]);
+        setThirdSceneCursor(0);
+        setThirdSceneReviewedByOrder({});
+        setIsThirdSaving(false);
+        if (thirdImportPdfUrl) {
+            URL.revokeObjectURL(thirdImportPdfUrl);
+            setThirdImportPdfUrl(null);
+        }
+    };
+
+    const handleThirdFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (!file) return;
+
+        setIsThirdImporting(true);
+        setShowImportGuide(false);
+
+        if (thirdImportPdfUrl) {
+            URL.revokeObjectURL(thirdImportPdfUrl);
+            setThirdImportPdfUrl(null);
+        }
+
+        const localPdfUrl = URL.createObjectURL(file);
+        setThirdImportPdfUrl(localPdfUrl);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const result = await prepareThirdImportAction(formData);
+            if ("error" in result) {
+                onError(result.error);
+                URL.revokeObjectURL(localPdfUrl);
+                setThirdImportPdfUrl(null);
+                return;
+            }
+
+            setThirdImportPreview(result);
+            initializeThirdImportWorkflow(result);
+            setThirdImportReviewOpen(true);
+        } catch (err: unknown) {
+            URL.revokeObjectURL(localPdfUrl);
+            setThirdImportPdfUrl(null);
+            onError(err instanceof Error ? err.message : "Erreur lors de l'import beta.");
+        } finally {
+            setIsThirdImporting(false);
+        }
+    };
+
+    const toggleThirdCollectiveMember = (collectiveId: string, member: string) => {
+        const normalizedMember = normalizeImportLabel(member);
+        setThirdCollectiveMembersById((prev) => {
+            const current = Array.from(new Set((prev[collectiveId] || []).map((value) => normalizeImportLabel(value))));
+            const hasMember = current.includes(normalizedMember);
+            return {
+                ...prev,
+                [collectiveId]: hasMember
+                    ? current.filter((value) => value !== normalizedMember)
+                    : [...current, normalizedMember],
+            };
+        });
+    };
+
+    const setThirdSceneBoundary = (sceneOrder: number, nextSceneStart: number) => {
+        setThirdSceneStarts((prev) => {
+            if (sceneOrder < 0 || sceneOrder >= prev.length - 1) return prev;
+            const next = [...prev];
+            const boundaryIndex = sceneOrder + 1;
+            const minNextStart = next[sceneOrder] + 1;
+            const maxNextStart = boundaryIndex === next.length - 1
+                ? Math.max(minNextStart, thirdLineCount - 1)
+                : next[boundaryIndex + 1] - 1;
+            const candidate = clamp(nextSceneStart, minNextStart, maxNextStart);
+            if (candidate === next[boundaryIndex]) return prev;
+            next[boundaryIndex] = candidate;
+            return next;
+        });
+        setThirdSceneReviewedByOrder((prev) => ({
+            ...prev,
+            [sceneOrder]: false,
+            [sceneOrder + 1]: false,
+        }));
+    };
+
+    const goToThirdStep = (step: ThirdImportStep) => {
+        if (step === 2) {
+            if (thirdCharacterPendingCount > 0 || thirdCanonicalCharacters.length === 0) {
+                onError("Complétez d'abord la liaison des personnages.");
+                return;
+            }
+        }
+
+        if (step === 3) {
+            if (thirdCharacterPendingCount > 0 || thirdCanonicalCharacters.length === 0) {
+                onError("Complétez d'abord la liaison des personnages.");
+                return;
+            }
+            if (thirdCollectivePendingCount > 0) {
+                onError("Renseignez les multi-personnages avant de passer aux scènes.");
+                return;
+            }
+        }
+
+        setThirdImportStep(step);
+    };
+
+    const finalizeThirdImport = async () => {
+        if (!thirdFinalOutput) return;
+        if (thirdSceneReviewedCount < thirdSceneWindows.length) {
+            onError(`Validez toutes les scènes (${thirdSceneReviewedCount}/${thirdSceneWindows.length}) avant sauvegarde.`);
+            return;
+        }
+        if (thirdFinalOutput.unresolvedLabels.length > 0) {
+            onError(`Des libellés ne sont pas résolus: ${thirdFinalOutput.unresolvedLabels.slice(0, 6).join(", ")}`);
+            return;
+        }
+
+        const diagnostics: ImportDiagnosticsResult = {
+            canonicalCharacters: thirdFinalOutput.mappings.canonical_characters,
+            aliasSuggestions: [],
+            collectiveSuggestions: [],
+            sceneDiagnostics: [],
+            blockingDecisions: [],
+        };
+
+        const submission: ImportValidationSubmission = {
+            diagnostics,
+            decisions: {},
+            mappings: thirdFinalOutput.mappings,
+        };
+
+        setIsThirdSaving(true);
+        const saveResult = await saveScriptWithImportValidation(thirdFinalOutput.finalScript, submission);
+        setIsThirdSaving(false);
+
+        if ("error" in saveResult) {
+            onError(saveResult.error);
+            return;
+        }
+
+        await onImportComplete();
+        closeThirdImportReview();
+        setShowImportGuide(false);
+    };
+
     // --- UI HELPERS ---
 
     const setDiagnosticsDecision = (id: string, decision: ValidationDecision) => {
@@ -896,7 +1732,7 @@ export function ImportWizard({
 
     if (!showImportGuide) {
         // Still show progress modals if working
-        if (!isImporting && !isAiImporting && !diagnosticsModalOpen) return null;
+        if (!isImporting && !isAiImporting && !isThirdImporting && !diagnosticsModalOpen && !thirdImportReviewOpen) return null;
     }
 
     return (
@@ -1015,6 +1851,527 @@ export function ImportWizard({
                             <Button variant="outline" onClick={cancelAiImport} className="w-full border-white/15 hover:bg-white/10">
                                 Annuler l&apos;import
                             </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 1ter. PROGRESS MODAL (BETA IMPORT V3) */}
+            {isThirdImporting && (
+                <div className="fixed inset-0 z-[107] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-popover border border-cyan-500/30 p-8 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(34,211,238,0.25)] animate-in zoom-in-95 duration-200">
+                        <div className="text-center space-y-5">
+                            <div className="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto">
+                                <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-bold text-foreground mb-2">Import Beta (V3)</h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Analyse du PDF brut, normalisation en format script, préparation du contrôle.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 1quater. REVIEW MODAL (BETA IMPORT V3 - SANS IA) */}
+            {thirdImportReviewOpen && thirdImportPreview && (
+                <div className="fixed inset-0 z-[108] bg-black/85 backdrop-blur-sm animate-in fade-in duration-200 p-4">
+                    <div className="mx-auto h-full max-h-[94vh] w-full max-w-7xl rounded-3xl border border-white/10 bg-card shadow-2xl flex flex-col">
+                        <div className="p-5 border-b border-white/10 flex items-start justify-between gap-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-foreground">Import Beta (V3) - Validation sans IA</h3>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Étape 1 personnages, étape 2 multi-personnages, étape 3 découpage des scènes, étape 4 re-scan final.
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <span className="text-[11px] px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                                        {thirdCanonicalCharacters.length} personnages canoniques
+                                    </span>
+                                    <span className="text-[11px] px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                                        {thirdEffectiveCollectiveCandidates.length} multi-personnages
+                                    </span>
+                                    <span className="text-[11px] px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                                        {thirdSceneReviewedCount}/{thirdSceneWindows.length} scènes validées
+                                    </span>
+                                </div>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={closeThirdImportReview}>
+                                <X className="w-5 h-5" />
+                            </Button>
+                        </div>
+
+                        <div className="p-4 border-b border-white/10 grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 1 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => goToThirdStep(1)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">1. Personnages</p>
+                                <p className="text-[11px] text-muted-foreground">{thirdCharacterPendingCount} à lier</p>
+                            </button>
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 2 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => goToThirdStep(2)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">2. Multi-persos</p>
+                                <p className="text-[11px] text-muted-foreground">{thirdCollectivePendingCount} à résoudre</p>
+                            </button>
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 3 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => goToThirdStep(3)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">3. Scènes</p>
+                                <p className="text-[11px] text-muted-foreground">{thirdSceneReviewedCount}/{thirdSceneWindows.length} vérifiées</p>
+                            </button>
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 4 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => goToThirdStep(4)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">4. Re-scan final</p>
+                                <p className="text-[11px] text-muted-foreground">
+                                    {(thirdFinalOutput?.unresolvedLabels.length || 0) === 0 ? "OK" : `${thirdFinalOutput?.unresolvedLabels.length || 0} libellé(s)`}
+                                </p>
+                            </button>
+                        </div>
+
+                        <div className="flex-1 min-h-0 overflow-y-auto p-4">
+                            {thirdImportStep === 1 && (
+                                <div className="space-y-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Vérifiez chaque libellé détecté et choisissez le personnage canonique cible.
+                                    </p>
+                                    <div className="space-y-2">
+                                        {thirdCharacterLabels.map((label) => (
+                                            <div key={`v3-character-${label}`} className="rounded-lg border border-white/10 bg-white/5 p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-semibold text-foreground">{label}</p>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {thirdCharacterCountByLabel[label] || 0} réplique(s)
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-muted-foreground">→</span>
+                                                    <Select
+                                                        value={thirdCharacterTargetByLabel[label] || label}
+                                                        onValueChange={(value) => setThirdCharacterTargetByLabel((prev) => ({
+                                                            ...prev,
+                                                            [label]: normalizeImportLabel(value),
+                                                        }))}
+                                                    >
+                                                        <SelectTrigger className="h-8 w-[240px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
+                                                            {thirdCharacterOptions.map((option) => (
+                                                                <SelectItem key={`v3-character-option-${label}-${option}`} value={option} className="text-xs uppercase">
+                                                                    {option}
+                                                                </SelectItem>
+                                                            ))}
+                                                            <SelectItem value={THIRD_MULTI_TARGET} className="text-xs">
+                                                                Aucun personnage (multi-personnage)
+                                                            </SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {thirdCharacterLabels.length === 0 && (
+                                            <p className="text-xs text-muted-foreground">Aucun personnage à lier.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {thirdImportStep === 2 && (
+                                <div className="space-y-4">
+                                    <p className="text-sm text-muted-foreground">
+                                        Résolvez chaque multi-personnage en indiquant ses membres et son périmètre (global ou scène).
+                                    </p>
+                                    <div className="space-y-2">
+                                        {thirdEffectiveCollectiveCandidates.map((candidate) => {
+                                            const scope = thirdCollectiveScopeById[candidate.id] || candidate.scope;
+                                            const allowedSceneOrders = (candidate.sceneOrders || []).length > 0
+                                                ? candidate.sceneOrders
+                                                : thirdSceneWindows.map((scene) => scene.order);
+                                            const preferredSceneOrder = thirdCollectiveSceneOrderById[candidate.id] ?? candidate.sceneOrder ?? allowedSceneOrders[0] ?? 0;
+                                            const sceneOrder = allowedSceneOrders.includes(preferredSceneOrder)
+                                                ? preferredSceneOrder
+                                                : (allowedSceneOrders[0] ?? 0);
+                                            const members = Array.from(new Set(
+                                                (thirdCollectiveMembersById[candidate.id] || [])
+                                                    .map((value) => normalizeImportLabel(value))
+                                            ));
+                                            const isExplicitNamedCollective = isExplicitNamedCollectiveLabel(candidate.label, thirdCanonicalCharacters);
+                                            const contextData = thirdCollectiveContextById[candidate.id];
+                                            const showContextPanel = thirdContextCandidateId === candidate.id && !!contextData;
+                                            const canonicalSet = new Set(thirdCanonicalCharacters.map((value) => normalizeImportLabel(value)));
+                                            return (
+                                                <div key={candidate.id} className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-sm font-semibold text-foreground">{candidate.label}</span>
+                                                        <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded bg-white/10 border border-white/10">
+                                                            {candidate.count} occurrence(s)
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Select
+                                                            value={scope}
+                                                            onValueChange={(value) => setThirdCollectiveScopeById((prev) => ({
+                                                                ...prev,
+                                                                [candidate.id]: value as "global" | "scene",
+                                                            }))}
+                                                            disabled={allowedSceneOrders.length <= 1}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-[160px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
+                                                                <SelectItem value="global" className="text-xs">Global</SelectItem>
+                                                                <SelectItem value="scene" className="text-xs">Par scène</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+
+                                                        {scope === "scene" && (
+                                                            <Select
+                                                                value={String(sceneOrder)}
+                                                                onValueChange={(value) => setThirdCollectiveSceneOrderById((prev) => ({
+                                                                    ...prev,
+                                                                    [candidate.id]: Number(value),
+                                                                }))}
+                                                            >
+                                                                <SelectTrigger
+                                                                    className="h-8 w-[220px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground"
+                                                                    disabled={allowedSceneOrders.length <= 1}
+                                                                >
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
+                                                                    {thirdSceneWindows
+                                                                        .filter((scene) => allowedSceneOrders.includes(scene.order))
+                                                                        .map((scene) => (
+                                                                        <SelectItem key={`v3-collective-scene-${candidate.id}-${scene.order}`} value={String(scene.order)} className="text-xs">
+                                                                            {scene.order + 1}. {scene.title}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+
+                                                        {!isExplicitNamedCollective && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant={showContextPanel ? "default" : "outline"}
+                                                                className="h-8 text-xs"
+                                                                onClick={() => setThirdContextCandidateId((prev) => (prev === candidate.id ? null : candidate.id))}
+                                                            >
+                                                                Contexte
+                                                            </Button>
+                                                        )}
+                                                    </div>
+
+                                                    {showContextPanel && (
+                                                        <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-2 space-y-2">
+                                                            <p className="text-[11px] font-semibold text-cyan-400">
+                                                                Contexte · {contextData.sceneOrder + 1}. {contextData.sceneTitle}
+                                                            </p>
+                                                            <div className="max-h-64 overflow-y-auto rounded-md border border-white/10 bg-black/20 p-2 space-y-1">
+                                                                {contextData.lines.map((line) => {
+                                                                    if (line.type !== "dialogue") {
+                                                                        return (
+                                                                            <p key={`${candidate.id}-ctx-stage-${line.id}`} className="text-xs italic text-muted-foreground">
+                                                                                {line.text}
+                                                                            </p>
+                                                                        );
+                                                                    }
+
+                                                                    const speaker = normalizeImportLabel(line.character);
+                                                                    const isCandidateSpeaker = speaker === candidate.label;
+                                                                    const isCanonicalSpeaker = canonicalSet.has(speaker);
+                                                                    return (
+                                                                        <div key={`${candidate.id}-ctx-dialogue-${line.id}`} className={`text-xs leading-relaxed rounded px-2 py-1 ${isCandidateSpeaker ? "bg-amber-500/10 border border-amber-500/30" : "bg-white/5"}`}>
+                                                                            <span
+                                                                                className={`inline-block mr-2 px-1.5 py-0.5 rounded font-semibold ${
+                                                                                    isCandidateSpeaker
+                                                                                        ? "bg-amber-500/30 text-amber-300"
+                                                                                        : isCanonicalSpeaker
+                                                                                            ? "bg-cyan-500/20 text-cyan-300"
+                                                                                            : "bg-white/10 text-foreground/80"
+                                                                                }`}
+                                                                            >
+                                                                                [{speaker}]
+                                                                            </span>
+                                                                            <span className="text-foreground/90">{line.text}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                                {contextData.lines.length === 0 && (
+                                                                    <p className="text-xs text-muted-foreground">Aucune ligne dans cette scène.</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                                        {thirdCanonicalCharacters.map((character) => {
+                                                            const selected = members.includes(character);
+                                                            return (
+                                                                <button
+                                                                    key={`v3-collective-member-${candidate.id}-${character}`}
+                                                                    type="button"
+                                                                    onClick={() => toggleThirdCollectiveMember(candidate.id, character)}
+                                                                    className={`text-left text-xs px-2 py-1 rounded-lg border transition-colors ${selected ? "bg-cyan-500/20 border-cyan-500/40 text-foreground" : "bg-card border-white/10 text-muted-foreground hover:bg-white/10"}`}
+                                                                >
+                                                                    {character}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                        {thirdEffectiveCollectiveCandidates.length === 0 && (
+                                            <p className="text-xs text-muted-foreground">Aucun multi-personnage détecté.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {thirdImportStep === 3 && (
+                                <div className="h-full min-h-[560px] grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-4">
+                                    <div className="min-h-0 flex flex-col rounded-xl border border-white/10 overflow-hidden">
+                                        <div className="px-4 py-2 border-b border-white/10">
+                                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">PDF source</p>
+                                        </div>
+                                        <div className="flex-1 min-h-0">
+                                            {thirdImportPdfUrl ? (
+                                                <iframe
+                                                    src={thirdImportPdfUrl}
+                                                    className="w-full h-full bg-black"
+                                                    title="PDF source"
+                                                />
+                                            ) : (
+                                                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                                                    Aperçu PDF indisponible.
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="min-h-0 flex flex-col rounded-xl border border-white/10 overflow-hidden">
+                                        <div className="px-4 py-3 border-b border-white/10 space-y-3">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <p className="text-sm font-semibold text-foreground">
+                                                    {thirdCurrentScene ? `${thirdCurrentScene.order + 1}. ${thirdCurrentScene.title}` : "Aucune scène"}
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    {thirdCurrentScene ? `Lignes ${thirdCurrentScene.start} → ${thirdCurrentScene.end}` : ""}
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 text-xs"
+                                                    disabled={!thirdCurrentScene || thirdSceneCursor === 0}
+                                                    onClick={() => setThirdSceneCursor((prev) => Math.max(0, prev - 1))}
+                                                >
+                                                    Scène précédente
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 text-xs"
+                                                    disabled={!thirdCurrentScene || thirdSceneCursor >= thirdSceneWindows.length - 1}
+                                                    onClick={() => setThirdSceneCursor((prev) => Math.min(thirdSceneWindows.length - 1, prev + 1))}
+                                                >
+                                                    Scène suivante
+                                                </Button>
+                                            </div>
+                                            {thirdBoundaryControl && (
+                                                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3 space-y-2">
+                                                    <p className="text-xs font-semibold text-cyan-400">
+                                                        Barre de découpe entre cette scène et: {thirdBoundaryControl.nextSceneTitle}
+                                                    </p>
+                                                    <input
+                                                        type="range"
+                                                        min={thirdBoundaryControl.min}
+                                                        max={thirdBoundaryControl.max}
+                                                        value={thirdBoundaryControl.value}
+                                                        onChange={(event) => {
+                                                            if (!thirdCurrentScene) return;
+                                                            setThirdSceneBoundary(thirdCurrentScene.order, Number(event.target.value));
+                                                        }}
+                                                        className="w-full accent-cyan-500"
+                                                    />
+                                                    <p className="text-[11px] text-cyan-300">
+                                                        Position de la barre: ligne {thirdBoundaryControl.value}
+                                                    </p>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                        <div className="rounded-md border border-white/10 bg-white/5 p-2">
+                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Dernière ligne scène actuelle</p>
+                                                            {thirdBoundaryControl.before ? (
+                                                                <p className="text-xs text-foreground/90">{formatSceneLineForReview(thirdBoundaryControl.before)}</p>
+                                                            ) : (
+                                                                <p className="text-xs text-muted-foreground">Aucune</p>
+                                                            )}
+                                                        </div>
+                                                        <div className="rounded-md border border-white/10 bg-white/5 p-2">
+                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Première ligne scène suivante</p>
+                                                            {thirdBoundaryControl.after ? (
+                                                                <p className="text-xs text-foreground/90">{formatSceneLineForReview(thirdBoundaryControl.after)}</p>
+                                                            ) : (
+                                                                <p className="text-xs text-muted-foreground">Aucune</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    className="h-7 text-xs bg-emerald-500 hover:bg-emerald-500/90 text-black"
+                                                    disabled={!thirdCurrentScene}
+                                                    onClick={() => {
+                                                        if (!thirdCurrentScene) return;
+                                                        setThirdSceneReviewedByOrder((prev) => ({
+                                                            ...prev,
+                                                            [thirdCurrentScene.order]: true,
+                                                        }));
+                                                        if (thirdCurrentScene.order < thirdSceneWindows.length - 1) {
+                                                            setThirdSceneCursor(thirdCurrentScene.order + 1);
+                                                        }
+                                                    }}
+                                                >
+                                                    Scène validée
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 text-xs"
+                                                    disabled={!thirdCurrentScene}
+                                                    onClick={() => {
+                                                        if (!thirdCurrentScene) return;
+                                                        setThirdSceneReviewedByOrder((prev) => ({
+                                                            ...prev,
+                                                            [thirdCurrentScene.order]: false,
+                                                        }));
+                                                    }}
+                                                >
+                                                    À revoir
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+                                            <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
+                                                {thirdCurrentSceneLines.map((line) => (
+                                                    <div key={`v3-scene-line-${line.id}`} className="text-sm leading-relaxed">
+                                                        {line.type === "dialogue" ? (
+                                                            <p className="text-foreground/95">
+                                                                <span className="font-semibold text-cyan-300">[{normalizeImportLabel(line.character)}]</span>{" "}
+                                                                {line.text}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-muted-foreground italic">{line.text}</p>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {thirdCurrentSceneLines.length === 0 && (
+                                                    <p className="text-xs text-muted-foreground">Aucune ligne dans cette scène.</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {thirdImportStep === 4 && (
+                                <div className="space-y-4">
+                                    <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                                        <p className="text-sm font-semibold text-foreground">Synthèse du re-scan</p>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <span className="text-[11px] px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                                                {thirdCanonicalCharacters.length} personnages canoniques
+                                            </span>
+                                            <span className="text-[11px] px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                                                {Object.keys(thirdAliasMappings).length} alias appliqués
+                                            </span>
+                                            <span className="text-[11px] px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                                                {thirdFinalOutput?.mappings.collectives.global.length || 0} collectifs globaux / {thirdFinalOutput?.mappings.collectives.by_scene.length || 0} collectifs scène
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {thirdSceneReviewedCount < thirdSceneWindows.length && (
+                                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                                            <p className="text-xs font-semibold text-amber-400">
+                                                Vérification scènes incomplète: {thirdSceneReviewedCount}/{thirdSceneWindows.length}. Vous pouvez revenir à l&apos;étape 3.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {(thirdFinalOutput?.unresolvedLabels.length || 0) > 0 && (
+                                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                                            <p className="text-xs font-semibold text-amber-400 mb-1">Libellés non résolus après re-scan</p>
+                                            <p className="text-xs text-amber-200/90">
+                                                {(thirdFinalOutput?.unresolvedLabels || []).join(", ")}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {(thirdFinalOutput?.unresolvedLabels.length || 0) === 0 && (
+                                        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                            <p className="text-xs font-semibold text-emerald-400">
+                                                Re-scan OK. Vous pouvez sauvegarder l&apos;import V3.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-white/10 flex items-center justify-between gap-3">
+                            {thirdImportStep === 1 ? (
+                                <Button variant="outline" onClick={closeThirdImportReview}>
+                                    Annuler
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setThirdImportStep((prev) => Math.max(1, prev - 1) as ThirdImportStep)}
+                                >
+                                    Étape précédente
+                                </Button>
+                            )}
+
+                            {thirdImportStep < 4 ? (
+                                <Button
+                                    className="bg-cyan-500 hover:bg-cyan-500/90 text-black font-semibold"
+                                    onClick={() => goToThirdStep((thirdImportStep + 1) as ThirdImportStep)}
+                                >
+                                    {thirdImportStep === 3
+                                        ? `Continuer vers l'étape 4 (${thirdSceneReviewedCount}/${thirdSceneWindows.length} scènes validées)`
+                                        : `Continuer vers l'étape ${thirdImportStep + 1}`}
+                                </Button>
+                            ) : (
+                                <Button
+                                    className="bg-cyan-500 hover:bg-cyan-500/90 text-black font-semibold"
+                                    onClick={finalizeThirdImport}
+                                    disabled={
+                                        isThirdSaving
+                                        || thirdSceneReviewedCount < thirdSceneWindows.length
+                                        || (thirdFinalOutput?.unresolvedLabels.length || 0) > 0
+                                    }
+                                >
+                                    {isThirdSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                    Valider et sauvegarder
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1379,10 +2736,10 @@ export function ImportWizard({
                 </div>
             )}
 
-            {/* 4. IMPORT CHOICE SCREEN (NEW 3-COLUMN LAYOUT) */}
+            {/* 4. IMPORT CHOICE SCREEN */}
             {showImportGuide && importChoice === "choice" && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={() => { setShowImportGuide(false); }}>
-                    <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-5xl shadow-2xl animate-in zoom-in-95 duration-200 relative" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-6xl shadow-2xl animate-in zoom-in-95 duration-200 relative" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => { setShowImportGuide(false); }} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
 
                         <div className="text-center mb-10">
@@ -1390,7 +2747,7 @@ export function ImportWizard({
                             <p className="text-muted-foreground mt-2 text-lg">Choisissez votre méthode d&apos;import</p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                             {/* 1. Catalog Import */}
                             <button
                                 onClick={() => setImportChoice("catalog")}
@@ -1436,7 +2793,32 @@ export function ImportWizard({
                                 />
                             </label>
 
-                            {/* 3. Assistant Repeto Import (AI) */}
+                            {/* 3. Import Beta V3 (No Full AI Rewrite) */}
+                            <label className="cursor-pointer group relative flex flex-col h-full">
+                                <div className="absolute inset-0 bg-cyan-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-cyan-500/50" />
+                                <div className="bg-card border border-border hover:border-cyan-500/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl">
+                                    <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-cyan-500/20 transition-colors">
+                                        <Upload className="w-10 h-10 text-cyan-400" />
+                                    </div>
+                                    <h3 className="font-bold text-xl text-foreground mb-3">Import Beta (V3)</h3>
+                                    <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
+                                        PDF brut + normalisation déterministe.
+                                        <br />
+                                        <span className="text-cyan-400 text-xs font-semibold mt-2 block">Contrôle visuel PDF vs texte avant validation.</span>
+                                    </p>
+                                    <div className="w-full py-3 rounded-xl bg-cyan-500/10 text-cyan-500 font-bold group-hover:bg-cyan-500 group-hover:text-black transition-colors">
+                                        Tester Import Beta
+                                    </div>
+                                </div>
+                                <input
+                                    type="file"
+                                    accept=".pdf"
+                                    className="hidden"
+                                    onChange={handleThirdFileChange}
+                                />
+                            </label>
+
+                            {/* 4. Assistant Repeto Import (AI) */}
                             <label className="cursor-pointer group relative flex flex-col h-full">
                                 <div className="absolute inset-0 bg-emerald-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-emerald-500/50" />
                                 <div className="bg-card border border-border hover:border-emerald-500/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl">

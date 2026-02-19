@@ -2,6 +2,7 @@
 
 import { parseScript, ParserOptions, ParseResult } from "@/lib/parser";
 import { ParsedScript, ScriptMappings } from "@/lib/types";
+import { formatScriptAsCanonicalText, parseScriptV3 } from "@/lib/import-v3";
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -160,6 +161,22 @@ export interface ImportValidationSubmission {
     mappings: ScriptMappings;
 }
 
+export interface ThirdImportSceneSummary {
+    sceneIndex: number;
+    title: string;
+    startLine: number;
+    endLine: number;
+    sampleDialogue: string[];
+}
+
+export interface ThirdImportPreparation {
+    parsedScript: ParsedScript;
+    formattedScriptText: string;
+    unresolvedLabels: string[];
+    rawSpeakerLabels: string[];
+    sceneSummaries: ThirdImportSceneSummary[];
+}
+
 function extractResponsesOutputText(response: unknown): string {
     const payload = response as { output_text?: unknown; output?: unknown };
     if (typeof payload.output_text === "string" && payload.output_text.trim().length > 0) {
@@ -215,7 +232,17 @@ function getErrorMessage(error: unknown): string {
 }
 
 function normalizeCharacterLabel(value: string): string {
-    return value.toUpperCase().replace(/\s+/g, " ").trim();
+    return (value || "")
+        .replace(/[’ʼ]/g, "'")
+        .toUpperCase()
+        .replace(/[.,:;]+$/g, "")
+        .replace(/^VOIX\s+DE\s+LA\s+/i, "")
+        .replace(/^VOIX\s+DU\s+/i, "")
+        .replace(/^VOIX\s+DES\s+/i, "")
+        .replace(/^VOIX\s+DE\s+/i, "")
+        .replace(/^VOIX\s+(?:[A-ZÀ-ÖØ-Þ]+\s+)*D['’ʼ]\s*/i, "")
+        .replace(/\s+/g, " ")
+        .trim();
 }
 
 function buildCanonicalCharacters(characters: string[]): string[] {
@@ -982,6 +1009,157 @@ IMPORTANT
 Ne renvoie que du JSON valide.`;
 }
 
+async function extractPdfTextForImportV3(buffer: Buffer): Promise<string> {
+    const pdf = require("pdf-parse/lib/pdf-parse.js");
+
+    const standardResult = await pdf(buffer);
+    const standardText = standardResult.text || "";
+    const hasPersoLines = /^PERSO\s+/im.test(standardText);
+    const hasCorruption = /[a-z][A-Z][a-z]/.test(standardText);
+
+    if (hasPersoLines && !hasCorruption) {
+        return standardText;
+    }
+
+    let allItems: { str: string; x: number; y: number; w: number }[] = [];
+
+    const render_page = (pageData: any) => {
+        const render_options = {
+            normalizeWhitespace: false,
+            disableCombineTextItems: false
+        };
+        return pageData.getTextContent(render_options).then((textContent: any) => {
+            for (const item of textContent.items) {
+                const str = item.str;
+                const x = item.transform[4];
+                const y = item.transform[5];
+                const w = item.width;
+
+                if (str.trim().length === 0 && w < 2) continue;
+                allItems.push({ str, x, y, w });
+            }
+            return "";
+        });
+    };
+
+    await pdf(buffer, { pagerender: render_page });
+
+    let cleanRawText = "";
+    let lastY = -1;
+    let lastX = -1;
+    let lastWidth = 0;
+
+    for (const item of allItems) {
+        const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > 6;
+
+        if (isNewLine) {
+            cleanRawText += "\n";
+            lastX = -1;
+        } else if (lastX !== -1) {
+            const gap = item.x - (lastX + lastWidth);
+            if (gap > 2) {
+                cleanRawText += " ";
+            }
+        }
+
+        cleanRawText += item.str;
+
+        lastY = item.y;
+        lastX = item.x;
+        lastWidth = item.w;
+    }
+
+    return cleanRawText;
+}
+
+function applyPdfTextRepairs(rawText: string): string {
+    let cleanRawText = rawText;
+
+    const ligatureMap: Record<string, string> = {
+        '\uFB00': 'ff', '\uFB01': 'fi', '\uFB02': 'fl', '\uFB03': 'ffi', '\uFB04': 'ffl',
+        '\uFB05': 'st', '\uFB06': 'st', '\u0132': 'IJ', '\u0133': 'ij',
+        '\u0152': 'OE', '\u0153': 'oe', '\u00C6': 'AE', '\u00E6': 'ae',
+    };
+
+    for (const [ligature, replacement] of Object.entries(ligatureMap)) {
+        cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
+    }
+
+    const fontCorruptionFixes: [RegExp, string][] = [
+        [/aS([aeioulr])/g, 'aff$1'],
+        [/eS([aeiou])/g, 'eff$1'],
+        [/oS([aeiou])/g, 'off$1'],
+        [/iS([aeiou])/g, 'iff$1'],
+        [/uS([aeiou])/g, 'uff$1'],
+    ];
+
+    for (const [pattern, replacement] of fontCorruptionFixes) {
+        cleanRawText = cleanRawText.replace(pattern, replacement);
+    }
+
+    return cleanRawText;
+}
+
+function buildThirdImportSceneSummaries(script: ParsedScript): ThirdImportSceneSummary[] {
+    const scenes = [...(script.scenes || [])].sort((a, b) => a.index - b.index);
+    return scenes.map((scene, idx) => {
+        const startLine = scene.index;
+        const nextScene = scenes[idx + 1];
+        const endLine = nextScene ? nextScene.index : (script.lines?.length || 0);
+        const sampleDialogue = (script.lines || [])
+            .slice(startLine, endLine)
+            .filter((line) => line.type === "dialogue")
+            .slice(0, 3)
+            .map((line) => `${line.character}: ${line.text}`);
+
+        return {
+            sceneIndex: idx,
+            title: scene.title || `Scène ${idx + 1}`,
+            startLine,
+            endLine,
+            sampleDialogue,
+        };
+    });
+}
+
+export async function prepareThirdImportAction(
+    formData: FormData
+): Promise<ThirdImportPreparation | { error: string }> {
+    const file = formData.get("file") as File;
+    const validation = validatePdfFile(file ?? null);
+    if (!validation.ok) return { error: validation.error };
+
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return { error: "Veuillez vous connecter pour importer un PDF." };
+        }
+
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const extractedText = await extractPdfTextForImportV3(buffer);
+        const repairedText = applyPdfTextRepairs(extractedText);
+        const parsed = parseScriptV3(repairedText);
+
+        const parsedScript: ParsedScript = {
+            ...parsed,
+            title: file.name.replace(/\.pdf$/i, ""),
+        };
+
+        return {
+            parsedScript,
+            formattedScriptText: formatScriptAsCanonicalText(parsedScript),
+            unresolvedLabels: parsed.unresolvedLabels || [],
+            rawSpeakerLabels: parsed.rawSpeakerLabels || [],
+            sceneSummaries: buildThirdImportSceneSummaries(parsedScript),
+        };
+    } catch (error: unknown) {
+        console.error("[Import V3] Error:", error);
+        return { error: getErrorMessage(error) || "Erreur lors de la préparation de l'import V3." };
+    }
+}
+
 /**
  * Clean and restructure a messy script using AI.
  * Returns canonical text expected by parseScript ([CHAR], dialogue, (didascalies), ACTE/SCENE)
@@ -1403,8 +1581,42 @@ export async function saveScriptWithImportValidation(
             return { error: validated.error };
         }
 
+        const normalizedAliases: Record<string, string> = {};
+        for (const [source, target] of Object.entries(validated.sanitized.aliases || {})) {
+            const normalizedSource = normalizeCharacterLabel(source || "");
+            const normalizedTarget = normalizeCharacterLabel(target || "");
+            if (normalizedSource && normalizedTarget) {
+                normalizedAliases[normalizedSource] = normalizedTarget;
+            }
+        }
+
+        const resolveAlias = (rawLabel: string): string => {
+            let current = normalizeCharacterLabel(rawLabel || "");
+            if (!current) return "";
+
+            const visited = new Set<string>();
+            while (normalizedAliases[current] && !visited.has(current)) {
+                visited.add(current);
+                current = normalizeCharacterLabel(normalizedAliases[current]);
+            }
+            return current;
+        };
+
+        const remappedLines = (script.lines || []).map((line) => {
+            if (line.type !== "dialogue") return line;
+
+            const resolvedCharacter = resolveAlias(line.character || "");
+            if (!resolvedCharacter) return line;
+
+            return {
+                ...line,
+                character: resolvedCharacter,
+            };
+        });
+
         const finalScript: ParsedScript = {
             ...script,
+            lines: remappedLines,
             characters: validated.sanitized.canonical_characters,
             schema_version: 2,
             mappings: validated.sanitized,

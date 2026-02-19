@@ -40,16 +40,19 @@ export function ScriptViewer({ script, onConfirm, forcedMode, privateNotes = [] 
     // Derive all characters from lines
     const structuralBlacklist = ["scene", "acte", "act"];
 
-    const allLinesCharacters = new Set(
-        script.lines
-            .filter(l =>
-                l.character &&
-                l.type !== 'scene_heading' &&
-                !structuralBlacklist.some(b => l.character.toLowerCase().includes(b))
-            )
-            .map(l => l.character)
-            .filter(Boolean)
-    );
+    const hasCanonicalMappings = Boolean(script.mappings?.canonical_characters?.length);
+    const allLinesCharacters = hasCanonicalMappings
+        ? new Set<string>()
+        : new Set(
+            script.lines
+                .filter(l =>
+                    l.character &&
+                    l.type !== 'scene_heading' &&
+                    !structuralBlacklist.some(b => l.character.toLowerCase().includes(b))
+                )
+                .map(l => l.character)
+                .filter(Boolean)
+        );
 
     // Inject PRIVATE_NOTE_CHAR if we have actual private notes
     const hasPrivateNotes = privateNotes && privateNotes.length > 0;
