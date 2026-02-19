@@ -8,6 +8,17 @@ import {
     X,
     BookOpen,
     Sparkles,
+    User,
+    Users,
+    ArrowRight,
+    ChevronLeft,
+    ChevronRight,
+    Check,
+    AlertTriangle,
+    FileText,
+    Link,
+    Layers,
+    CheckCircle2,
 } from "lucide-react";
 import {
     detectCharactersAction,
@@ -273,6 +284,7 @@ export function ImportWizard({
     const classicImportTimerRef = useRef<NodeJS.Timeout | null>(null);
     const classicCurrentStageRef = useRef<ClassicImportStage | null>(null);
     const classicHeartbeatAtSecRef = useRef<number>(-1);
+    const scriptViewerRef = useRef<HTMLDivElement>(null);
 
     const resetDiagnosticsState = () => {
         setDiagnosticsModalOpen(false);
@@ -702,6 +714,23 @@ export function ImportWizard({
     const thirdSceneReviewedCount = useMemo(() => (
         thirdSceneWindows.filter((scene) => thirdSceneReviewedByOrder[scene.order]).length
     ), [thirdSceneWindows, thirdSceneReviewedByOrder]);
+
+    // Auto-scroll: sync text viewer to current scene
+    useEffect(() => {
+        if (!thirdCurrentScene || thirdImportStep !== 3) return;
+
+        // Scroll the text viewer to the scene marker
+        const marker = document.getElementById(`v3-scene-marker-${thirdCurrentScene.order}`);
+        if (marker && scriptViewerRef.current) {
+            marker.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    }, [thirdSceneCursor, thirdCurrentScene, thirdImportStep]);
+
+    // Compute PDF page for current scene
+    const pdfPageForCurrentScene = useMemo(() => {
+        if (!thirdCurrentScene || !thirdImportPreview?.scenePageMap) return 1;
+        return thirdImportPreview.scenePageMap[thirdCurrentScene.order] ?? 1;
+    }, [thirdCurrentScene, thirdImportPreview]);
 
     const thirdEffectiveCollectiveCandidates = useMemo(() => {
         const map = new Map<string, ThirdCollectiveCandidate>();
@@ -1879,64 +1908,87 @@ export function ImportWizard({
             {thirdImportReviewOpen && thirdImportPreview && (
                 <div className="fixed inset-0 z-[108] bg-black/85 backdrop-blur-sm animate-in fade-in duration-200 p-4">
                     <div className="mx-auto h-full max-h-[94vh] w-full max-w-7xl rounded-3xl border border-white/10 bg-card shadow-2xl flex flex-col">
-                        <div className="p-5 border-b border-white/10 flex items-start justify-between gap-4">
-                            <div>
-                                <h3 className="text-xl font-bold text-foreground">Import Beta (V3) - Validation sans IA</h3>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Étape 1 personnages, étape 2 multi-personnages, étape 3 découpage des scènes, étape 4 re-scan final.
-                                </p>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    <span className="text-[11px] px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                                        {thirdCanonicalCharacters.length} personnages canoniques
-                                    </span>
-                                    <span className="text-[11px] px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                                        {thirdEffectiveCollectiveCandidates.length} multi-personnages
-                                    </span>
-                                    <span className="text-[11px] px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                                        {thirdSceneReviewedCount}/{thirdSceneWindows.length} scènes validées
-                                    </span>
+                        {/* --- PREMIUM HEADER --- */}
+                        <div className="p-5 border-b border-white/10 flex items-start justify-between gap-4 bg-gradient-to-r from-cyan-500/5 via-transparent to-emerald-500/5 rounded-t-3xl">
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                                    <FileText className="w-5 h-5 text-cyan-400" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-foreground">Import Beta (V3) - Validation sans IA</h3>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                        Étape 1 personnages, étape 2 multi-personnages, étape 3 découpage des scènes, étape 4 re-scan final.
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        <span className="text-[11px] px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 font-medium flex items-center gap-1.5 transition-all">
+                                            <Users className="w-3 h-3" />
+                                            {thirdCanonicalCharacters.length} personnages canoniques
+                                        </span>
+                                        <span className="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-medium flex items-center gap-1.5 transition-all">
+                                            <Link className="w-3 h-3" />
+                                            {thirdEffectiveCollectiveCandidates.length} multi-personnages
+                                        </span>
+                                        <span className="text-[11px] px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium flex items-center gap-1.5 transition-all">
+                                            <Layers className="w-3 h-3" />
+                                            {thirdSceneReviewedCount}/{thirdSceneWindows.length} scènes validées
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={closeThirdImportReview}>
+                            <Button variant="ghost" size="icon" onClick={closeThirdImportReview} className="hover:bg-white/10 rounded-xl">
                                 <X className="w-5 h-5" />
                             </Button>
                         </div>
 
-                        <div className="p-4 border-b border-white/10 grid grid-cols-2 md:grid-cols-4 gap-2">
-                            <button
-                                type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 1 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
-                                onClick={() => goToThirdStep(1)}
-                            >
-                                <p className="text-xs font-semibold text-foreground">1. Personnages</p>
-                                <p className="text-[11px] text-muted-foreground">{thirdCharacterPendingCount} à lier</p>
-                            </button>
-                            <button
-                                type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 2 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
-                                onClick={() => goToThirdStep(2)}
-                            >
-                                <p className="text-xs font-semibold text-foreground">2. Multi-persos</p>
-                                <p className="text-[11px] text-muted-foreground">{thirdCollectivePendingCount} à résoudre</p>
-                            </button>
-                            <button
-                                type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 3 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
-                                onClick={() => goToThirdStep(3)}
-                            >
-                                <p className="text-xs font-semibold text-foreground">3. Scènes</p>
-                                <p className="text-[11px] text-muted-foreground">{thirdSceneReviewedCount}/{thirdSceneWindows.length} vérifiées</p>
-                            </button>
-                            <button
-                                type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${thirdImportStep === 4 ? "border-cyan-500/60 bg-cyan-500/10" : "border-white/10 bg-white/5"}`}
-                                onClick={() => goToThirdStep(4)}
-                            >
-                                <p className="text-xs font-semibold text-foreground">4. Re-scan final</p>
-                                <p className="text-[11px] text-muted-foreground">
-                                    {(thirdFinalOutput?.unresolvedLabels.length || 0) === 0 ? "OK" : `${thirdFinalOutput?.unresolvedLabels.length || 0} libellé(s)`}
-                                </p>
-                            </button>
+                        {/* --- CONNECTED STEPPER --- */}
+                        <div className="px-6 py-4 border-b border-white/10">
+                            <div className="flex items-center justify-between gap-1">
+                                {([
+                                    { step: 1 as const, label: "Personnages", sub: `${thirdCharacterPendingCount} à lier` },
+                                    { step: 2 as const, label: "Multi-persos", sub: `${thirdCollectivePendingCount} à résoudre` },
+                                    { step: 3 as const, label: "Scènes", sub: `${thirdSceneReviewedCount}/${thirdSceneWindows.length} vérifiées` },
+                                    { step: 4 as const, label: "Re-scan final", sub: (thirdFinalOutput?.unresolvedLabels.length || 0) === 0 ? "OK" : `${thirdFinalOutput?.unresolvedLabels.length || 0} libellé(s)` },
+                                ] as const).map((item, idx) => {
+                                    const isActive = thirdImportStep === item.step;
+                                    const isCompleted = thirdImportStep > item.step;
+                                    return (
+                                        <div key={item.step} className="flex items-center flex-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => goToThirdStep(item.step)}
+                                                className="flex items-center gap-2.5 group"
+                                            >
+                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 shrink-0 ${isCompleted
+                                                    ? "bg-emerald-500/20 border-2 border-emerald-500/50 text-emerald-400"
+                                                    : isActive
+                                                        ? "bg-cyan-500/20 border-2 border-cyan-500/60 text-cyan-400 animate-ring-pulse"
+                                                        : "bg-white/5 border-2 border-white/15 text-muted-foreground"
+                                                    }`}>
+                                                    {isCompleted ? (
+                                                        <Check className="w-4 h-4 animate-check-pop" />
+                                                    ) : (
+                                                        item.step
+                                                    )}
+                                                </div>
+                                                <div className="text-left hidden md:block">
+                                                    <p className={`text-xs font-semibold transition-colors ${isActive ? "text-cyan-400" : isCompleted ? "text-emerald-400" : "text-foreground"}`}>
+                                                        {item.label}
+                                                    </p>
+                                                    <p className="text-[10px] text-muted-foreground">{item.sub}</p>
+                                                </div>
+                                            </button>
+                                            {idx < 3 && (
+                                                <div className="flex-1 h-0.5 mx-3 rounded-full bg-white/10 overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${isCompleted ? "bg-emerald-500/60 w-full" : isActive ? "bg-cyan-500/40 w-1/2" : "w-0"
+                                                            }`}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         <div className="flex-1 min-h-0 overflow-y-auto p-4">
@@ -1946,40 +1998,57 @@ export function ImportWizard({
                                         Vérifiez chaque libellé détecté et choisissez le personnage canonique cible.
                                     </p>
                                     <div className="space-y-2">
-                                        {thirdCharacterLabels.map((label) => (
-                                            <div key={`v3-character-${label}`} className="rounded-lg border border-white/10 bg-white/5 p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                                <div>
-                                                    <p className="text-sm font-semibold text-foreground">{label}</p>
-                                                    <p className="text-[11px] text-muted-foreground">
-                                                        {thirdCharacterCountByLabel[label] || 0} réplique(s)
-                                                    </p>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs text-muted-foreground">→</span>
-                                                    <Select
-                                                        value={thirdCharacterTargetByLabel[label] || label}
-                                                        onValueChange={(value) => setThirdCharacterTargetByLabel((prev) => ({
-                                                            ...prev,
-                                                            [label]: normalizeImportLabel(value),
-                                                        }))}
-                                                    >
-                                                        <SelectTrigger className="h-8 w-[240px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
-                                                            {thirdCharacterOptions.map((option) => (
-                                                                <SelectItem key={`v3-character-option-${label}-${option}`} value={option} className="text-xs uppercase">
-                                                                    {option}
+                                        {thirdCharacterLabels.map((label, idx) => {
+                                            const target = normalizeImportLabel(thirdCharacterTargetByLabel[label] || "");
+                                            const isResolved = target && target !== normalizeImportLabel(label) && target !== THIRD_MULTI_TARGET;
+                                            return (
+                                                <div
+                                                    key={`v3-character-${label}`}
+                                                    className={`v3-stagger-item rounded-xl border-l-2 border border-white/10 p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 transition-all duration-300 ${isResolved
+                                                        ? "border-l-emerald-500 bg-emerald-500/5"
+                                                        : "border-l-cyan-500 bg-white/5"
+                                                        }`}
+                                                    style={{ animationDelay: `${idx * 40}ms` }}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isResolved ? "bg-emerald-500/15" : "bg-cyan-500/15"
+                                                            }`}>
+                                                            <User className={`w-4 h-4 ${isResolved ? "text-emerald-400" : "text-cyan-400"}`} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-foreground">{label}</p>
+                                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-muted-foreground font-medium">
+                                                                {thirdCharacterCountByLabel[label] || 0} réplique(s)
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2.5">
+                                                        <ArrowRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+                                                        <Select
+                                                            value={thirdCharacterTargetByLabel[label] || label}
+                                                            onValueChange={(value) => setThirdCharacterTargetByLabel((prev) => ({
+                                                                ...prev,
+                                                                [label]: normalizeImportLabel(value),
+                                                            }))}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-[240px] text-xs bg-white/5 border-white/15 rounded-lg text-muted-foreground focus:ring-cyan-500/30 focus:border-cyan-500/40">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
+                                                                {thirdCharacterOptions.map((option) => (
+                                                                    <SelectItem key={`v3-character-option-${label}-${option}`} value={option} className="text-xs uppercase">
+                                                                        {option}
+                                                                    </SelectItem>
+                                                                ))}
+                                                                <SelectItem value={THIRD_MULTI_TARGET} className="text-xs">
+                                                                    Aucun personnage (multi-personnage)
                                                                 </SelectItem>
-                                                            ))}
-                                                            <SelectItem value={THIRD_MULTI_TARGET} className="text-xs">
-                                                                Aucun personnage (multi-personnage)
-                                                            </SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                         {thirdCharacterLabels.length === 0 && (
                                             <p className="text-xs text-muted-foreground">Aucun personnage à lier.</p>
                                         )}
@@ -1992,8 +2061,8 @@ export function ImportWizard({
                                     <p className="text-sm text-muted-foreground">
                                         Résolvez chaque multi-personnage en indiquant ses membres et son périmètre (global ou scène).
                                     </p>
-                                    <div className="space-y-2">
-                                        {thirdEffectiveCollectiveCandidates.map((candidate) => {
+                                    <div className="space-y-3">
+                                        {thirdEffectiveCollectiveCandidates.map((candidate, idx) => {
                                             const scope = thirdCollectiveScopeById[candidate.id] || candidate.scope;
                                             const allowedSceneOrders = (candidate.sceneOrders || []).length > 0
                                                 ? candidate.sceneOrders
@@ -2011,10 +2080,17 @@ export function ImportWizard({
                                             const showContextPanel = thirdContextCandidateId === candidate.id && !!contextData;
                                             const canonicalSet = new Set(thirdCanonicalCharacters.map((value) => normalizeImportLabel(value)));
                                             return (
-                                                <div key={candidate.id} className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
-                                                    <div className="flex flex-wrap items-center gap-2">
+                                                <div
+                                                    key={candidate.id}
+                                                    className="v3-stagger-item rounded-xl border-l-2 border-l-emerald-500 border border-white/10 bg-white/5 p-4 space-y-3"
+                                                    style={{ animationDelay: `${idx * 50}ms` }}
+                                                >
+                                                    <div className="flex flex-wrap items-center gap-2.5">
+                                                        <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+                                                            <Users className="w-3.5 h-3.5 text-emerald-400" />
+                                                        </div>
                                                         <span className="text-sm font-semibold text-foreground">{candidate.label}</span>
-                                                        <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded bg-white/10 border border-white/10">
+                                                        <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded-full bg-white/10 font-medium">
                                                             {candidate.count} occurrence(s)
                                                         </span>
                                                     </div>
@@ -2028,7 +2104,7 @@ export function ImportWizard({
                                                             }))}
                                                             disabled={allowedSceneOrders.length <= 1}
                                                         >
-                                                            <SelectTrigger className="h-8 w-[160px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground">
+                                                            <SelectTrigger className="h-8 w-[160px] text-xs bg-white/5 border-white/15 rounded-lg text-muted-foreground">
                                                                 <SelectValue />
                                                             </SelectTrigger>
                                                             <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
@@ -2046,7 +2122,7 @@ export function ImportWizard({
                                                                 }))}
                                                             >
                                                                 <SelectTrigger
-                                                                    className="h-8 w-[220px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground"
+                                                                    className="h-8 w-[220px] text-xs bg-white/5 border-white/15 rounded-lg text-muted-foreground"
                                                                     disabled={allowedSceneOrders.length <= 1}
                                                                 >
                                                                     <SelectValue />
@@ -2055,10 +2131,10 @@ export function ImportWizard({
                                                                     {thirdSceneWindows
                                                                         .filter((scene) => allowedSceneOrders.includes(scene.order))
                                                                         .map((scene) => (
-                                                                        <SelectItem key={`v3-collective-scene-${candidate.id}-${scene.order}`} value={String(scene.order)} className="text-xs">
-                                                                            {scene.order + 1}. {scene.title}
-                                                                        </SelectItem>
-                                                                    ))}
+                                                                            <SelectItem key={`v3-collective-scene-${candidate.id}-${scene.order}`} value={String(scene.order)} className="text-xs">
+                                                                                {scene.order + 1}. {scene.title}
+                                                                            </SelectItem>
+                                                                        ))}
                                                                 </SelectContent>
                                                             </Select>
                                                         )}
@@ -2076,15 +2152,15 @@ export function ImportWizard({
                                                     </div>
 
                                                     {showContextPanel && (
-                                                        <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-2 space-y-2">
+                                                        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-2 animate-in slide-in-from-top-2 duration-200">
                                                             <p className="text-[11px] font-semibold text-cyan-400">
                                                                 Contexte · {contextData.sceneOrder + 1}. {contextData.sceneTitle}
                                                             </p>
-                                                            <div className="max-h-64 overflow-y-auto rounded-md border border-white/10 bg-black/20 p-2 space-y-1">
+                                                            <div className="max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-black/20 p-2 space-y-1">
                                                                 {contextData.lines.map((line) => {
                                                                     if (line.type !== "dialogue") {
                                                                         return (
-                                                                            <p key={`${candidate.id}-ctx-stage-${line.id}`} className="text-xs italic text-muted-foreground">
+                                                                            <p key={`${candidate.id}-ctx-stage-${line.id}`} className="text-xs italic text-muted-foreground border-l-2 border-muted/30 pl-2">
                                                                                 {line.text}
                                                                             </p>
                                                                         );
@@ -2094,15 +2170,14 @@ export function ImportWizard({
                                                                     const isCandidateSpeaker = speaker === candidate.label;
                                                                     const isCanonicalSpeaker = canonicalSet.has(speaker);
                                                                     return (
-                                                                        <div key={`${candidate.id}-ctx-dialogue-${line.id}`} className={`text-xs leading-relaxed rounded px-2 py-1 ${isCandidateSpeaker ? "bg-amber-500/10 border border-amber-500/30" : "bg-white/5"}`}>
+                                                                        <div key={`${candidate.id}-ctx-dialogue-${line.id}`} className={`text-xs leading-relaxed rounded-lg px-2 py-1.5 ${isCandidateSpeaker ? "bg-amber-500/15 border border-amber-500/30" : "bg-white/5"}`}>
                                                                             <span
-                                                                                className={`inline-block mr-2 px-1.5 py-0.5 rounded font-semibold ${
-                                                                                    isCandidateSpeaker
-                                                                                        ? "bg-amber-500/30 text-amber-300"
-                                                                                        : isCanonicalSpeaker
-                                                                                            ? "bg-cyan-500/20 text-cyan-300"
-                                                                                            : "bg-white/10 text-foreground/80"
-                                                                                }`}
+                                                                                className={`inline-block mr-2 px-1.5 py-0.5 rounded-md font-semibold text-[10px] ${isCandidateSpeaker
+                                                                                    ? "bg-amber-500/30 text-amber-300"
+                                                                                    : isCanonicalSpeaker
+                                                                                        ? "bg-cyan-500/20 text-cyan-300"
+                                                                                        : "bg-white/10 text-foreground/80"
+                                                                                    }`}
                                                                             >
                                                                                 [{speaker}]
                                                                             </span>
@@ -2125,8 +2200,12 @@ export function ImportWizard({
                                                                     key={`v3-collective-member-${candidate.id}-${character}`}
                                                                     type="button"
                                                                     onClick={() => toggleThirdCollectiveMember(candidate.id, character)}
-                                                                    className={`text-left text-xs px-2 py-1 rounded-lg border transition-colors ${selected ? "bg-cyan-500/20 border-cyan-500/40 text-foreground" : "bg-card border-white/10 text-muted-foreground hover:bg-white/10"}`}
+                                                                    className={`text-left text-xs px-2.5 py-1.5 rounded-lg border transition-all duration-150 flex items-center gap-1.5 hover:scale-[1.03] ${selected
+                                                                        ? "bg-gradient-to-r from-cyan-500/20 to-cyan-500/10 border-cyan-500/40 text-foreground"
+                                                                        : "bg-card border-white/10 text-muted-foreground hover:bg-white/10"
+                                                                        }`}
                                                                 >
+                                                                    {selected && <Check className="w-3 h-3 text-cyan-400 shrink-0" />}
                                                                     {character}
                                                                 </button>
                                                             );
@@ -2142,225 +2221,395 @@ export function ImportWizard({
                                 </div>
                             )}
 
-                            {thirdImportStep === 3 && (
-                                <div className="h-full min-h-[560px] grid grid-cols-1 lg:grid-cols-[1.35fr_1fr] gap-4">
-                                    <div className="min-h-0 flex flex-col rounded-xl border border-white/10 overflow-hidden">
-                                        <div className="px-4 py-2 border-b border-white/10">
-                                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">PDF source</p>
-                                        </div>
-                                        <div className="flex-1 min-h-0">
-                                            {thirdImportPdfUrl ? (
-                                                <iframe
-                                                    src={thirdImportPdfUrl}
-                                                    className="w-full h-full bg-black"
-                                                    title="PDF source"
-                                                />
-                                            ) : (
-                                                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                                                    Aperçu PDF indisponible.
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
+                            {thirdImportStep === 3 && (() => {
+                                // Pre-compute scene ranges for the text viewer highlighting
+                                const allLines = thirdImportPreview?.parsedScript.lines || [];
+                                const sceneRanges = thirdSceneWindows.map((sw) => ({
+                                    order: sw.order,
+                                    start: sw.start,
+                                    end: sw.end,
+                                    title: sw.title,
+                                }));
+                                const boundaryLine = thirdBoundaryControl?.value ?? -1;
 
-                                    <div className="min-h-0 flex flex-col rounded-xl border border-white/10 overflow-hidden">
-                                        <div className="px-4 py-3 border-b border-white/10 space-y-3">
-                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                <p className="text-sm font-semibold text-foreground">
-                                                    {thirdCurrentScene ? `${thirdCurrentScene.order + 1}. ${thirdCurrentScene.title}` : "Aucune scène"}
-                                                </p>
-                                                <p className="text-[11px] text-muted-foreground">
-                                                    {thirdCurrentScene ? `Lignes ${thirdCurrentScene.start} → ${thirdCurrentScene.end}` : ""}
-                                                </p>
+                                return (
+                                    <div className="h-full min-h-[560px] grid grid-cols-1 lg:grid-cols-[0.8fr_1.2fr_1fr] gap-3">
+                                        {/* ─── COLUMN 1: PDF SOURCE ─── */}
+                                        <div className="min-h-0 flex flex-col rounded-xl border border-white/10 overflow-hidden">
+                                            <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2">
+                                                <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                                                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">PDF source</p>
+                                                {thirdCurrentScene && thirdImportPreview?.scenePageMap?.[thirdCurrentScene.order] && (
+                                                    <span className="ml-auto text-[10px] text-cyan-400 font-medium">
+                                                        Page {thirdImportPreview.scenePageMap[thirdCurrentScene.order]}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-7 text-xs"
-                                                    disabled={!thirdCurrentScene || thirdSceneCursor === 0}
-                                                    onClick={() => setThirdSceneCursor((prev) => Math.max(0, prev - 1))}
-                                                >
-                                                    Scène précédente
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-7 text-xs"
-                                                    disabled={!thirdCurrentScene || thirdSceneCursor >= thirdSceneWindows.length - 1}
-                                                    onClick={() => setThirdSceneCursor((prev) => Math.min(thirdSceneWindows.length - 1, prev + 1))}
-                                                >
-                                                    Scène suivante
-                                                </Button>
-                                            </div>
-                                            {thirdBoundaryControl && (
-                                                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3 space-y-2">
-                                                    <p className="text-xs font-semibold text-cyan-400">
-                                                        Barre de découpe entre cette scène et: {thirdBoundaryControl.nextSceneTitle}
-                                                    </p>
-                                                    <input
-                                                        type="range"
-                                                        min={thirdBoundaryControl.min}
-                                                        max={thirdBoundaryControl.max}
-                                                        value={thirdBoundaryControl.value}
-                                                        onChange={(event) => {
-                                                            if (!thirdCurrentScene) return;
-                                                            setThirdSceneBoundary(thirdCurrentScene.order, Number(event.target.value));
-                                                        }}
-                                                        className="w-full accent-cyan-500"
+                                            <div className="flex-1 min-h-0">
+                                                {thirdImportPdfUrl ? (
+                                                    <iframe
+                                                        key={`pdf-viewer-page-${pdfPageForCurrentScene}`}
+                                                        src={`${thirdImportPdfUrl}#page=${pdfPageForCurrentScene}`}
+                                                        className="w-full h-full bg-black"
+                                                        title="PDF source"
                                                     />
-                                                    <p className="text-[11px] text-cyan-300">
-                                                        Position de la barre: ligne {thirdBoundaryControl.value}
-                                                    </p>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                        <div className="rounded-md border border-white/10 bg-white/5 p-2">
-                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Dernière ligne scène actuelle</p>
-                                                            {thirdBoundaryControl.before ? (
-                                                                <p className="text-xs text-foreground/90">{formatSceneLineForReview(thirdBoundaryControl.before)}</p>
-                                                            ) : (
-                                                                <p className="text-xs text-muted-foreground">Aucune</p>
+                                                ) : (
+                                                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                                                        Aperçu PDF indisponible.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* ─── COLUMN 2: SYNCHRONIZED TEXT VIEWER ─── */}
+                                        <div className="min-h-0 flex flex-col rounded-xl border border-white/10 overflow-hidden">
+                                            <div className="px-3 py-2 border-b border-white/10 flex items-center gap-2">
+                                                <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                                                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Script extrait</p>
+                                                <span className="ml-auto text-[10px] text-muted-foreground">{allLines.length} lignes</span>
+                                            </div>
+                                            <div ref={scriptViewerRef} className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+                                                {allLines.map((line, lineIdx) => {
+                                                    // Find which scene this line belongs to
+                                                    const sceneForLine = sceneRanges.find(
+                                                        (sr) => lineIdx >= sr.start && lineIdx < sr.end
+                                                    );
+                                                    const isInActiveScene = sceneForLine?.order === thirdCurrentScene?.order;
+                                                    const isSceneStart = sceneRanges.some((sr) => sr.start === lineIdx);
+                                                    const isBoundaryLine = lineIdx === boundaryLine;
+                                                    const sceneStartMatch = isSceneStart ? sceneRanges.find((sr) => sr.start === lineIdx) : null;
+
+                                                    return (
+                                                        <div key={`v3-text-line-${lineIdx}`}>
+                                                            {/* Scene start marker */}
+                                                            {sceneStartMatch && (
+                                                                <div
+                                                                    id={`v3-scene-marker-${sceneStartMatch.order}`}
+                                                                    className={`sticky top-0 z-10 flex items-center gap-2 py-1.5 px-2 mt-3 mb-1 rounded-lg border text-xs font-semibold ${sceneStartMatch.order === thirdCurrentScene?.order
+                                                                        ? "bg-cyan-500/15 border-cyan-500/30 text-cyan-300"
+                                                                        : "bg-white/5 border-white/10 text-muted-foreground"
+                                                                        }`}
+                                                                >
+                                                                    <span className="w-5 h-5 rounded-full bg-black/30 flex items-center justify-center text-[10px]">
+                                                                        {sceneStartMatch.order + 1}
+                                                                    </span>
+                                                                    {sceneStartMatch.title}
+                                                                </div>
                                                             )}
+
+                                                            {/* Boundary marker */}
+                                                            {isBoundaryLine && (
+                                                                <div className="flex items-center gap-2 my-1.5">
+                                                                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/60 via-amber-400 to-amber-500/60" />
+                                                                    <span className="text-[9px] uppercase tracking-widest text-amber-400 font-bold shrink-0">
+                                                                        ✂ Découpe
+                                                                    </span>
+                                                                    <div className="flex-1 h-px bg-gradient-to-r from-amber-500/60 via-amber-400 to-amber-500/60" />
+                                                                </div>
+                                                            )}
+
+                                                            {/* Line content */}
+                                                            <div
+                                                                className={`py-0.5 px-2 rounded transition-colors ${isInActiveScene
+                                                                    ? "bg-cyan-500/5 border-l-2 border-cyan-500/40"
+                                                                    : "opacity-40 border-l-2 border-transparent"
+                                                                    }`}
+                                                            >
+                                                                {line.type === "dialogue" ? (
+                                                                    <p className="text-sm leading-relaxed text-foreground/95">
+                                                                        <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                                                                            {normalizeImportLabel(line.character)}
+                                                                        </span>
+                                                                        {line.text}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-xs leading-relaxed text-muted-foreground italic border-l-2 border-muted/30 pl-2 ml-1">
+                                                                        {line.text}
+                                                                    </p>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <div className="rounded-md border border-white/10 bg-white/5 p-2">
-                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Première ligne scène suivante</p>
-                                                            {thirdBoundaryControl.after ? (
-                                                                <p className="text-xs text-foreground/90">{formatSceneLineForReview(thirdBoundaryControl.after)}</p>
-                                                            ) : (
-                                                                <p className="text-xs text-muted-foreground">Aucune</p>
-                                                            )}
+                                                    );
+                                                })}
+                                                {allLines.length === 0 && (
+                                                    <p className="text-xs text-muted-foreground py-4 text-center">Aucune ligne extraite.</p>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* ─── COLUMN 3: SCENE CONTROLS ─── */}
+                                        <div className="min-h-0 flex flex-col rounded-xl border border-white/10 overflow-hidden">
+                                            <div className="px-4 py-3 border-b border-white/10 space-y-3">
+                                                {/* Scene navigation with icons */}
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-8 text-xs gap-1.5 rounded-lg"
+                                                        disabled={!thirdCurrentScene || thirdSceneCursor === 0}
+                                                        onClick={() => setThirdSceneCursor((prev) => Math.max(0, prev - 1))}
+                                                    >
+                                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                                        Préc.
+                                                    </Button>
+                                                    <div className="flex-1 text-center">
+                                                        <p className="text-sm font-semibold text-foreground">
+                                                            {thirdCurrentScene ? `${thirdCurrentScene.order + 1}. ${thirdCurrentScene.title}` : "Aucune scène"}
+                                                        </p>
+                                                        <p className="text-[10px] text-muted-foreground">
+                                                            {thirdCurrentScene ? `Lignes ${thirdCurrentScene.start} → ${thirdCurrentScene.end}` : ""}
+                                                        </p>
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-8 text-xs gap-1.5 rounded-lg"
+                                                        disabled={!thirdCurrentScene || thirdSceneCursor >= thirdSceneWindows.length - 1}
+                                                        onClick={() => setThirdSceneCursor((prev) => Math.min(thirdSceneWindows.length - 1, prev + 1))}
+                                                    >
+                                                        Suiv.
+                                                        <ChevronRight className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                </div>
+
+                                                {/* Styled boundary slider */}
+                                                {thirdBoundaryControl && (
+                                                    <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-b from-cyan-500/5 to-transparent p-3 space-y-2.5">
+                                                        <p className="text-xs font-semibold text-cyan-400">
+                                                            Barre de découpe entre cette scène et: {thirdBoundaryControl.nextSceneTitle}
+                                                        </p>
+                                                        <input
+                                                            type="range"
+                                                            min={thirdBoundaryControl.min}
+                                                            max={thirdBoundaryControl.max}
+                                                            value={thirdBoundaryControl.value}
+                                                            onChange={(event) => {
+                                                                if (!thirdCurrentScene) return;
+                                                                setThirdSceneBoundary(thirdCurrentScene.order, Number(event.target.value));
+                                                            }}
+                                                            className="v3-range-slider"
+                                                        />
+                                                        <p className="text-[11px] text-cyan-300/80">
+                                                            Position de la barre: ligne {thirdBoundaryControl.value}
+                                                        </p>
+                                                        <div className="grid grid-cols-1 gap-2">
+                                                            <div className="rounded-lg border border-white/10 bg-white/5 p-2.5 flex items-start gap-2">
+                                                                <div className="w-5 h-5 rounded bg-amber-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                                                                    <ChevronLeft className="w-3 h-3 text-amber-400" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Dernière ligne scène actuelle</p>
+                                                                    {thirdBoundaryControl.before ? (
+                                                                        <p className="text-xs text-foreground/90">{formatSceneLineForReview(thirdBoundaryControl.before)}</p>
+                                                                    ) : (
+                                                                        <p className="text-xs text-muted-foreground">Aucune</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-lg border border-white/10 bg-white/5 p-2.5 flex items-start gap-2">
+                                                                <div className="w-5 h-5 rounded bg-emerald-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                                                                    <ChevronRight className="w-3 h-3 text-emerald-400" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Première ligne scène suivante</p>
+                                                                    {thirdBoundaryControl.after ? (
+                                                                        <p className="text-xs text-foreground/90">{formatSceneLineForReview(thirdBoundaryControl.after)}</p>
+                                                                    ) : (
+                                                                        <p className="text-xs text-muted-foreground">Aucune</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                )}
+
+                                                {/* Styled validation buttons */}
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-8 text-xs gap-1.5 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-500/90 hover:to-emerald-400/90 text-black font-semibold rounded-lg transition-all hover:scale-[1.02]"
+                                                        disabled={!thirdCurrentScene}
+                                                        onClick={() => {
+                                                            if (!thirdCurrentScene) return;
+                                                            setThirdSceneReviewedByOrder((prev) => ({
+                                                                ...prev,
+                                                                [thirdCurrentScene.order]: true,
+                                                            }));
+                                                            if (thirdCurrentScene.order < thirdSceneWindows.length - 1) {
+                                                                setThirdSceneCursor(thirdCurrentScene.order + 1);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Check className="w-3.5 h-3.5" />
+                                                        Scène validée
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-8 text-xs gap-1.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 rounded-lg"
+                                                        disabled={!thirdCurrentScene}
+                                                        onClick={() => {
+                                                            if (!thirdCurrentScene) return;
+                                                            setThirdSceneReviewedByOrder((prev) => ({
+                                                                ...prev,
+                                                                [thirdCurrentScene.order]: false,
+                                                            }));
+                                                        }}
+                                                    >
+                                                        <AlertTriangle className="w-3.5 h-3.5" />
+                                                        À revoir
+                                                    </Button>
                                                 </div>
-                                            )}
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    className="h-7 text-xs bg-emerald-500 hover:bg-emerald-500/90 text-black"
-                                                    disabled={!thirdCurrentScene}
-                                                    onClick={() => {
-                                                        if (!thirdCurrentScene) return;
-                                                        setThirdSceneReviewedByOrder((prev) => ({
-                                                            ...prev,
-                                                            [thirdCurrentScene.order]: true,
-                                                        }));
-                                                        if (thirdCurrentScene.order < thirdSceneWindows.length - 1) {
-                                                            setThirdSceneCursor(thirdCurrentScene.order + 1);
-                                                        }
-                                                    }}
-                                                >
-                                                    Scène validée
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="h-7 text-xs"
-                                                    disabled={!thirdCurrentScene}
-                                                    onClick={() => {
-                                                        if (!thirdCurrentScene) return;
-                                                        setThirdSceneReviewedByOrder((prev) => ({
-                                                            ...prev,
-                                                            [thirdCurrentScene.order]: false,
-                                                        }));
-                                                    }}
-                                                >
-                                                    À revoir
-                                                </Button>
                                             </div>
-                                        </div>
-                                        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-                                            <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-2">
-                                                {thirdCurrentSceneLines.map((line) => (
-                                                    <div key={`v3-scene-line-${line.id}`} className="text-sm leading-relaxed">
-                                                        {line.type === "dialogue" ? (
-                                                            <p className="text-foreground/95">
-                                                                <span className="font-semibold text-cyan-300">[{normalizeImportLabel(line.character)}]</span>{" "}
-                                                                {line.text}
-                                                            </p>
-                                                        ) : (
-                                                            <p className="text-muted-foreground italic">{line.text}</p>
-                                                        )}
+
+                                            {/* Current scene lines summary */}
+                                            <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1">
+                                                <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">Répliques de cette scène</p>
+                                                {thirdCurrentSceneLines.filter((l) => l.type === "dialogue").slice(0, 15).map((line) => (
+                                                    <div key={`v3-ctrl-line-${line.id}`} className="text-xs leading-relaxed py-0.5">
+                                                        <span className="font-semibold text-cyan-400">{normalizeImportLabel(line.character)}</span>
+                                                        <span className="text-muted-foreground ml-1">{line.text.slice(0, 80)}{line.text.length > 80 ? "…" : ""}</span>
                                                     </div>
                                                 ))}
-                                                {thirdCurrentSceneLines.length === 0 && (
-                                                    <p className="text-xs text-muted-foreground">Aucune ligne dans cette scène.</p>
+                                                {thirdCurrentSceneLines.filter((l) => l.type === "dialogue").length > 15 && (
+                                                    <p className="text-[10px] text-muted-foreground italic">
+                                                        + {thirdCurrentSceneLines.filter((l) => l.type === "dialogue").length - 15} répliques supplémentaires
+                                                    </p>
+                                                )}
+                                                {thirdCurrentSceneLines.filter((l) => l.type === "dialogue").length === 0 && (
+                                                    <p className="text-xs text-muted-foreground">Aucune réplique dans cette scène.</p>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
 
+                            {/* ======= SCREEN 4: RE-SCAN FINAL DASHBOARD ======= */}
                             {thirdImportStep === 4 && (
-                                <div className="space-y-4">
-                                    <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                                        <p className="text-sm font-semibold text-foreground">Synthèse du re-scan</p>
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            <span className="text-[11px] px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
-                                                {thirdCanonicalCharacters.length} personnages canoniques
-                                            </span>
-                                            <span className="text-[11px] px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
-                                                {Object.keys(thirdAliasMappings).length} alias appliqués
-                                            </span>
-                                            <span className="text-[11px] px-2 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                                                {thirdFinalOutput?.mappings.collectives.global.length || 0} collectifs globaux / {thirdFinalOutput?.mappings.collectives.by_scene.length || 0} collectifs scène
-                                            </span>
+                                <div className="space-y-5">
+                                    {/* Stats dashboard */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center shrink-0">
+                                                <Users className="w-5 h-5 text-cyan-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-2xl font-bold text-cyan-400">{thirdCanonicalCharacters.length}</p>
+                                                <p className="text-[11px] text-muted-foreground">Personnages canoniques</p>
+                                            </div>
+                                        </div>
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                                                <Link className="w-5 h-5 text-emerald-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-2xl font-bold text-emerald-400">{Object.keys(thirdAliasMappings).length}</p>
+                                                <p className="text-[11px] text-muted-foreground">Alias appliqués</p>
+                                            </div>
+                                        </div>
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-4 flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                                                <Layers className="w-5 h-5 text-amber-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-2xl font-bold text-amber-400">
+                                                    {(thirdFinalOutput?.mappings.collectives.global.length || 0) + (thirdFinalOutput?.mappings.collectives.by_scene.length || 0)}
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    {thirdFinalOutput?.mappings.collectives.global.length || 0} globaux, {thirdFinalOutput?.mappings.collectives.by_scene.length || 0} par scène
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
 
+                                    {/* Scenes review warning */}
                                     {thirdSceneReviewedCount < thirdSceneWindows.length && (
-                                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                                            <p className="text-xs font-semibold text-amber-400">
-                                                Vérification scènes incomplète: {thirdSceneReviewedCount}/{thirdSceneWindows.length}. Vous pouvez revenir à l&apos;étape 3.
-                                            </p>
+                                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+                                            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-sm font-semibold text-amber-400">
+                                                    Vérification scènes incomplète
+                                                </p>
+                                                <p className="text-xs text-amber-200/80 mt-0.5">
+                                                    {thirdSceneReviewedCount}/{thirdSceneWindows.length} scènes validées. Retournez à l&apos;étape 3 pour compléter la vérification.
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
 
+                                    {/* Unresolved labels warning with pills */}
                                     {(thirdFinalOutput?.unresolvedLabels.length || 0) > 0 && (
-                                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
-                                            <p className="text-xs font-semibold text-amber-400 mb-1">Libellés non résolus après re-scan</p>
-                                            <p className="text-xs text-amber-200/90">
-                                                {(thirdFinalOutput?.unresolvedLabels || []).join(", ")}
-                                            </p>
+                                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <AlertTriangle className="w-4 h-4 text-amber-400" />
+                                                <p className="text-sm font-semibold text-amber-400">Libellés non résolus après re-scan</p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {(thirdFinalOutput?.unresolvedLabels || []).map((label) => (
+                                                    <button
+                                                        key={`unresolved-${label}`}
+                                                        type="button"
+                                                        onClick={() => goToThirdStep(1)}
+                                                        className="text-[11px] px-2 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 transition-colors cursor-pointer"
+                                                    >
+                                                        {label}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
 
+                                    {/* Success message with animation */}
                                     {(thirdFinalOutput?.unresolvedLabels.length || 0) === 0 && (
-                                        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                                            <p className="text-xs font-semibold text-emerald-400">
-                                                Re-scan OK. Vous pouvez sauvegarder l&apos;import V3.
-                                            </p>
+                                        <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 p-5 flex items-center gap-4 animate-bounce-in">
+                                            <div className="w-12 h-12 rounded-full bg-emerald-500/20 border-2 border-emerald-500/40 flex items-center justify-center shrink-0 animate-check-pop">
+                                                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-bold text-emerald-400">
+                                                    Re-scan OK — Import prêt !
+                                                </p>
+                                                <p className="text-xs text-emerald-300/70 mt-0.5">
+                                                    Tous les libellés sont résolus. Vous pouvez sauvegarder l&apos;import V3.
+                                                </p>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
 
+                        {/* ======= FOOTER WITH ICON BUTTONS ======= */}
                         <div className="p-4 border-t border-white/10 flex items-center justify-between gap-3">
                             {thirdImportStep === 1 ? (
-                                <Button variant="outline" onClick={closeThirdImportReview}>
+                                <Button variant="outline" onClick={closeThirdImportReview} className="rounded-lg">
                                     Annuler
                                 </Button>
                             ) : (
                                 <Button
                                     variant="outline"
+                                    className="gap-1.5 rounded-lg"
                                     onClick={() => setThirdImportStep((prev) => Math.max(1, prev - 1) as ThirdImportStep)}
                                 >
+                                    <ChevronLeft className="w-4 h-4" />
                                     Étape précédente
                                 </Button>
                             )}
 
                             {thirdImportStep < 4 ? (
                                 <Button
-                                    className="bg-cyan-500 hover:bg-cyan-500/90 text-black font-semibold"
+                                    className="gap-1.5 bg-cyan-500 hover:bg-cyan-500/90 text-black font-semibold rounded-lg"
                                     onClick={() => goToThirdStep((thirdImportStep + 1) as ThirdImportStep)}
                                 >
                                     {thirdImportStep === 3
                                         ? `Continuer vers l'étape 4 (${thirdSceneReviewedCount}/${thirdSceneWindows.length} scènes validées)`
                                         : `Continuer vers l'étape ${thirdImportStep + 1}`}
+                                    <ChevronRight className="w-4 h-4" />
                                 </Button>
                             ) : (
                                 <Button
-                                    className="bg-cyan-500 hover:bg-cyan-500/90 text-black font-semibold"
+                                    className="v3-cta-gradient text-black font-bold rounded-lg gap-1.5 px-6 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/20"
                                     onClick={finalizeThirdImport}
                                     disabled={
                                         isThirdSaving
@@ -2368,7 +2617,8 @@ export function ImportWizard({
                                         || (thirdFinalOutput?.unresolvedLabels.length || 0) > 0
                                     }
                                 >
-                                    {isThirdSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                    {isThirdSaving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
+                                    <CheckCircle2 className="w-4 h-4" />
                                     Valider et sauvegarder
                                 </Button>
                             )}

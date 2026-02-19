@@ -20,7 +20,26 @@ const BLOCKED_SPEAKER_LABELS = new Set([
     "SCENE",
     "SCÈNE",
     "TABLEAU",
+    "PROLOGUE",
+    "ÉPILOGUE",
+    "EPILOGUE",
+    "OUVERTURE",
+    "DÉCOR",
+    "DECOR",
+    "COSTUMES",
+    "DÉCORS",
+    "DECORS",
 ]);
+
+/**
+ * Detect lines that look like cast distribution (actor assignments).
+ * e.g. "Lucien: Jeanine" or "ANNETTE : Marie Dupont"
+ * These should NOT be treated as dialogue.
+ */
+function isLikelyDistributionLine(line: string): boolean {
+    // Pattern: "Name : ActorName" where ActorName starts with uppercase then lowercase
+    return /^[A-ZÀ-ÖØ-Þ][A-ZÀ-ÖØ-Þa-zà-ö\s''-]+\s*:\s*[A-ZÀ-Þ][a-zà-ö]/.test(line);
+}
 
 const COLLECTIVE_SPEAKER_LABELS = new Set([
     "LES MEMES",
@@ -74,6 +93,8 @@ function isLikelySpeakerLabel(label: string): boolean {
     if (/\d/.test(normalized)) return false;
     const words = normalized.split(" ").filter(Boolean);
     if (words.length > 6) return false;
+    // Block single forbidden words that are structural, not speakers
+    if (words.length === 1 && BLOCKED_SPEAKER_LABELS.has(words[0])) return false;
     return words.some((word) => /[A-ZÀ-ÖØ-Þ]/.test(word));
 }
 
@@ -229,6 +250,78 @@ function findNextMeaningfulLine(lines: string[], fromIndex: number): string | nu
     return null;
 }
 
+/**
+ * Merge consecutive dialogue lines when they are attributed to the same
+ * character. This prevents artificial split lines around OCR/extraction cuts.
+ */
+function mergeAdjacentDialogueLines(lines: ScriptLine[]): ScriptLine[] {
+    if (lines.length === 0) return lines;
+    const merged: ScriptLine[] = [];
+
+    for (const line of lines) {
+        const prev = merged[merged.length - 1];
+        if (
+            prev &&
+            prev.type === "dialogue" &&
+            line.type === "dialogue" &&
+            normalizeSpeakerLabel(prev.character) === normalizeSpeakerLabel(line.character)
+        ) {
+            prev.text = `${prev.text} ${line.text}`.replace(/\s+/g, " ").trim();
+            continue;
+        }
+        merged.push({ ...line });
+    }
+
+    return merged;
+}
+
+/**
+ * Inline orphan stage directions: if a standalone INDICATIONS line sits
+ * directly between two dialogue lines from the same speaker (or right before
+ * the next speaker's line), prefix it to the next dialogue line as an inline
+ * parenthetical. This reduces visual pollution from many small INDICATIONS
+ * entries that originally were embedded in dialogue.
+ */
+function inlineOrphanDidascalies(lines: ScriptLine[]): ScriptLine[] {
+    if (lines.length === 0) return lines;
+    const result: ScriptLine[] = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Check if this is a short orphan didascalie
+        if (
+            line.type === "stage_direction" &&
+            line.character === "INDICATIONS" &&
+            line.text.length < 120
+        ) {
+            const next = lines[i + 1];
+            // If the next line is dialogue, merge the didascalie as an inline parenthetical
+            if (next && next.type === "dialogue") {
+                const didascalieText = line.text.startsWith("(")
+                    ? line.text
+                    : `(${line.text})`;
+                next.text = `${didascalieText} ${next.text}`;
+                continue; // Skip the didascalie line — it's been inlined
+            }
+
+            const prev = result[result.length - 1];
+            // If the previous line is dialogue, append the didascalie inline
+            if (prev && prev.type === "dialogue") {
+                const didascalieText = line.text.startsWith("(")
+                    ? line.text
+                    : `(${line.text})`;
+                prev.text = `${prev.text} ${didascalieText}`;
+                continue; // Skip — inlined into previous
+            }
+        }
+
+        result.push(line);
+    }
+
+    return result;
+}
+
 export function parseScriptV3(rawText: string): ParseScriptV3Result {
     const lines = rawText
         .replace(/\t/g, " ")
@@ -286,26 +379,10 @@ export function parseScriptV3(rawText: string): ParseScriptV3Result {
         const text = normalizeWhitespace(currentDialogueBuffer.join(" "));
         if (!text) return;
 
-        const { cue, remaining } = splitLeadingStageCue(text);
-        if (cue) {
-            pushStage(cue);
-        }
-
-        const segments = splitInlineParentheticals(remaining);
-        if (segments.length === 0) {
-            pushDialogueLine(currentSpeaker, remaining);
-            currentDialogueBuffer = [];
-            return;
-        }
-
-        for (const segment of segments) {
-            if (segment.type === "stage") {
-                pushStage(segment.text);
-                continue;
-            }
-            pushDialogueLine(currentSpeaker, segment.text);
-        }
-
+        // Keep inline parentheticals as-is (like the classic parser)
+        // This avoids inflating the line count by splitting each parenthetical
+        // into separate stage_direction + dialogue entries.
+        pushDialogueLine(currentSpeaker, text);
         currentDialogueBuffer = [];
     };
 
@@ -351,7 +428,16 @@ export function parseScriptV3(rawText: string): ParseScriptV3Result {
         }
 
         if (!hasSeenSceneHeader) {
+            // Skip distribution/cast lines before first scene
+            if (isLikelyDistributionLine(line)) continue;
             appendStage(line);
+            continue;
+        }
+
+        // Skip distribution lines anywhere ("Lucien: Jeanine")
+        if (isLikelyDistributionLine(line)) {
+            appendStage(line);
+            sceneLineCounter += 1;
             continue;
         }
 
@@ -427,6 +513,13 @@ export function parseScriptV3(rawText: string): ParseScriptV3Result {
         });
     }
 
+    // Merge consecutive dialogue lines from the same speaker
+    // (prevents artificial splits around OCR/extraction cuts)
+    const mergedLines = mergeAdjacentDialogueLines(scriptLines);
+
+    // Inline orphan didascalies: attach stage directions to adjacent dialogue
+    const finalLines = inlineOrphanDidascalies(mergedLines);
+
     const characterCandidates = Array.from(dialogueCounts.entries())
         .filter(([label]) => !isCompositeOrCollectiveLabel(label))
         .filter(([label]) => !BLOCKED_SPEAKER_LABELS.has(label))
@@ -436,7 +529,7 @@ export function parseScriptV3(rawText: string): ParseScriptV3Result {
     const canonicalCharacters = Array.from(new Set(characterCandidates));
     const canonicalSet = new Set(canonicalCharacters);
 
-    scriptLines.forEach((line) => {
+    finalLines.forEach((line) => {
         if (line.type !== "dialogue") return;
         if (canonicalSet.has(line.character)) return;
         if (isCompositeOrCollectiveLabel(line.character)) return;
@@ -444,7 +537,7 @@ export function parseScriptV3(rawText: string): ParseScriptV3Result {
     });
 
     return {
-        lines: scriptLines,
+        lines: finalLines,
         scenes,
         characters: canonicalCharacters,
         rawSpeakerLabels: Array.from(rawSpeakerLabels).map((label) => normalizeSpeakerLabel(label)),

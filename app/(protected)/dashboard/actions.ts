@@ -175,6 +175,8 @@ export interface ThirdImportPreparation {
     unresolvedLabels: string[];
     rawSpeakerLabels: string[];
     sceneSummaries: ThirdImportSceneSummary[];
+    /** Maps scene order (0-based) to PDF page number (1-based) */
+    scenePageMap: Record<number, number>;
 }
 
 function extractResponsesOutputText(response: unknown): string {
@@ -1009,7 +1011,13 @@ IMPORTANT
 Ne renvoie que du JSON valide.`;
 }
 
-async function extractPdfTextForImportV3(buffer: Buffer): Promise<string> {
+interface PdfExtractionResult {
+    text: string;
+    /** Maps text line number (0-based) to PDF page number (1-based) */
+    linePageMap: number[];
+}
+
+async function extractPdfTextForImportV3(buffer: Buffer): Promise<PdfExtractionResult> {
     const pdf = require("pdf-parse/lib/pdf-parse.js");
 
     const standardResult = await pdf(buffer);
@@ -1018,12 +1026,17 @@ async function extractPdfTextForImportV3(buffer: Buffer): Promise<string> {
     const hasCorruption = /[a-z][A-Z][a-z]/.test(standardText);
 
     if (hasPersoLines && !hasCorruption) {
-        return standardText;
+        // For standard format, build a simple page map (all page 1)
+        const lineCount = standardText.split("\n").length;
+        return { text: standardText, linePageMap: Array(lineCount).fill(1) };
     }
 
-    let allItems: { str: string; x: number; y: number; w: number }[] = [];
+    let allItems: { str: string; x: number; y: number; w: number; page: number }[] = [];
+    let currentPage = 0;
 
     const render_page = (pageData: any) => {
+        currentPage++;
+        const thisPage = currentPage;
         const render_options = {
             normalizeWhitespace: false,
             disableCombineTextItems: false
@@ -1036,7 +1049,7 @@ async function extractPdfTextForImportV3(buffer: Buffer): Promise<string> {
                 const w = item.width;
 
                 if (str.trim().length === 0 && w < 2) continue;
-                allItems.push({ str, x, y, w });
+                allItems.push({ str, x, y, w, page: thisPage });
             }
             return "";
         });
@@ -1045,15 +1058,25 @@ async function extractPdfTextForImportV3(buffer: Buffer): Promise<string> {
     await pdf(buffer, { pagerender: render_page });
 
     let cleanRawText = "";
+    const linePageMap: number[] = [];
     let lastY = -1;
     let lastX = -1;
     let lastWidth = 0;
+    let currentLinePage = 1;
+
+    // First line
+    if (allItems.length > 0) {
+        currentLinePage = allItems[0].page;
+        linePageMap.push(currentLinePage);
+    }
 
     for (const item of allItems) {
         const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > 6;
 
         if (isNewLine) {
             cleanRawText += "\n";
+            currentLinePage = item.page;
+            linePageMap.push(currentLinePage);
             lastX = -1;
         } else if (lastX !== -1) {
             const gap = item.x - (lastX + lastWidth);
@@ -1069,7 +1092,7 @@ async function extractPdfTextForImportV3(buffer: Buffer): Promise<string> {
         lastWidth = item.w;
     }
 
-    return cleanRawText;
+    return { text: cleanRawText, linePageMap };
 }
 
 function applyPdfTextRepairs(rawText: string): string {
@@ -1084,6 +1107,29 @@ function applyPdfTextRepairs(rawText: string): string {
     for (const [ligature, replacement] of Object.entries(ligatureMap)) {
         cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
     }
+
+    // OCR fraction characters misused as apostrophes (common in bad PDF encoding)
+    // e.g. "d¼ élégance" → "d'élégance", "1½ Amphitrite" → "l'Amphitrite"
+    const ocrFractionFixes: [RegExp, string][] = [
+        [/(\w)[¼½¾]\s*/g, "$1'"],  // Fraction chars used as apostrophe
+        [/1½\s*/g, "l'"],           // Specific: "1½" is OCR of "l'"
+        [/1¼\s*/g, "l'"],           // Specific: "1¼" is OCR of "l'"
+    ];
+    for (const [pattern, replacement] of ocrFractionFixes) {
+        cleanRawText = cleanRawText.replace(pattern, replacement);
+    }
+
+    // Normalize Unicode apostrophes and quotes
+    cleanRawText = cleanRawText.replace(/[''ʼ`´]/g, "'");
+    cleanRawText = cleanRawText.replace(/[«»""„]/g, '"');
+    cleanRawText = cleanRawText.replace(/…/g, '...');
+
+    // Clean invisible/whitespace characters
+    cleanRawText = cleanRawText.replace(/\u00A0/g, ' ');   // Non-breaking space
+    cleanRawText = cleanRawText.replace(/\u200B/g, '');     // Zero-width space
+    cleanRawText = cleanRawText.replace(/\u200C/g, '');     // Zero-width non-joiner
+    cleanRawText = cleanRawText.replace(/\u200D/g, '');     // Zero-width joiner
+    cleanRawText = cleanRawText.replace(/\uFEFF/g, '');     // BOM
 
     const fontCorruptionFixes: [RegExp, string][] = [
         [/aS([aeioulr])/g, 'aff$1'],
@@ -1138,8 +1184,8 @@ export async function prepareThirdImportAction(
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
-        const extractedText = await extractPdfTextForImportV3(buffer);
-        const repairedText = applyPdfTextRepairs(extractedText);
+        const extraction = await extractPdfTextForImportV3(buffer);
+        const repairedText = applyPdfTextRepairs(extraction.text);
         const parsed = parseScriptV3(repairedText);
 
         const parsedScript: ParsedScript = {
@@ -1147,12 +1193,44 @@ export async function prepareThirdImportAction(
             title: file.name.replace(/\.pdf$/i, ""),
         };
 
+        // Build scene → PDF page mapping
+        // For each scene, find which PDF page its starting text line corresponds to
+        const scenePageMap: Record<number, number> = {};
+        const scenes = [...(parsedScript.scenes || [])].sort((a, b) => a.index - b.index);
+        const rawLines = repairedText.split("\n");
+
+        for (let sceneOrder = 0; sceneOrder < scenes.length; sceneOrder++) {
+            const scene = scenes[sceneOrder];
+            // Scene title text to search for in raw lines
+            const sceneTitle = (scene.title || "").trim();
+            let bestPage = 1;
+
+            if (sceneTitle) {
+                // Search raw lines near the scene boundary for the title text
+                const titleUpper = sceneTitle.toUpperCase();
+                for (let i = 0; i < rawLines.length; i++) {
+                    if (rawLines[i].toUpperCase().includes(titleUpper)) {
+                        bestPage = extraction.linePageMap[i] ?? 1;
+                        break;
+                    }
+                }
+            }
+
+            // Fallback: use the page of the scene's first parsed line
+            if (bestPage === 1 && scene.index > 0 && scene.index < rawLines.length) {
+                bestPage = extraction.linePageMap[Math.min(scene.index, extraction.linePageMap.length - 1)] ?? 1;
+            }
+
+            scenePageMap[sceneOrder] = bestPage;
+        }
+
         return {
             parsedScript,
             formattedScriptText: formatScriptAsCanonicalText(parsedScript),
             unresolvedLabels: parsed.unresolvedLabels || [],
             rawSpeakerLabels: parsed.rawSpeakerLabels || [],
             sceneSummaries: buildThirdImportSceneSummaries(parsedScript),
+            scenePageMap,
         };
     } catch (error: unknown) {
         console.error("[Import V3] Error:", error);
