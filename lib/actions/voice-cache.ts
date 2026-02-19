@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { canManageTroupe } from "@/lib/utils/roles";
+import { canManageContent } from "@/lib/utils/roles";
 import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 export type VoiceProvider = "elevenlabs";
@@ -336,7 +336,7 @@ export async function ensureVoiceConfig(
 }
 
 /**
- * Manually update a voice assignment (Admin/Owner action)
+ * Manually update a voice assignment.
  */
 export async function updateVoiceAssignment(
     sourceType: SourceType,
@@ -354,7 +354,7 @@ export async function updateVoiceAssignment(
 
     // --- GOVERNANCE CHECKS ---
 
-    // 1. Troupe Play: Must be Admin
+    // 1. Troupe Play: Must be Metteur en scène
     if (sourceType === 'troupe_play' && troupeId) {
         const { data: member } = await supabase
             .from('troupe_members')
@@ -363,8 +363,8 @@ export async function updateVoiceAssignment(
             .eq('user_id', user.id)
             .maybeSingle();
 
-        if (!canManageTroupe(member?.roles)) {
-            return { success: false, error: "Seul l'admin de la troupe peut modifier les voix" };
+        if (!canManageContent(member?.roles)) {
+            return { success: false, error: "Seul le metteur en scène peut modifier les voix" };
         }
     }
 
