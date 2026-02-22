@@ -135,7 +135,7 @@ export function useListen({
             const type = await determineSourceType(isPublicScript, troupeId, playId);
             setSourceType(type);
 
-    if (ttsProvider === "elevenlabs") {
+            if (ttsProvider === "google") {
                 const sourceId = playId || scriptId || "";
                 if (sourceId && script.characters) {
                     await ensureVoiceConfig(type, sourceId, script.characters, troupeId);
@@ -147,7 +147,7 @@ export function useListen({
     }, [isPublicScript, troupeId, playId, ttsProvider, scriptId, script.characters]);
 
     useEffect(() => {
-        if (ttsProvider !== "elevenlabs" || status === "finished") return;
+        if (ttsProvider !== "google" || status === "finished") return;
 
         const sourceId = playId || scriptId || "";
         if (!sourceId) return;
@@ -351,12 +351,12 @@ export function useListen({
 
         const run = async () => {
             try {
-                    if (announceCharacter) {
-                        if (!isValid()) return;
-                        await speakDirect(line.character);
-                        if (!isValid()) return;
-                        await new Promise(r => setTimeout(r, Math.round(100 / playbackRate)));
-                    }
+                if (announceCharacter) {
+                    if (!isValid()) return;
+                    await speakDirect(line.character);
+                    if (!isValid()) return;
+                    await new Promise(r => setTimeout(r, Math.round(100 / playbackRate)));
+                }
 
                 if (!isValid()) return;
                 const sourceId = playId || scriptId || "";
@@ -371,7 +371,7 @@ export function useListen({
                         async (textToSpeak, isDirection) => {
                             if (!isValid()) return;
 
-                            if (ttsProvider === "elevenlabs" && sourceId && line.character) {
+                            if (ttsProvider === "google" && sourceId && line.character) {
                                 setIsLoadingAudio(true);
                                 try {
                                     const audioUrl = await audioQueueRef.current.getUrl(

@@ -21,7 +21,6 @@ interface ScriptRowProps {
     onDelete: (id: string) => void;
     onRename: (id: string, currentTitle: string) => void;
     onTogglePublic: (script: ScriptMetadata) => void;
-    onSettings: (script: ScriptMetadata) => void;
     onShowStats?: (script: ScriptMetadata) => void;
 }
 
@@ -31,7 +30,6 @@ export const ScriptRow = memo(function ScriptRow({
     onDelete,
     onRename,
     onTogglePublic,
-    onSettings,
     onShowStats,
 }: ScriptRowProps) {
     return (
@@ -71,9 +69,6 @@ export const ScriptRow = memo(function ScriptRow({
                     <DropdownMenuContent align="end" className="w-48 rounded-xl">
                         <DropdownMenuItem onClick={() => onRename(s.id, s.title)} disabled={!s.is_owner}>
                             Renommer
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onSettings(s)}>
-                            Personnages
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onShowStats?.(s)}>
                             Statistiques

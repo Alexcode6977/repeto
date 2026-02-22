@@ -16,7 +16,7 @@ import {
     X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ElevenLabsVoice, getElevenLabsVoices, synthesizeElevenLabsPreview } from "@/app/actions/elevenlabs";
+import { GoogleVoiceProfile, getGoogleTTSVoices, synthesizeGoogleTTSPreview } from "@/app/actions/google-tts";
 import { cn } from "@/lib/utils";
 import { updateVoiceAssignment } from "@/lib/actions/voice-cache";
 
@@ -39,19 +39,15 @@ export function CastingStudio({
     onSave,
     onClose
 }: CastingStudioProps) {
-    const [voices, setVoices] = useState<ElevenLabsVoice[]>([]);
+    const [voices, setVoices] = useState<GoogleVoiceProfile[]>([]);
     const [search, setSearch] = useState("");
     const [voiceAssignments, setVoiceAssignments] = useState<Record<string, string>>(initialAssignments);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"characters" | "voices">("characters");
     const [selectedCharacter, setSelectedCharacter] = useState<string | null>(null);
     const [isVoiceFocus, setIsVoiceFocus] = useState(false);
-    const [selectedGender, setSelectedGender] = useState<string>("All");
-    const [selectedAge, setSelectedAge] = useState<string>("All");
-    const [showPremade, setShowPremade] = useState(false);
     const [previewError, setPreviewError] = useState<string | null>(null);
     const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
-    const [draggedVoice, setDraggedVoice] = useState<ElevenLabsVoice | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
@@ -62,7 +58,7 @@ export function CastingStudio({
         const loadVoices = async () => {
             setIsLoading(true);
             try {
-                const data = await getElevenLabsVoices();
+                const data = await getGoogleTTSVoices();
                 setVoices(data);
             } finally {
                 setIsLoading(false);
@@ -100,7 +96,7 @@ export function CastingStudio({
     }, [activeCharacter, slotKeys, voiceAssignments]);
 
     const activeCharacterVoice = activeCharacter
-        ? voices.find((voice) => voice.voice_id === voiceAssignments[activeCharacter])
+        ? voices.find((voice) => voice.id === voiceAssignments[activeCharacter] || voice.name === voiceAssignments[activeCharacter] || `fr-FR-Chirp3-HD-${voice.name}` === voiceAssignments[activeCharacter])
         : undefined;
 
     const handleTestVoice = async (voiceId: string) => {
@@ -117,8 +113,6 @@ export function CastingStudio({
         }
 
         setPlayingVoiceId(voiceId);
-
-        const fallbackPreviewUrl = voices.find((voice) => voice.voice_id === voiceId)?.preview_url;
 
         const playAudioWithRetry = async (audioUrl: string, retries = 2): Promise<boolean> => {
             if (!audioUrl) return false;
@@ -142,42 +136,18 @@ export function CastingStudio({
         };
 
         try {
-            const result = await synthesizeElevenLabsPreview(voiceId, VOICE_PREVIEW_TEXT);
+            // synthesizeGoogleTTSPreview now returns a string
+            const result = await synthesizeGoogleTTSPreview(voiceId, VOICE_PREVIEW_TEXT);
 
-            if ("error" in result) {
-                const previewErrorMessage =
-                    result.error.includes("ELEVENLABS_401_INVALID_KEY")
-                        ? "Ta clé ElevenLabs est invalide ou révoquée. Regénère une clé API et redémarre l'app."
-                    : result.error.includes("ELEVENLABS_401_QUOTA_EXCEEDED")
-                            ? "Crédits ElevenLabs à 0: la phrase personnalisée ne peut pas être générée tant que le quota n'est pas rechargé."
-                        : result.error.includes("ELEVENLABS_401_USER_READ_SCOPE")
-                            ? "La clé n'a pas la permission user_read (diagnostic). La synthèse est aussi bloquée côté ElevenLabs."
-                        : result.error.includes("ELEVENLABS_401_SCOPE")
-                            ? "Ta clé ElevenLabs n'a pas les permissions nécessaires pour cette action."
-                        : result.error.includes("ELEVENLABS_401_TTS_SCOPE")
-                                ? "Ta clé ElevenLabs n'a pas la permission Text-to-Speech. Active TTS dans ElevenLabs puis redémarre."
-                            : result.error.includes("401")
-                                    ? "La phrase personnalisée est indisponible (401)."
-                                    : `Pré-écoute indisponible: ${result.error}`;
-
-                if (fallbackPreviewUrl) {
-                    const playedFallback = await playAudioWithRetry(fallbackPreviewUrl);
-                    if (playedFallback) {
-                        setPreviewError(`${previewErrorMessage} Extrait natif de la voix en lecture.`);
-                        return;
-                    }
-                }
-
-                setPreviewError(previewErrorMessage);
+            if (!result) {
+                setPreviewError("Erreur lors de la génération de l'audio.");
                 setPlayingVoiceId(null);
                 return;
             }
 
-            if ("audio" in result) {
-                const played = await playAudioWithRetry(result.audio);
-                if (played) {
-                    return;
-                }
+            const played = await playAudioWithRetry(result);
+            if (played) {
+                return;
             }
         } catch {
             setPreviewError("Pré-écoute indisponible pour le moment.");
@@ -188,43 +158,9 @@ export function CastingStudio({
         setPlayingVoiceId(null);
     };
 
-    const assignVoiceToCharacter = (character: string, voiceId: string) => {
-        const nextAssignments = { ...voiceAssignments, [character]: voiceId };
-        setVoiceAssignments(nextAssignments);
-
-        const activeIndex = slotKeys.indexOf(character);
-        const ordered = [...slotKeys.slice(activeIndex + 1), ...slotKeys.slice(0, activeIndex + 1)];
-        const nextSlot = ordered.find((slot) => !nextAssignments[slot]);
-        setSelectedCharacter(nextSlot || character);
-
-        void updateVoiceAssignment(
-            "private_script",
-            scriptId,
-            character,
-            voiceId,
-            "elevenlabs",
-            { stability: 0.5, similarity_boost: 0.75 }
-        );
-    };
-
-    const removeVoice = (character: string) => {
-        const next = { ...voiceAssignments };
-        delete next[character];
-        setVoiceAssignments(next);
-        setSelectedCharacter(character);
-    };
-
-    const handleDropOnCharacter = (character: string) => {
-        if (!draggedVoice) return;
-        assignVoiceToCharacter(character, draggedVoice.voice_id);
-    };
-
     const filteredVoices = voices.filter((voice) => {
-        const matchesSearch = voice.name.toLowerCase().includes(search.toLowerCase());
-        const matchesGender = selectedGender === "All" || voice.labels?.gender?.toLowerCase() === selectedGender.toLowerCase();
-        const matchesAge = selectedAge === "All" || voice.labels?.age?.toLowerCase() === selectedAge.toLowerCase();
-        const matchesType = showPremade || voice.category !== "premade";
-        return matchesSearch && matchesGender && matchesAge && matchesType;
+        const matchesSearch = voice.name.toLowerCase().includes(search.toLowerCase()) || voice.description.toLowerCase().includes(search.toLowerCase());
+        return matchesSearch;
     });
 
     return (
@@ -245,8 +181,8 @@ export function CastingStudio({
 
             <div className="px-4 md:px-5 py-3 border-b border-border/40 dark:border-white/5 bg-primary/[0.06]">
                 <p className="text-[11px] md:text-xs font-semibold text-foreground/90 dark:text-white/80">
-                    Avant votre première répétition, vous devez affecter une voix à chaque personnage.
-                    Cliquez sur la flèche pour écouter un aperçu et vérifier qu&apos;elle correspond.
+                    Les voix de l&apos;IA ont été automatiquement sélectionnées pour correspondre à vos personnages.
+                    Vous pouvez écouter un aperçu du rendu ici.
                 </p>
             </div>
 
@@ -293,11 +229,11 @@ export function CastingStudio({
                                 <CharacterSlot
                                     name={NARRATOR_LABEL}
                                     type="narration"
-                                    voiceName={voices.find((v) => v.voice_id === voiceAssignments[NARRATOR_KEY])?.name}
+                                    voiceName={voices.find((v) => v.id === voiceAssignments[NARRATOR_KEY] || v.name === voiceAssignments[NARRATOR_KEY] || `fr-FR-Chirp3-HD-${v.name}` === voiceAssignments[NARRATOR_KEY])?.name}
                                     isSelected={activeCharacter === NARRATOR_KEY}
-                                    isDragging={!!draggedVoice}
-                                    onDrop={() => handleDropOnCharacter(NARRATOR_KEY)}
-                                    onRemove={() => removeVoice(NARRATOR_KEY)}
+                                    isDragging={false}
+                                    onDrop={() => { }}
+                                    onRemove={() => { }}
                                     onClick={() => {
                                         setSelectedCharacter(NARRATOR_KEY);
                                         setActiveTab("voices");
@@ -314,11 +250,11 @@ export function CastingStudio({
                                     <CharacterSlot
                                         key={character}
                                         name={character}
-                                        voiceName={voices.find((v) => v.voice_id === voiceAssignments[character])?.name}
+                                        voiceName={voices.find((v) => v.id === voiceAssignments[character] || v.name === voiceAssignments[character] || `fr-FR-Chirp3-HD-${v.name}` === voiceAssignments[character])?.name}
                                         isSelected={activeCharacter === character}
-                                        isDragging={!!draggedVoice}
-                                        onDrop={() => handleDropOnCharacter(character)}
-                                        onRemove={() => removeVoice(character)}
+                                        isDragging={false}
+                                        onDrop={() => { }}
+                                        onRemove={() => { }}
                                         onClick={() => {
                                             setSelectedCharacter(character);
                                             setActiveTab("voices");
@@ -385,219 +321,120 @@ export function CastingStudio({
                                 </div>
                             </div>
 
-                            {activeCharacterVoice && activeCharacter && (
-                                <button
-                                    onClick={() => removeVoice(activeCharacter)}
-                                    className="h-9 px-2 rounded-lg border border-border/60 bg-card/70 text-muted-foreground hover:text-red-500 hover:border-red-500/40 transition-colors"
-                                    title="Retirer la voix"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                            )}
-
-                            {nextUnassignedCharacter && nextUnassignedCharacter !== activeCharacter && (
-                                <button
-                                    onClick={() => setSelectedCharacter(nextUnassignedCharacter)}
-                                    className="h-9 px-2 rounded-lg border border-border/60 bg-card/70 text-foreground hover:border-primary/40 hover:text-primary transition-colors"
-                                    title="Personnage suivant"
-                                >
-                                    <ChevronRight className="w-4 h-4" />
-                                </button>
-                            )}
-
-                            <button
-                                onClick={() => setIsVoiceFocus((prev) => !prev)}
-                                className={cn(
-                                    "hidden md:flex h-9 px-3 rounded-lg border bg-card/70 text-[10px] font-black uppercase tracking-wider transition-colors",
-                                    isVoiceFocus
-                                        ? "border-primary/45 text-primary"
-                                        : "border-border/60 text-foreground hover:border-primary/40 hover:text-primary"
-                                )}
-                                title={isVoiceFocus ? "Afficher tous les personnages" : "Mode focus voix"}
-                            >
-                                {isVoiceFocus ? "Sortir focus" : "Focus voix"}
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto_auto] gap-2">
-                            <div className="relative min-w-0">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/70 dark:text-white/20" />
-                                <input
-                                    type="text"
-                                    placeholder="Chercher une voix..."
-                                    className="w-full bg-muted/40 dark:bg-white/5 border border-border/70 dark:border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-foreground dark:text-white focus:outline-none focus:border-primary/50 transition-colors"
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                />
+                            <div className="grid grid-cols-1 gap-2">
+                                <div className="relative min-w-0">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/70 dark:text-white/20" />
+                                    <input
+                                        type="text"
+                                        placeholder="Chercher une voix (ex: Grave, Jeune...)"
+                                        className="w-full bg-muted/40 dark:bg-white/5 border border-border/70 dark:border-white/10 rounded-xl py-2 pl-9 pr-4 text-xs text-foreground dark:text-white focus:outline-none focus:border-primary/50 transition-colors"
+                                        value={search}
+                                        onChange={(e) => setSearch(e.target.value)}
+                                    />
+                                </div>
                             </div>
 
-                            <select
-                                value={selectedGender}
-                                onChange={(event) => setSelectedGender(event.target.value)}
-                                className="h-9 px-3 rounded-xl bg-muted/40 dark:bg-white/5 border border-border/70 dark:border-white/10 text-[11px] font-bold text-foreground dark:text-white focus:outline-none focus:border-primary/50"
-                            >
-                                <option value="All">Genre: Tous</option>
-                                <option value="Male">Genre: Hommes</option>
-                                <option value="Female">Genre: Femmes</option>
-                            </select>
-
-                            <select
-                                value={selectedAge}
-                                onChange={(event) => setSelectedAge(event.target.value)}
-                                className="h-9 px-3 rounded-xl bg-muted/40 dark:bg-white/5 border border-border/70 dark:border-white/10 text-[11px] font-bold text-foreground dark:text-white focus:outline-none focus:border-primary/50"
-                            >
-                                <option value="All">Âge: Tous</option>
-                                <option value="Young">Âge: Jeune</option>
-                                <option value="Middle Aged">Âge: Adulte</option>
-                                <option value="Old">Âge: Vieux</option>
-                            </select>
-
-                            <button
-                                onClick={() => setShowPremade(!showPremade)}
-                                className={cn(
-                                    "h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
-                                    showPremade
-                                        ? "bg-primary/10 border-primary/35 text-primary"
-                                        : "bg-muted/40 dark:bg-white/5 border-border/70 dark:border-white/10 text-muted-foreground"
-                                )}
-                            >
-                                Gratuites
-                            </button>
+                            {previewError && (
+                                <p className="text-[10px] font-semibold text-red-600 dark:text-red-300">
+                                    {previewError}
+                                </p>
+                            )}
                         </div>
 
-                        {previewError && (
-                            <p className="text-[10px] font-semibold text-red-600 dark:text-red-300">
-                                {previewError}
-                            </p>
-                        )}
-                    </div>
+                        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1.5">
+                            {isLoading && (
+                                <div className="text-center py-10 opacity-40">
+                                    <Sparkles className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                                    <p className="text-xs font-bold uppercase tracking-widest">Chargement des voix...</p>
+                                </div>
+                            )}
 
-                    <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-1.5">
-                        {isLoading && (
-                            <div className="text-center py-10 opacity-40">
-                                <Sparkles className="w-8 h-8 mx-auto mb-2 animate-pulse" />
-                                <p className="text-xs font-bold uppercase tracking-widest">Chargement des voix...</p>
-                            </div>
-                        )}
+                            {!isLoading && filteredVoices.map((voice) => {
+                                const assignedToActive = Boolean(activeCharacter && (voiceAssignments[activeCharacter] === voice.id || voiceAssignments[activeCharacter] === voice.name || voiceAssignments[activeCharacter] === `fr-FR-Chirp3-HD-${voice.name}`));
 
-                        {!isLoading && filteredVoices.map((voice) => {
-                            const assignedToActive = Boolean(activeCharacter && voiceAssignments[activeCharacter] === voice.voice_id);
+                                return (
+                                    <div
+                                        key={voice.id}
+                                        className={cn(
+                                            "group relative overflow-hidden bg-muted/40 dark:bg-white/5 border border-border/60 dark:border-white/10 rounded-xl p-3 flex items-center gap-3 transition-all",
+                                            "hover:bg-muted/70 dark:hover:bg-white/10",
+                                            assignedToActive && "border-primary/60 bg-primary/12 shadow-[0_0_0_1px_rgba(139,92,246,0.35)]"
+                                        )}
+                                    >
+                                        <div className="bg-primary/20 p-2 rounded-lg">
+                                            <Mic className="w-4 h-4 text-primary" />
+                                        </div>
 
-                            return (
-                                <motion.div
-                                    key={voice.voice_id}
-                                    layout
-                                    drag
-                                    dragConstraints={{ top: 0, left: 0, right: 0, bottom: 0 }}
-                                    dragElastic={0.1}
-                                    onDragStart={() => setDraggedVoice(voice)}
-                                    onDragEnd={() => setDraggedVoice(null)}
-                                    whileDrag={{ scale: 1.03, zIndex: 50 }}
-                                    className={cn(
-                                        "group relative overflow-hidden bg-muted/40 dark:bg-white/5 border border-border/60 dark:border-white/10 rounded-xl p-3 flex items-center gap-3 transition-all",
-                                        "cursor-grab active:cursor-grabbing hover:bg-muted/70 dark:hover:bg-white/10",
-                                        assignedToActive && "border-primary/60 bg-primary/12 shadow-[0_0_0_1px_rgba(139,92,246,0.35)]"
-                                    )}
-                                >
-                                    <div className="bg-primary/20 p-2 rounded-lg">
-                                        <Mic className="w-4 h-4 text-primary" />
-                                    </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold text-foreground dark:text-white truncate">{voice.name}</p>
+                                            <div className="flex items-center gap-1 mt-0.5">
+                                                {voice.gender && (
+                                                    <span className="text-[8px] bg-muted/50 dark:bg-white/5 px-1.5 py-0.5 rounded text-muted-foreground dark:text-white/40 font-black uppercase">{voice.gender}</span>
+                                                )}
+                                                {voice.age && (
+                                                    <span className="text-[8px] bg-muted/50 dark:bg-white/5 px-1.5 py-0.5 rounded text-muted-foreground dark:text-white/40 font-black uppercase">{voice.age}</span>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground mt-1 truncate">{voice.description}</p>
+                                        </div>
 
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-foreground dark:text-white truncate">{voice.name}</p>
-                                        <div className="flex items-center gap-1 mt-0.5">
-                                            {voice.labels?.gender && (
-                                                <span className="text-[8px] bg-muted/50 dark:bg-white/5 px-1.5 py-0.5 rounded text-muted-foreground dark:text-white/40 font-black uppercase">{voice.labels.gender}</span>
-                                            )}
-                                            {voice.labels?.age && (
-                                                <span className="text-[8px] bg-muted/50 dark:bg-white/5 px-1.5 py-0.5 rounded text-muted-foreground dark:text-white/40 font-black uppercase">{voice.labels.age}</span>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    void handleTestVoice(voice.id);
+                                                }}
+                                                className="p-1.5 hover:bg-muted/70 dark:hover:bg-white/10 rounded-lg transition-colors border border-border/40"
+                                            >
+                                                {playingVoiceId === voice.id ? (
+                                                    <VolumeX className="w-4 h-4 text-primary animate-pulse" />
+                                                ) : (
+                                                    <Play className="w-4 h-4 text-muted-foreground/70 dark:text-white/30 group-hover:text-foreground dark:group-hover:text-white" />
+                                                )}
+                                            </button>
+
+                                            {assignedToActive && (
+                                                <span className="h-8 flex items-center px-3 rounded-lg text-[10px] items-center gap-1 font-black uppercase tracking-wider border bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300">
+                                                    <Check className="w-3 h-3" /> Connectée
+                                                </span>
                                             )}
                                         </div>
                                     </div>
+                                );
+                            })}
 
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                void handleTestVoice(voice.voice_id);
-                                            }}
-                                            className="p-1.5 hover:bg-muted/70 dark:hover:bg-white/10 rounded-lg transition-colors"
-                                        >
-                                            {playingVoiceId === voice.voice_id ? (
-                                                <VolumeX className="w-4 h-4 text-primary animate-pulse" />
-                                            ) : (
-                                                <Play className="w-4 h-4 text-muted-foreground/70 dark:text-white/30 group-hover:text-foreground dark:group-hover:text-white" />
-                                            )}
-                                        </button>
-
-                                        <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                if (!activeCharacter) return;
-                                                assignVoiceToCharacter(activeCharacter, voice.voice_id);
-                                            }}
-                                            disabled={!activeCharacter}
-                                            className={cn(
-                                                "h-8 px-3 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all",
-                                                assignedToActive
-                                                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-                                                    : !activeCharacter
-                                                        ? "bg-muted/50 border-border/60 text-muted-foreground cursor-not-allowed"
-                                                        : "bg-primary text-white border-primary hover:bg-primary/90"
-                                            )}
-                                        >
-                                            {assignedToActive ? "Assignée" : "Affecter"}
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-
-                        {!isLoading && filteredVoices.length === 0 && (
-                            <div className="text-center py-10 opacity-30">
-                                <Search className="w-10 h-10 mx-auto mb-2" />
-                                <p className="text-xs font-bold uppercase tracking-widest">Aucune voix trouvée</p>
-                            </div>
-                        )}
+                            {!isLoading && filteredVoices.length === 0 && (
+                                <div className="text-center py-10 opacity-30">
+                                    <Search className="w-10 h-10 mx-auto mb-2" />
+                                    <p className="text-xs font-bold uppercase tracking-widest">Aucune voix trouvée</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="p-3 md:p-4 border-t border-border/40 dark:border-white/5 bg-muted/20 dark:bg-white/[0.01] flex items-center justify-between pb-safe md:pb-4">
-                <p className="text-[10px] text-muted-foreground dark:text-white/30 font-medium">
-                    {remainingCount === 0
-                        ? "Toutes les voix sont assignées. Vous pouvez enregistrer."
-                        : `Il reste ${remainingCount} voix à assigner.`}
-                </p>
-                <div className="flex gap-3">
-                    <Button variant="ghost" onClick={onClose} className="rounded-xl text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white h-9 px-6 text-xs font-bold">
-                        Annuler
-                    </Button>
-                    <Button
-                        onClick={onSave}
-                        className="rounded-xl bg-primary hover:bg-primary/80 text-white h-9 px-8 text-xs font-black uppercase tracking-wider"
-                        disabled={assignedCount < totalCount}
-                    >
-                        Terminer & enregistrer
-                    </Button>
+                <div className="p-3 md:p-4 border-t border-border/40 dark:border-white/5 bg-muted/20 dark:bg-white/[0.01] flex items-center justify-between pb-safe md:pb-4">
+                    <p className="text-[10px] text-muted-foreground dark:text-white/30 font-medium">
+                        {remainingCount === 0
+                            ? "Toutes les voix sont assignées. Vous pouvez enregistrer."
+                            : `Il reste ${remainingCount} voix à assigner.`}
+                    </p>
+                    <div className="flex gap-3">
+                        <Button variant="ghost" onClick={onClose} className="rounded-xl text-muted-foreground dark:text-white/50 hover:text-foreground dark:hover:text-white h-9 px-6 text-xs font-bold">
+                            Annuler
+                        </Button>
+                        <Button
+                            onClick={onSave}
+                            className="rounded-xl bg-primary hover:bg-primary/80 text-white h-9 px-8 text-xs font-black uppercase tracking-wider"
+                            disabled={assignedCount < totalCount}
+                        >
+                            Terminer & enregistrer
+                        </Button>
+                    </div>
                 </div>
-            </div>
 
-            <AnimatePresence>
-                {draggedVoice && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        className="fixed pointer-events-none z-[100] flex items-center gap-2 bg-primary px-4 py-2 rounded-2xl shadow-2xl border border-white/20"
-                        style={{ left: "50%", bottom: "40px", transform: "translateX(-50%)" }}
-                    >
-                        <Mic className="w-4 h-4 text-white" />
-                        <span className="text-white text-xs font-bold">Déposez sur un personnage</span>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
+            </div>
+        </div >
     );
 }
 
@@ -664,24 +501,6 @@ function CharacterSlot({
                     </p>
                 </div>
 
-                <div className="flex items-center gap-1">
-                    {hasVoice && (
-                        <button
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onRemove();
-                            }}
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-muted/60 dark:hover:bg-white/10 transition-colors"
-                        >
-                            <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                    )}
-                    {hasVoice && (
-                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                            <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-300" />
-                        </span>
-                    )}
-                </div>
             </div>
         </div>
     );

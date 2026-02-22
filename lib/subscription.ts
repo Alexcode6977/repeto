@@ -247,7 +247,7 @@ export async function validateRehearsalSettings(
     settings: {
         mode: "full" | "cue" | "check";
         visibility: "visible" | "hint" | "hidden";
-        ttsProvider: "browser" | "elevenlabs";
+        ttsProvider: "browser" | "google";
     },
     troupeId?: string
 ): Promise<{
@@ -275,8 +275,8 @@ export async function validateRehearsalSettings(
 
     // Check TTS provider
     if (limits.hasAiVoices) {
-        sanitized.ttsProvider = "elevenlabs";
-    } else if (settings.ttsProvider === "elevenlabs" && !limits.hasAiVoices) {
+        sanitized.ttsProvider = "google";
+    } else if (settings.ttsProvider === "google" && !limits.hasAiVoices) {
         sanitized.ttsProvider = "browser";
         warnings.push("Voix IA non disponible, utilisation des voix système");
     }

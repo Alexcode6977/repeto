@@ -23,7 +23,6 @@ interface ScriptCardProps {
     onRename: (id: string, newTitle: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
     onTogglePublic: (script: ScriptMetadata) => Promise<void>;
-    onSettings: (script: ScriptMetadata) => void;
     isAdmin?: boolean;
     onRenameSubmit?: (e: React.FormEvent, id: string) => void;
     renamingScriptId?: string | null;
@@ -40,7 +39,6 @@ export function ScriptCard({
     onRename,
     onDelete,
     onTogglePublic,
-    onSettings,
     onShowStats,
 }: ScriptCardProps) {
     const isAdminUser = isPlatformAdminEmail(userEmail);
@@ -172,15 +170,6 @@ export function ScriptCard({
 
                 {/* Desktop Hover Actions (Now visible at bottom) */}
                 <div className="hidden md:flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300">
-                    {/* Settings Button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full"
-                        onClick={(e) => { e.stopPropagation(); onSettings(script); }}
-                    >
-                        <Settings2 className="w-4 h-4" />
-                    </Button>
 
                     <Button
                         variant="ghost"
@@ -226,10 +215,6 @@ export function ScriptCard({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuItem onClick={() => onSettings(script)}>
-                            <Settings2 className="w-4 h-4 mr-2" />
-                            Réglages
-                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onShowStats?.(script)}>
                             <BarChart2 className="w-4 h-4 mr-2" />
                             Statistiques

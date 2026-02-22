@@ -73,7 +73,7 @@ export function ListenMode({
                 const canUseAiVoices = capabilities.features.aiVoices || capabilities.isPremium;
                 setHasAiVoiceAccess(canUseAiVoices);
                 if (canUseAiVoices) {
-                    setTtsProvider("elevenlabs");
+                    setTtsProvider("google");
                 } else {
                     setTtsProvider("browser");
                 }
@@ -157,7 +157,7 @@ export function ListenMode({
 
     const startQuick = () => {
         if (quickStartSettings) {
-            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
+            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
             setListenMode(quickStartSettings.listenMode);
             setTtsProvider(enforcedProvider);
             setAnnounceCharacter(quickStartSettings.announceCharacter);
@@ -167,7 +167,7 @@ export function ListenMode({
     };
 
     const handleStartWithSave = () => {
-        const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
+        const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
         if (typeof window !== 'undefined') {
             localStorage.setItem(`souffleur_listen_settings_${playId || scriptId}`, JSON.stringify({
                 listenMode,
@@ -247,14 +247,14 @@ export function ListenMode({
                         <div
                             className={cn(
                                 "p-4 rounded-xl text-[10px] font-bold uppercase tracking-widest flex items-center gap-2",
-                                ttsProvider === "elevenlabs"
+                                ttsProvider === "google"
                                     ? "bg-orange-500/10 border border-orange-500/20 text-orange-400"
                                     : "bg-zinc-500/10 border border-zinc-500/20 text-zinc-300"
                             )}
                         >
                             <Sparkles className="w-3 h-3" />
-                            {ttsProvider === "elevenlabs"
-                                ? "Voix Premium ElevenLabs Actives"
+                            {ttsProvider === "google"
+                                ? "Voix Premium Google HD Actives"
                                 : "Voix Navigateur Actives"}
                         </div>
 

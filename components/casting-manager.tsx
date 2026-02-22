@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useState, useEffect } from "react";
 import { Mic } from "lucide-react";
 import { VoicePreviewButton } from "./voice-preview-button";
-import { getElevenLabsVoices, ElevenLabsVoice } from "@/app/actions/elevenlabs";
+import { getGoogleTTSVoices, GoogleVoiceProfile } from "@/app/actions/google-tts";
 
 interface PlayCharacter {
     id: string;
@@ -77,12 +77,12 @@ export function CastingManager({
     });
 
     const [loadingState, setLoadingState] = useState<Record<string, boolean>>({});
-    const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
+    const [googleVoices, setGoogleVoices] = useState<GoogleVoiceProfile[]>([]);
 
     useEffect(() => {
         if (isAdmin) {
-            getElevenLabsVoices().then(voices => {
-                setElevenLabsVoices(voices);
+            getGoogleTTSVoices().then(voices => {
+                setGoogleVoices(voices);
             });
         }
     }, [isAdmin]);
@@ -114,7 +114,7 @@ export function CastingManager({
         if (!isAdmin) return;
         setLoadingState(prev => ({ ...prev, [`voice-${charName}`]: true }));
         try {
-            const provider = "elevenlabs";
+            const provider = "google";
             const settings = { stability: 0.5, similarity_boost: 0.75 };
 
             const result = await updateVoiceAssignment('troupe_play', playId, charName, voiceId, provider, settings, troupeId);
@@ -132,7 +132,7 @@ export function CastingManager({
     };
 
     const getVoiceName = (voiceId: string) => {
-        const el = elevenLabsVoices.find(v => v.voice_id === voiceId);
+        const el = googleVoices.find(v => v.id === voiceId);
         if (el) return el.name;
         if (voiceId in LEGACY_VOICE_LABELS) return LEGACY_VOICE_LABELS[voiceId];
         return "Voix Inconnue";
@@ -205,21 +205,21 @@ export function CastingManager({
                                     <SelectValue placeholder="Choisir une voix" />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-[300px]">
-                                    {elevenLabsVoices.length > 0 ? (
+                                    {googleVoices.length > 0 ? (
                                         <SelectGroup>
-                                            <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-card sticky top-0">ElevenLabs</SelectLabel>
-                                            {elevenLabsVoices.map((v) => (
-                                                <SelectItem key={v.voice_id} value={v.voice_id}>
+                                            <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-card sticky top-0">Google Chirp</SelectLabel>
+                                            {googleVoices.map((v) => (
+                                                <SelectItem key={v.id} value={v.id}>
                                                     <span className="flex items-center gap-2">
                                                         <span>{v.name}</span>
-                                                        <span className="text-[10px] text-muted-foreground opacity-50">({v.category})</span>
+                                                        <span className="text-[10px] text-muted-foreground opacity-50">({v.description})</span>
                                                     </span>
                                                 </SelectItem>
                                             ))}
                                         </SelectGroup>
                                     ) : (
                                         <div className="p-2 text-xs text-muted-foreground text-center">
-                                            Aucune voix ElevenLabs trouvée.<br />Ajoutez-les sur elevenlabs.io.
+                                            Aucune voix Google trouvée.
                                         </div>
                                     )}
                                 </SelectContent>

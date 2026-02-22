@@ -20,7 +20,7 @@ export type RehearsalStatus =
     | "paused"
     | "finished";
 
-export type TTSProvider = "browser" | "elevenlabs";
+export type TTSProvider = "browser" | "google";
 
 interface UseRehearsalProps {
     script: ParsedScript;
@@ -91,7 +91,7 @@ export function useRehearsal({
 
     useEffect(() => {
         const sourceId = playId || scriptId;
-        if (!sourceId || ttsProvider !== "elevenlabs") return;
+        if (!sourceId || ttsProvider !== "google") return;
 
         ensureVoiceConfig(sourceType, sourceId, script.characters, troupeId).catch((e) => {
             console.warn("[Rehearsal] ensureVoiceConfig skipped/fallback", e);
@@ -133,9 +133,9 @@ export function useRehearsal({
         // Validation
         if (!text || !text.trim()) return;
 
-        // Priority 2: AI TTS (OpenAI or ElevenLabs)
-        if (ttsProvider === "elevenlabs") {
-            const assignedVoice = characterName && aiVoiceAssignments[characterName] ? aiVoiceAssignments[characterName] : "21m00Tcm4TlvDq8ikWAM";
+        // Priority 2: AI TTS (Google TTS)
+        if (ttsProvider === "google") {
+            const assignedVoice = characterName && aiVoiceAssignments[characterName] ? aiVoiceAssignments[characterName] : "Aoede";
 
             // OFFLINE CHECK
             const hash = await offlineManager.generateHash(text, assignedVoice);
@@ -321,7 +321,7 @@ export function useRehearsal({
 
     const preloadAroundIndex = (lineIndex: number, count: number) => {
         const sourceId = playId || scriptId;
-        if (!sourceId || ttsProvider !== "elevenlabs") return;
+        if (!sourceId || ttsProvider !== "google") return;
 
         audioQueueRef.current.preload(
             script.lines,
@@ -339,7 +339,7 @@ export function useRehearsal({
         onProgress?: (completed: number, total: number) => void
     ) => {
         const sourceId = playId || scriptId;
-        if (!sourceId || ttsProvider !== "elevenlabs") {
+        if (!sourceId || ttsProvider !== "google") {
             if (onProgress) onProgress(1, 1);
             return { total: 0, completed: 0 };
         }
@@ -660,7 +660,7 @@ export function useRehearsal({
                                 ? undefined // Browser default for narrator
                                 : (voice || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
 
-                            if (ttsProvider === "elevenlabs") {
+                            if (ttsProvider === "google") {
                                 const sourceId = playId || scriptId;
                                 const audioUrl = sourceId
                                     ? await audioQueueRef.current.getUrl(

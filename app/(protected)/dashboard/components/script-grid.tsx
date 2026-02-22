@@ -15,7 +15,6 @@ interface ScriptGridProps {
     onRename: (id: string, newTitle: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
     onTogglePublic: (script: ScriptMetadata) => Promise<void>;
-    onSettings: (script: ScriptMetadata) => void;
     onImport: () => void;
     layoutMode: "grid" | "list";
 }
@@ -29,7 +28,6 @@ export function ScriptGrid({
     onRename,
     onDelete,
     onTogglePublic,
-    onSettings,
     onImport,
     layoutMode,
     activeIndex = 0,
@@ -178,7 +176,6 @@ export function ScriptGrid({
                             onDelete={() => onDelete(s.id)}
                             onRename={onRename}
                             onTogglePublic={onTogglePublic}
-                            onSettings={onSettings}
                             onShowStats={(script) => setStatsScript(script)}
                         />
                     ))
@@ -238,7 +235,6 @@ export function ScriptGrid({
                                     onRename={onRename}
                                     onDelete={onDelete}
                                     onTogglePublic={onTogglePublic}
-                                    onSettings={onSettings}
                                     isAdmin={false}
                                     onRenameSubmit={() => { }}
                                     renamingScriptId={null}
@@ -275,7 +271,6 @@ export function ScriptGrid({
                                 onRename={onRename}
                                 onDelete={onDelete}
                                 onTogglePublic={onTogglePublic}
-                                onSettings={onSettings}
                                 isAdmin={false}
                                 onRenameSubmit={() => { }}
                                 renamingScriptId={null}

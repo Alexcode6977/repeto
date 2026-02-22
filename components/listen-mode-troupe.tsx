@@ -60,7 +60,7 @@ export function ListenModeTroupe({
                 const canUseAiVoices = capabilities.features.aiVoices || capabilities.isPremium;
                 setHasAiVoiceAccess(canUseAiVoices);
                 if (canUseAiVoices) {
-                    setTtsProvider("elevenlabs");
+                    setTtsProvider("google");
                 } else {
                     setTtsProvider("browser");
                 }
@@ -211,7 +211,7 @@ export function ListenModeTroupe({
 
     const startQuick = () => {
         if (quickStartSettings) {
-            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
+            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
             setListenMode(quickStartSettings.listenMode);
             setTtsProvider(enforcedProvider);
             setAnnounceCharacter(quickStartSettings.announceCharacter);
@@ -221,7 +221,7 @@ export function ListenModeTroupe({
     };
 
     const handleStartWithSave = () => {
-        const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
+        const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
         if (typeof window !== 'undefined') {
             localStorage.setItem(`souffleur_listen_settings_${playId}`, JSON.stringify({
                 listenMode,
@@ -327,8 +327,8 @@ export function ListenModeTroupe({
                                                     isDisabled
                                                         ? "bg-muted/40 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed"
                                                         : isActive
-                                                        ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
-                                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
+                                                            ? "bg-teal-500/10 border-teal-500/50 shadow-[0_0_15px_rgba(20,184,166,0.15)]"
+                                                            : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                                 )}
                                             >
                                                 <div className={cn(
@@ -365,75 +365,74 @@ export function ListenModeTroupe({
                                     <div
                                         className={cn(
                                             "relative p-3 rounded-xl text-left border flex items-center gap-3",
-                                            ttsProvider === "elevenlabs"
+                                            ttsProvider === "google"
                                                 ? "bg-emerald-500/20 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
                                                 : "bg-muted/40 dark:bg-white/5 border-border/60 dark:border-white/10"
                                         )}
                                     >
                                         <div className={cn(
                                             "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                            ttsProvider === "elevenlabs" ? "bg-emerald-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
+                                            ttsProvider === "google" ? "bg-emerald-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
                                         )}>
-                                            {ttsProvider === "elevenlabs" ? <Sparkles className="w-3 h-3" /> : <Headphones className="w-3 h-3" />}
+                                            {ttsProvider === "google" ? <Sparkles className="w-3 h-3" /> : <Headphones className="w-3 h-3" />}
                                         </div>
                                         <div>
-                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "elevenlabs" ? "text-emerald-400" : "text-muted-foreground")}>
-                                                {ttsProvider === "elevenlabs" ? "ElevenLabs" : "Navigateur"}
+                                            <div className={cn("text-xs font-bold uppercase tracking-wide", ttsProvider === "google" ? "text-emerald-400" : "text-muted-foreground")}>
+                                                {ttsProvider === "google" ? "Google Premium" : "Navigateur"}
                                             </div>
                                             <div className="text-[9px] text-muted-foreground mt-0.5">
-                                                {ttsProvider === "elevenlabs" ? "Voix premium actives" : "Voix système actives"}
+                                                {ttsProvider === "google" ? "Voix premium actives" : "Voix système actives"}
                                             </div>
                                         </div>
-                                        {ttsProvider === "elevenlabs" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
+                                        {ttsProvider === "google" && <Check className="w-4 h-4 text-emerald-400 absolute top-3 right-3" />}
                                     </div>
-
-                                    {/* Announce Names Toggle */}
-                                    <button
-                                        onClick={() => setAnnounceCharacter(!announceCharacter)}
-                                        className={cn(
-                                            "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
-                                            announceCharacter
-                                                ? "bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-                                                : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
-                                            announceCharacter ? "bg-indigo-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
-                                        )}>
-                                            <span className="text-xs">📢</span>
-                                        </div>
-                                        <div>
-                                            <div className={cn("text-xs font-bold uppercase tracking-wide", announceCharacter ? "text-indigo-400" : "text-muted-foreground")}>
-                                                Noms
-                                            </div>
-                                            <div className="text-[9px] text-muted-foreground mt-0.5">
-                                                {announceCharacter ? "Annoncés" : "Masqués"}
-                                            </div>
-                                        </div>
-                                        {announceCharacter && <Check className="w-4 h-4 text-indigo-400 absolute top-3 right-3" />}
-                                    </button>
                                 </div>
                             </div>
 
-                        </div>
-
-                        {/* Action Button */}
-                        <div className="pt-4">
+                            {/* Announce Names Toggle */}
                             <button
-                                onClick={handleStartWithSave}
-                                disabled={isLoadingCapabilities}
+                                onClick={() => setAnnounceCharacter(!announceCharacter)}
                                 className={cn(
-                                    "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg",
-                                    isLoadingCapabilities
-                                        ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-                                        : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                                    "relative p-3 rounded-xl text-left transition-all duration-300 border flex items-center gap-3",
+                                    announceCharacter
+                                        ? "bg-indigo-500/20 border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+                                        : "bg-muted/40 dark:bg-white/5 border-transparent hover:bg-muted/70 dark:hover:bg-white/10"
                                 )}
                             >
-                                <span className="font-bold text-sm tracking-wider uppercase">Lancer l&apos;écoute</span>
-                                <Headphones className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
+                                <div className={cn(
+                                    "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                                    announceCharacter ? "bg-indigo-500 text-white" : "bg-muted dark:bg-white/10 text-muted-foreground"
+                                )}>
+                                    <span className="text-xs">📢</span>
+                                </div>
+                                <div>
+                                    <div className={cn("text-xs font-bold uppercase tracking-wide", announceCharacter ? "text-indigo-400" : "text-muted-foreground")}>
+                                        Noms
+                                    </div>
+                                    <div className="text-[9px] text-muted-foreground mt-0.5">
+                                        {announceCharacter ? "Annoncés" : "Masqués"}
+                                    </div>
+                                </div>
+                                {announceCharacter && <Check className="w-4 h-4 text-indigo-400 absolute top-3 right-3" />}
                             </button>
                         </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-4">
+                        <button
+                            onClick={handleStartWithSave}
+                            disabled={isLoadingCapabilities}
+                            className={cn(
+                                "w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg",
+                                isLoadingCapabilities
+                                    ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                                    : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white hover:shadow-cyan-500/25 hover:scale-[1.02] active:scale-[0.98]"
+                            )}
+                        >
+                            <span className="font-bold text-sm tracking-wider uppercase">Lancer l&apos;écoute</span>
+                            <Headphones className="w-5 h-5 fill-current group-hover:scale-110 transition-transform" />
+                        </button>
                     </div>
                 </Card>
             </div>

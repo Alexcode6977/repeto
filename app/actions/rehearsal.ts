@@ -11,7 +11,7 @@ import {
 export interface RehearsalSettings {
     mode: "full" | "cue" | "check";
     visibility: "visible" | "hint" | "hidden";
-    ttsProvider: "browser" | "elevenlabs";
+    ttsProvider: "browser" | "google";
 }
 
 export interface ValidatedRehearsalResult {

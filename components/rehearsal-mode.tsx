@@ -131,7 +131,7 @@ export function RehearsalMode({
     const [isStarting, setIsStarting] = useState(false);
     const [startupProgress, setStartupProgress] = useState(0);
     const [startupStep, setStartupStep] = useState("En attente...");
-    const [ttsProvider, setTtsProvider] = useState<"browser" | "elevenlabs" | null>(null);
+    const [ttsProvider, setTtsProvider] = useState<"browser" | "google" | null>(null);
     const [forceAudioOutput] = useState(false); // CarPlay experimental fix (read-only for now)
 
     // Initialize ignored characters - merge prop with default didascalies
@@ -168,9 +168,9 @@ export function RehearsalMode({
                 if (!capabilities.features.advancedVisibility && lineVisibility !== "visible") {
                     setLineVisibility("visible");
                 }
-                // Enforce TTS Rules: Premium/Troupe -> ElevenLabs, Free -> Browser
+                // Enforce TTS Rules: Premium/Troupe -> Google, Free -> Browser
                 if (canUseAiVoices) {
-                    setTtsProvider("elevenlabs");
+                    setTtsProvider("google");
                 } else {
                     setTtsProvider("browser");
                 }
@@ -208,8 +208,8 @@ export function RehearsalMode({
                     if (Object.keys(assignments).length > 0) {
                         setAiVoiceAssignments(assignments);
                     } else {
-                        // Fallback: Generate local ElevenLabs assignments
-                        const VOICES = ["21m00Tcm4TlvDq8ikWAM", "pNInz6obpgDQGcFmaJgB", "EXAVITQu4vr4xnNLMQyw", "ErXw9S1k3MpBy928U4cm", "MF3mGyEYCl7XYW7Lyk9p", "TxGEqnHW47ic3A7NWmsG"];
+                        // Fallback: Generate local Google assignments
+                        const VOICES = ["Aoede", "Charon", "Fenrir", "Puck", "Kore", "Leda"];
                         const localAssignments: Record<string, string> = {};
                         script.characters.forEach((char, index) => {
                             localAssignments[char] = VOICES[index % VOICES.length];
@@ -217,8 +217,8 @@ export function RehearsalMode({
                         setAiVoiceAssignments(localAssignments);
                     }
                 } else {
-                    // Fallback: ElevenLabs default distribution
-                    const VOICES = ["21m00Tcm4TlvDq8ikWAM", "pNInz6obpgDQGcFmaJgB", "EXAVITQu4vr4xnNLMQyw", "ErXw9S1k3MpBy928U4cm", "MF3mGyEYCl7XYW7Lyk9p", "TxGEqnHW47ic3A7NWmsG"];
+                    // Fallback: Google default distribution
+                    const VOICES = ["Aoede", "Charon", "Fenrir", "Puck", "Kore", "Leda"];
                     const localAssignments: Record<string, string> = {};
 
                     script.characters.forEach((char, index) => {
@@ -259,14 +259,14 @@ export function RehearsalMode({
                     userCharacters,
                     ttsProvider
                 });
-                if (!ttsProvider) setTtsProvider(hasAiVoiceAccess ? "elevenlabs" : "browser");
+                if (!ttsProvider) setTtsProvider(hasAiVoiceAccess ? "google" : "browser");
                 handleStart();
             }, 800);
             return () => clearTimeout(timer);
         }
     }, [autoStart, hasStarted, isStarting, isLoadingStatus, script?.lines?.length, userCharacters, hasAiVoiceAccess, ttsProvider]);
 
-    // ElevenLabs voice assignments per character
+    // Google voice assignments per character
     const [aiVoiceAssignments, setAiVoiceAssignments] = useState<Record<string, string>>({});
 
     const {
@@ -293,7 +293,7 @@ export function RehearsalMode({
         similarityThreshold: threshold,
         initialLineIndex: startLineIndex,
         mode: rehearsalMode,
-        ttsProvider: ttsProvider || (hasAiVoiceAccess ? "elevenlabs" : "browser"),
+        ttsProvider: ttsProvider || (hasAiVoiceAccess ? "google" : "browser"),
         aiVoiceAssignments,
         showStageDirections,
         skipCharacters: ignoredCharacters,
@@ -322,7 +322,7 @@ export function RehearsalMode({
                 {
                     mode: rehearsalMode,
                     visibility: lineVisibility,
-                    ttsProvider: ttsProvider || (hasAiVoiceAccess ? "elevenlabs" : "browser")
+                    ttsProvider: ttsProvider || (hasAiVoiceAccess ? "google" : "browser")
                 },
                 troupeId
             );
@@ -691,7 +691,7 @@ export function RehearsalMode({
                 textMode: lineVisibility,
                 rehearsalMode,
                 threshold,
-                ttsProvider: ttsProvider || (hasAiVoiceAccess ? "elevenlabs" : "browser"),
+                ttsProvider: ttsProvider || (hasAiVoiceAccess ? "google" : "browser"),
             },
         };
     };
@@ -892,7 +892,7 @@ export function RehearsalMode({
         const startQuick = async () => {
             if (isStarting || isLoadingStatus || !ttsProvider) return;
             if (quickStartSettings) {
-                const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
+                const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
                 setRehearsalMode(quickStartSettings.rehearsalMode);
                 setTtsProvider(enforcedProvider);
                 setLineVisibility(quickStartSettings.lineVisibility);
@@ -903,7 +903,7 @@ export function RehearsalMode({
 
         const handleStartWithSave = async () => {
             if (isStarting || isLoadingStatus || !ttsProvider) return;
-            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "elevenlabs" : "browser";
+            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
             if (typeof window !== 'undefined') {
                 localStorage.setItem(rehearsalStorageKey, JSON.stringify({
                     rehearsalMode,

@@ -9,7 +9,7 @@ import { getAllFeedback, updateFeedbackStatus, getFeedbackStats, isAdmin, getAll
 import { updateVoiceAssignment } from "@/lib/actions/voice-cache";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VoicePreviewButton } from "@/components/voice-preview-button";
-import { getElevenLabsVoices, type ElevenLabsVoice } from "@/app/actions/elevenlabs";
+import { getGoogleTTSVoices, type GoogleVoiceProfile } from "@/app/actions/google-tts";
 
 type FeedbackStatus = "pending" | "resolved" | "in_progress";
 
@@ -51,7 +51,7 @@ export default function AdminPage() {
     const [activeTab, setActiveTab] = useState<"feedback" | "users" | "library">("feedback");
     const [togglingPremium, setTogglingPremium] = useState<string | null>(null);
     const [libraryScripts, setLibraryScripts] = useState<LibraryScriptEntry[]>([]);
-    const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
+    const [googleVoices, setGoogleVoices] = useState<GoogleVoiceProfile[]>([]);
     const [updatingVoice, setUpdatingVoice] = useState<string | null>(null);
     const [expandedScriptId, setExpandedScriptId] = useState<string | null>(null);
 
@@ -65,13 +65,13 @@ export default function AdminPage() {
                     getFeedbackStats(),
                     getAllUsers(),
                     getLibraryScripts(),
-                    getElevenLabsVoices(),
+                    getGoogleTTSVoices(),
                 ]);
                 setFeedbacks(feedbackData);
                 setStats(statsData);
                 setUsers(usersData);
                 setLibraryScripts(libraryData);
-                setElevenLabsVoices(voicesData);
+                setGoogleVoices(voicesData);
             }
             setLoading(false);
         };
@@ -128,7 +128,7 @@ export default function AdminPage() {
                 scriptId,
                 charName,
                 voice,
-                "elevenlabs",
+                "google",
                 { stability: 0.5, similarity_boost: 0.75 }
             );
             if (result.success) {
@@ -569,7 +569,7 @@ export default function AdminPage() {
                                                     (config: { character_name: string; voice?: string }) => config.character_name === charName
                                                 )?.voice;
                                                 const isLoading = updatingVoice === `${script.id}-${charName}`;
-                                                const hasVoiceInList = !!currentVoice && elevenLabsVoices.some(v => v.voice_id === currentVoice);
+                                                const hasVoiceInList = !!currentVoice && googleVoices.some(v => v.id === currentVoice);
                                                 const selectValue = hasVoiceInList ? currentVoice : "";
 
                                                 return (
@@ -598,18 +598,18 @@ export default function AdminPage() {
                                                                     )}
                                                                 </SelectTrigger>
                                                                 <SelectContent>
-                                                                    {elevenLabsVoices.length > 0 ? (
-                                                                        elevenLabsVoices.map((v) => (
-                                                                            <SelectItem key={v.voice_id} value={v.voice_id}>
+                                                                    {googleVoices.length > 0 ? (
+                                                                        googleVoices.map((v) => (
+                                                                            <SelectItem key={v.id} value={v.id}>
                                                                                 <span className="flex items-center gap-2">
                                                                                     <span>{v.name}</span>
-                                                                                    <span className="text-[10px] text-muted-foreground opacity-50">({v.category})</span>
+                                                                                    <span className="text-[10px] text-muted-foreground opacity-50">({v.description})</span>
                                                                                 </span>
                                                                             </SelectItem>
                                                                         ))
                                                                     ) : (
                                                                         <div className="p-2 text-xs text-muted-foreground text-center">
-                                                                            Aucune voix ElevenLabs disponible.
+                                                                            Aucune voix Google disponible.
                                                                         </div>
                                                                     )}
                                                                 </SelectContent>

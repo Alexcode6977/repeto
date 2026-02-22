@@ -4,29 +4,21 @@ import { createClient } from "@/lib/supabase/server";
 import { canManageContent } from "@/lib/utils/roles";
 import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
-export type VoiceProvider = "elevenlabs";
-type StoredVoiceProvider = "openai" | "elevenlabs";
+export type VoiceProvider = "google";
+type StoredVoiceProvider = "openai" | "elevenlabs" | "google";
 
 export type SourceType = 'library_script' | 'private_script' | 'troupe_play';
 
-const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
-const LEGACY_OPENAI_TO_ELEVENLABS: Record<string, string> = {
-    alloy: "21m00Tcm4TlvDq8ikWAM",
-    echo: "pNInz6obpgDQGcFmaJgB",
-    fable: "ErXw9S1k3MpBy928U4cm",
-    onyx: "TxGEqnHW47ic3A7NWmsG",
-    nova: "EXAVITQu4vr4xnNLMQyw",
-    shimmer: "MF3mGyEYCl7XYW7Lyk9p",
-};
+const DEFAULT_GOOGLE_VOICE = "Aoede";
 
 function normalizeVoice(voice: string): string {
     const candidate = (voice || "").trim();
-    if (!candidate) return DEFAULT_ELEVENLABS_VOICE;
-    return LEGACY_OPENAI_TO_ELEVENLABS[candidate] || candidate;
+    if (!candidate) return DEFAULT_GOOGLE_VOICE;
+    return candidate;
 }
 
 function normalizeProvider(): VoiceProvider {
-    return "elevenlabs";
+    return "google";
 }
 
 export interface VoiceConfig {
@@ -108,9 +100,10 @@ export async function createVoiceConfig(
                 source_type: sourceType,
                 source_id: sourceId,
                 character_name: a.character,
-                voice: a.voice || "21m00Tcm4TlvDq8ikWAM", // Default to Rachel if missing
-                provider: a.provider || 'elevenlabs',
-                settings: { stability: 0.5, similarity_boost: 0.75 }, // Default settings
+                voice: a.voice || "Aoede", // Default to Aoede if missing
+                provider: a.provider || 'google',
+                settings: {}, // Default settings
+
                 created_by: user.id,
                 troupe_id: troupeId || null
             }))
@@ -314,14 +307,14 @@ export async function ensureVoiceConfig(
     const existing = await hasVoiceConfig(sourceType, sourceId);
     if (existing) return { success: true };
 
-    // ElevenLabs Default Voices (Varied genders/ages)
+    // Google Default Voices (Varied genders/ages)
     const VOICES = [
-        "21m00Tcm4TlvDq8ikWAM", // Rachel
-        "pNInz6obpgDQGcFmaJgB", // Adam
-        "EXAVITQu4vr4xnNLMQyw", // Bella
-        "ErXw9S1k3MpBy928U4cm", // Antoni
-        "MF3mGyEYCl7XYW7Lyk9p", // Elli
-        "TxGEqnHW47ic3A7NWmsG", // Josh
+        "Aoede",
+        "Achird",
+        "Despina",
+        "Orus",
+        "Laomedeia",
+        "Algenib",
     ];
 
     // Create assignments for private script (including didascalies)
@@ -329,7 +322,7 @@ export async function ensureVoiceConfig(
     const assignments: VoiceAssignment[] = allRoles.map((role, index) => ({
         character: role,
         voice: VOICES[index % VOICES.length],
-        provider: 'elevenlabs'
+        provider: 'google'
     }));
 
     return createVoiceConfig(sourceType, sourceId, assignments, troupeId);
@@ -343,9 +336,10 @@ export async function updateVoiceAssignment(
     sourceId: string,
     characterName: string,
     voice: string,
-    provider: VoiceProvider = "elevenlabs",
+    provider: VoiceProvider = "google",
     settings: any = {},
     troupeId?: string
+
 ): Promise<{ success: boolean; error?: string }> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

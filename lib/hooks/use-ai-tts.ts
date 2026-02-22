@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import { synthesizeSpeech } from "@/app/actions/tts";
 
-export type TTSProvider = "browser" | "elevenlabs";
+export type TTSProvider = "browser" | "google";
 
 interface UseAITTSReturn {
     speak: (text: string, voice?: string, playbackRate?: number) => Promise<void>;
@@ -46,7 +46,7 @@ export function useAITTS(): UseAITTSReturn {
         setIsLoading(false);
     }, []);
 
-    const preload = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM") => {
+    const preload = useCallback(async (text: string, voice: string = "Aoede") => {
         const key = `${voice}:${text}`;
         if (audioCache.current.has(key)) return;
         if (preloadInFlight.current.has(key)) {
@@ -74,7 +74,7 @@ export function useAITTS(): UseAITTSReturn {
         await preloadPromise;
     }, [addToCache]);
 
-    const speak = useCallback(async (text: string, voice: string = "21m00Tcm4TlvDq8ikWAM", playbackRate: number = 1) => {
+    const speak = useCallback(async (text: string, voice: string = "Aoede", playbackRate: number = 1) => {
         // Stop any ongoing playback
         stop();
 

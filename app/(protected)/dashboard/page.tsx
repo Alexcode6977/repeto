@@ -24,7 +24,6 @@ import { DashboardHeader } from "./components/dashboard-header";
 
 import { ScriptGrid } from "./components/script-grid";
 import { ImportWizard } from "./components/import-wizard";
-import { ScriptSettingsModal } from "./components/script-settings-modal";
 import { StoriesFooter } from "./components/stories-footer";
 
 // Lazy load heavy components
@@ -75,9 +74,6 @@ export default function Home() {
   const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>([]);
   const [showStageDirections, setShowStageDirections] = useState(true); // Stage directions toggle state
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-
-  // Settings Modal State
-  const [settingsScript, setSettingsScript] = useState<{ id: string; title: string; characters: string[] } | null>(null);
 
   // Dashboard Layout Mode (Grid vs List)
   const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
@@ -158,28 +154,6 @@ export default function Home() {
   };
 
   const handleLoadScript = async (s: ScriptMetadata) => {
-    // ENFORCE VOICE CONFIGURATION
-    // First-time check: If no voices configured, force open Casting Studio
-    if (!s.hasVoiceConfig) {
-      setIsLoadingDetail(true);
-      try {
-        const fullScript = await getScriptById(s.id);
-        if (fullScript) {
-          setSettingsScript({
-            id: s.id,
-            title: fullScript.title,
-            characters: fullScript.characters || [],
-          });
-          // Optional: You could set a specific flag to show a "Welcome/Setup" message in the modal
-        }
-      } catch (err) {
-        setError("Erreur lors de l'ouverture de la configuration.");
-      } finally {
-        setIsLoadingDetail(false);
-      }
-      return;
-    }
-
     await openScriptViewer(s.id, s.is_public || false);
   };
 
@@ -368,16 +342,6 @@ export default function Home() {
           onDelete={handleDeleteScript}
           onRename={handleRenameScript}
           onTogglePublic={handleTogglePublic}
-          onSettings={async (s) => {
-            const fullScript = await getScriptById(s.id);
-            if (fullScript) {
-              setSettingsScript({
-                id: s.id,
-                title: fullScript.title,
-                characters: fullScript.characters || [],
-              });
-            }
-          }}
           onImport={() => setShowImportGuide(true)}
           layoutMode={layoutMode}
           activeIndex={activeIndex}
@@ -405,27 +369,6 @@ export default function Home() {
       )}
 
       {/* Modals */}
-      {settingsScript && (
-        <ScriptSettingsModal
-          scriptId={settingsScript.id}
-          scriptTitle={settingsScript.title}
-          characters={settingsScript.characters}
-          onClose={() => setSettingsScript(null)}
-          onSave={async () => {
-            const savedScriptId = settingsScript.id;
-            const savedScriptPublic = scriptsList.find((item) => item.id === savedScriptId)?.is_public || false;
-
-            setScriptsList((prev) =>
-              prev.map((item) =>
-                item.id === savedScriptId ? { ...item, hasVoiceConfig: true } : item
-              )
-            );
-
-            await openScriptViewer(savedScriptId, savedScriptPublic);
-            void refreshScripts();
-          }}
-        />
-      )}
     </div>
   );
 }

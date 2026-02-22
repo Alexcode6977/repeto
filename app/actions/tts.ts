@@ -1,68 +1,62 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import crypto from "crypto";
 import { hasAiVoiceAccess } from "@/lib/subscription";
 import {
     SourceType,
-    getCachedAudio,
-    cacheAudio,
     getCharacterVoice
 } from "@/lib/actions/voice-cache";
 
-const DEFAULT_ELEVENLABS_VOICE = "21m00Tcm4TlvDq8ikWAM";
+const DEFAULT_GOOGLE_VOICE = "Aoede";
 
-// Legacy mapping for historical OpenAI voice ids still present in old configs.
-const LEGACY_OPENAI_TO_ELEVENLABS: Record<string, string> = {
-    alloy: "21m00Tcm4TlvDq8ikWAM",   // Rachel
-    echo: "pNInz6obpgDQGcFmaJgB",    // Adam
-    fable: "ErXw9S1k3MpBy928U4cm",   // Antoni
-    onyx: "TxGEqnHW47ic3A7NWmsG",    // Josh
-    nova: "EXAVITQu4vr4xnNLMQyw",    // Bella
-    shimmer: "MF3mGyEYCl7XYW7Lyk9p", // Elli
-};
-
-function normalizeElevenLabsVoiceId(voice: string): string {
+function normalizeVoiceId(voice: string): string {
     const candidate = (voice || "").trim();
-    if (!candidate) return DEFAULT_ELEVENLABS_VOICE;
-    return LEGACY_OPENAI_TO_ELEVENLABS[candidate] || candidate;
+    if (!candidate) return DEFAULT_GOOGLE_VOICE;
+    return candidate;
 }
 
-async function generateElevenLabsAudio(text: string, voiceId: string, settings?: any): Promise<ArrayBuffer> {
-    if (!process.env.ELEVENLABS_API_KEY) {
-        throw new Error("Clé API ElevenLabs non configurée");
+async function generateGoogleChirpAudio(text: string, voiceName: string): Promise<string> {
+    if (!process.env.GOOGLE_TTS_API_KEY) {
+        throw new Error("Clé API Google TTS non configurée");
     }
 
-    const modelId = "eleven_multilingual_v2"; // Good balance of quality/speed for French
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-        method: "POST",
-        headers: {
-            "Accept": "audio/mpeg",
-            "Content-Type": "application/json",
-            "xi-api-key": process.env.ELEVENLABS_API_KEY
+    const API_URL = `https://texttospeech.googleapis.com/v1/text:synthesize?key=${process.env.GOOGLE_TTS_API_KEY}`;
+    const fullVoiceId = voiceName.startsWith("fr-FR-") ? voiceName : `fr-FR-Chirp3-HD-${voiceName}`;
+
+    const requestBody = {
+        input: { text },
+        voice: {
+            languageCode: "fr-FR",
+            name: fullVoiceId,
         },
-        body: JSON.stringify({
-            text,
-            model_id: modelId,
-            voice_settings: settings || {
-                stability: 0.5,
-                similarity_boost: 0.75
-            }
-        })
+        audioConfig: {
+            audioEncoding: "MP3",
+        },
+    };
+
+    const response = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[ElevenLabs] Error:", errorText);
-        throw new Error(`ElevenLabs API Error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json();
+        console.error("[GoogleTTS] Error synthesizing speech:", errorData);
+        throw new Error("Échec de la génération audio Google TTS.");
     }
 
-    return await response.arrayBuffer();
+    const data = await response.json();
+    if (!data.audioContent) {
+        throw new Error("Réponse Google TTS vide.");
+    }
+
+    return `data:audio/mp3;base64,${data.audioContent}`;
 }
 
 export async function synthesizeSpeech(
     text: string,
-    voice: string = DEFAULT_ELEVENLABS_VOICE,
+    voice: string = DEFAULT_GOOGLE_VOICE,
     troupeId?: string
 ): Promise<{ audio: string } | { error: string }> {
     try {
@@ -78,79 +72,10 @@ export async function synthesizeSpeech(
             return { error: "Abonnement Solo Pro ou Troupe requis pour les voix IA." };
         }
 
-        const provider = "elevenlabs" as const;
-        const voiceId = normalizeElevenLabsVoiceId(voice);
+        const voiceId = normalizeVoiceId(voice);
+        const dataUrl = await generateGoogleChirpAudio(text, voiceId);
 
-        // --- CACHING LOGIC ---
-        // 1. Create a unique hash for the request (Text + Voice + Provider)
-        const contentToHash = `${text.trim()}|${voiceId}|${provider}`;
-        const textHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
-
-        // 2. Check if we already have this audio in our cache
-        const { data: cachedEntry } = await supabase
-            .from('audio_cache')
-            .select('audio_path')
-            .eq('text_hash', textHash)
-            .single();
-
-        if (cachedEntry) {
-            const { data: publicUrlData } = supabase
-                .storage
-                .from('audio-cache')
-                .getPublicUrl(cachedEntry.audio_path);
-
-            console.log(`[TTS] Cache HIT for hash ${textHash.substring(0, 8)} (${provider})`);
-            return { audio: publicUrlData.publicUrl };
-        }
-
-        console.log(`[TTS] Cache MISS for hash ${textHash.substring(0, 8)} - Generating via ElevenLabs...`);
-
-        let buffer: ArrayBuffer;
-        try {
-            buffer = await generateElevenLabsAudio(text, voiceId);
-        } catch (e: any) {
-            return { error: e.message };
-        }
-
-        // 3. Store the file in Supabase Storage
-        const fileName = `${textHash}.mp3`;
-
-        const { error: uploadError } = await supabase
-            .storage
-            .from('audio-cache')
-            .upload(fileName, buffer, {
-                contentType: 'audio/mpeg',
-                upsert: true
-            });
-
-        if (uploadError) {
-            console.error('[TTS] Failed to upload to cache:', uploadError);
-            const base64 = Buffer.from(buffer).toString("base64");
-            return { audio: `data:audio/mp3;base64,${base64}` };
-        }
-
-        // 4. Record the entry in our database
-        await supabase
-            .from('audio_cache')
-            .insert({
-                text_hash: textHash,
-                audio_path: fileName,
-                metadata: {
-                    text: text.substring(0, 100),
-                    voice: voiceId,
-                    provider: provider,
-                    generated_by: user.id
-                }
-            });
-
-        // 5. Return the public URL
-        const { data: publicUrlData } = supabase
-            .storage
-            .from('audio-cache')
-            .getPublicUrl(fileName);
-
-        return { audio: publicUrlData.publicUrl };
-
+        return { audio: dataUrl };
     } catch (error: any) {
         console.error("TTS Error:", error);
         return { error: error.message || "Failed to synthesize speech" };
@@ -158,13 +83,13 @@ export async function synthesizeSpeech(
 }
 
 /**
- * NEW: Synthesize speech using the play-based voice cache system
+ * Synthesize speech using the play-based voice cache system
  * Uses fixed voice assignments per character per play
  */
 export async function synthesizeSpeechWithPlayCache(
     text: string,
     characterName: string,
-    lineIndex: number,
+    lineIndex: number, // Conservé pour la signature mais inutilisé vu l'absence de DB cache en Phase 1
     sourceType: SourceType,
     sourceId: string,
     troupeId?: string
@@ -181,71 +106,22 @@ export async function synthesizeSpeechWithPlayCache(
             return { error: "Abonnement Solo Pro ou Troupe requis pour les voix IA." };
         }
 
-        // 2. Get the voice for this character from config
+        // Get the voice for this character from config
         const voiceConfig = await getCharacterVoice(sourceType, sourceId, characterName);
         if (!voiceConfig) {
             return { error: `Aucune voix configurée pour ${characterName}. Veuillez d'abord configurer les voix.` };
         }
 
-        const { voice, settings } = voiceConfig;
-        const provider = "elevenlabs" as const;
-        const voiceId = normalizeElevenLabsVoiceId(voice);
+        const { voice } = voiceConfig;
+        const voiceId = normalizeVoiceId(voice);
 
-        // --- HASH CALCULATION ---
-        // We need the hash to check the cache specifically for this segment text
-        const contentToHash = `${text.trim()}|${voiceId}|${provider}`;
-        const textHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
+        // Generate audio directly (sans système de cache base de données pour la Phase 1 du remplacement)
+        const dataUrl = await generateGoogleChirpAudio(text, voiceId);
 
-        // 1. Check play-based cache first (using Hash)
-        const cachedAudioUrl = await getCachedAudio(sourceType, sourceId, lineIndex, characterName, textHash);
-        if (cachedAudioUrl) {
-            console.log(`[TTS Play Cache] HIT for ${characterName} line ${lineIndex} segment ${textHash.substring(0, 8)}`);
-            return { audio: cachedAudioUrl };
-        }
-
-        console.log(`[TTS Play Cache] MISS for ${characterName} line ${lineIndex} - Generating with ElevenLabs voice ${voiceId}...`);
-
-        // 3. Generate audio
-        let buffer: ArrayBuffer;
-        try {
-            buffer = await generateElevenLabsAudio(text, voiceId, settings);
-        } catch (e: any) {
-            return { error: e.message };
-        }
-
-        // contentToHash and textHash already calculated above
-        const fileName = `play_${sourceId.substring(0, 8)}_${textHash}.mp3`;
-
-        // 4. Upload to storage
-        const { error: uploadError } = await supabase
-            .storage
-            .from('audio-cache')
-            .upload(fileName, buffer, {
-                contentType: 'audio/mpeg',
-                upsert: true
-            });
-
-        if (uploadError) {
-            console.error('[TTS Play Cache] Upload failed:', uploadError);
-            const base64 = Buffer.from(buffer).toString("base64");
-            return { audio: `data:audio/mp3;base64,${base64}` };
-        }
-
-        // 5. Get public URL
-        const { data: publicUrlData } = supabase
-            .storage
-            .from('audio-cache')
-            .getPublicUrl(fileName);
-
-        const audioUrl = publicUrlData.publicUrl;
-
-        // 6. Cache the audio URL in play_audio_cache
-        await cacheAudio(sourceType, sourceId, lineIndex, characterName, textHash, audioUrl);
-
-        return { audio: audioUrl };
+        return { audio: dataUrl };
 
     } catch (error: any) {
-        console.error("TTS Play Cache Error:", error);
+        console.error("TTS Play Generation Error:", error);
         return { error: error.message || "Failed to synthesize speech" };
     }
 }

@@ -159,6 +159,7 @@ export interface ImportValidationSubmission {
     diagnostics: ImportDiagnosticsResult;
     decisions: Record<string, ImportDecisionStatus>;
     mappings: ScriptMappings;
+    voiceAssignments?: Array<{ characterName: string, voiceId: string, justification: string }>;
 }
 
 export interface ThirdImportSceneSummary {
@@ -1700,7 +1701,22 @@ export async function saveScriptWithImportValidation(
             mappings: validated.sanitized,
         };
 
-        await saveScript(finalScript);
+        const scriptId = await saveScript(finalScript);
+
+        // Lancer l'enregistrement des voix si pré-calculées
+        if (submission.voiceAssignments && submission.voiceAssignments.length > 0) {
+            import("@/lib/actions/voice-cache").then(({ updateVoiceAssignment }) => {
+                Promise.all(submission.voiceAssignments!.map(assign =>
+                    updateVoiceAssignment("private_script", scriptId, assign.characterName, assign.voiceId, "google", { stability: 0.5, similarity_boost: 0.75 })
+                )).catch(console.error);
+            });
+        } else {
+            // Lancer l'alignement des voix en arrière-plan (fallback)
+            import("@/lib/actions/voice-matching").then(({ autoMatchVoicesForScript }) => {
+                autoMatchVoicesForScript(scriptId, finalScript).catch(console.error);
+            });
+        }
+
         return { success: true };
     } catch (error: unknown) {
         console.error("[Import Validation Save] Error:", error);
@@ -1727,13 +1743,15 @@ export async function saveScript(script: ParsedScript) {
 
     if (!user) throw new Error("Unauthorized");
 
-    const { error } = await supabase
+    const { data, error } = await supabase
         .from("scripts")
         .insert({
             user_id: user.id,
             title: script.title || "Untitled Script",
             content: script,
-        });
+        })
+        .select("id")
+        .single();
 
     if (error) {
         console.error("Error saving script:", error);
@@ -1742,6 +1760,8 @@ export async function saveScript(script: ParsedScript) {
 
     revalidatePath("/dashboard");
     revalidatePath("/profile");
+
+    return data.id as string;
 }
 
 export async function updateScriptContent(scriptId: string, newScript: ParsedScript) {
