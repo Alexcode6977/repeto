@@ -1,0 +1,33 @@
+﻿;;;;;;;;;;;;
+"Voix
+(fr-FR-Chirp3-HD-xxx)";Caractère probable (à valider à l'écoute);Genre;Âge;Tonalité;Fiabilité Narrative;Registre;Projection;Vitesse;Texture;Température;Énergie;Commentaires
+Achernar;L'Élégante : Sophistiquée, posée, voix de premier plan.;4 - Très Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;2 - Intime (Narrateur);3 - Allante;1 - Lisse / Pure;3 - Avenant (Chaud);3 - Dynamique;
+Achird;"Le Mentor : Mature, rassurant, type ""père"" ou ""professeur"".";2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;4 - Châtié (Précieux);3 - Direct (Parlé haut);3 - Allante;2 - Satinée;4 - Solaire (Empathique);3 - Dynamique;
+Algenib;Le Sportif : Direct, tonique, sans fioritures.;2 - Masculin;2 - Adolescent / Jeune Adulte;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);4 - Trépidante;3 - Voilée;3 - Avenant (Chaud);3 - Dynamique;
+Algieba;Le Solennel : Rythme lent, profond, très théâtral.;2 - Masculin;4 - Senior (Âgé/Cassé);2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);1 - Très Lente;3 - Voilée;2 - Distant (Froid);2 - Posé;
+Alnilam;Masculin standard, sans relief particulier.;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Aoede;La Lyrique : Très fluide, mélodieuse, idéale pour les textes longs.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;4 - Solaire (Empathique);3 - Dynamique;
+Autonoe;"La Pragmatique : Diction très nette, très ""moderne"".";3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;2 - Distant (Froid);3 - Dynamique;
+Callirrhoe;Féminin doux, assez proche de Leda.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;1 - Chuchoté;3 - Allante;1 - Lisse / Pure;4 - Solaire (Empathique);3 - Dynamique;
+Charon;Le Sombre : Grave, posé, parfait pour les antagonistes.;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;2 - Distant (Froid);3 - Dynamique;
+Despina;Féminin classique, utile pour les petits rôles.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Enceladus;Le Robuste : Voix pleine, un peu lourde, rôles physiques.;2 - Masculin;2 - Adolescent / Jeune Adulte;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;2 - Distant (Froid);3 - Dynamique;
+Erinome;La Mystérieuse : Ton un peu voilé, intime.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;1 - Chuchoté;3 - Allante;1 - Lisse / Pure;4 - Solaire (Empathique);3 - Dynamique;
+Fenrir;L'Autoritaire : Puissant, avec du grain, rôle de chef.;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;4 - Granuleuse;2 - Distant (Froid);3 - Dynamique;
+Gacrux;La Matriarche : Voix mûre, assurée, autorité naturelle.;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;3 - Standard;4 - Exclamatif (Théâtral);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Iapetus;Masculin mûr, assez proche d'Achird.;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;4 - Solaire (Empathique);3 - Dynamique;
+Kore;La Pétillante : Très proche de l'utilisateur, amicale.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;4 - Solaire (Empathique);3 - Dynamique;
+Laomedeia;Féminin un peu plus aigu, voix de jeune fille.;3 - Féminin;1 - Très Jeune (Enfant);4 - Très Aigu (Soprano);3 - Bonne;2 - Familier;3 - Direct (Parlé haut);3 - Allante;1 - Lisse / Pure;3 - Avenant (Chaud);3 - Dynamique;
+Leda;La Douce : Calme, timbre cristallin, rôles candides.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;1 - Chuchoté;3 - Allante;1 - Lisse / Pure;4 - Solaire (Empathique);3 - Dynamique;
+Orus;L'Énergique : Parle un peu plus fort par défaut, extraverti.;2 - Masculin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;1 - Lisse / Pure;4 - Solaire (Empathique);3 - Dynamique;
+Puck;L'Agile : Ton jeune, dynamique, excellent pour la comédie.;2 - Masculin;2 - Adolescent / Jeune Adulte;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);4 - Explosif (Intense);
+Pulcherrima;La Distinguée : Très articulée, un peu formelle.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Rasalgethi;Masculin grave, assez proche de Charon.;2 - Masculin;3 - Adulte Mûr;1 - Très Grave (Basse);3 - Bonne;3 - Standard;2 - Intime (Narrateur);3 - Allante;2 - Satinée;1 - Glacial (Hostile);3 - Dynamique;
+Sadachbia;Masculin neutre, très polyvalent.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Sadaltager;Masculin rapide, utile pour les rôles bavards.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Schedar;"Le Neutre : Clair et polyvalent, bon ""jeune premier"".";3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Sulafat;"Féminin mature, utile pour les rôles de ""Rang B"".";2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Umbriel;Masculin un peu plus sec, moins chaleureux.;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;4 - Granuleuse;2 - Distant (Froid);3 - Dynamique;
+Vindemiatrix;La Singulière : Timbre atypique, pour personnages typés.;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;3 - Bonne;2 - Familier;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Zephyr;La Vive : Claire, rapide, idéale pour les rôles énergiques.;2 - Masculin;2 - Adolescent / Jeune Adulte;4 - Très Aigu (Soprano);3 - Bonne;3 - Standard;3 - Direct (Parlé haut);3 - Allante;1 - Lisse / Pure;3 - Avenant (Chaud);3 - Dynamique;
+Zubenelgenubi;L'Intellectuel : Précis, calme, ton professoral.;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Bonne;4 - Châtié (Précieux);2 - Intime (Narrateur);2 - Posée;2 - Satinée;2 - Distant (Froid);2 - Posé;

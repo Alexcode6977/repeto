@@ -83,10 +83,14 @@ export function ImportWizard({
     const [pendingScriptForSave, setPendingScriptForSave] = useState<ParsedScript | null>(null);
     const [diagnosticsResult, setDiagnosticsResult] = useState<ImportDiagnosticsResult | null>(null);
     const [diagnosticsDecisions, setDiagnosticsDecisions] = useState<Record<string, ValidationDecision>>({});
-    const [aliasTargetsById, setAliasTargetsById] = useState<Record<string, string>>({});
+    const [classicCharacterLabels, setClassicCharacterLabels] = useState<string[]>([]);
+    const [classicCharacterCountByLabel, setClassicCharacterCountByLabel] = useState<Record<string, number>>({});
+    const [classicCharacterTargetByLabel, setClassicCharacterTargetByLabel] = useState<Record<string, string>>({});
     const [collectiveResolutionsById, setCollectiveResolutionsById] = useState<Record<string, CollectiveResolutionState>>({});
     const [validationStep, setValidationStep] = useState<ValidationStep>(1);
     const [collectivePreviewIndexById, setCollectivePreviewIndexById] = useState<Record<string, number>>({});
+    const [collectiveContextCandidateId, setCollectiveContextCandidateId] = useState<string | null>(null);
+    const [diagnosticsVoiceAssignments, setDiagnosticsVoiceAssignments] = useState<VoiceAssignment[] | null>(null);
 
     // AI Import State
     const [isAiImporting, setIsAiImporting] = useState(false);
@@ -132,10 +136,14 @@ export function ImportWizard({
         setPendingScriptForSave(null);
         setDiagnosticsResult(null);
         setDiagnosticsDecisions({});
-        setAliasTargetsById({});
+        setClassicCharacterLabels([]);
+        setClassicCharacterCountByLabel({});
+        setClassicCharacterTargetByLabel({});
         setCollectiveResolutionsById({});
         setValidationStep(1);
         setCollectivePreviewIndexById({});
+        setCollectiveContextCandidateId(null);
+        setDiagnosticsVoiceAssignments(null);
     };
 
     const stopClassicImportTimer = () => {
@@ -247,9 +255,24 @@ export function ImportWizard({
 
             const decisionState: Record<string, ValidationDecision> = {};
 
-            const aliasTargets: Record<string, string> = {};
-            diagnostics.aliasSuggestions.forEach((item) => {
-                aliasTargets[item.id] = item.target;
+            const labelsMap = new Map<string, number>();
+            (scriptWithTitle.lines || []).forEach((line) => {
+                if (line.type !== "dialogue") return;
+                const char = normalizeImportLabel(line.character || "");
+                if (char) {
+                    labelsMap.set(char, (labelsMap.get(char) || 0) + 1);
+                }
+            });
+            const allLabels = Array.from(labelsMap.keys()).sort((a, b) => a.localeCompare(b, "fr"));
+            const countByLabel = Object.fromEntries(labelsMap.entries());
+
+            const targetByLabel: Record<string, string> = {};
+            allLabels.forEach(label => { targetByLabel[label] = label; });
+            diagnostics.aliasSuggestions.forEach(sug => {
+                const targetCanon = normalizeImportLabel(sug.target || "");
+                if (sug.confidence >= 0.45 && targetByLabel[sug.source] && targetCanon) {
+                    targetByLabel[sug.source] = targetCanon;
+                }
             });
 
             const collectiveState: Record<string, CollectiveResolutionState> = {};
@@ -262,12 +285,19 @@ export function ImportWizard({
                     members: [...item.members],
                 };
                 collectivePreviewIndexes[item.id] = 0;
+
+                // Pre-mark them as collectives in the Alias step
+                if (targetByLabel[item.label]) {
+                    targetByLabel[item.label] = THIRD_MULTI_TARGET;
+                }
             });
 
             setPendingScriptForSave(scriptWithTitle);
             setDiagnosticsResult(diagnostics);
             setDiagnosticsDecisions(decisionState);
-            setAliasTargetsById(aliasTargets);
+            setClassicCharacterLabels(allLabels);
+            setClassicCharacterCountByLabel(countByLabel);
+            setClassicCharacterTargetByLabel(targetByLabel);
             setCollectiveResolutionsById(collectiveState);
             setCollectivePreviewIndexById(collectivePreviewIndexes);
             setValidationStep(1);
@@ -282,18 +312,15 @@ export function ImportWizard({
 
     const diagnosticsPendingCount = useMemo(() => {
         if (!diagnosticsResult) return 0;
-        return diagnosticsResult.blockingDecisions.filter((decision) => !diagnosticsDecisions[decision.id]).length;
+        return diagnosticsResult.blockingDecisions.filter((decision) => {
+            if (decision.kind === "alias") return false;
+            if (decision.kind === "collective") return false;
+            return !diagnosticsDecisions[decision.id];
+        }).length;
     }, [diagnosticsResult, diagnosticsDecisions]);
 
-    const aliasPendingCount = useMemo(() => {
-        if (!diagnosticsResult) return 0;
-        return diagnosticsResult.aliasSuggestions.filter((item) => !diagnosticsDecisions[item.id]).length;
-    }, [diagnosticsResult, diagnosticsDecisions]);
-
-    const collectivePendingCount = useMemo(() => {
-        if (!diagnosticsResult) return 0;
-        return diagnosticsResult.collectiveSuggestions.filter((item) => !diagnosticsDecisions[item.id]).length;
-    }, [diagnosticsResult, diagnosticsDecisions]);
+    const aliasPendingCount = 0;
+    const collectivePendingCount = 0;
 
     const scenePendingCount = useMemo(() => {
         if (!diagnosticsResult) return 0;
@@ -301,29 +328,17 @@ export function ImportWizard({
     }, [diagnosticsResult, diagnosticsDecisions]);
 
     const frozenCanonicalCharacters = useMemo(() => {
-        if (!diagnosticsResult) return [] as string[];
+        const canonicalSet = new Set<string>();
 
-        const canonicalSet = new Set(
-            diagnosticsResult.canonicalCharacters
-                .map((value) => value.toUpperCase().trim())
-                .filter(Boolean)
-        );
-
-        diagnosticsResult.aliasSuggestions.forEach((alias) => {
-            const decision = diagnosticsDecisions[alias.id];
-            const source = alias.source.toUpperCase().trim();
-            const target = (aliasTargetsById[alias.id] || alias.target || "").toUpperCase().trim();
-
-            if (decision === "accept" && target) {
-                canonicalSet.delete(source);
-                canonicalSet.add(target);
-            } else if (decision === "reject") {
-                canonicalSet.add(source);
+        Object.values(classicCharacterTargetByLabel).forEach((target) => {
+            const normalized = normalizeImportLabel(target || "");
+            if (normalized && normalized !== normalizeImportLabel(THIRD_MULTI_TARGET)) {
+                canonicalSet.add(normalized);
             }
         });
 
         return Array.from(canonicalSet).sort((a, b) => a.localeCompare(b, "fr"));
-    }, [diagnosticsResult, diagnosticsDecisions, aliasTargetsById]);
+    }, [classicCharacterTargetByLabel]);
 
     const sceneDisplayByStartIndex = useMemo(() => {
         const map = new Map<number, string>();
@@ -1035,7 +1050,8 @@ export function ImportWizard({
             markClassicStageDone("diagnostics", "Vérification finale terminée.");
             setClassicImportActivity("Analyse terminée. Ouverture de la validation...");
             setShowImportGuide(false);
-        } catch {
+        } catch (error) {
+            console.error("[runClassicImportFlow] Error:", error);
             onError("Erreur lors de l'import classique.");
             setShowImportGuide(false);
         } finally {
@@ -1446,7 +1462,7 @@ export function ImportWizard({
             diagnostics,
             decisions: {},
             mappings: thirdFinalOutput.mappings,
-                    voiceAssignments: thirdVoiceAssignments || undefined,
+            voiceAssignments: thirdVoiceAssignments || undefined,
         };
 
         setIsThirdSaving(true);
@@ -1510,6 +1526,10 @@ export function ImportWizard({
             onError("Terminez d'abord les alias puis les rôles collectifs.");
             return;
         }
+        if (nextStep === 4 && diagnosticsPendingCount > 0) {
+            onError("Veuillez régler toutes les suggestions (y compris les scènes) avant de passer au casting vocal.");
+            return;
+        }
         setValidationStep(nextStep);
     };
 
@@ -1522,14 +1542,12 @@ export function ImportWizard({
             return;
         }
 
-        const acceptedAliases = diagnosticsResult.aliasSuggestions.filter((item) => diagnosticsDecisions[item.id] === "accept");
-        const acceptedCollectives = diagnosticsResult.collectiveSuggestions.filter((item) => diagnosticsDecisions[item.id] === "accept");
-
         const aliases: Record<string, string> = {};
-        acceptedAliases.forEach((alias) => {
-            const selectedTarget = (aliasTargetsById[alias.id] || alias.target || "").toUpperCase().trim();
-            if (selectedTarget) {
-                aliases[alias.source] = selectedTarget;
+        Object.entries(classicCharacterTargetByLabel).forEach(([source, target]) => {
+            const normalizedSource = source.toUpperCase().trim();
+            const normalizedTarget = (target || "").toUpperCase().trim();
+            if (normalizedSource !== normalizedTarget && normalizedTarget && normalizedTarget !== THIRD_MULTI_TARGET) {
+                aliases[normalizedSource] = normalizedTarget;
             }
         });
 
@@ -1537,14 +1555,7 @@ export function ImportWizard({
         const bySceneCollectives: ScriptMappings["collectives"]["by_scene"] = [];
         const frozenCanonicalSet = new Set(frozenCanonicalCharacters);
 
-        acceptedCollectives.forEach((collective) => {
-            const resolution = collectiveResolutionsById[collective.id] || {
-                label: collective.label,
-                scope: collective.scope,
-                sceneIndex: collective.sceneIndex,
-                members: collective.members,
-            };
-
+        Object.values(collectiveResolutionsById).forEach((resolution) => {
             const members = Array.from(new Set(
                 (resolution.members || [])
                     .map((member) => member.toUpperCase().trim())
@@ -1581,6 +1592,7 @@ export function ImportWizard({
             diagnostics: diagnosticsResult,
             decisions: diagnosticsDecisions,
             mappings,
+            voiceAssignments: diagnosticsVoiceAssignments || [],
         };
 
         setIsImporting(true);
@@ -1836,16 +1848,16 @@ export function ImportWizard({
                         <div className="flex-1 min-h-0 overflow-y-auto p-4">
 
                             {thirdImportStep === 1 && (
-                            <WizardStepAlias
-                                labels={thirdCharacterLabels}
-                                targetByLabel={thirdCharacterTargetByLabel}
-                                setTargetByLabel={setThirdCharacterTargetByLabel}
-                                countByLabel={thirdCharacterCountByLabel}
-                                options={thirdCharacterOptions}
-                                normalizeLabel={normalizeImportLabel}
-                                multiTargetConstant={THIRD_MULTI_TARGET}
-                            />
-)}
+                                <WizardStepAlias
+                                    labels={thirdCharacterLabels}
+                                    targetByLabel={thirdCharacterTargetByLabel}
+                                    setTargetByLabel={setThirdCharacterTargetByLabel}
+                                    countByLabel={thirdCharacterCountByLabel}
+                                    options={thirdCharacterOptions}
+                                    normalizeLabel={normalizeImportLabel}
+                                    multiTargetConstant={THIRD_MULTI_TARGET}
+                                />
+                            )}
 
                             {thirdImportStep === 2 && (
                                 <WizardStepCollectives
@@ -1887,6 +1899,7 @@ export function ImportWizard({
                                     characters={thirdCanonicalCharacters}
                                     assignments={thirdVoiceAssignments}
                                     setAssignments={setThirdVoiceAssignments}
+                                    script={thirdImportPreview?.parsedScript || null}
                                 />
                             )}
                         </div>
@@ -1964,7 +1977,7 @@ export function ImportWizard({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 mb-5">
+                        <div className="grid grid-cols-4 gap-2 mb-5">
                             <button
                                 type="button"
                                 className={`rounded-lg border px-3 py-2 text-left ${validationStep === 1 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
@@ -1989,70 +2002,34 @@ export function ImportWizard({
                                 <p className="text-xs font-semibold text-foreground">3. Scènes</p>
                                 <p className="text-[11px] text-muted-foreground">{scenePendingCount} restant(s)</p>
                             </button>
+                            <button
+                                type="button"
+                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 4 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                onClick={() => setValidationStepSafely(4)}
+                            >
+                                <p className="text-xs font-semibold text-foreground">4. Voix IA</p>
+                                <p className="text-[11px] text-muted-foreground">Optionnel</p>
+                            </button>
                         </div>
 
                         <div className="space-y-6 flex-1 overflow-y-auto pr-2">
                             {validationStep === 1 && (
                                 <div className="space-y-3">
                                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                        Étape 1 · Suggestions de liaison / alias ({diagnosticsResult.aliasSuggestions.length})
+                                        Étape 1 · Liaisons et Alias ({classicCharacterLabels.length} personnages)
                                     </label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Validez les alias puis la liste canonique sera figée automatiquement pour la suite.
+                                    <p className="text-xs text-muted-foreground mb-4">
+                                        Vérifiez les personnages détectés. Les suggestions de l'IA sont pré-remplies.
                                     </p>
-                                    {diagnosticsResult.aliasSuggestions.length === 0 && (
-                                        <p className="text-xs text-muted-foreground">Aucune liaison suggérée.</p>
-                                    )}
-                                    <div className="space-y-2">
-                                        {diagnosticsResult.aliasSuggestions.map((alias) => {
-                                            const decision = diagnosticsDecisions[alias.id];
-                                            return (
-                                                <div key={alias.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <span className="text-sm font-semibold">{alias.source}</span>
-                                                        <span className="text-xs text-muted-foreground">→</span>
-                                                        <Select
-                                                            value={aliasTargetsById[alias.id] || alias.target}
-                                                            onValueChange={(value) => setAliasTargetsById((prev) => ({ ...prev, [alias.id]: value }))}
-                                                        >
-                                                            <SelectTrigger className="h-8 w-[220px] text-xs bg-white/5 border-white/10 rounded-lg text-muted-foreground">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="bg-popover dark:bg-[#1a1a1a] border-border dark:border-white/10">
-                                                                {diagnosticsResult.canonicalCharacters
-                                                                    .filter((candidate) => candidate !== alias.source)
-                                                                    .map((candidate) => (
-                                                                        <SelectItem key={`${alias.id}-${candidate}`} value={candidate} className="text-xs uppercase">
-                                                                            {candidate}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <span className="text-[10px] text-muted-foreground">Confiance {(alias.confidence * 100).toFixed(0)}%</span>
-                                                    </div>
-                                                    <p className="text-xs text-muted-foreground">{alias.reason}</p>
-                                                    <div className="flex items-center gap-2">
-                                                        <Button
-                                                            size="sm"
-                                                            variant={decision === "accept" ? "default" : "outline"}
-                                                            className="h-7 text-xs"
-                                                            onClick={() => setDiagnosticsDecision(alias.id, "accept")}
-                                                        >
-                                                            Accepter
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant={decision === "reject" ? "default" : "outline"}
-                                                            className="h-7 text-xs"
-                                                            onClick={() => setDiagnosticsDecision(alias.id, "reject")}
-                                                        >
-                                                            Rejeter
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                    <WizardStepAlias
+                                        options={frozenCanonicalCharacters}
+                                        labels={classicCharacterLabels}
+                                        targetByLabel={classicCharacterTargetByLabel}
+                                        setTargetByLabel={setClassicCharacterTargetByLabel}
+                                        countByLabel={classicCharacterCountByLabel}
+                                        normalizeLabel={normalizeImportLabel}
+                                        multiTargetConstant={THIRD_MULTI_TARGET}
+                                    />
                                 </div>
                             )}
 
@@ -2072,120 +2049,84 @@ export function ImportWizard({
                             )}
 
                             {validationStep === 2 && (
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                        Étape 2 · Rôles collectifs à valider ({diagnosticsResult.collectiveSuggestions.length})
+                                        Étape 2 · Rôles collectifs ({diagnosticsResult.collectiveSuggestions.length})
                                     </label>
-                                    {diagnosticsResult.collectiveSuggestions.length === 0 && (
-                                        <p className="text-xs text-muted-foreground">Aucun rôle collectif suggéré.</p>
-                                    )}
-                                    <div className="space-y-2">
-                                        {diagnosticsResult.collectiveSuggestions.map((collective) => {
-                                            const decision = diagnosticsDecisions[collective.id];
-                                            const state = collectiveResolutionsById[collective.id];
-                                            const members = state?.members || [];
-                                            const previewData = collectivePreviewById[collective.id];
-                                            const previewLines = previewData?.samples || [];
-                                            const previewIndex = collectivePreviewIndexById[collective.id] || 0;
-                                            const currentLine = previewLines[Math.min(previewIndex, Math.max(0, previewLines.length - 1))];
-                                            return (
-                                                <div key={collective.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                                    <div className="grid gap-3 md:grid-cols-[1fr_360px]">
-                                                        <div className="space-y-2">
-                                                            <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="text-sm font-semibold">{collective.label}</span>
-                                                                <span className="text-[10px] uppercase text-muted-foreground px-2 py-0.5 rounded bg-white/10 border border-white/10">
-                                                                    {collective.scope === "scene"
-                                                                        ? (sceneDisplayByStartIndex.get(collective.sceneIndex ?? -1) || `Scène ${collective.sceneIndex}`)
-                                                                        : "Tout le script"}
-                                                                </span>
-                                                                <span className="text-[10px] text-muted-foreground">Confiance {(collective.confidence * 100).toFixed(0)}%</span>
-                                                            </div>
-                                                            <p className="text-xs text-muted-foreground">{previewData?.rationale || collective.reason}</p>
-
-                                                            <div className="rounded-lg border border-white/10 bg-white/5 p-2">
-                                                                <p className="text-[11px] text-muted-foreground">
-                                                                    Je suggère ce mapping car les locuteurs canoniques visibles dans ce périmètre sont:
-                                                                    <span className="text-foreground"> {(previewData?.sceneCharacters || []).join(", ") || "aucun"}</span>.
-                                                                </p>
-                                                            </div>
-
-                                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                                                {frozenCanonicalCharacters.map((candidate) => {
-                                                                    const selected = members.includes(candidate);
-                                                                    return (
-                                                                        <button
-                                                                            key={`${collective.id}-${candidate}`}
-                                                                            type="button"
-                                                                            onClick={() => toggleCollectiveMember(collective.id, candidate)}
-                                                                            className={`text-left text-xs px-2 py-1 rounded-lg border transition-colors ${selected ? "bg-primary/20 border-primary/40 text-foreground" : "bg-card border-white/10 text-muted-foreground hover:bg-white/10"}`}
-                                                                        >
-                                                                            {candidate}
-                                                                        </button>
-                                                                    );
-                                                                })}
-                                                            </div>
-
-                                                            <div className="flex items-center gap-2">
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant={decision === "accept" ? "default" : "outline"}
-                                                                    className="h-7 text-xs"
-                                                                    disabled={members.length === 0}
-                                                                    onClick={() => setDiagnosticsDecision(collective.id, "accept")}
-                                                                >
-                                                                    Accepter
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant={decision === "reject" ? "default" : "outline"}
-                                                                    className="h-7 text-xs"
-                                                                    onClick={() => setDiagnosticsDecision(collective.id, "reject")}
-                                                                >
-                                                                    Rejeter
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="rounded-lg border border-white/10 bg-card/50 p-3 space-y-2">
-                                                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Aperçu du texte</p>
-                                                            {previewLines.length === 0 && (
-                                                                <p className="text-xs text-muted-foreground">Aucun extrait disponible pour ce rôle collectif.</p>
-                                                            )}
-                                                            {previewLines.length > 0 && (
-                                                                <>
-                                                                    <p className="text-xs text-foreground/90 leading-relaxed">{currentLine}</p>
-                                                                    <div className="flex items-center justify-between">
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="h-7 text-xs"
-                                                                            disabled={previewIndex === 0}
-                                                                            onClick={() => setCollectivePreviewOffset(collective.id, "prev")}
-                                                                        >
-                                                                            Précédent
-                                                                        </Button>
-                                                                        <span className="text-[11px] text-muted-foreground">
-                                                                            {previewIndex + 1}/{previewLines.length}
-                                                                        </span>
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="h-7 text-xs"
-                                                                            disabled={previewIndex >= previewLines.length - 1}
-                                                                            onClick={() => setCollectivePreviewOffset(collective.id, "next")}
-                                                                        >
-                                                                            Suivant
-                                                                        </Button>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                    <WizardStepCollectives
+                                        candidates={Object.entries(collectiveResolutionsById).map(([id, s]) => ({
+                                            id: id,
+                                            label: s.label,
+                                            scope: s.scope,
+                                            sceneOrder: s.sceneIndex,
+                                            sceneOrders: s.sceneIndex !== undefined ? [s.sceneIndex] : [],
+                                            count: classicCharacterCountByLabel[s.label] || 1,
+                                        }))}
+                                        scopeById={Object.fromEntries(
+                                            Object.entries(collectiveResolutionsById).map(([k, v]) => [k, v.scope])
+                                        )}
+                                        setScopeById={(updater) => {
+                                            setCollectiveResolutionsById((prev) => {
+                                                const next = typeof updater === "function"
+                                                    ? updater(Object.fromEntries(Object.entries(prev).map(([k, v]) => [k, v.scope as "global" | "scene"])))
+                                                    : updater;
+                                                const copy = { ...prev };
+                                                Object.keys(next).forEach(k => {
+                                                    if (copy[k]) copy[k].scope = next[k];
+                                                });
+                                                return copy;
+                                            });
+                                        }}
+                                        sceneOrderById={Object.fromEntries(
+                                            Object.entries(collectiveResolutionsById)
+                                                .filter(([_, v]) => v.sceneIndex !== undefined)
+                                                .map(([k, v]) => [k, v.sceneIndex!])
+                                        )}
+                                        setSceneOrderById={(updater) => {
+                                            setCollectiveResolutionsById((prev) => {
+                                                const next = typeof updater === "function"
+                                                    ? updater(Object.fromEntries(Object.entries(prev).filter(([_, v]) => v.sceneIndex !== undefined).map(([k, v]) => [k, v.sceneIndex!])))
+                                                    : updater;
+                                                const copy = { ...prev };
+                                                Object.keys(next).forEach(k => {
+                                                    if (copy[k]) copy[k].sceneIndex = next[k];
+                                                });
+                                                return copy;
+                                            });
+                                        }}
+                                        membersById={Object.fromEntries(
+                                            Object.entries(collectiveResolutionsById).map(([k, v]) => [k, v.members])
+                                        )}
+                                        sceneWindows={(pendingScriptForSave?.scenes || []).map((s, idx) => ({
+                                            order: s.index ?? idx,
+                                            title: s.title || `Scène ${idx + 1}`,
+                                            start: 0,
+                                            end: 0
+                                        }))}
+                                        canonicalCharacters={frozenCanonicalCharacters}
+                                        contextCandidateId={collectiveContextCandidateId}
+                                        setContextCandidateId={setCollectiveContextCandidateId}
+                                        contextById={Object.fromEntries(
+                                            Object.entries(collectivePreviewById).filter(([id, state]) => !!state).map(([id, preview]) => {
+                                                const originalSuggestion = diagnosticsResult.collectiveSuggestions.find(s => s.id === id);
+                                                const sceneIndex = collectiveResolutionsById[id]?.sceneIndex ?? originalSuggestion?.sceneIndex ?? 0;
+                                                return [
+                                                    id,
+                                                    {
+                                                        sceneOrder: sceneIndex,
+                                                        sceneTitle: sceneDisplayByStartIndex.get(sceneIndex) || `Scène ${sceneIndex}`,
+                                                        lines: preview.samples.map((text, i) => ({
+                                                            id: `sample-${i}`,
+                                                            type: "dialogue",
+                                                            character: originalSuggestion?.label || "",
+                                                            text
+                                                        }))
+                                                    }
+                                                ];
+                                            })
+                                        )}
+                                        toggleMember={toggleCollectiveMember}
+                                    />
                                 </div>
                             )}
 
@@ -2263,6 +2204,23 @@ export function ImportWizard({
                                     </div>
                                 </div>
                             )}
+
+                            {validationStep === 4 && (
+                                <div className="space-y-3">
+                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                        Étape 4 · Casting Vocal (Optionnel)
+                                    </label>
+                                    <p className="text-xs text-muted-foreground mb-4">
+                                        Associez des voix IA aux personnages pour générer automatiquement l'audio du script entier.
+                                    </p>
+                                    <WizardStepCasting
+                                        characters={frozenCanonicalCharacters}
+                                        assignments={diagnosticsVoiceAssignments}
+                                        setAssignments={setDiagnosticsVoiceAssignments}
+                                        script={pendingScriptForSave}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-6 flex items-center justify-between gap-3">
@@ -2275,11 +2233,40 @@ export function ImportWizard({
                                 Étape précédente
                             </Button>
 
-                            {validationStep < 3 ? (
+                            {validationStep < 4 ? (
                                 <Button
                                     className="h-10 px-6 bg-primary hover:bg-primary/90 text-primary-foreground"
-                                    onClick={() => setValidationStepSafely((validationStep + 1) as ValidationStep)}
-                                    disabled={(validationStep === 1 && aliasPendingCount > 0) || (validationStep === 2 && collectivePendingCount > 0)}
+                                    onClick={() => {
+                                        if (validationStep === 1) {
+                                            setCollectiveResolutionsById(prev => {
+                                                const next = { ...prev };
+                                                Object.keys(next).forEach(id => {
+                                                    const label = next[id].label;
+                                                    if (classicCharacterTargetByLabel[label] !== THIRD_MULTI_TARGET) {
+                                                        delete next[id];
+                                                    }
+                                                });
+
+                                                Object.entries(classicCharacterTargetByLabel).forEach(([label, target]) => {
+                                                    if (target === THIRD_MULTI_TARGET) {
+                                                        const existing = Object.values(next).find(v => v.label === label);
+                                                        if (!existing) {
+                                                            const newId = `manual-col-${Math.random().toString(36).substr(2, 9)}`;
+                                                            next[newId] = {
+                                                                label,
+                                                                scope: "scene",
+                                                                sceneIndex: undefined, // Or we could try to infer it
+                                                                members: []
+                                                            };
+                                                        }
+                                                    }
+                                                });
+                                                return next;
+                                            });
+                                        }
+                                        setValidationStepSafely((validationStep + 1) as ValidationStep);
+                                    }}
+                                    disabled={(validationStep === 1 && aliasPendingCount > 0) || (validationStep === 2 && collectivePendingCount > 0) || (validationStep === 3 && diagnosticsPendingCount > 0)}
                                 >
                                     Continuer vers l&apos;étape {validationStep + 1}
                                 </Button>

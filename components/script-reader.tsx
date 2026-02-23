@@ -88,7 +88,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
             const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
             const collectiveMembers = getCollectiveMembersForLine(script, index);
 
-            if (isUserLine(line.character, userCharacters, activeChars, collectiveMembers)) {
+            if (isUserLine(script, line.character, userCharacters, activeChars, collectiveMembers)) {
                 counter++;
                 map.set(line.id, counter);
             }
@@ -135,7 +135,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
             const sceneInfo = getCurrentSceneInfo(line.originalIndex);
             const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
             const collectiveMembers = getCollectiveMembersForLine(script, line.originalIndex);
-            const isUser = isUserLine(line.character, userCharacters, activeChars, collectiveMembers);
+            const isUser = isUserLine(script, line.character, userCharacters, activeChars, collectiveMembers);
 
             if (isUser) return true;
 
@@ -145,7 +145,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                     const nextSceneInfo = getCurrentSceneInfo(line.originalIndex + 1);
                     const nextActiveChars = nextSceneInfo ? sceneCharactersMap.get(nextSceneInfo.startIndex) : undefined;
                     const nextCollectiveMembers = getCollectiveMembersForLine(script, line.originalIndex + 1);
-                    return isUserLine(nextLine.character, userCharacters, nextActiveChars, nextCollectiveMembers) && !shouldSkipLine(nextLine.character);
+                    return isUserLine(script, nextLine.character, userCharacters, nextActiveChars, nextCollectiveMembers) && !shouldSkipLine(nextLine.character);
                 }
             }
             return false;
@@ -227,7 +227,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                 const sceneInfo = getCurrentSceneInfo((line as any).originalIndex);
                                 const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
                                 const collectiveMembers = getCollectiveMembersForLine(script, (line as any).originalIndex);
-                                const isUser = isUserLine(line.character, userCharacters, activeChars, collectiveMembers);
+                                const isUser = isUserLine(script, line.character, userCharacters, activeChars, collectiveMembers);
 
                                 const lineNumber = userLineNumbers.get(line.id);
                                 // The map keys are ORIGINAL indexes (from scenes array), so we need to find if this line starts a scene

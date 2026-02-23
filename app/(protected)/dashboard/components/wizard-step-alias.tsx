@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { User, ArrowRight, Shuffle, UserCheck, AlertCircle, Users } from "lucide-react";
+import { AlertCircle, ArrowRight, User, Users, Shuffle } from "lucide-react";
 import {
     Select,
     SelectContent,
@@ -7,7 +7,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 export interface WizardStepAliasProps {
     labels: string[];
@@ -28,175 +29,119 @@ export function WizardStepAlias({
     normalizeLabel,
     multiTargetConstant,
 }: WizardStepAliasProps) {
-    // Grouper les labels bruts (alias potentiels) par personnage cible
-    const groupedByTarget = useMemo(() => {
-        const groups: Record<string, string[]> = {};
-        options.forEach(opt => { groups[opt] = []; });
-        groups["unassigned"] = []; // Pour les labels non-assignés ou 'Aucun'
-        groups[multiTargetConstant] = [];
-
-        labels.forEach(label => {
-            const target = targetByLabel[label] || label;
-            if (options.includes(target)) {
-                groups[target].push(label);
-            } else if (target === multiTargetConstant) {
-                groups[multiTargetConstant].push(label);
-            } else {
-                groups["unassigned"].push(label);
-            }
-        });
-        return groups;
-    }, [labels, targetByLabel, options, multiTargetConstant]);
+    // Trier les labels pour afficher les plus fréquents en premier
+    const sortedLabels = useMemo(() => {
+        return [...labels].sort((a, b) => (countByLabel[b] || 0) - (countByLabel[a] || 0));
+    }, [labels, countByLabel]);
 
     return (
         <div className="space-y-6">
             <div className="bg-cyan-500/10 border border-cyan-500/20 p-4 rounded-xl flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
                 <div>
-                    <h3 className="text-sm font-semibold text-cyan-400">Fusion des Alias</h3>
+                    <h3 className="text-sm font-semibold text-cyan-400">Identification des Personnages</h3>
                     <p className="text-sm text-cyan-100/70 mt-1">
-                        L'IA a détecté les personnages principaux (canoniques). Assurez-vous que les différents noms (les alias)
-                        sont bien rangés sous le bon personnage. Déplacez un alias si nécessaire.
+                        Pour chaque nom détecté dans le texte, indiquez s'il s'agit d'un personnage à part entière,
+                        d'un alias (un autre nom pour un même personnage) ou d'un collectif (plusieurs personnages).
                     </p>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {options.map((canon) => {
-                    const mappedLabels = groupedByTarget[canon] || [];
-                    const exactMatch = mappedLabels.includes(canon);
-                    const aliases = mappedLabels.filter(l => l !== canon);
+            <div className="space-y-3">
+                {sortedLabels.map((label) => {
+                    const currentTarget = targetByLabel[label] || label;
+                    const isMulti = currentTarget === multiTargetConstant;
+                    const isPerso = currentTarget === label;
+                    const type = isMulti ? "multi" : isPerso ? "perso" : "alias";
+
+                    // Les options pour le select de l'alias excluent le label courant
+                    const aliasOptions = options.filter(opt => opt !== label);
 
                     return (
-                        <div key={canon} className="bg-card border border-white/10 rounded-2xl overflow-hidden flex flex-col shadow-sm">
-                            <div className="p-3 bg-white/5 border-b border-white/5 flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center shrink-0 border border-cyan-500/30">
-                                    <UserCheck className="w-4 h-4 text-cyan-400" />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-sm text-foreground">{canon}</h4>
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                                        Personnage Canonique
-                                    </p>
+                        <div
+                            key={label}
+                            className="bg-card border border-white/10 p-4 rounded-xl flex flex-col md:flex-row gap-4 md:items-center justify-between shadow-sm transition-colors hover:bg-white/5"
+                        >
+                            <div className="flex items-center gap-3 w-full md:w-1/3 shrink-0">
+                                <div className="flex flex-col">
+                                    <span className="font-semibold text-sm text-foreground">{label}</span>
+                                    <span className="text-xs text-muted-foreground">{countByLabel[label] || 0} lignes</span>
                                 </div>
                             </div>
 
-                            <div className="p-3 bg-black/20 flex-1 space-y-2">
-                                {exactMatch && (
-                                    <div className="px-2 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                            <span className="text-xs font-semibold text-emerald-100">{canon}</span>
-                                        </div>
-                                        <span className="text-[10px] text-emerald-400/70 bg-emerald-500/10 px-1.5 rounded-full">
-                                            {countByLabel[canon] || 0} lignes
-                                        </span>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 flex-1 justify-end">
+                                <RadioGroup
+                                    value={type}
+                                    onValueChange={(val) => {
+                                        if (val === "perso") {
+                                            setTargetByLabel(p => ({ ...p, [label]: label }));
+                                        } else if (val === "multi") {
+                                            setTargetByLabel(p => ({ ...p, [label]: multiTargetConstant }));
+                                        } else if (val === "alias") {
+                                            const defaultTarget = aliasOptions.length > 0 ? aliasOptions[0] : "";
+                                            setTargetByLabel(p => ({ ...p, [label]: defaultTarget }));
+                                        }
+                                    }}
+                                    className="flex items-center gap-4 sm:gap-6"
+                                >
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="perso" id={`perso-${label}`} />
+                                        <Label htmlFor={`perso-${label}`} className="text-xs cursor-pointer flex items-center gap-1.5 opacity-90 hover:opacity-100 font-medium whitespace-nowrap">
+                                            <User className="w-3.5 h-3.5 hidden sm:block" />
+                                            Personnage
+                                        </Label>
                                     </div>
-                                )}
-
-                                {aliases.length > 0 && (
-                                    <div className="pt-2">
-                                        <p className="text-[10px] text-muted-foreground mb-2 px-1 uppercase tracking-wider">
-                                            Alias fusionnés
-                                        </p>
-                                        <div className="space-y-1.5">
-                                            {aliases.map(alias => (
-                                                <div key={alias} className="group relative bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 p-2 rounded-lg transition-colors flex flex-col gap-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-medium text-amber-100/90 flex items-center gap-1.5">
-                                                            <Shuffle className="w-3 h-3 text-amber-400/50" />
-                                                            {alias}
-                                                        </span>
-                                                        <span className="text-[10px] text-muted-foreground">
-                                                            {countByLabel[alias] || 0}
-                                                        </span>
-                                                    </div>
-
-                                                    {/* Sélecteur de changement (visible au survol ou toujours ?) */}
-                                                    <div className="mt-1">
-                                                        <Select
-                                                            value={targetByLabel[alias] || alias}
-                                                            onValueChange={(value) => setTargetByLabel((prev) => ({
-                                                                ...prev,
-                                                                [alias]: normalizeLabel(value),
-                                                            }))}
-                                                        >
-                                                            <SelectTrigger className="h-6 w-full text-[10px] bg-black/40 border-white/10 rounded focus:ring-amber-500/30">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="bg-popover border-border">
-                                                                {options.map((opt) => (
-                                                                    <SelectItem key={`opt-${alias}-${opt}`} value={opt} className="text-xs">
-                                                                        → {opt}
-                                                                    </SelectItem>
-                                                                ))}
-                                                                <SelectItem value={multiTargetConstant} className="text-xs text-muted-foreground">
-                                                                    Retirer (Multi-perso)
-                                                                </SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="alias" id={`alias-${label}`} />
+                                        <Label htmlFor={`alias-${label}`} className="text-xs cursor-pointer flex items-center gap-1.5 opacity-90 hover:opacity-100 font-medium whitespace-nowrap">
+                                            <Shuffle className="w-3.5 h-3.5 hidden sm:block" />
+                                            Alias
+                                        </Label>
                                     </div>
-                                )}
+                                    <div className="flex items-center space-x-2">
+                                        <RadioGroupItem value="multi" id={`multi-${label}`} />
+                                        <Label htmlFor={`multi-${label}`} className="text-xs cursor-pointer flex items-center gap-1.5 opacity-90 hover:opacity-100 font-medium whitespace-nowrap">
+                                            <Users className="w-3.5 h-3.5 hidden sm:block" />
+                                            Collectif
+                                        </Label>
+                                    </div>
+                                </RadioGroup>
 
-                                {!exactMatch && aliases.length === 0 && (
-                                    <p className="text-xs text-muted-foreground/50 italic py-4 text-center">
-                                        Aucun texte attribué.
-                                    </p>
-                                )}
+                                {/* Dropdown only visible when 'alias' is selected */}
+                                <div className="w-full sm:w-[220px] flex items-center gap-2 h-8">
+                                    {type === "alias" && (
+                                        <>
+                                            <ArrowRight className="w-4 h-4 text-muted-foreground hidden lg:block shrink-0" />
+                                            <Select
+                                                value={!isMulti && !isPerso ? currentTarget : ''}
+                                                onValueChange={(val) => setTargetByLabel(p => ({ ...p, [label]: normalizeLabel(val) }))}
+                                            >
+                                                <SelectTrigger className="w-full h-8 text-xs bg-black/40 border-white/10">
+                                                    <SelectValue placeholder="Choisir le personnage ciblé..." />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-popover border-border max-h-[300px]">
+                                                    {aliasOptions.length === 0 ? (
+                                                        <div className="p-2 text-xs text-muted-foreground text-center">Aucun autre personnage</div>
+                                                    ) : (
+                                                        aliasOptions.map((opt) => (
+                                                            <SelectItem key={opt} value={opt} className="text-xs">
+                                                                {opt}
+                                                            </SelectItem>
+                                                        ))
+                                                    )}
+                                                </SelectContent>
+                                            </Select>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     );
                 })}
 
-                {/* Autre catégorie (multi personnages ou non assignés) */}
-                {(groupedByTarget[multiTargetConstant]?.length > 0 || groupedByTarget["unassigned"]?.length > 0) && (
-                    <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl overflow-hidden flex flex-col shadow-sm">
-                        <div className="p-3 bg-amber-500/10 border-b border-amber-500/20 flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
-                                <Users className="w-4 h-4 text-amber-400" />
-                            </div>
-                            <div>
-                                <h4 className="font-bold text-sm text-foreground">Collectifs & Non-Affinés</h4>
-                                <p className="text-[10px] text-amber-400/70 uppercase tracking-widest">
-                                    À rediriger ou laisser tel quel
-                                </p>
-                            </div>
-                        </div>
-                        <div className="p-3 bg-black/20 flex-1 space-y-1.5">
-                            {[...(groupedByTarget[multiTargetConstant] || []), ...(groupedByTarget["unassigned"] || [])].map(label => (
-                                <div key={label} className="bg-white/5 border border-white/5 p-2 rounded-lg flex flex-col gap-2">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-medium text-foreground">{label}</span>
-                                        <span className="text-[10px] text-muted-foreground">{countByLabel[label] || 0}</span>
-                                    </div>
-                                    <Select
-                                        value={targetByLabel[label] || multiTargetConstant}
-                                        onValueChange={(value) => setTargetByLabel((prev) => ({
-                                            ...prev,
-                                            [label]: normalizeLabel(value),
-                                        }))}
-                                    >
-                                        <SelectTrigger className="h-6 w-full text-[10px] bg-black/40 border-white/10 rounded focus:ring-amber-500/30">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-popover border-border">
-                                            {options.map((opt) => (
-                                                <SelectItem key={`opt-${label}-${opt}`} value={opt} className="text-xs">
-                                                    → {opt}
-                                                </SelectItem>
-                                            ))}
-                                            <SelectItem value={multiTargetConstant} className="text-xs text-muted-foreground">
-                                                C'est un collectif
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            ))}
-                        </div>
+                {sortedLabels.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-white/10 rounded-xl">
+                        Aucun personnage détecté dans le texte.
                     </div>
                 )}
             </div>

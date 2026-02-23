@@ -7,8 +7,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-function normalizeLabel(value: string): string {
+export function normalizeLabel(value: string): string {
   return (value || "").toUpperCase().trim();
+}
+
+export function resolveLineCharacter(script: ParsedScript, characterName: string): string {
+  if (!characterName) return "";
+  const normalized = normalizeLabel(characterName);
+  const mapped = script.mappings?.aliases?.[normalized];
+  return mapped ? normalizeLabel(mapped) : normalized;
 }
 
 function isCollectiveCharacterLabel(characterName: string): boolean {
@@ -58,7 +65,7 @@ export function getCollectiveMembersForLine(script: ParsedScript, lineIndex: num
   const mappings = script.mappings?.collectives;
   if (!mappings) return undefined;
 
-  const lineLabel = normalizeLabel(line.character);
+  const lineLabel = resolveLineCharacter(script, line.character);
   const currentSceneStart = getSceneStartIndexForLine(script, lineIndex);
   const currentSceneOrder = getSceneOrderForLine(script, lineIndex);
 
@@ -98,7 +105,7 @@ export function getSceneCharacters(script: ParsedScript): Map<number, Set<string
     const chars = new Set<string>();
     script.lines.forEach((line, index) => {
       if (line.type === 'dialogue' && line.character) {
-        chars.add(normalizeLabel(line.character));
+        chars.add(resolveLineCharacter(script, line.character));
         const collectiveMembers = getCollectiveMembersForLine(script, index);
         collectiveMembers?.forEach((member) => chars.add(member));
       }
@@ -118,7 +125,7 @@ export function getSceneCharacters(script: ParsedScript): Map<number, Set<string
     for (let j = startIdx; j < endIdx; j++) {
       const line = script.lines[j];
       if (line.type === 'dialogue' && line.character) {
-        charsInScene.add(normalizeLabel(line.character));
+        charsInScene.add(resolveLineCharacter(script, line.character));
         const collectiveMembers = getCollectiveMembersForLine(script, j);
         collectiveMembers?.forEach((member) => charsInScene.add(member));
       }
@@ -141,6 +148,7 @@ export function getSceneCharacters(script: ParsedScript): Map<number, Set<string
  *                              collective line (if mappings are available).
  */
 export function isUserLine(
+  script: ParsedScript,
   characterName: string,
   userCharacters: string[],
   activeSceneCharacters?: Set<string>,
@@ -148,15 +156,15 @@ export function isUserLine(
 ): boolean {
   if (!characterName || !userCharacters || userCharacters.length === 0) return false;
 
-  const normalizedLineChar = normalizeLabel(characterName);
+  const resolvedLineChar = resolveLineCharacter(script, characterName);
 
   // 1. Direct Match: Is this specific character assigned to the user?
   // We check parts too because sometimes names are "Romeo, Juliette" and user is "Romeo"
-  const lineParts = normalizedLineChar.split(/[\s,]+/).map(p => p.trim());
+  const lineParts = resolvedLineChar.split(/[\s,]+/).map(p => p.trim());
 
   const isDirectMatch = userCharacters.some(userChar => {
     const normalizedUserChar = normalizeLabel(userChar || "");
-    return normalizedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
+    return resolvedLineChar === normalizedUserChar || lineParts.includes(normalizedUserChar);
   });
 
   if (isDirectMatch) return true;
@@ -168,7 +176,7 @@ export function isUserLine(
 
   // 2. Collective Roles Match (TOUS, ENSEMBLE...)
   // Only applies if the user actually has a character present in the active scene (if context provided)
-  if (isCollectiveCharacterLabel(normalizedLineChar)) {
+  if (isCollectiveCharacterLabel(resolvedLineChar)) {
     if (activeSceneCharacters) {
       // Check if ANY of the user's characters are in the scene
       const userHasCharInScene = userCharacters.some(userChar =>

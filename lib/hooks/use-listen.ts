@@ -8,7 +8,7 @@ import { getPlayRecordings } from "../actions/recordings";
 import { determineSourceType, type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
 import { playLineSequentially } from "../audio/sequencer";
 import { AudioQueue } from "../audio/audio-queue";
-import { getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine } from "../utils";
+import { getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine, resolveLineCharacter } from "../utils";
 import { COLLECTIVE_ROLES } from "../constants";
 
 
@@ -185,7 +185,7 @@ export function useListen({
         const sceneStartIdx = getSceneStartIndexForLine(script, index);
         const activeChars = sceneCharactersMap.get(sceneStartIdx);
         const collectiveMembers = getCollectiveMembersForLine(script, index);
-        return checkIsUserLine(char, userCharacters, activeChars, collectiveMembers);
+        return checkIsUserLine(script, char, userCharacters, activeChars, collectiveMembers);
     }, [sceneCharactersMap, script, userCharacters]);
 
     const shouldSkipLine = useCallback((char: string) => {
@@ -374,9 +374,10 @@ export function useListen({
                             if (ttsProvider === "google" && sourceId && line.character) {
                                 setIsLoadingAudio(true);
                                 try {
+                                    const resolvedLineChar = resolveLineCharacter(script, line.character);
                                     const audioUrl = await audioQueueRef.current.getUrl(
                                         textToSpeak,
-                                        isDirection ? "didascalies" : line.character,
+                                        isDirection ? "didascalies" : resolvedLineChar,
                                         currentLineIndex,
                                         sourceType,
                                         sourceId,
@@ -387,14 +388,15 @@ export function useListen({
                                     if (isValid() && audioUrl) {
                                         await playAudioFile(audioUrl);
                                     } else if (isValid()) {
-                                        const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[line.character];
+                                        const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[resolvedLineChar];
                                         await speakDirect(textToSpeak, bVoice);
                                     }
                                 } catch (e) {
                                     console.error("[Listen] AI TTS failed:", e);
+                                    const resolvedLineChar = resolveLineCharacter(script, line.character);
                                     const bVoice = isDirection
                                         ? voiceAssignments["didascalies"]
-                                        : (voiceAssignments[line.character] || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
+                                        : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
                                     await speakDirect(textToSpeak, bVoice);
                                 } finally {
                                     if (isValid()) {
@@ -402,9 +404,10 @@ export function useListen({
                                     }
                                 }
                             } else {
+                                const resolvedLineChar = resolveLineCharacter(script, line.character);
                                 const bVoice = isDirection
                                     ? voiceAssignments["didascalies"]
-                                    : (voiceAssignments[line.character] || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
+                                    : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
                                 await speakDirect(textToSpeak, bVoice);
                             }
                         }

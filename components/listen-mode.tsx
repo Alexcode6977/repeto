@@ -196,7 +196,7 @@ export function ListenMode({
         const sceneStartIdx = getSceneStartIndexForLine(script, lineIndex);
         const activeChars = sceneCharactersMap.get(sceneStartIdx);
         const collectiveMembers = getCollectiveMembersForLine(script, lineIndex);
-        return checkIsUserLine(lineChar, userCharacters, activeChars, collectiveMembers);
+        return checkIsUserLine(script, lineChar, userCharacters, activeChars, collectiveMembers);
     };
 
     const filteredLines = useMemo(

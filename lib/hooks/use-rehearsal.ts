@@ -4,7 +4,7 @@ import { useSpeech } from "./use-speech";
 import { useAITTS } from "./use-ai-tts";
 import { calculateSimilarity, stripStageDirections } from "../similarity";
 import { offlineManager } from "../offline/offline-manager";
-import { getCollectiveMembersForLine, getSceneCharacters, isUserLine as checkIsUserLine } from "../utils";
+import { getCollectiveMembersForLine, getSceneCharacters, isUserLine as checkIsUserLine, resolveLineCharacter } from "../utils";
 import { COLLECTIVE_ROLES } from "../constants";
 import { AudioQueue } from "../audio/audio-queue";
 import { type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
@@ -290,7 +290,7 @@ export function useRehearsal({
         const activeChars = sceneCharactersMap.get(sceneStartIdx);
         const collectiveMembers = getCollectiveMembersForLine(script, idx);
 
-        return checkIsUserLine(lineChar, userCharacters, activeChars, collectiveMembers);
+        return checkIsUserLine(script, lineChar, userCharacters, activeChars, collectiveMembers);
     };
 
     const togglePause = () => {
@@ -655,17 +655,18 @@ export function useRehearsal({
                         async (textToSpeak, isDirection) => {
                             if (!isMountedRef.current || manualSkipRef.current) return;
 
+                            const resolvedLineChar = resolveLineCharacter(script, line.character);
                             // Determine Voice (Narrator vs Character)
                             const assignedVoice = isDirection
                                 ? undefined // Browser default for narrator
-                                : (voice || (COLLECTIVE_ROLES.has(line.character.toUpperCase()) ? getCollectiveVoice(currentLineIndex) : undefined));
+                                : (voice || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
 
                             if (ttsProvider === "google") {
                                 const sourceId = playId || scriptId;
                                 const audioUrl = sourceId
                                     ? await audioQueueRef.current.getUrl(
                                         textToSpeak,
-                                        isDirection ? "didascalies" : line.character,
+                                        isDirection ? "didascalies" : resolvedLineChar,
                                         currentLineIndex,
                                         sourceType,
                                         sourceId,
@@ -680,7 +681,7 @@ export function useRehearsal({
                                     await speak(
                                         textToSpeak,
                                         assignedVoice,
-                                        isDirection ? "didascalies" : line.character,
+                                        isDirection ? "didascalies" : resolvedLineChar,
                                         line.id
                                     );
                                 }
@@ -688,7 +689,7 @@ export function useRehearsal({
                                 await speak(
                                     textToSpeak,
                                     assignedVoice,
-                                    isDirection ? "didascalies" : line.character,
+                                    isDirection ? "didascalies" : resolvedLineChar,
                                     line.id
                                 );
                             }

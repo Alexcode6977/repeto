@@ -990,9 +990,11 @@ REGLES STRICTES
 
 OBJECTIFS
 1) Alias/fusions possibles: source -> target (target dans canonicalCharacters).
-2) Roles collectifs:
-   - scope global pour labels stables (ex: LES DEUX CAVALIERS)
-   - scope scene pour TOUS/TOUTES/ENSEMBLE ou labels contextuels
+2) Roles collectifs (CRUCIAL):
+   - scope global pour labels stables de l'histoire (ex: LES DEUX CAVALIERS)
+   - scope scene pour les labels contextuels (ex: TOUS, TOUS DEUX, ENSEMBLE)
+   => REGLE D'INFERENCE OBLIGATOIRE "TOUS DEUX / LES DEUX" : Tu DOIS isoler cette réplique, regarder juste au-dessus les 2 derniers personnages uniques qui viennent de s'exprimer dans la scène, et ce sont obligatoirement eux les membres.
+   => REGLE D'INFERENCE OBLIGATOIRE "TOUS / ENSEMBLE" : Au lieu de deviner, traverse toute la scène courante depuis son début, liste tous les personnages physiquement présents (qui ont parlé ou été explicitement mentionnés dans les didascalies comme présents). C'est la liste exacte des membres, n'extrapole pas avec des personnages d'autres scènes.
 3) Incertitudes de scenes (bornes ambiguës, labels ambigus).
 
 LISTE CANONIQUE AUTORISEE
@@ -1660,42 +1662,40 @@ export async function saveScriptWithImportValidation(
             return { error: validated.error };
         }
 
-        const normalizedAliases: Record<string, string> = {};
-        for (const [source, target] of Object.entries(validated.sanitized.aliases || {})) {
-            const normalizedSource = normalizeCharacterLabel(source || "");
-            const normalizedTarget = normalizeCharacterLabel(target || "");
-            if (normalizedSource && normalizedTarget) {
-                normalizedAliases[normalizedSource] = normalizedTarget;
+        // Build enriched aliases: include explicit ones + auto-detect "VOIX DE X" → "X"
+        const enrichedAliases: Record<string, string> = { ...(validated.sanitized.aliases || {}) };
+        const canonicalSet = new Set(validated.sanitized.canonical_characters);
+
+        // Auto-generate aliases for "VOIX DE X" labels found in the script
+        const voixDePattern = /^VOIX\s+(?:DE\s+LA\s+|DU\s+|DES\s+|DE\s+|(?:[A-ZÀ-ÖØ-Þ]+\s+)*D[''ʼ]\s*)/i;
+        for (const line of (script.lines || [])) {
+            if (line.type !== "dialogue") continue;
+            const raw = normalizeCharacterLabel(line.character || "");
+            if (!raw || canonicalSet.has(raw)) continue;
+            if (!voixDePattern.test(raw)) continue;
+            if (enrichedAliases[raw]) continue; // Already has an explicit alias
+
+            // Strip the prefix to find the canonical target
+            const stripped = raw
+                .replace(/^VOIX\s+DE\s+LA\s+/i, "")
+                .replace(/^VOIX\s+DU\s+/i, "")
+                .replace(/^VOIX\s+DES\s+/i, "")
+                .replace(/^VOIX\s+DE\s+/i, "")
+                .replace(/^VOIX\s+(?:[A-ZÀ-ÖØ-Þ]+\s+)*D[''ʼ]\s*/i, "")
+                .replace(/\s+/g, " ")
+                .trim();
+            if (stripped && canonicalSet.has(stripped)) {
+                enrichedAliases[raw] = stripped;
             }
         }
 
-        const resolveAlias = (rawLabel: string): string => {
-            let current = normalizeCharacterLabel(rawLabel || "");
-            if (!current) return "";
+        // Store enriched aliases in the sanitized mappings
+        validated.sanitized.aliases = enrichedAliases;
 
-            const visited = new Set<string>();
-            while (normalizedAliases[current] && !visited.has(current)) {
-                visited.add(current);
-                current = normalizeCharacterLabel(normalizedAliases[current]);
-            }
-            return current;
-        };
-
-        const remappedLines = (script.lines || []).map((line) => {
-            if (line.type !== "dialogue") return line;
-
-            const resolvedCharacter = resolveAlias(line.character || "");
-            if (!resolvedCharacter) return line;
-
-            return {
-                ...line,
-                character: resolvedCharacter,
-            };
-        });
-
+        // Keep lines as-is — do NOT rewrite line.character
         const finalScript: ParsedScript = {
             ...script,
-            lines: remappedLines,
+            lines: script.lines || [],
             characters: validated.sanitized.canonical_characters,
             schema_version: 2,
             mappings: validated.sanitized,

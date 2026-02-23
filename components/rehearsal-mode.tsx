@@ -881,7 +881,7 @@ export function RehearsalMode({
         const sceneStartIdx = getSceneStartIndex(index);
         const activeChars = sceneCharactersMap.get(sceneStartIdx);
         const collectiveMembers = getCollectiveMembersForLine(script, index);
-        return isUserLine(line.character, userCharacters, activeChars, collectiveMembers);
+        return isUserLine(script, line.character, userCharacters, activeChars, collectiveMembers);
     };
 
     const isUserTurn = currentLine && isUserLineHelper(currentLine, currentLineIndex);

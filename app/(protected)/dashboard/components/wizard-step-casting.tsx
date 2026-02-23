@@ -3,6 +3,7 @@ import { Sparkles, Play, Loader2, CheckCircle2, User, Mic } from "lucide-react";
 import { generateVoiceMatchings } from "@/lib/actions/voice-matching";
 import { synthesizeGoogleTTSPreview } from "@/app/actions/google-tts";
 import { GOOGLE_VOICES } from "@/lib/data/google-voices";
+import { ParsedScript } from "@/lib/types";
 
 export interface VoiceAssignment {
     characterName: string;
@@ -14,9 +15,10 @@ export interface WizardStepCastingProps {
     characters: string[];
     assignments: VoiceAssignment[] | null;
     setAssignments: React.Dispatch<React.SetStateAction<VoiceAssignment[] | null>>;
+    script: ParsedScript | null;
 }
 
-export function WizardStepCasting({ characters, assignments, setAssignments }: WizardStepCastingProps) {
+export function WizardStepCasting({ characters, assignments, setAssignments, script }: WizardStepCastingProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
@@ -25,31 +27,52 @@ export function WizardStepCasting({ characters, assignments, setAssignments }: W
         if (!assignments && !isLoading && !error && characters.length > 0) {
             let isMounted = true;
             setIsLoading(true);
-            generateVoiceMatchings(characters)
-                .then((res) => {
-                    if (isMounted) {
-                        if (res) {
-                            setAssignments(res);
-                        } else {
-                            setError("Impossible de générer le casting automatiquement. Une voix sera attribuée par défaut.");
+            console.log("WizardStepCasting: Starting auto-matching for", characters);
+
+            try {
+                const scriptContextLines = script?.lines ? script.lines.slice(0, 200).map(l => ({
+                    character: l.character,
+                    text: l.text,
+                    type: l.type
+                })) : null;
+
+                fetch('/api/casting', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ characters, scriptContextLines })
+                })
+                    .then(res => res.json())
+                    .then((res) => {
+                        console.log("WizardStepCasting: API response received:", res);
+                        if (isMounted) {
+                            if (Array.isArray(res)) {
+                                setAssignments(res);
+                            } else {
+                                setError("Erreur lors du casting automatique.");
+                                setAssignments([]);
+                            }
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("Erreur casting (fetch):", err);
+                        if (isMounted) {
+                            setError("Erreur réseau lors du casting vocal.");
                             setAssignments([]);
                         }
-                    }
-                })
-                .catch((err) => {
-                    console.error("Erreur casting:", err);
-                    if (isMounted) {
-                        setError("Erreur technique lors du casting vocal.");
-                        setAssignments([]);
-                    }
-                })
-                .finally(() => {
-                    if (isMounted) setIsLoading(false);
-                });
+                    })
+                    .finally(() => {
+                        if (isMounted) setIsLoading(false);
+                    });
+            } catch (err) {
+                console.error("Erreur casting (sync):", err);
+                setIsLoading(false);
+                setError("Erreur critique lors de la préparation du casting.");
+                setAssignments([]);
+            }
 
             return () => { isMounted = false; };
         }
-    }, [characters, assignments, isLoading, error, setAssignments]);
+    }, [characters, assignments, isLoading, error, setAssignments, script]);
 
     const playPreview = async (voiceId: string, characterName: string) => {
         if (playingVoiceId) return; // Prevent multiple clicks

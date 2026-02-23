@@ -1,7 +1,7 @@
 import { ParsedScript } from "@/lib/types";
 
 export type ValidationDecision = "accept" | "reject";
-export type ValidationStep = 1 | 2 | 3;
+export type ValidationStep = 1 | 2 | 3 | 4;
 export type ThirdImportStep = 1 | 2 | 3 | 4;
 export type ClassicImportStage = "read" | "detect" | "parse_pass_1" | "parse_pass_2" | "parse_pass_3" | "diagnostics";
 
@@ -48,22 +48,30 @@ export const CLASSIC_IMPORT_STAGE_LABELS: Record<ClassicImportStage, string> = {
 
 export const THIRD_MULTI_TARGET = "__MULTI_PERSONNAGE__";
 
+/** Normalise un label pour l'affichage — conserve "VOIX DE LUCIEN" tel quel. */
 export function normalizeImportLabel(value: string): string {
     return (value || "")
-        .replace(/[’ʼ]/g, "'")
+        .replace(/['\u2019\u02bc]/g, "'")
         .toUpperCase()
         .replace(/[.,:;]+$/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+/** Résout le label canonique en strippant les préfixes "VOIX DE" — pour le matching uniquement. */
+export function resolveCanonicalImportLabel(value: string): string {
+    return normalizeImportLabel(value)
         .replace(/^VOIX\s+DE\s+LA\s+/i, "")
         .replace(/^VOIX\s+DU\s+/i, "")
         .replace(/^VOIX\s+DES\s+/i, "")
         .replace(/^VOIX\s+DE\s+/i, "")
-        .replace(/^VOIX\s+(?:[A-ZÀ-ÖØ-Þ]+\s+)*D['’ʼ]\s*/i, "")
+        .replace(/^VOIX\s+(?:[A-Z\u00c0-\u00d6\u00d8-\u00de]+\s+)*D['\u2018\u2019\u02bc]\s*/i, "")
         .replace(/\s+/g, " ")
         .trim();
 }
 
 export function foldForComparison(value: string): string {
-    return normalizeImportLabel(value)
+    return resolveCanonicalImportLabel(value)
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^A-Z0-9]/g, "");
@@ -72,7 +80,7 @@ export function foldForComparison(value: string): string {
 export function isCollectiveLabel(label: string): boolean {
     const normalized = normalizeImportLabel(label);
     if (!normalized) return false;
-    if (/^(LES MEMES|LES MÊMES|TOUS|TOUTES|ENSEMBLE)$/.test(normalized)) return true;
+    if (/^(LES MEMES|LES M\u00caMES|TOUS|TOUTES|ENSEMBLE)$/.test(normalized)) return true;
     if (/^(TOUS|TOUTES)\s+LES\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized)) return true;
     if (/^(TOUS|TOUTES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized)) return true;
     if (/\bET\b|,|\/|&/.test(normalized)) return true;
@@ -81,7 +89,7 @@ export function isCollectiveLabel(label: string): boolean {
 
 export function isSceneScopedCollectiveLabel(label: string): boolean {
     const normalized = normalizeImportLabel(label);
-    return /^(LES MEMES|LES MÊMES|TOUS|TOUTES|ENSEMBLE)$/.test(normalized)
+    return /^(LES MEMES|LES M\u00caMES|TOUS|TOUTES|ENSEMBLE)$/.test(normalized)
         || /^(TOUS|TOUTES)\s+LES\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized)
         || /^(TOUS|TOUTES)\s+(DEUX|TROIS|QUATRE|CINQ|[2-9])$/.test(normalized);
 }
