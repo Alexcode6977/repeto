@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { Sparkles, Play, Loader2, CheckCircle2, User, Mic } from "lucide-react";
-import { generateVoiceMatchings } from "@/lib/actions/voice-matching";
 import { synthesizeGoogleTTSPreview } from "@/app/actions/google-tts";
 import { GOOGLE_VOICES } from "@/lib/data/google-voices";
 import { ParsedScript } from "@/lib/types";
@@ -18,61 +17,91 @@ export interface WizardStepCastingProps {
     script: ParsedScript | null;
 }
 
+function buildLocalFallbackAssignments(characters: string[]): VoiceAssignment[] {
+    if (!characters || characters.length === 0) return [];
+    return characters.map((characterName, index) => {
+        const voice = GOOGLE_VOICES[index % GOOGLE_VOICES.length];
+        return {
+            characterName,
+            voiceId: voice?.id || "fr-FR-Chirp3-HD-Aoede",
+            justification: "Fallback local rapide (sans IA).",
+        };
+    });
+}
+
 export function WizardStepCasting({ characters, assignments, setAssignments, script }: WizardStepCastingProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!assignments && !isLoading && !error && characters.length > 0) {
+        if (!assignments && characters.length > 0) {
             let isMounted = true;
-            setIsLoading(true);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 45000);
+            queueMicrotask(() => {
+                if (isMounted) {
+                    setError(null);
+                    setIsLoading(true);
+                }
+            });
             console.log("WizardStepCasting: Starting auto-matching for", characters);
 
-            try {
-                const scriptContextLines = script?.lines ? script.lines.slice(0, 200).map(l => ({
-                    character: l.character,
-                    text: l.text,
-                    type: l.type
-                })) : null;
+            const scriptContextLines = script?.lines ? script.lines.slice(0, 400).map(l => ({
+                character: l.character,
+                text: (l.text || "").slice(0, 220),
+                type: l.type
+            })) : null;
 
-                fetch('/api/casting', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ characters, scriptContextLines })
+            fetch('/api/casting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ characters, scriptContextLines }),
+                signal: controller.signal,
+            })
+                .then(async (res) => {
+                    const payload = await res.json();
+                    if (!res.ok) {
+                        const message = typeof payload?.error === "string"
+                            ? payload.error
+                            : "Erreur lors du casting automatique.";
+                        throw new Error(message);
+                    }
+                    return payload;
                 })
-                    .then(res => res.json())
-                    .then((res) => {
-                        console.log("WizardStepCasting: API response received:", res);
-                        if (isMounted) {
-                            if (Array.isArray(res)) {
-                                setAssignments(res);
-                            } else {
-                                setError("Erreur lors du casting automatique.");
-                                setAssignments([]);
-                            }
+                .then((res) => {
+                    console.log("WizardStepCasting: API response received:", res);
+                    if (isMounted) {
+                        if (Array.isArray(res)) {
+                            setAssignments(res);
+                        } else {
+                            setError("Le service de casting a répondu de façon inattendue. Fallback local appliqué.");
+                            setAssignments(buildLocalFallbackAssignments(characters));
                         }
-                    })
-                    .catch((err) => {
+                    }
+                })
+                .catch((err) => {
+                    const isAbortError = err?.name === "AbortError";
+                    if (!isAbortError) {
                         console.error("Erreur casting (fetch):", err);
-                        if (isMounted) {
-                            setError("Erreur réseau lors du casting vocal.");
-                            setAssignments([]);
-                        }
-                    })
-                    .finally(() => {
-                        if (isMounted) setIsLoading(false);
-                    });
-            } catch (err) {
-                console.error("Erreur casting (sync):", err);
-                setIsLoading(false);
-                setError("Erreur critique lors de la préparation du casting.");
-                setAssignments([]);
-            }
+                    }
+                    if (isMounted) {
+                        setError(isAbortError ? "Le casting vocal a dépassé le délai. Fallback local appliqué." : "Erreur réseau lors du casting vocal. Fallback local appliqué.");
+                        setAssignments(buildLocalFallbackAssignments(characters));
+                    }
+                })
+                .finally(() => {
+                    clearTimeout(timeoutId);
+                    if (isMounted) setIsLoading(false);
+                });
 
-            return () => { isMounted = false; };
+            return () => {
+                isMounted = false;
+                clearTimeout(timeoutId);
+                controller.abort();
+                };
         }
-    }, [characters, assignments, isLoading, error, setAssignments, script]);
+    }, [characters, assignments, setAssignments, script]);
 
     const playPreview = async (voiceId: string, characterName: string) => {
         if (playingVoiceId) return; // Prevent multiple clicks

@@ -39,6 +39,11 @@ export interface VoiceAssignment {
     provider?: VoiceProvider;
 }
 
+export interface VoiceBatchAssignment {
+    characterName: string;
+    voiceId: string;
+}
+
 /**
  * Get existing voice config for a play/script
  * Returns null if no config exists (needs first-time generation)
@@ -328,6 +333,107 @@ export async function ensureVoiceConfig(
     return createVoiceConfig(sourceType, sourceId, assignments, troupeId);
 }
 
+async function assertCanManageVoiceConfig(
+    sourceType: SourceType,
+    sourceId: string,
+    troupeId: string | undefined,
+    userId: string,
+    userEmail: string | null | undefined
+): Promise<{ ok: true } | { ok: false; error: string }> {
+    const supabase = await createClient();
+
+    // 1. Troupe Play: must be admin/casting manager
+    if (sourceType === "troupe_play" && troupeId) {
+        const { data: member } = await supabase
+            .from("troupe_members")
+            .select("roles")
+            .eq("troupe_id", troupeId)
+            .eq("user_id", userId)
+            .maybeSingle();
+
+        if (!canManageContent(member?.roles)) {
+            return { ok: false, error: "Seul le metteur en scène peut modifier les voix" };
+        }
+    }
+
+    // 2. Library Script: global admin only
+    if (sourceType === "library_script") {
+        if (!isPlatformAdminEmail(userEmail)) {
+            return { ok: false, error: "Seul l'admin global peut modifier les voix de la bibliothèque" };
+        }
+    }
+
+    // 3. Private Script: owner only
+    if (sourceType === "private_script") {
+        const { data: script } = await supabase
+            .from("scripts")
+            .select("user_id")
+            .eq("id", sourceId)
+            .single();
+
+        if (script?.user_id !== userId) {
+            return { ok: false, error: "Vous n'êtes pas le propriétaire de ce script" };
+        }
+    }
+
+    return { ok: true };
+}
+
+export async function upsertVoiceAssignmentsBatch(
+    sourceType: SourceType,
+    sourceId: string,
+    assignments: VoiceBatchAssignment[],
+    provider: VoiceProvider = "google",
+    settings: any = {},
+    troupeId?: string
+): Promise<{ success: boolean; error?: string; count?: number }> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Non authentifié" };
+
+    const canManage = await assertCanManageVoiceConfig(sourceType, sourceId, troupeId, user.id, user.email);
+    if (!canManage.ok) {
+        return { success: false, error: canManage.error };
+    }
+
+    const dedupedByCharacter = new Map<string, VoiceBatchAssignment>();
+    for (const assignment of assignments || []) {
+        const characterName = (assignment.characterName || "").trim();
+        const voiceId = (assignment.voiceId || "").trim();
+        if (!characterName || !voiceId) continue;
+        dedupedByCharacter.set(characterName.toUpperCase(), { characterName, voiceId });
+    }
+
+    const rows = Array.from(dedupedByCharacter.values()).map((assignment) => ({
+        source_type: sourceType,
+        source_id: sourceId,
+        character_name: assignment.characterName,
+        voice: normalizeVoice(assignment.voiceId),
+        provider,
+        settings,
+        troupe_id: troupeId || null,
+        created_by: user.id,
+    }));
+
+    if (rows.length === 0) {
+        return { success: true, count: 0 };
+    }
+
+    const { error } = await supabase
+        .from("play_voice_config")
+        .upsert(rows, {
+            onConflict: "source_type,source_id,character_name",
+        });
+
+    if (error) {
+        console.error("[VoiceCache] Error in batch upsert:", error);
+        return { success: false, error: error.message };
+    }
+
+    return { success: true, count: rows.length };
+}
+
 /**
  * Manually update a voice assignment.
  */
@@ -346,40 +452,9 @@ export async function updateVoiceAssignment(
 
     if (!user) return { success: false, error: "Non authentifié" };
 
-    // --- GOVERNANCE CHECKS ---
-
-    // 1. Troupe Play: Must be Metteur en scène
-    if (sourceType === 'troupe_play' && troupeId) {
-        const { data: member } = await supabase
-            .from('troupe_members')
-            .select('roles')
-            .eq('troupe_id', troupeId)
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-        if (!canManageContent(member?.roles)) {
-            return { success: false, error: "Seul le metteur en scène peut modifier les voix" };
-        }
-    }
-
-    // 2. Library Script: Must be Global Admin
-    if (sourceType === 'library_script') {
-        if (!isPlatformAdminEmail(user.email)) {
-            return { success: false, error: "Seul l'admin global peut modifier les voix de la bibliothèque" };
-        }
-    }
-
-    // 3. Private Script: Must be Owner
-    if (sourceType === 'private_script') {
-        const { data: script } = await supabase
-            .from('scripts')
-            .select('user_id')
-            .eq('id', sourceId)
-            .single();
-
-        if (script?.user_id !== user.id) {
-            return { success: false, error: "Vous n'êtes pas le propriétaire de ce script" };
-        }
+    const canManage = await assertCanManageVoiceConfig(sourceType, sourceId, troupeId, user.id, user.email);
+    if (!canManage.ok) {
+        return { success: false, error: canManage.error };
     }
 
     // Upsert the config

@@ -1538,7 +1538,10 @@ export function ImportWizard({
 
         const missingDecision = diagnosticsResult.blockingDecisions.find((item) => !diagnosticsDecisions[item.id]);
         if (missingDecision) {
-            onError("Veuillez traiter toutes les suggestions avant de sauvegarder.");
+            if (missingDecision.kind === "alias") setValidationStep(1);
+            if (missingDecision.kind === "collective") setValidationStep(2);
+            if (missingDecision.kind === "scene") setValidationStep(3);
+            onError(`Décision manquante: ${missingDecision.label}. Terminez cette étape avant sauvegarde.`);
             return;
         }
 
@@ -1595,20 +1598,26 @@ export function ImportWizard({
             voiceAssignments: diagnosticsVoiceAssignments || [],
         };
 
-        setIsImporting(true);
-        setImportProgress(100);
+        try {
+            setIsImporting(true);
+            setImportProgress(100);
 
-        const saveResult = await saveScriptWithImportValidation(pendingScriptForSave, submission);
-        setIsImporting(false);
+            const saveResult = await saveScriptWithImportValidation(pendingScriptForSave, submission);
 
-        if ("error" in saveResult) {
-            onError(saveResult.error);
-            return;
+            if ("error" in saveResult) {
+                onError(saveResult.error);
+                return;
+            }
+
+            await onImportComplete();
+            resetDiagnosticsState();
+            setShowImportGuide(false);
+        } catch (error) {
+            onError(error instanceof Error ? error.message : "Erreur inattendue pendant la sauvegarde.");
+        } finally {
+            setIsImporting(false);
+            setImportProgress(0);
         }
-
-        await onImportComplete();
-        resetDiagnosticsState();
-        setShowImportGuide(false);
     };
 
     // --- RENDER ---
@@ -2271,13 +2280,20 @@ export function ImportWizard({
                                     Continuer vers l&apos;étape {validationStep + 1}
                                 </Button>
                             ) : (
-                                <Button
-                                    onClick={finalizeImportWithDiagnostics}
-                                    disabled={diagnosticsPendingCount > 0}
-                                    className="px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
-                                >
-                                    Valider et sauvegarder le script
-                                </Button>
+                                <div className="flex flex-col items-end gap-2">
+                                    <Button
+                                        onClick={finalizeImportWithDiagnostics}
+                                        disabled={isImporting}
+                                        className="px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
+                                    >
+                                        {isImporting ? "Sauvegarde..." : "Valider et sauvegarder le script"}
+                                    </Button>
+                                    {diagnosticsPendingCount > 0 && (
+                                        <p className="text-xs text-amber-400">
+                                            {diagnosticsPendingCount} décision(s) restante(s) à valider (étapes 1 à 3).
+                                        </p>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>

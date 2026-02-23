@@ -10,6 +10,8 @@ import OpenAI from "openai";
 import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 import { getEffectiveTier } from "@/lib/subscription";
 import { COLLECTIVE_ROLES } from "@/lib/constants";
+import { generateVoiceAssignments } from "@/lib/voice-matching-core";
+import { upsertVoiceAssignmentsBatch } from "@/lib/actions/voice-cache";
 
 // pdf-parse required inside action
 
@@ -1703,18 +1705,32 @@ export async function saveScriptWithImportValidation(
 
         const scriptId = await saveScript(finalScript);
 
-        // Lancer l'enregistrement des voix si pré-calculées
-        if (submission.voiceAssignments && submission.voiceAssignments.length > 0) {
-            import("@/lib/actions/voice-cache").then(({ updateVoiceAssignment }) => {
-                Promise.all(submission.voiceAssignments!.map(assign =>
-                    updateVoiceAssignment("private_script", scriptId, assign.characterName, assign.voiceId, "google", { stability: 0.5, similarity_boost: 0.75 })
-                )).catch(console.error);
-            });
-        } else {
-            // Lancer l'alignement des voix en arrière-plan (fallback)
-            import("@/lib/actions/voice-matching").then(({ autoMatchVoicesForScript }) => {
-                autoMatchVoicesForScript(scriptId, finalScript).catch(console.error);
-            });
+        const providedAssignments = (submission.voiceAssignments || [])
+            .filter((assignment) => (assignment.characterName || "").trim() && (assignment.voiceId || "").trim());
+
+        const assignmentsToPersist = providedAssignments.length > 0
+            ? providedAssignments
+            : (await generateVoiceAssignments({
+                characters: finalScript.characters || [],
+                scriptContextLines: finalScript.lines ? finalScript.lines.slice(0, 800) : null,
+                preferAi: false,
+            })).assignments;
+
+        if (assignmentsToPersist.length > 0) {
+            const saveVoicesResult = await upsertVoiceAssignmentsBatch(
+                "private_script",
+                scriptId,
+                assignmentsToPersist.map((assignment) => ({
+                    characterName: assignment.characterName,
+                    voiceId: assignment.voiceId,
+                })),
+                "google",
+                { stability: 0.5, similarity_boost: 0.75 }
+            );
+
+            if (!saveVoicesResult.success) {
+                console.error("[Import Validation Save] Voice batch upsert failed:", saveVoicesResult.error);
+            }
         }
 
         return { success: true };
