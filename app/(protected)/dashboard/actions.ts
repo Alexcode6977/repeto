@@ -1570,8 +1570,10 @@ function validateResolvedMappings(
             return { ok: false, error: `Alias invalide: cible hors liste canonique (${source} -> ${target}).` };
         }
 
+        // Front-end labels can differ while resolving to the same canonical form
+        // (e.g. "VOIX DE ANNETTE" -> "ANNETTE"). Ignore those no-op aliases.
         if (source === target) {
-            return { ok: false, error: `Alias invalide: source identique a la cible (${source}).` };
+            continue;
         }
 
         aliases[source] = target;

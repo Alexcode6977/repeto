@@ -91,6 +91,8 @@ export function ImportWizard({
     const [collectivePreviewIndexById, setCollectivePreviewIndexById] = useState<Record<string, number>>({});
     const [collectiveContextCandidateId, setCollectiveContextCandidateId] = useState<string | null>(null);
     const [diagnosticsVoiceAssignments, setDiagnosticsVoiceAssignments] = useState<VoiceAssignment[] | null>(null);
+    const [isSavingValidation, setIsSavingValidation] = useState(false);
+    const [validationSaveError, setValidationSaveError] = useState<string | null>(null);
 
     // AI Import State
     const [isAiImporting, setIsAiImporting] = useState(false);
@@ -144,6 +146,8 @@ export function ImportWizard({
         setCollectivePreviewIndexById({});
         setCollectiveContextCandidateId(null);
         setDiagnosticsVoiceAssignments(null);
+        setIsSavingValidation(false);
+        setValidationSaveError(null);
     };
 
     const stopClassicImportTimer = () => {
@@ -1534,7 +1538,15 @@ export function ImportWizard({
     };
 
     const finalizeImportWithDiagnostics = async () => {
-        if (!pendingScriptForSave || !diagnosticsResult) return;
+        if (isSavingValidation) return;
+        setValidationSaveError(null);
+
+        if (!pendingScriptForSave || !diagnosticsResult) {
+            const message = "État d'import incomplet. Fermez puis relancez l'import.";
+            setValidationSaveError(message);
+            onError(message);
+            return;
+        }
 
         const aliases: Record<string, string> = {};
         Object.entries(classicCharacterTargetByLabel).forEach(([source, target]) => {
@@ -1627,7 +1639,9 @@ export function ImportWizard({
         );
         if (missingSceneDecision) {
             setValidationStep(3);
-            onError(`Décision manquante: Scène ${missingSceneDecision.sceneIndex}. Confirmez ou rejetez cette alerte avant sauvegarde.`);
+            const message = `Décision manquante: Scène ${missingSceneDecision.sceneIndex}. Confirmez ou rejetez cette alerte avant sauvegarde.`;
+            setValidationSaveError(message);
+            onError(message);
             return;
         }
 
@@ -1641,12 +1655,14 @@ export function ImportWizard({
         };
 
         try {
+            setIsSavingValidation(true);
             setIsImporting(true);
             setImportProgress(100);
 
             const saveResult = await saveScriptWithImportValidation(pendingScriptForSave, submission);
 
             if ("error" in saveResult) {
+                setValidationSaveError(saveResult.error);
                 onError(saveResult.error);
                 return;
             }
@@ -1655,8 +1671,11 @@ export function ImportWizard({
             resetDiagnosticsState();
             setShowImportGuide(false);
         } catch (error) {
-            onError(error instanceof Error ? error.message : "Erreur inattendue pendant la sauvegarde.");
+            const message = error instanceof Error ? error.message : "Erreur inattendue pendant la sauvegarde.";
+            setValidationSaveError(message);
+            onError(message);
         } finally {
+            setIsSavingValidation(false);
             setIsImporting(false);
             setImportProgress(0);
         }
@@ -2325,14 +2344,19 @@ export function ImportWizard({
                                 <div className="flex flex-col items-end gap-2">
                                     <Button
                                         onClick={finalizeImportWithDiagnostics}
-                                        disabled={isImporting}
+                                        disabled={isSavingValidation}
                                         className="px-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                                     >
-                                        {isImporting ? "Sauvegarde..." : "Valider et sauvegarder le script"}
+                                        {isSavingValidation ? "Sauvegarde..." : "Valider et sauvegarder le script"}
                                     </Button>
                                     {diagnosticsPendingCount > 0 && (
                                         <p className="text-xs text-amber-400">
                                             {diagnosticsPendingCount} décision(s) restante(s) à valider (étapes 1 à 3).
+                                        </p>
+                                    )}
+                                    {validationSaveError && (
+                                        <p className="text-xs text-red-400 max-w-md text-right">
+                                            {validationSaveError}
                                         </p>
                                     )}
                                 </div>
