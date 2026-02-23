@@ -1536,15 +1536,6 @@ export function ImportWizard({
     const finalizeImportWithDiagnostics = async () => {
         if (!pendingScriptForSave || !diagnosticsResult) return;
 
-        const missingDecision = diagnosticsResult.blockingDecisions.find((item) => !diagnosticsDecisions[item.id]);
-        if (missingDecision) {
-            if (missingDecision.kind === "alias") setValidationStep(1);
-            if (missingDecision.kind === "collective") setValidationStep(2);
-            if (missingDecision.kind === "scene") setValidationStep(3);
-            onError(`Décision manquante: ${missingDecision.label}. Terminez cette étape avant sauvegarde.`);
-            return;
-        }
-
         const aliases: Record<string, string> = {};
         Object.entries(classicCharacterTargetByLabel).forEach(([source, target]) => {
             const normalizedSource = source.toUpperCase().trim();
@@ -1591,9 +1582,60 @@ export function ImportWizard({
             },
         };
 
+        const effectiveDecisions: Record<string, ValidationDecision> = { ...diagnosticsDecisions };
+
+        // Alias decisions are inferred from user mappings in step 1.
+        diagnosticsResult.aliasSuggestions.forEach((suggestion) => {
+            if (effectiveDecisions[suggestion.id]) return;
+            const source = normalizeImportLabel(suggestion.source || "");
+            const expectedTarget = normalizeImportLabel(suggestion.target || "");
+            const mappedTarget = normalizeImportLabel(aliases[source] || "");
+            effectiveDecisions[suggestion.id] = mappedTarget && mappedTarget === expectedTarget ? "accept" : "reject";
+        });
+
+        // Collective decisions are inferred from user collective resolutions in step 2.
+        diagnosticsResult.collectiveSuggestions.forEach((suggestion) => {
+            if (effectiveDecisions[suggestion.id]) return;
+
+            const resolution = collectiveResolutionsById[suggestion.id];
+            if (!resolution) {
+                effectiveDecisions[suggestion.id] = "reject";
+                return;
+            }
+
+            const normalizedSuggestionLabel = normalizeImportLabel(suggestion.label || "");
+            const normalizedResolutionLabel = normalizeImportLabel(resolution.label || "");
+            const sameLabel = normalizedSuggestionLabel === normalizedResolutionLabel;
+            const sameScope = suggestion.scope === resolution.scope;
+            const sameScene = suggestion.scope === "scene"
+                ? suggestion.sceneIndex === resolution.sceneIndex
+                : true;
+
+            const members = Array.from(new Set(
+                (resolution.members || [])
+                    .map((member) => normalizeImportLabel(member || ""))
+                    .filter((member) => member && frozenCanonicalSet.has(member))
+            ));
+            const hasMembers = members.length > 0;
+
+            effectiveDecisions[suggestion.id] = (sameLabel && sameScope && sameScene && hasMembers) ? "accept" : "reject";
+        });
+
+        // Only scenes still require explicit manual decision buttons.
+        const missingSceneDecision = diagnosticsResult.sceneDiagnostics.find(
+            (sceneItem) => !effectiveDecisions[sceneItem.id]
+        );
+        if (missingSceneDecision) {
+            setValidationStep(3);
+            onError(`Décision manquante: Scène ${missingSceneDecision.sceneIndex}. Confirmez ou rejetez cette alerte avant sauvegarde.`);
+            return;
+        }
+
+        setDiagnosticsDecisions(effectiveDecisions);
+
         const submission: ImportValidationSubmission = {
             diagnostics: diagnosticsResult,
-            decisions: diagnosticsDecisions,
+            decisions: effectiveDecisions,
             mappings,
             voiceAssignments: diagnosticsVoiceAssignments || [],
         };
