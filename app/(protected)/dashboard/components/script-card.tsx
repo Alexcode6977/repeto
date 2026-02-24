@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { ScriptMetadata } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2, MoreHorizontal, Download, Pencil, BarChart2 } from "lucide-react";
+import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2, MoreHorizontal, Download, Pencil, BarChart2, Volume2 } from "lucide-react";
 import { DownloadButton } from "@/components/offline/download-button";
+import { cancelVocalization } from "../actions";
 import Link from "next/link";
 import {
     DropdownMenu,
@@ -46,6 +47,7 @@ export function ScriptCard({
     const [tempTitle, setTempTitle] = useState(script.title);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isToggling, setIsToggling] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
 
     const handleRenameSubmit = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -79,9 +81,26 @@ export function ScriptCard({
         }
     };
 
+    const handleCancelVocalization = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsCancelling(true);
+        try {
+            const res = await cancelVocalization(script.id);
+            if (!res.success) {
+                console.error("Failed to cancel vocalization", res.error);
+            }
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    // If script is stuck processing with 0 progress for a long time, user can cancel
+    const isVocalizing = script.vocalization_status === "pending" || script.vocalization_status === "processing";
+    const vocalizationProgress = script.vocalization_progress || 0;
+
     return (
         <div
-            onClick={() => !isRenaming && onLoad(script)}
+            onClick={() => !isRenaming && !isVocalizing && onLoad(script)}
             style={{ animationDelay: `${index * 100}ms` }}
             className={`
         group relative aspect-[3/4] md:aspect-[4/5] 
@@ -115,6 +134,35 @@ export function ScriptCard({
                 </div>
             )}
 
+            {/* --- VOCALIZATION OVERLAY --- */}
+            {isVocalizing && (
+                <div className="absolute inset-0 z-25 bg-background/60 backdrop-blur-[2px] flex flex-col items-center justify-center p-4 text-center">
+                    <div className="bg-card/80 p-4 rounded-2xl border border-primary/20 shadow-lg shadow-primary/10 flex flex-col items-center gap-3">
+                        <div className="relative">
+                            <Volume2 className="w-8 h-8 text-primary animate-pulse" />
+                            <Loader2 className="w-4 h-4 text-primary absolute -bottom-1 -right-1 animate-spin" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-foreground">Génération Audio</p>
+                            <p className="text-xs text-muted-foreground">{vocalizationProgress}% terminé</p>
+                        </div>
+                        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden mt-1">
+                            <div className="h-full bg-primary transition-all duration-300" style={{ width: `${vocalizationProgress}%` }} />
+                        </div>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            className="w-full mt-2 h-7 text-xs"
+                            onClick={handleCancelVocalization}
+                            disabled={isCancelling}
+                        >
+                            {isCancelling ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                            Arrêter
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {/* --- BOTTOM: Content --- */}
             <div className="absolute bottom-0 left-0 right-0 top-[45%] p-5 flex flex-col justify-between bg-card z-20">
 
@@ -142,7 +190,7 @@ export function ScriptCard({
                             <h3 className="text-xl font-bold text-foreground leading-snug line-clamp-2" title={script.title}>
                                 {script.title || "Script Sans Titre"}
                             </h3>
-                            {script.is_owner && (
+                            {script.is_owner && !isVocalizing && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -183,10 +231,12 @@ export function ScriptCard({
                         <BarChart2 className="w-4 h-4" />
                     </Button>
 
-                    <div onClick={(e) => e.stopPropagation()}>
-                        {/* We style the DownloadButton trigger to match locally if possible, usually it renders a button */}
-                        <DownloadButton scriptId={script.id} className="h-9 w-9 border-0 hover:bg-muted text-muted-foreground" showLabel={false} />
-                    </div>
+                    {!isVocalizing && (
+                        <div onClick={(e) => e.stopPropagation()}>
+                            {/* We style the DownloadButton trigger to match locally if possible, usually it renders a button */}
+                            <DownloadButton scriptId={script.id} className="h-9 w-9 border-0 hover:bg-muted text-muted-foreground" showLabel={false} />
+                        </div>
+                    )}
 
                     {(script.is_owner || isAdminUser) && (
                         <Button
@@ -215,16 +265,16 @@ export function ScriptCard({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuItem onClick={() => onShowStats?.(script)}>
+                        <DropdownMenuItem onClick={() => onShowStats?.(script)} disabled={isVocalizing}>
                             <BarChart2 className="w-4 h-4 mr-2" />
                             Statistiques
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setIsRenaming(true)} disabled={!script.is_owner}>
+                        <DropdownMenuItem onClick={() => setIsRenaming(true)} disabled={!script.is_owner || isVocalizing}>
                             <Pencil className="w-4 h-4 mr-2" />
                             Renommer
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
+                        <DropdownMenuItem asChild disabled={isVocalizing}>
                             <DownloadButton
                                 scriptId={script.id}
                                 className="w-full justify-start bg-transparent hover:bg-accent border-0 px-2 py-1.5 text-sm cursor-pointer"

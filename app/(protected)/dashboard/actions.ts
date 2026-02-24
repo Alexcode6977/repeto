@@ -1659,7 +1659,7 @@ function validateResolvedMappings(
 export async function saveScriptWithImportValidation(
     script: ParsedScript,
     submission: ImportValidationSubmission
-): Promise<{ success: true } | { error: string }> {
+): Promise<{ success: true; scriptId: string } | { error: string }> {
     try {
         const validated = validateResolvedMappings(submission.diagnostics, submission.decisions, submission.mappings);
         if (!validated.ok) {
@@ -1735,7 +1735,7 @@ export async function saveScriptWithImportValidation(
             }
         }
 
-        return { success: true };
+        return { success: true, scriptId };
     } catch (error: unknown) {
         console.error("[Import Validation Save] Error:", error);
         return { error: getErrorMessage(error) || "Erreur lors de la sauvegarde du script." };
@@ -1856,7 +1856,7 @@ export async function getScripts() {
     // Fetch only user's own scripts (catalog is separate)
     const { data, error } = await supabase
         .from("scripts")
-        .select("id, title, content, created_at, user_id, is_public")
+        .select("id, title, content, created_at, user_id, is_public, vocalization_status, vocalization_progress")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -1867,6 +1867,16 @@ export async function getScripts() {
 
     return data.map((row) => {
         const content = row.content as ParsedScript | undefined;
+
+        // Legacy scripts have 'pending' status due to DB default but no progress.
+        // We consider them 'completed' if they were created before the vocalization feature (e.g. before Feb 24, 2026)
+        // or if they have exactly 0 progress but are older than a day.
+        const isLegacy = new Date(row.created_at) < new Date('2026-02-24T00:00:00Z');
+        let finalStatus = row.vocalization_status;
+        if (isLegacy && row.vocalization_status === 'pending' && row.vocalization_progress === 0) {
+            finalStatus = 'completed';
+        }
+
         return {
             id: row.id,
             title: row.title,
@@ -1875,6 +1885,8 @@ export async function getScripts() {
             lineCount: content?.lines?.length || 0,
             is_public: row.is_public || false,
             is_owner: true, // Always true since we only fetch user's scripts
+            vocalization_status: finalStatus,
+            vocalization_progress: isLegacy ? 100 : row.vocalization_progress
         };
     });
 }
@@ -2320,4 +2332,44 @@ export async function importFromCatalog(sourceScriptId: string): Promise<{ succe
 
     revalidatePath("/dashboard");
     return { success: true, newScriptId: newScript.id };
+}
+
+export async function cancelVocalization(scriptId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { success: false, error: "Non authentifié" };
+    }
+
+    // Verify ownership
+    const { data: script, error: fetchError } = await supabase
+        .from("scripts")
+        .select("user_id")
+        .eq("id", scriptId)
+        .single();
+
+    if (fetchError || !script) {
+        return { success: false, error: "Script introuvable" };
+    }
+
+    if (script.user_id !== user.id) {
+        return { success: false, error: "Non autorisé" };
+    }
+
+    // Cancel vocalization by setting it to failed or completed (failed makes it clear it didn't finish)
+    const { error: updateError } = await supabase
+        .from("scripts")
+        .update({
+            vocalization_status: "failed", // We use failed to stop the spinner
+        })
+        .eq("id", scriptId);
+
+    if (updateError) {
+        console.error("Error cancelling vocalization:", updateError);
+        return { success: false, error: "Erreur lors de l'annulation" };
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true };
 }

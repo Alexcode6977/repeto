@@ -132,6 +132,21 @@ export default function Home() {
     }
   };
 
+  // Poll for vocalization progress if any script is currently generating audio
+  useEffect(() => {
+    const hasVocalizingScripts = scriptsList.some(
+      (s) => s.vocalization_status === "pending" || s.vocalization_status === "processing"
+    );
+
+    if (!hasVocalizingScripts) return;
+
+    const intervalId = setInterval(() => {
+      refreshScripts();
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(intervalId);
+  }, [scriptsList]);
+
   // --- SCRIPT ACTIONS (Passed to Grid) ---
 
   const openScriptViewer = async (scriptId: string, isPublic: boolean) => {

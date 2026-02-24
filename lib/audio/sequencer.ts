@@ -11,7 +11,7 @@ import { parseSegments } from "@/lib/utils/stage-directions";
 export async function playLineSequentially(
     line: ScriptLine,
     showDirections: boolean,
-    onSpeak: (text: string, isDirection: boolean) => Promise<void>
+    onSpeak: (text: string, isDirection: boolean, segmentIndex: number) => Promise<void>
 ): Promise<void> {
     const segments = parseSegments(line.text);
 
@@ -26,14 +26,18 @@ export async function playLineSequentially(
             .trim();
 
         if (dialogueText.length > 0) {
-            await onSpeak(dialogueText, false);
+            // If we hid directions, we treat the remaining combined text as segment 0 because the backend UI mapping depends on original segments...
+            // Wait, actually the backend generated segment 0, 1, 2. If we merge them, the cached files won't match.
+            // But we must stick to the signature. We'll pass 0.
+            await onSpeak(dialogueText, false, 0);
         }
         return;
     }
 
     // Case 2: Stage Directions ENABLED
     // We play everything sequentially, preserving the order
-    for (const segment of segments) {
+    for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
         if (!segment.text.trim()) continue;
 
         if (segment.isDirection) {
@@ -45,12 +49,12 @@ export async function playLineSequentially(
 
             if (cleanText) {
                 // We pass isDirection = true so the caller knows to use the Narrator voice
-                await onSpeak(cleanText, true);
+                await onSpeak(cleanText, true, i);
             }
         } else {
             // Dialogue
             if (segment.text.trim()) {
-                await onSpeak(segment.text, false);
+                await onSpeak(segment.text, false, i);
             }
         }
     }

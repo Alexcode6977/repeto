@@ -238,8 +238,19 @@ export class AudioQueue {
         sourceType: SourceType,
         sourceId: string,
         troupeId?: string,
-        isDirection: boolean = false
+        isDirection: boolean = false,
+        lineId?: string,
+        segmentIndex?: number
     ): Promise<string | null> {
+        // FAST PATH: If we have the line ID and segment index, we just return the public URL 
+        // to the pre-generated file from the background worker. This guarantees 0ms latency and matches 
+        // the background generation exactly.
+        if (lineId && segmentIndex !== undefined) {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+            return `${supabaseUrl}/storage/v1/object/public/audio_cache/${sourceId}/${lineId}_${segmentIndex}.mp3`;
+        }
+
+        // Slow path: Fallback to the old live generation cache if we lack metadata
         const req: AudioRequest = {
             text, character, lineIndex, sourceType, sourceId, troupeId, isDirection
         };

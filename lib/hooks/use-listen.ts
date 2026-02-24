@@ -270,7 +270,7 @@ export function useListen({
         });
     }, [playbackRate]);
 
-    const playAudioFile = useCallback((url: string): Promise<void> => {
+    const playAudioFile = useCallback((url: string): Promise<boolean> => {
         return new Promise((resolve) => {
             const session = sessionRef.current;
             const audio = new Audio(url);
@@ -279,15 +279,15 @@ export function useListen({
 
             audio.onended = () => {
                 if (currentAudioRef.current === audio) currentAudioRef.current = null;
-                resolve();
+                resolve(true); // Success
             };
             audio.onerror = () => {
                 if (currentAudioRef.current === audio) currentAudioRef.current = null;
-                resolve();
+                resolve(false); // Playback failed (e.g. 404)
             };
 
-            if (session !== sessionRef.current) return resolve();
-            audio.play().catch(() => resolve());
+            if (session !== sessionRef.current) return resolve(false);
+            audio.play().catch(() => resolve(false));
         });
     }, [playbackRate]);
 
@@ -368,13 +368,15 @@ export function useListen({
                     await playLineSequentially(
                         line,
                         showStageDirections ?? true,
-                        async (textToSpeak, isDirection) => {
+                        async (textToSpeak, isDirection, segmentIndex = 0) => {
                             if (!isValid()) return;
 
                             if (ttsProvider === "google" && sourceId && line.character) {
                                 setIsLoadingAudio(true);
                                 try {
                                     const resolvedLineChar = resolveLineCharacter(script, line.character);
+                                    // With the new architecture, we bypass API synthesis for Playback.
+                                    // AudioQueue simply returns the public URL to the pre-generated background audio cache!
                                     const audioUrl = await audioQueueRef.current.getUrl(
                                         textToSpeak,
                                         isDirection ? "didascalies" : resolvedLineChar,
@@ -382,22 +384,31 @@ export function useListen({
                                         sourceType,
                                         sourceId,
                                         troupeId,
-                                        isDirection
+                                        isDirection,
+                                        line.id,
+                                        segmentIndex
                                     );
 
+                                    let audioSuccess = false;
                                     if (isValid() && audioUrl) {
-                                        await playAudioFile(audioUrl);
-                                    } else if (isValid()) {
+                                        audioSuccess = await playAudioFile(audioUrl);
+                                    }
+
+                                    if (isValid() && !audioSuccess) {
+                                        // Fallback to Browser Voice synthesis if file doesn't exist or errored
+                                        console.warn(`[Listen] Audio file missing for Line ${line.id} seg ${segmentIndex}. Falling back to browser TTS.`);
                                         const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[resolvedLineChar];
                                         await speakDirect(textToSpeak, bVoice);
                                     }
                                 } catch (e) {
                                     console.error("[Listen] AI TTS failed:", e);
-                                    const resolvedLineChar = resolveLineCharacter(script, line.character);
-                                    const bVoice = isDirection
-                                        ? voiceAssignments["didascalies"]
-                                        : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
-                                    await speakDirect(textToSpeak, bVoice);
+                                    if (isValid()) {
+                                        const resolvedLineChar = resolveLineCharacter(script, line.character);
+                                        const bVoice = isDirection
+                                            ? voiceAssignments["didascalies"]
+                                            : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
+                                        await speakDirect(textToSpeak, bVoice);
+                                    }
                                 } finally {
                                     if (isValid()) {
                                         setIsLoadingAudio(false);

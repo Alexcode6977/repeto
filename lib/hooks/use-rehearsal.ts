@@ -171,22 +171,22 @@ export function useRehearsal({
         }
     };
 
-    const playAudioFile = async (url: string): Promise<void> => {
-        await new Promise<void>((resolve) => {
+    const playAudioFile = async (url: string): Promise<boolean> => {
+        return new Promise<boolean>((resolve) => {
             const audio = new Audio(url);
             currentAudioRef.current = audio;
             audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
             audio.onended = () => {
                 if (currentAudioRef.current === audio) currentAudioRef.current = null;
-                resolve();
+                resolve(true);
             };
             audio.onerror = () => {
                 if (currentAudioRef.current === audio) currentAudioRef.current = null;
-                resolve();
+                resolve(false);
             };
             audio.play().catch(() => {
                 if (currentAudioRef.current === audio) currentAudioRef.current = null;
-                resolve();
+                resolve(false);
             });
         });
     };
@@ -652,7 +652,7 @@ export function useRehearsal({
                     await playLineSequentially(
                         line,
                         showStageDirections,
-                        async (textToSpeak, isDirection) => {
+                        async (textToSpeak, isDirection, segmentIndex = 0) => {
                             if (!isMountedRef.current || manualSkipRef.current) return;
 
                             const resolvedLineChar = resolveLineCharacter(script, line.character);
@@ -671,13 +671,18 @@ export function useRehearsal({
                                         sourceType,
                                         sourceId,
                                         troupeId,
-                                        isDirection
+                                        isDirection,
+                                        line.id,
+                                        segmentIndex
                                     )
                                     : null;
 
+                                let audioSuccess = false;
                                 if (audioUrl) {
-                                    await playAudioFile(audioUrl);
-                                } else {
+                                    audioSuccess = await playAudioFile(audioUrl);
+                                }
+
+                                if (!audioSuccess) {
                                     await speak(
                                         textToSpeak,
                                         assignedVoice,

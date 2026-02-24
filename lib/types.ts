@@ -48,6 +48,8 @@ export interface ScriptMetadata {
     is_public: boolean;
     is_owner: boolean;
     hasVoiceConfig?: boolean;
+    vocalization_status?: 'pending' | 'processing' | 'completed' | 'failed';
+    vocalization_progress?: number;
 }
 
 export type SessionStatus = 'preparation' | 'upcoming' | 'processing' | 'validated';

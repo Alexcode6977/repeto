@@ -1478,6 +1478,18 @@ export function ImportWizard({
             return;
         }
 
+        // Trigger background vocalization
+        if (saveResult.scriptId) {
+            fetch('/api/vocalize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    scriptId: saveResult.scriptId,
+                    sourceType: 'private_script'
+                })
+            }).catch(err => console.error("Failed to trigger vocalization", err));
+        }
+
         await onImportComplete();
         closeThirdImportReview();
         setShowImportGuide(false);
@@ -1665,6 +1677,18 @@ export function ImportWizard({
                 setValidationSaveError(saveResult.error);
                 onError(saveResult.error);
                 return;
+            }
+
+            // Trigger background vocalization
+            if (saveResult.scriptId) {
+                fetch('/api/vocalize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scriptId: saveResult.scriptId,
+                        sourceType: 'private_script'
+                    })
+                }).catch(err => console.error("Failed to trigger vocalization", err));
             }
 
             await onImportComplete();
