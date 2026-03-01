@@ -6,6 +6,7 @@ import { calculateSimilarity, stripStageDirections } from "../similarity";
 import { offlineManager } from "../offline/offline-manager";
 import { getCollectiveMembersForLine, getSceneCharacters, isUserLine as checkIsUserLine, resolveLineCharacter } from "../utils";
 import { COLLECTIVE_ROLES } from "../constants";
+import { RehearsalAudioEngine } from "../audio/gapless-player";
 import { AudioQueue } from "../audio/audio-queue";
 import { type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
 
@@ -43,7 +44,7 @@ interface UseRehearsalProps {
 import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { isNextCommand, isPrevCommand } from "../speech-utils";
 import { getPlayRecordings } from "../actions/recordings";
-import { playLineSequentially } from "../audio/sequencer";
+import { parseSegments } from "../utils/stage-directions";
 
 export function useRehearsal({
     script,
@@ -68,11 +69,15 @@ export function useRehearsal({
 
     const [recordings, setRecordings] = useState<any[]>([]);
     const [isPlayingRecording, setIsPlayingRecording] = useState(false);
-    const audioQueueRef = useRef<AudioQueue>(new AudioQueue());
-    const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+    const engineRef = useRef<RehearsalAudioEngine>(new RehearsalAudioEngine());
+    const audioQueueRef = useRef<AudioQueue>(new AudioQueue(engineRef.current));
+
     // Execution generation counter: incremented on every skip/next/previous/retry.
     // Each executeStep captures this value and aborts if it has changed (user moved on).
     const executionGenRef = useRef(0);
+    const abortControllerRef = useRef<AbortController | null>(null);
+
     const perfRef = useRef<{ pending: { action: "start" | "next" | "previous" | "retry"; ts: number } | null }>({
         pending: null
     });
@@ -167,30 +172,28 @@ export function useRehearsal({
     const stopAll = () => {
         browserSpeech.stop();
         aiSpeech.stop();
-        if (currentAudioRef.current) {
-            currentAudioRef.current.pause();
-            currentAudioRef.current.src = "";
-            currentAudioRef.current = null;
+        engineRef.current.stop();
+
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
         }
     };
 
     const playAudioFile = async (url: string): Promise<boolean> => {
-        return new Promise<boolean>((resolve) => {
-            const audio = new Audio(url);
-            currentAudioRef.current = audio;
-            audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
-            audio.onended = () => {
-                if (currentAudioRef.current === audio) currentAudioRef.current = null;
-                resolve(true);
-            };
-            audio.onerror = () => {
-                if (currentAudioRef.current === audio) currentAudioRef.current = null;
+        return new Promise<boolean>(async (resolve) => {
+            try {
+                // Pour les enregistrements (recordings) existants qui n'ont pas besoin de crossfade sophistiqué
+                // ou pour simplifier avant de les migrer vers l'engine aussi.
+                const audio = new Audio(url);
+                engineRef.current.stop(); // Stops main engine just in case
+                audio.playbackRate = Math.max(0.7, Math.min(1.8, playbackRate));
+                audio.onended = () => resolve(true);
+                audio.onerror = () => resolve(false);
+                audio.play().catch(() => resolve(false));
+            } catch (e) {
                 resolve(false);
-            };
-            audio.play().catch(() => {
-                if (currentAudioRef.current === audio) currentAudioRef.current = null;
-                resolve(false);
-            });
+            }
         });
     };
 
@@ -246,12 +249,11 @@ export function useRehearsal({
             isMountedRef.current = false;
             browserSpeech.stop();
             aiSpeech.stop();
-            if (currentAudioRef.current) {
-                currentAudioRef.current.pause();
-                currentAudioRef.current.src = "";
-                currentAudioRef.current = null;
-            }
+            engineRef.current.stop();
             audioQueueRef.current.clear();
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
         };
     }, []);
 
@@ -497,7 +499,8 @@ export function useRehearsal({
             setCurrentLineIndex(nextIdx);
             preloadAroundIndex(nextIdx, 30);
             const nextLine = script.lines[nextIdx];
-            setTimeout(() => {
+            // Transition instantanée ou presque pour supprimer la latence
+            queueMicrotask(() => {
                 manualSkipRef.current = false;
                 // FIX: Pass new index
                 if (isUserLine(nextLine.character, nextIdx)) {
@@ -507,7 +510,7 @@ export function useRehearsal({
                     setStatus("playing_other");
                 }
                 transitionLockRef.current = false;
-            }, 60);
+            });
         } else {
             manualSkipRef.current = false;
             transitionLockRef.current = false;
@@ -530,7 +533,7 @@ export function useRehearsal({
             setCurrentLineIndex(prevIdx);
             preloadAroundIndex(Math.max(0, prevIdx - 2), 30);
             const prevLine = script.lines[prevIdx];
-            setTimeout(() => {
+            queueMicrotask(() => {
                 manualSkipRef.current = false;
                 // FIX: Pass index
                 if (isUserLine(prevLine.character, prevIdx)) {
@@ -540,7 +543,7 @@ export function useRehearsal({
                     setStatus("playing_other");
                 }
                 transitionLockRef.current = false;
-            }, 60);
+            });
         } else {
             manualSkipRef.current = false;
             transitionLockRef.current = false;
@@ -568,7 +571,7 @@ export function useRehearsal({
         // FIX: Use stateRef to get CURRENT line index, not stale closure
         const currentIdx = stateRef.current.currentLineIndex;
         const line = script.lines[currentIdx];
-        setTimeout(() => {
+        queueMicrotask(() => {
             manualSkipRef.current = false;
             // FIX: Pass index
             if (isUserLine(line.character, currentIdx)) {
@@ -578,7 +581,7 @@ export function useRehearsal({
                 setStatus("playing_other");
             }
             transitionLockRef.current = false;
-        }, 60);
+        });
     };
 
     const validateManually = () => {
@@ -659,69 +662,99 @@ export function useRehearsal({
 
                 const voice = voiceAssignments[line.character];
                 try {
-                    // Use Sequencer for Mixed Voice Playback
-                    await playLineSequentially(
-                        line,
-                        showStageDirections,
-                        async (textToSpeak, isDirection, segmentIndex = 0) => {
-                            // ABORT GUARD: check generation before every segment
-                            if (!isMountedRef.current || manualSkipRef.current || isStale()) return;
+                    abortControllerRef.current = new AbortController();
 
+                    // Priority 1: Use RehearsalAudioEngine for Gapless Sequences if TTS is Google
+                    if (ttsProvider === "google") {
+                        const sourceId = playId || scriptId;
+                        if (sourceId) {
+                            // Extract valid URLs for all segments in the line
+                            const segments = parseSegments(line.text);
+                            const urlsToPlay: string[] = [];
                             const resolvedLineChar = resolveLineCharacter(script, line.character);
-                            // Determine Voice (Narrator vs Character)
-                            const assignedVoice = isDirection
-                                ? undefined // Browser default for narrator
-                                : (voice || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
 
-                            if (ttsProvider === "google") {
-                                const sourceId = playId || scriptId;
-                                const audioUrl = sourceId
-                                    ? audioQueueRef.current.getUrl(
-                                        textToSpeak,
-                                        isDirection ? "didascalies" : resolvedLineChar,
-                                        currentLineIndex,
-                                        sourceType,
-                                        sourceId,
-                                        troupeId,
-                                        isDirection,
-                                        line.id,
-                                        segmentIndex
-                                    )
-                                    : null;
+                            for (let i = 0; i < segments.length; i++) {
+                                const segment = segments[i];
+                                if (!segment.text.trim()) continue;
+                                if (!showStageDirections && segment.isDirection) continue;
 
-                                let audioSuccess = false;
-                                if (audioUrl) {
-                                    // Re-check before starting playback
-                                    if (isStale()) return;
-                                    audioSuccess = await playAudioFile(audioUrl);
-                                }
-
-                                // Fallback to browser TTS only (no live API call)
-                                if (!audioSuccess && !isStale()) {
-                                    await speak(
-                                        textToSpeak,
-                                        assignedVoice,
-                                        isDirection ? "didascalies" : resolvedLineChar,
-                                        line.id
-                                    );
-                                }
-                            } else if (!isStale()) {
-                                await speak(
-                                    textToSpeak,
-                                    assignedVoice,
-                                    isDirection ? "didascalies" : resolvedLineChar,
-                                    line.id
+                                const url = audioQueueRef.current.getUrl(
+                                    segment.text,
+                                    segment.isDirection ? "didascalies" : resolvedLineChar,
+                                    currentLineIndex,
+                                    sourceType,
+                                    sourceId,
+                                    troupeId,
+                                    segment.isDirection,
+                                    line.id,
+                                    i
                                 );
+
+                                if (url) urlsToPlay.push(url);
                             }
 
-                        }
-                    );
+                            if (urlsToPlay.length > 0) {
+                                // Double check state before playing
+                                if (isStale() || manualSkipRef.current) return;
 
-                    if (!isMountedRef.current || isStale()) return;
-                    if (statusRef.current === "playing_other" && !manualSkipRef.current) {
+                                // Find previous text for smart gap calculations, if we just came from another line
+                                const prevIdx = findNextRelevantIndex(currentLineIndex, -1);
+                                const prevText = prevIdx >= 0 ? script.lines[prevIdx].text : "";
+
+                                await engineRef.current.playSegments(
+                                    urlsToPlay,
+                                    prevText,
+                                    playbackRate,
+                                    abortControllerRef.current.signal
+                                );
+
+                                if (!isMountedRef.current || isStale() || manualSkipRef.current) return;
+                                if (statusRef.current === "playing_other") {
+                                    next();
+                                }
+                                return; // Exit execution, engine handled it
+                            }
+                        }
+                    }
+
+                    // Priority 2: Fallback to simple speech API (Browser TTS usually, or missed audio generation)
+                    let textSequence: { text: string; isDirection: boolean }[] = [];
+                    const segments = parseSegments(line.text);
+
+                    if (!showStageDirections) {
+                        const dialogueText = segments
+                            .filter(s => !s.isDirection)
+                            .map(s => s.text)
+                            .join("")
+                            .trim();
+                        if (dialogueText) textSequence.push({ text: dialogueText, isDirection: false });
+                    } else {
+                        for (const s of segments) {
+                            if (!s.text.trim()) continue;
+                            const cleanText = s.isDirection ? s.text.replace(/^\s*\(|\)\s*$/g, "").trim() : s.text.trim();
+                            if (cleanText) textSequence.push({ text: cleanText, isDirection: s.isDirection });
+                        }
+                    }
+
+                    const resolvedLineChar = resolveLineCharacter(script, line.character);
+
+                    for (const item of textSequence) {
+                        if (!isMountedRef.current || manualSkipRef.current || isStale()) return;
+
+                        const assignedVoice = item.isDirection
+                            ? undefined
+                            : (voice || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
+
+                        await speak(item.text, assignedVoice, item.isDirection ? "didascalies" : resolvedLineChar, line.id);
+                    }
+
+                    if (!isMountedRef.current || isStale() || manualSkipRef.current) return;
+                    if (statusRef.current === "playing_other") {
                         next();
                     }
                 } catch (e) {
+                    // Abort errors are expected when skipping
+                    if (e instanceof Error && e.message === "Playback aborted") return;
                     if (!manualSkipRef.current) next();
                 }
             } else if (status === "listening_user") {

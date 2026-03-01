@@ -6,10 +6,11 @@ import { useAITTS, type TTSProvider } from "./use-ai-tts";
 import { useRehearsalVoices } from "./use-rehearsal-voices";
 import { getPlayRecordings } from "../actions/recordings";
 import { determineSourceType, type SourceType, ensureVoiceConfig } from "../actions/voice-cache";
-import { playLineSequentially } from "../audio/sequencer";
+import { RehearsalAudioEngine } from "../audio/gapless-player";
 import { AudioQueue } from "../audio/audio-queue";
 import { getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine, resolveLineCharacter } from "../utils";
 import { COLLECTIVE_ROLES } from "../constants";
+import { parseSegments } from "../utils/stage-directions";
 
 
 export type ListenStatus = "setup" | "playing" | "paused" | "finished";
@@ -77,8 +78,10 @@ export function useListen({
     // Refs
     const isMountedRef = useRef(true);
     const sessionRef = useRef(0);
+    const engineRef = useRef<RehearsalAudioEngine>(new RehearsalAudioEngine());
+    const abortControllerRef = useRef<AbortController | null>(null);
     const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-    const audioQueueRef = useRef<AudioQueue>(new AudioQueue());
+    const audioQueueRef = useRef<AudioQueue>(new AudioQueue(engineRef.current));
 
     // Hooks
     const aiSpeech = useAITTS();
@@ -176,7 +179,9 @@ export function useListen({
             isMountedRef.current = false;
             window.speechSynthesis?.cancel();
             currentAudioRef.current?.pause();
+            engineRef.current.stop();
             audioQueueRef.current.clear();
+            abortControllerRef.current?.abort();
         };
     }, []);
 
@@ -247,6 +252,11 @@ export function useListen({
             currentAudioRef.current.pause();
             currentAudioRef.current.src = "";
             currentAudioRef.current = null;
+        }
+        engineRef.current.stop();
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
         }
         aiSpeech.stop();
         setIsLoadingAudio(false);
@@ -365,66 +375,96 @@ export function useListen({
                 if (recording) {
                     await playAudioFile(recording.audio_url);
                 } else {
-                    await playLineSequentially(
-                        line,
-                        showStageDirections ?? true,
-                        async (textToSpeak, isDirection, segmentIndex = 0) => {
-                            if (!isValid()) return;
+                    abortControllerRef.current = new AbortController();
 
-                            if (ttsProvider === "google" && sourceId && line.character) {
-                                setIsLoadingAudio(true);
-                                try {
-                                    const resolvedLineChar = resolveLineCharacter(script, line.character);
-                                    // With the new architecture, we bypass API synthesis for Playback.
-                                    // AudioQueue simply returns the public URL to the pre-generated background audio cache!
-                                    const audioUrl = await audioQueueRef.current.getUrl(
-                                        textToSpeak,
-                                        isDirection ? "didascalies" : resolvedLineChar,
-                                        currentLineIndex,
-                                        sourceType,
-                                        sourceId,
-                                        troupeId,
-                                        isDirection,
-                                        line.id,
-                                        segmentIndex
-                                    );
+                    if (ttsProvider === "google" && sourceId && line.character) {
+                        setIsLoadingAudio(true);
+                        try {
+                            const resolvedLineChar = resolveLineCharacter(script, line.character);
+                            const segments = parseSegments(line.text);
+                            const urlsToPlay: string[] = [];
 
-                                    let audioSuccess = false;
-                                    if (isValid() && audioUrl) {
-                                        audioSuccess = await playAudioFile(audioUrl);
-                                    }
+                            for (let i = 0; i < segments.length; i++) {
+                                const segment = segments[i];
+                                if (!segment.text.trim()) continue;
+                                if (!(showStageDirections ?? true) && segment.isDirection) continue;
 
-                                    if (isValid() && !audioSuccess) {
-                                        // Fallback to Browser Voice synthesis if file doesn't exist or errored
-                                        console.warn(`[Listen] Audio file missing for Line ${line.id} seg ${segmentIndex}. Falling back to browser TTS.`);
-                                        const bVoice = isDirection ? voiceAssignments["didascalies"] : voiceAssignments[resolvedLineChar];
-                                        await speakDirect(textToSpeak, bVoice);
-                                    }
-                                } catch (e) {
-                                    console.error("[Listen] AI TTS failed:", e);
-                                    if (isValid()) {
-                                        const resolvedLineChar = resolveLineCharacter(script, line.character);
-                                        const bVoice = isDirection
-                                            ? voiceAssignments["didascalies"]
-                                            : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
-                                        await speakDirect(textToSpeak, bVoice);
-                                    }
-                                } finally {
-                                    if (isValid()) {
-                                        setIsLoadingAudio(false);
-                                    }
-                                }
+                                const url = audioQueueRef.current.getUrl(
+                                    segment.text,
+                                    segment.isDirection ? "didascalies" : resolvedLineChar,
+                                    currentLineIndex,
+                                    sourceType,
+                                    sourceId,
+                                    troupeId,
+                                    segment.isDirection,
+                                    line.id,
+                                    i
+                                );
+                                if (url) urlsToPlay.push(url);
+                            }
+
+                            if (urlsToPlay.length > 0) {
+                                if (!isValid()) return;
+
+                                const prevIdx = findNextIndex(currentLineIndex, -1);
+                                const prevText = prevIdx !== null ? script.lines[prevIdx].text : "";
+
+                                await engineRef.current.playSegments(
+                                    urlsToPlay,
+                                    prevText,
+                                    playbackRate,
+                                    abortControllerRef.current.signal
+                                );
                             } else {
+                                // Fallback to browser TTS entirely for the line if no URLs
+                                throw new Error("No URLs found");
+                            }
+                        } catch (e) {
+                            if (e instanceof Error && e.message === "Playback aborted") return;
+
+                            console.warn(`[Listen] AI TTS failed, falling back to browser TTS.`, e);
+                            if (isValid()) {
+                                const segments = parseSegments(line.text);
                                 const resolvedLineChar = resolveLineCharacter(script, line.character);
-                                const bVoice = isDirection
-                                    ? voiceAssignments["didascalies"]
-                                    : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
-                                await speakDirect(textToSpeak, bVoice);
+
+                                for (const segment of segments) {
+                                    if (!isValid()) return;
+                                    if (!segment.text.trim()) continue;
+                                    if (!(showStageDirections ?? true) && segment.isDirection) continue;
+
+                                    const cleanText = segment.isDirection ? segment.text.replace(/^\s*\(|\)\s*$/g, "").trim() : segment.text.trim();
+
+                                    const bVoice = segment.isDirection
+                                        ? voiceAssignments["didascalies"]
+                                        : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
+
+                                    await speakDirect(cleanText, bVoice);
+                                }
+                            }
+                        } finally {
+                            if (isValid()) {
+                                setIsLoadingAudio(false);
                             }
                         }
-                    );
-                }
+                    } else {
+                        const segments = parseSegments(line.text);
+                        const resolvedLineChar = resolveLineCharacter(script, line.character);
 
+                        for (const segment of segments) {
+                            if (!isValid()) return;
+                            if (!segment.text.trim()) continue;
+                            if (!(showStageDirections ?? true) && segment.isDirection) continue;
+
+                            const cleanText = segment.isDirection ? segment.text.replace(/^\s*\(|\)\s*$/g, "").trim() : segment.text.trim();
+
+                            const bVoice = segment.isDirection
+                                ? voiceAssignments["didascalies"]
+                                : (voiceAssignments[resolvedLineChar] || (COLLECTIVE_ROLES.has(resolvedLineChar) ? getCollectiveVoice(currentLineIndex) : undefined));
+
+                            await speakDirect(cleanText, bVoice);
+                        }
+                    }
+                }
 
                 if (!isValid()) return;
                 await new Promise(r => setTimeout(r, Math.round(600 / playbackRate)));

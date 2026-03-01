@@ -18,7 +18,7 @@ function normalizeVoiceId(voice: string, isSystem: boolean = false): string {
 }
 
 // Internal version of Google TTS generator that returns raw Buffer for storage
-async function generateGoogleChirpAudioBuffer(text: string, voiceName: string): Promise<Buffer> {
+async function generateGoogleChirpAudioBuffer(text: string, voiceName: string, settings: any = {}): Promise<Buffer> {
     if (!process.env.GOOGLE_TTS_API_KEY) {
         throw new Error("Clé API Google TTS non configurée");
     }
@@ -34,6 +34,9 @@ async function generateGoogleChirpAudioBuffer(text: string, voiceName: string): 
         },
         audioConfig: {
             audioEncoding: "MP3",
+            pitch: settings.pitch ?? 0,
+            speakingRate: settings.speakingRate ?? 1.0,
+            volumeGainDb: settings.volumeGainDb ?? 0,
         },
     };
 
@@ -148,33 +151,41 @@ async function processVocalization(scriptId: string, spokenLines: ScriptLine[], 
 
     try {
         // Voice config Cache internally to avoid requerying DB for every line
-        const voiceMap = new Map<string, string>();
+        const voiceMap = new Map<string, { voiceId: string, settings: any }>();
 
         for (const line of spokenLines) {
             console.log(`[VocalizeWorker] Processing line ${line.id} of type ${line.type}`);
 
-            // Fetch base character voice if it's dialogue
+            // Fetch base character voice and settings if it's dialogue
             let charVoiceId = DEFAULT_GOOGLE_VOICE;
+            let charSettings = {};
             if (line.type === 'dialogue') {
                 const charName = line.character;
-                let cachedVoiceId = voiceMap.get(charName);
-                if (!cachedVoiceId) {
+                let cachedConfig = voiceMap.get(charName);
+                if (!cachedConfig) {
                     const { data } = await supabase
                         .from('play_voice_config')
-                        .select('voice')
+                        .select('voice, settings')
                         .eq('source_type', sourceType)
                         .eq('source_id', scriptId)
                         .eq('character_name', charName)
                         .single();
 
                     if (data?.voice) {
-                        cachedVoiceId = normalizeVoiceId(data.voice);
-                        voiceMap.set(charName, cachedVoiceId);
+                        cachedConfig = {
+                            voiceId: normalizeVoiceId(data.voice),
+                            settings: data.settings || {}
+                        };
+                        voiceMap.set(charName, cachedConfig);
                     } else {
-                        cachedVoiceId = DEFAULT_GOOGLE_VOICE;
+                        cachedConfig = {
+                            voiceId: DEFAULT_GOOGLE_VOICE,
+                            settings: {}
+                        };
                     }
                 }
-                charVoiceId = cachedVoiceId;
+                charVoiceId = cachedConfig.voiceId;
+                charSettings = cachedConfig.settings;
             }
 
             // Split line into segments to handle inline stage directions correctly matching UI playback
@@ -185,11 +196,13 @@ async function processVocalization(scriptId: string, spokenLines: ScriptLine[], 
                 if (!segment.text.trim()) continue;
 
                 let voiceId: string;
+                let settingsForSegment: any = {};
                 if (segment.isDirection || line.type !== 'dialogue') {
                     // Non-dialogue lines or inline stage directions use the system voice
                     voiceId = DEFAULT_SYSTEM_VOICE;
                 } else {
                     voiceId = charVoiceId;
+                    settingsForSegment = charSettings;
                 }
 
                 const cleanText = segment.isDirection
@@ -200,7 +213,7 @@ async function processVocalization(scriptId: string, spokenLines: ScriptLine[], 
 
                 // 2. Generate Audio buffer
                 try {
-                    const audioBuffer = await generateGoogleChirpAudioBuffer(cleanText, voiceId);
+                    const audioBuffer = await generateGoogleChirpAudioBuffer(cleanText, voiceId, settingsForSegment);
 
                     // 3. Upload to Supabase Storage
                     // Path: audio_cache/{scriptId}/{lineId}_{segmentIndex}.mp3

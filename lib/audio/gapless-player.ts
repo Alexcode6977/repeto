@@ -1,17 +1,11 @@
 import { ScriptLine } from "@/lib/types";
 
-interface PlaybackItem {
-    audioUrl: string;
-    text: string;
-    character: string;
-    lineIndex: number;
-}
-
-export class GaplessAudioPlayer {
+export class RehearsalAudioEngine {
     private audioContext: AudioContext | null = null;
     private nextStartTime: number = 0;
-    private isPlaying: boolean = false;
     private bufferCache: Map<string, AudioBuffer> = new Map();
+    private activeSources: Set<AudioBufferSourceNode> = new Set();
+    private abortController: AbortController | null = null;
 
     // Configuration
     private overlapDuration: number = 0.150; // 150ms overlap (tuilage)
@@ -29,7 +23,7 @@ export class GaplessAudioPlayer {
     /**
      * Resume context (needed for browser autoplay policies)
      */
-    public async resume() {
+    private async resume() {
         if (this.audioContext && this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
@@ -75,11 +69,10 @@ export class GaplessAudioPlayer {
             } catch (e) {
                 const isLastAttempt = attempt === retryCount;
                 if (isLastAttempt) {
-                    console.error(`[GaplessPlayer] Load failed after ${retryCount + 1} attempts:`, e);
+                    console.error(`[RehearsalAudioEngine] Load failed after ${retryCount + 1} attempts:`, e);
                     return null;
                 } else {
-                    console.warn(`[GaplessPlayer] Load attempt ${attempt + 1} failed, retrying...`, e);
-                    // Brief delay before retry
+                    console.warn(`[RehearsalAudioEngine] Load attempt ${attempt + 1} failed, retrying...`, e);
                     await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
                 }
             }
@@ -87,64 +80,119 @@ export class GaplessAudioPlayer {
         return null;
     }
 
+    public async preloadBuffers(urls: string[]): Promise<void> {
+        await Promise.all(urls.map(url => this.loadAudio(url)));
+    }
+
     /**
-     * Play a sequence of items with smart timing
+     * Play a sequence of segments gaplessly.
+     * @returns A promise that resolves when the ENTIRE sequence is finished (or aborts).
      */
-    public async playSequence(items: PlaybackItem[], onStart?: (index: number) => void): Promise<void> {
+    public async playSegments(urls: string[], previousText: string = "", playbackRate: number = 1.0, signal?: AbortSignal): Promise<void> {
         if (!this.audioContext) return;
         await this.resume();
 
-        this.nextStartTime = this.audioContext.currentTime + 0.1; // Start slightly in future
+        // If context was stopped earlier, reset current time
+        if (this.nextStartTime < this.audioContext.currentTime) {
+            this.nextStartTime = this.audioContext.currentTime + 0.05;
+        }
 
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-            const buffer = await this.loadAudio(item.audioUrl);
+        return new Promise(async (resolve, reject) => {
+            const cleanup = () => {
+                if (signal) {
+                    signal.removeEventListener('abort', onAbort);
+                }
+            };
 
-            if (!buffer) continue;
+            const onAbort = () => {
+                cleanup();
+                this.stop(); // Stops playing sources instantly
+                reject(new Error("Playback aborted"));
+            };
 
-            // Create source
-            const source = this.audioContext.createBufferSource();
-            source.buffer = buffer;
-            source.connect(this.audioContext.destination);
-
-            // Schedule
-            const playTime = this.nextStartTime;
-            source.start(playTime);
-
-            // Schedule callback precisely
-            // We use setTimeout for UI updates, adjusted for the time difference
-            const timeUntilPlay = (playTime - this.audioContext.currentTime) * 1000;
-            if (onStart && timeUntilPlay > 0) {
-                setTimeout(() => onStart(item.lineIndex), timeUntilPlay);
-            } else if (onStart) {
-                onStart(item.lineIndex);
+            if (signal) {
+                if (signal.aborted) return onAbort();
+                signal.addEventListener('abort', onAbort);
             }
 
-            // Calculate duration and next start time
-            const duration = buffer.duration;
+            let loadedSources = 0;
+            let lastSourceNode: AudioBufferSourceNode | null = null;
 
-            // Determine pacing for NEXT line
-            const pacingDelay = this.calculateSmartDelay(item.text);
+            // Si on enchaîne depuis une phrase précédente avec ponctuation
+            if (previousText && this.activeSources.size > 0) {
+                const pacingDelay = this.calculateSmartDelay(previousText);
+                const effectiveGap = pacingDelay - this.overlapDuration;
+                this.nextStartTime += effectiveGap;
+            } else {
+                this.nextStartTime = this.audioContext!.currentTime + 0.05; // Fresh start
+            }
 
-            // Logic: EndTime - Overlap + Pacing
-            // If modulation is negative (overlap), it speeds up. If positive (pacing), it slows down.
-            // We want snappy dialogue, so we default to overlap (-150ms) unless there is punctuation requiring a pause.
+            for (let i = 0; i < urls.length; i++) {
+                if (signal?.aborted) return; // Exit loop if aborted during load
 
-            // Effective Gap = Pacing - Overlap
-            // Example: "Hello." (0.2s pacing) -> 0.2 - 0.15 = +0.05s gap (Tiny pause)
-            // Example: "Go!" (0.1s pacing) -> 0.1 - 0.15 = -0.05s overlap (Crossfade)
+                const url = urls[i];
+                const buffer = await this.loadAudio(url);
+                if (!buffer) continue;
 
-            const effectiveGap = pacingDelay - this.overlapDuration;
-            this.nextStartTime = playTime + duration + effectiveGap;
-        }
+                if (signal?.aborted) return;
+
+                const source = this.audioContext!.createBufferSource();
+                source.buffer = buffer;
+                source.playbackRate.value = Math.max(0.7, Math.min(1.8, playbackRate));
+                source.connect(this.audioContext!.destination);
+
+                this.activeSources.add(source);
+
+                // Cleanup source map when it ends naturally
+                source.onended = () => {
+                    this.activeSources.delete(source);
+                    loadedSources--;
+                    if (loadedSources === 0 && !signal?.aborted) {
+                        cleanup();
+                        resolve();
+                    }
+                };
+
+                const playTime = this.nextStartTime;
+                source.start(playTime);
+                lastSourceNode = source;
+                loadedSources++;
+
+                // Duration must be adjusted by playbackRate for scheduling the next segment
+                const adjustedDuration = buffer.duration / source.playbackRate.value;
+
+                // For segments IN THE SAME LINE, we overlap them to join sentences flawlessly
+                // (Stage directions vs Dialogue usually have no gap in natural speech)
+                this.nextStartTime = playTime + adjustedDuration - this.overlapDuration;
+            }
+
+            // If no valid buffers loaded, resolve immediately
+            if (loadedSources === 0 && !signal?.aborted) {
+                cleanup();
+                resolve();
+            }
+        });
     }
 
     public stop() {
+        // Stop all actively playing sources immediately
+        this.activeSources.forEach(source => {
+            try {
+                source.stop();
+                source.disconnect();
+            } catch (e) {
+                // Ignore errors if already stopped
+            }
+        });
+        this.activeSources.clear();
+
+        // Reset timing so next play starts fresh
         if (this.audioContext) {
-            this.audioContext.close().then(() => {
-                this.audioContext = new AudioContext();
-            });
+            this.nextStartTime = this.audioContext.currentTime;
         }
+    }
+
+    public clearCache() {
         this.bufferCache.clear();
     }
 }

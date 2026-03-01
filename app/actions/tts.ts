@@ -15,7 +15,7 @@ function normalizeVoiceId(voice: string): string {
     return candidate;
 }
 
-async function generateGoogleChirpAudio(text: string, voiceName: string): Promise<string> {
+async function generateGoogleChirpAudio(text: string, voiceName: string, settings: any = {}): Promise<string> {
     if (!process.env.GOOGLE_TTS_API_KEY) {
         throw new Error("Clé API Google TTS non configurée");
     }
@@ -31,6 +31,9 @@ async function generateGoogleChirpAudio(text: string, voiceName: string): Promis
         },
         audioConfig: {
             audioEncoding: "MP3",
+            pitch: settings.pitch ?? 0,
+            speakingRate: settings.speakingRate ?? 1.0,
+            volumeGainDb: settings.volumeGainDb ?? 0,
         },
     };
 
@@ -112,11 +115,11 @@ export async function synthesizeSpeechWithPlayCache(
             return { error: `Aucune voix configurée pour ${characterName}. Veuillez d'abord configurer les voix.` };
         }
 
-        const { voice } = voiceConfig;
+        const { voice, settings } = voiceConfig;
         const voiceId = normalizeVoiceId(voice);
 
         // Generate audio directly (sans système de cache base de données pour la Phase 1 du remplacement)
-        const dataUrl = await generateGoogleChirpAudio(text, voiceId);
+        const dataUrl = await generateGoogleChirpAudio(text, voiceId, settings);
 
         return { audio: dataUrl };
 
