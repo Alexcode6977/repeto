@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SourceType } from "@/lib/actions/voice-cache";
 import { ScriptLine } from "@/lib/types";
@@ -116,10 +116,13 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: "Aucune ligne à vocaliser." });
         }
 
-        // --- Asynchronous generation block (fire and forget pattern for next.js) ---
-        // We start the processing but respond to the client immediately
-        processVocalization(scriptId, spokenLines, sourceType as SourceType).catch(err => {
-            console.error(`[VocalizeWorker] Critical error during background processing:`, err);
+        // --- Asynchronous generation block (using Next.js after() to prevent Vercel killing the process) ---
+        after(async () => {
+            try {
+                await processVocalization(scriptId, spokenLines, sourceType as SourceType);
+            } catch (err) {
+                console.error(`[VocalizeWorker] Critical error during background processing:`, err);
+            }
         });
 
         return NextResponse.json({ message: "Vocalisation lancée en tâche de fond.", totalLines });
