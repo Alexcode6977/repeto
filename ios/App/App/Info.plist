@@ -58,5 +58,9 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>L'application a besoin de la reconnaissance vocale pour la fonction d'écoute active pendant les répétitions.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>L'application a besoin du microphone pour vous entendre dire vos répliques.</string>
 </dict>
 </plist>

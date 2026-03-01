@@ -1,0 +1,33 @@
+﻿;;;;;;;;;;;;
+"Voix
+(fr-FR-Chirp3-HD-xxx)";Rôle prioritaire;Genre;Âge;Tonalité;Comédien;Didascalie;Projection;Vitesse;Texture;Température;Énergie;Commentaires
+Achernar;Voix Personnage principal;3 - Féminin;2 - Adolescent / Jeune Adulte;4 - Très Aigu (Soprano);4 - Excellente;3 - Très bonne;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;2 - Distant (Froid);3 - Dynamique;
+Achird;Voix annonces Actes et Titres;2 - Masculin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;1 - Moyenne;4 - Excellente;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Algenib;Voix Personnage principal;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;4 - Excellente;3 - Très bonne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;2 - Distant (Froid);2 - Posé;
+Algieba;Voix Personnage principal;2 - Masculin;4 - Senior (Âgé/Cassé);1 - Très Grave (Basse);4 - Excellente;2 - Bonne;3 - Direct (Parlé haut);2 - Posée;3 - Voilée;3 - Avenant (Chaud);2 - Posé;
+Alnilam;Voix Personnage secondaire;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Très bonne;2 - Bonne;2 - Intime (Narrateur);2 - Posée;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Aoede;Voix Personnage principal;3 - Féminin;3 - Adulte Mûr;2 - Médium-Grave;4 - Excellente;2 - Bonne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Autonoe;Voix Personnage secondaire;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;1 - Moyenne;2 - Bonne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;2 - Distant (Froid);3 - Dynamique;
+Callirrhoe;Voix Didascalies;3 - Féminin;3 - Adulte Mûr;2 - Médium-Grave;1 - Moyenne;4 - Excellente;3 - Direct (Parlé haut);3 - Allante;1 - Lisse / Pure;2 - Distant (Froid);3 - Dynamique;
+Charon;Voix Personnage secondaire;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;2 - Bonne;1 - Moyenne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;2 - Distant (Froid);2 - Posé;
+Despina;Voix Personnage principal ou secondaire;3 - Féminin;3 - Adulte Mûr;2 - Médium-Grave;3 - Très bonne;2 - Bonne;2 - Intime (Narrateur);2 - Posée;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Enceladus;Voix Personnage secondaire;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;1 - Moyenne;2 - Bonne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Erinome;Voix Personnage secondaire;3 - Féminin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;2 - Bonne;1 - Moyenne;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;2 - Distant (Froid);2 - Posé;
+Fenrir;Voix Personnage principal ou secondaire;2 - Masculin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;3 - Très bonne;3 - Très bonne;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Gacrux;Voix Personnage principal ou secondaire;3 - Féminin;4 - Senior (Âgé/Cassé);1 - Très Grave (Basse);3 - Très bonne;2 - Bonne;2 - Intime (Narrateur);2 - Posée;3 - Voilée;3 - Avenant (Chaud);2 - Posé;
+Iapetus;Voix Personnage principal ou secondaire;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Très bonne;3 - Très bonne;3 - Direct (Parlé haut);1 - Très Lente;1 - Lisse / Pure;2 - Distant (Froid);2 - Posé;
+Kore;Voix Personnage secondaire;3 - Féminin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;2 - Bonne;1 - Moyenne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Laomedeia;Voix Personnage principal;3 - Féminin;3 - Adulte Mûr;3 - Médium-Aigu;4 - Excellente;3 - Très bonne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Leda;Voix Personnage secondaire;3 - Féminin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;1 - Moyenne;3 - Très bonne;2 - Intime (Narrateur);3 - Allante;1 - Lisse / Pure;3 - Avenant (Chaud);3 - Dynamique;
+Orus;Voix Personnage secondaire;2 - Masculin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;1 - Moyenne;2 - Bonne;3 - Direct (Parlé haut);2 - Posée;1 - Lisse / Pure;3 - Avenant (Chaud);2 - Posé;
+Puck;Voix Personnage principal;2 - Masculin;2 - Adolescent / Jeune Adulte;2 - Médium-Grave;4 - Excellente;2 - Bonne;3 - Direct (Parlé haut);3 - Allante;1 - Lisse / Pure;2 - Distant (Froid);2 - Posé;
+Pulcherrima;Voix Personnage principal;2 - Masculin;2 - Adolescent / Jeune Adulte;4 - Très Aigu (Soprano);4 - Excellente;3 - Très bonne;2 - Intime (Narrateur);2 - Posée;1 - Lisse / Pure;3 - Avenant (Chaud);3 - Dynamique;
+Rasalgethi;Voix Personnage secondaire;2 - Masculin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;2 - Bonne;3 - Très bonne;2 - Intime (Narrateur);2 - Posée;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Sadachbia;Voix Personnage secondaire;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;1 - Moyenne;2 - Bonne;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Sadaltager;Voix Personnage principal ou secondaire;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;3 - Très bonne;3 - Très bonne;2 - Intime (Narrateur);2 - Posée;3 - Voilée;2 - Distant (Froid);2 - Posé;
+Schedar;Voix Notes Comédien;2 - Masculin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;2 - Bonne;4 - Excellente;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;2 - Distant (Froid);3 - Dynamique;
+Sulafat;Voix Personnage principal ou secondaire;3 - Féminin;3 - Adulte Mûr;2 - Médium-Grave;3 - Très bonne;3 - Très bonne;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;
+Umbriel;Voix Indications Metteur en scène et Régie;2 - Masculin;3 - Adulte Mûr;2 - Médium-Grave;1 - Moyenne;4 - Excellente;2 - Intime (Narrateur);3 - Allante;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Vindemiatrix;Voix Personnage secondaire;3 - Féminin;3 - Adulte Mûr;1 - Très Grave (Basse);2 - Bonne;3 - Très bonne;3 - Direct (Parlé haut);2 - Posée;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Zephyr;Voix Personnage secondaire;3 - Féminin;2 - Adolescent / Jeune Adulte;2 - Médium-Grave;2 - Bonne;3 - Très bonne;2 - Intime (Narrateur);2 - Posée;2 - Satinée;3 - Avenant (Chaud);2 - Posé;
+Zubenelgenubi;Voix Personnage secondaire;2 - Masculin;2 - Adolescent / Jeune Adulte;3 - Médium-Aigu;1 - Moyenne;2 - Bonne;3 - Direct (Parlé haut);3 - Allante;2 - Satinée;3 - Avenant (Chaud);3 - Dynamique;

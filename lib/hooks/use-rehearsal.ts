@@ -767,8 +767,8 @@ export function useRehearsal({
                     const spokenText = stripStageDirections(line.text);
                     const estimatedDuration = Math.max(spokenText.length * 70, 2000);
 
-                    // FIX: Pass the expected text for EARLY EXIT and Play Context for phonetic fixes
-                    const transcript = await listen(estimatedDuration, spokenText, script.title);
+                    // FIX: Pass the expected text for EARLY EXIT, Play Context, and Threshold for phonetic fixes
+                    const transcript = await listen(estimatedDuration, spokenText, script.title, similarityThreshold);
                     if (!isMountedRef.current) return;
 
                     setLastTranscript(transcript);

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Emotion, segmentText, isVoiceCommand, applyPhoneticCorrections } from "../speech-utils";
 import { calculateSimilarity } from "../similarity";
+import { SpeechRecognition } from "@capacitor-community/speech-recognition";
+import { Capacitor } from "@capacitor/core";
 
 // Types for Web Speech API which might be missing in some environments
 interface Window {
@@ -14,7 +16,7 @@ export interface UseSpeechReturn {
     isListening: boolean;
     transcript: string;
     listeningError: string | null;
-    listen: (estimatedDurationMs?: number, expectedText?: string, playTitle?: string) => Promise<string>;
+    listen: (estimatedDurationMs?: number, expectedText?: string, playTitle?: string, similarityThreshold?: number) => Promise<string>;
     stop: () => void;
     speak: (text: string, voice?: SpeechSynthesisVoice, playbackRate?: number) => Promise<void>;
     pause: () => void;
@@ -104,12 +106,26 @@ export function useSpeech(): UseSpeechReturn {
             }
 
             // Initialize Recognition
-            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-            if (SpeechRecognition) {
-                recognitionRef.current = new SpeechRecognition();
-                recognitionRef.current.continuous = false; // We manage restarts manually if needed
-                recognitionRef.current.lang = 'fr-FR';
-                recognitionRef.current.maxAlternatives = 1;
+            const initializeWebRecognition = () => {
+                const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                if (SpeechRecognitionAPI) {
+                    recognitionRef.current = new SpeechRecognitionAPI();
+                    recognitionRef.current.continuous = false; // We manage restarts manually if needed
+                    recognitionRef.current.lang = 'fr-FR';
+                    recognitionRef.current.maxAlternatives = 1;
+                }
+            };
+
+            if (Capacitor.isNativePlatform()) {
+                // Check Capacitor Speech Recognition permissions early
+                SpeechRecognition.checkPermissions().then(({ speechRecognition }) => {
+                    if (speechRecognition !== 'granted') {
+                        SpeechRecognition.requestPermissions();
+                    }
+                }).catch(console.error);
+                // We will use the plugin directly in `listen`
+            } else {
+                initializeWebRecognition();
             }
         }
 
@@ -324,8 +340,113 @@ export function useSpeech(): UseSpeechReturn {
     // Track active recognition promise to prevent double-starts and race conditions
     const activeRecognitionRef = useRef<{ resolve: (s: string) => void; reject: (r: any) => void } | null>(null);
 
-    const listen = useCallback((estimatedDurationMs?: number, expectedText?: string, playTitle?: string): Promise<string> => {
-        return new Promise((resolve, reject) => {
+    const listen = useCallback((estimatedDurationMs?: number, expectedText?: string, playTitle?: string, similarityThreshold: number = 0.95): Promise<string> => {
+        return new Promise(async (resolve, reject) => {
+            if (Capacitor.isNativePlatform()) {
+                // Handle Native Capacitor Speech Recognition
+
+                // STOP any existing Web Recognition completely
+                if (recognitionRef.current) {
+                    try { recognitionRef.current.abort(); } catch (e) { }
+                }
+
+                // ATOMICITY: Force stop any existing recognition session
+                if (activeRecognitionRef.current) {
+                    const old = activeRecognitionRef.current;
+                    activeRecognitionRef.current = null;
+                    try { await SpeechRecognition.stop(); } catch (e) { }
+                    old.reject("Interrupted");
+                }
+
+                activeRecognitionRef.current = { resolve, reject };
+                setTranscript("");
+                setState("listening");
+
+                let finalTranscript = "";
+                let interimTranscript = "";
+                let silenceTimeout: NodeJS.Timeout | null = null;
+
+                let baseSilence = 1200;
+                if (expectedText && /[!?;:…]|\.\.\./.test(expectedText)) {
+                    baseSilence = 2500;
+                }
+                const proportionalTime = estimatedDurationMs
+                    ? Math.min(Math.max(estimatedDurationMs * 0.2, 0), 1200)
+                    : 500;
+                const END_SPEECH_SILENCE_DELAY = baseSilence + proportionalTime;
+                const INITIAL_SILENCE_DELAY = 5000;
+
+                const finalizeRecognition = async (result: string) => {
+                    if (silenceTimeout) clearTimeout(silenceTimeout);
+                    try { await SpeechRecognition.stop(); } catch (e) { }
+                    SpeechRecognition.removeAllListeners();
+                    setState("idle");
+                    if (activeRecognitionRef.current) {
+                        const r = activeRecognitionRef.current;
+                        activeRecognitionRef.current = null;
+                        r.resolve(result);
+                    }
+                };
+
+                const resetSilenceTimer = (hasSpeechStarted: boolean) => {
+                    if (silenceTimeout) clearTimeout(silenceTimeout);
+                    const delay = hasSpeechStarted ? END_SPEECH_SILENCE_DELAY : INITIAL_SILENCE_DELAY;
+                    silenceTimeout = setTimeout(() => {
+                        const result = (finalTranscript + " " + interimTranscript).trim();
+                        finalizeRecognition(result);
+                    }, delay);
+                };
+
+                // Register listeners BEFORE starting
+                SpeechRecognition.removeAllListeners(); // clear previous
+
+                SpeechRecognition.addListener('partialResults', (data: any) => {
+                    // In Capacitor plugin, matches are an array. Usually the first is best
+                    const transcripts = data.matches || [];
+                    if (transcripts.length > 0) {
+                        interimTranscript = transcripts[0];
+                        const combinedTranscript = (finalTranscript + " " + interimTranscript).trim();
+                        setTranscript(combinedTranscript);
+
+                        // --- EARLY EXIT CHECK ---
+                        if (expectedText && combinedTranscript.length > 5) {
+                            const similarity = calculateSimilarity(combinedTranscript, expectedText, playTitle);
+                            if (similarity >= similarityThreshold) {
+                                finalizeRecognition(combinedTranscript);
+                                return;
+                            }
+                        }
+
+                        if (isVoiceCommand(combinedTranscript)) {
+                            finalizeRecognition(combinedTranscript);
+                            return;
+                        }
+
+                        resetSilenceTimer(combinedTranscript.length > 0);
+                    }
+                });
+
+                try {
+                    cancelledRef.current = false;
+                    // Start Capacitor Speech Recog
+                    await SpeechRecognition.start({
+                        language: "fr-FR",
+                        maxResults: 2,
+                        prompt: "Lisez votre réplique",
+                        partialResults: true,
+                        popup: false // We use our own UI
+                    });
+                    resetSilenceTimer(false);
+                } catch (e) {
+                    console.error("Capacitor Speech Recog error:", e);
+                    reject("Failed to start native recognition");
+                    setState("error");
+                }
+
+                return; // END OF NATIVE BLOCK
+            }
+
+            // ================== WEB SPEECH API BLOCK ==================
             if (typeof window === "undefined" || !recognitionRef.current) {
                 reject("Speech recognition not supported");
                 return;
@@ -426,7 +547,7 @@ export function useSpeech(): UseSpeechReturn {
                     // PASS PLAY CONTEXT for improved matching (phonetic/accents)
                     const similarity = calculateSimilarity(combinedTranscript, expectedText, playTitle);
                     // Early exit - high similarity match
-                    if (similarity > 0.95) {
+                    if (similarity >= similarityThreshold) {
                         finalizeRecognition(combinedTranscript);
                         return;
                     }
@@ -572,6 +693,14 @@ export function useSpeech(): UseSpeechReturn {
 
     const stop = useCallback(() => {
         cancelledRef.current = true;  // Signal to stop the loop
+
+        // Stop Capacitor Native Speech Recognition
+        if (Capacitor.isNativePlatform()) {
+            try {
+                SpeechRecognition.stop();
+                SpeechRecognition.removeAllListeners();
+            } catch (e) { }
+        }
 
         // Cancel TTS
         if (synthRef.current) {
