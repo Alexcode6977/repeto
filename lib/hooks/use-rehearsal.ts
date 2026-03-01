@@ -70,6 +70,9 @@ export function useRehearsal({
     const [isPlayingRecording, setIsPlayingRecording] = useState(false);
     const audioQueueRef = useRef<AudioQueue>(new AudioQueue());
     const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+    // Execution generation counter: incremented on every skip/next/previous/retry.
+    // Each executeStep captures this value and aborts if it has changed (user moved on).
+    const executionGenRef = useRef(0);
     const perfRef = useRef<{ pending: { action: "start" | "next" | "previous" | "retry"; ts: number } | null }>({
         pending: null
     });
@@ -484,6 +487,7 @@ export function useRehearsal({
         perfRef.current.pending = { action: "next", ts: performance.now() };
         transitionLockRef.current = true;
         manualSkipRef.current = true;
+        executionGenRef.current++; // Invalidate any in-flight executeStep
         stopAll();
         setStatus("setup");
         retryCountRef.current = 0; // Reset retries
@@ -516,6 +520,7 @@ export function useRehearsal({
         perfRef.current.pending = { action: "previous", ts: performance.now() };
         transitionLockRef.current = true;
         manualSkipRef.current = true;
+        executionGenRef.current++; // Invalidate any in-flight executeStep
         stopAll();
         setStatus("setup");
         retryCountRef.current = 0;
@@ -551,6 +556,7 @@ export function useRehearsal({
         perfRef.current.pending = { action: "retry", ts: performance.now() };
         transitionLockRef.current = true;
         manualSkipRef.current = true;
+        executionGenRef.current++; // Invalidate any in-flight executeStep
         stopAll();
         setStatus("setup");
         setFeedback(null);
@@ -595,6 +601,11 @@ export function useRehearsal({
 
         const executeStep = async () => {
             if (!isMountedRef.current) return;
+            // Capture the current execution generation. If it changes during async
+            // operations, it means the user skipped — we must abort immediately.
+            const myGen = executionGenRef.current;
+            const isStale = () => executionGenRef.current !== myGen;
+
             const line = script.lines[currentLineIndex];
             if (!line) {
                 setStatus("finished");
@@ -641,7 +652,7 @@ export function useRehearsal({
                     setIsPlayingRecording(true);
                     await playAudioFile(recording.audio_url);
                     setIsPlayingRecording(false);
-                    if (!isMountedRef.current) return;
+                    if (!isMountedRef.current || isStale()) return;
                     if (statusRef.current === "playing_other" && !manualSkipRef.current) next();
                     return;
                 }
@@ -653,7 +664,8 @@ export function useRehearsal({
                         line,
                         showStageDirections,
                         async (textToSpeak, isDirection, segmentIndex = 0) => {
-                            if (!isMountedRef.current || manualSkipRef.current) return;
+                            // ABORT GUARD: check generation before every segment
+                            if (!isMountedRef.current || manualSkipRef.current || isStale()) return;
 
                             const resolvedLineChar = resolveLineCharacter(script, line.character);
                             // Determine Voice (Narrator vs Character)
@@ -679,11 +691,13 @@ export function useRehearsal({
 
                                 let audioSuccess = false;
                                 if (audioUrl) {
+                                    // Re-check before starting playback
+                                    if (isStale()) return;
                                     audioSuccess = await playAudioFile(audioUrl);
                                 }
 
                                 // Fallback to browser TTS only (no live API call)
-                                if (!audioSuccess) {
+                                if (!audioSuccess && !isStale()) {
                                     await speak(
                                         textToSpeak,
                                         assignedVoice,
@@ -691,7 +705,7 @@ export function useRehearsal({
                                         line.id
                                     );
                                 }
-                            } else {
+                            } else if (!isStale()) {
                                 await speak(
                                     textToSpeak,
                                     assignedVoice,
@@ -703,7 +717,7 @@ export function useRehearsal({
                         }
                     );
 
-                    if (!isMountedRef.current) return;
+                    if (!isMountedRef.current || isStale()) return;
                     if (statusRef.current === "playing_other" && !manualSkipRef.current) {
                         next();
                     }

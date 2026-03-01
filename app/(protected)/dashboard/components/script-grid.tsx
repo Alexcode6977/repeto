@@ -172,6 +172,7 @@ export function ScriptGrid({
                         <ScriptRow
                             key={s.id}
                             script={s}
+                            userEmail={userEmail}
                             onLoad={onLoad}
                             onDelete={() => onDelete(s.id)}
                             onRename={onRename}

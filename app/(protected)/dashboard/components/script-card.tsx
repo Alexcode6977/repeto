@@ -242,6 +242,18 @@ export function ScriptCard({
                         <Button
                             variant="ghost"
                             size="icon"
+                            className={`h-9 w-9 rounded-full ${script.is_public ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-500/5' : 'text-muted-foreground hover:text-amber-500 hover:bg-amber-500/5'}`}
+                            onClick={handleToggle}
+                            disabled={isToggling}
+                        >
+                            {script.is_public ? <Lock className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                        </Button>
+                    )}
+
+                    {(script.is_owner || isAdminUser) && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-9 w-9 text-muted-foreground hover:text-red-500 hover:bg-red-500/5 rounded-full"
                             onClick={handleDelete}
                             disabled={isDeleting}
@@ -281,6 +293,12 @@ export function ScriptCard({
                                 showLabel
                             />
                         </DropdownMenuItem>
+                        {(script.is_owner || isAdminUser) && (
+                            <DropdownMenuItem onClick={handleToggle} disabled={isToggling || isVocalizing}>
+                                {script.is_public ? <Lock className="w-4 h-4 mr-2" /> : <Globe className="w-4 h-4 mr-2" />}
+                                {script.is_public ? "Rendre Privé" : "Rendre Public"}
+                            </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                             onClick={handleDelete}
                             disabled={isDeleting}

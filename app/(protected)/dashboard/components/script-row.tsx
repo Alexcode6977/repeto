@@ -12,11 +12,13 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
+import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 
 
 
 interface ScriptRowProps {
     script: ScriptMetadata;
+    userEmail?: string | null;
     onLoad: (script: ScriptMetadata) => void;
     onDelete: (id: string) => void;
     onRename: (id: string, currentTitle: string) => void;
@@ -26,12 +28,14 @@ interface ScriptRowProps {
 
 export const ScriptRow = memo(function ScriptRow({
     script: s,
+    userEmail,
     onLoad,
     onDelete,
     onRename,
     onTogglePublic,
     onShowStats,
 }: ScriptRowProps) {
+    const isAdminUser = isPlatformAdminEmail(userEmail);
     return (
         <div
             onClick={() => onLoad(s)}
@@ -73,7 +77,7 @@ export const ScriptRow = memo(function ScriptRow({
                         <DropdownMenuItem onClick={() => onShowStats?.(s)}>
                             Statistiques
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onTogglePublic(s)} disabled={!s.is_owner}>
+                        <DropdownMenuItem onClick={() => onTogglePublic(s)} disabled={!s.is_owner && !isAdminUser}>
                             {s.is_public ? "Rendre Privé" : "Rendre Public"}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
