@@ -2174,7 +2174,7 @@ export async function importFromCatalog(sourceScriptId: string): Promise<{ succe
     // 1. Fetch the source script
     const { data: sourceScript, error: fetchError } = await supabase
         .from("scripts")
-        .select("title, content")
+        .select("title, content, vocalization_status, vocalization_progress")
         .eq("id", sourceScriptId)
         .eq("is_public", true)
         .single();
@@ -2190,8 +2190,10 @@ export async function importFromCatalog(sourceScriptId: string): Promise<{ succe
         .insert({
             user_id: user.id,
             title: sourceScript.title,
-            content: sourceScript.content,
+            content: { ...(sourceScript.content as object), original_script_id: sourceScriptId },
             is_public: false, // Personal copy is private
+            vocalization_status: sourceScript.vocalization_status || "completed",
+            vocalization_progress: sourceScript.vocalization_progress || 100
         })
         .select("id")
         .single();

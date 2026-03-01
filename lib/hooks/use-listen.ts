@@ -162,10 +162,11 @@ export function useListen({
             4,
             sourceType,
             sourceId,
+            script.original_script_id,
             troupeId,
             showStageDirections ?? true
         );
-    }, [currentLineIndex, script.lines, sourceType, playId, scriptId, troupeId, showStageDirections, ttsProvider, status]);
+    }, [currentLineIndex, script.lines, sourceType, playId, scriptId, troupeId, showStageDirections, ttsProvider, status, script.original_script_id]);
 
     // Load recordings
     useEffect(() => {
@@ -382,25 +383,26 @@ export function useListen({
                         try {
                             const resolvedLineChar = resolveLineCharacter(script, line.character);
                             const segments = parseSegments(line.text);
-                            const urlsToPlay: string[] = [];
+                            const urlsToPlay: string[][] = [];
 
                             for (let i = 0; i < segments.length; i++) {
                                 const segment = segments[i];
                                 if (!segment.text.trim()) continue;
                                 if (!(showStageDirections ?? true) && segment.isDirection) continue;
 
-                                const url = audioQueueRef.current.getUrl(
+                                const fallbacks = audioQueueRef.current.getUrls(
                                     segment.text,
                                     segment.isDirection ? "didascalies" : resolvedLineChar,
                                     currentLineIndex,
                                     sourceType,
                                     sourceId,
+                                    script.original_script_id,
                                     troupeId,
                                     segment.isDirection,
                                     line.id,
                                     i
                                 );
-                                if (url) urlsToPlay.push(url);
+                                if (fallbacks && fallbacks.length > 0) urlsToPlay.push(fallbacks);
                             }
 
                             if (urlsToPlay.length > 0) {

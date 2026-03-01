@@ -29,27 +29,32 @@ export class AudioQueue {
     }
 
     /**
-     * Get URL for a specific segment. Only returns direct Supabase URLs.
-     * Returns null if lineId/segmentIndex are missing (audio not available).
+     * Get URLs for a specific segment. Returns array of fallback URLs.
+     * Starts with direct private URL, then falls back to original public URL.
      */
-    public getUrl(
+    public getUrls(
         _text: string,
         _character: string,
         _lineIndex: number,
         _sourceType: SourceType,
         sourceId: string,
+        originalScriptId?: string,
         _troupeId?: string,
         _isDirection: boolean = false,
         lineId?: string,
         segmentIndex?: number
-    ): string | null {
+    ): string[] {
         if (lineId && segmentIndex !== undefined) {
-            return this.getDirectUrl(sourceId, lineId, segmentIndex);
+            const urls = [this.getDirectUrl(sourceId, lineId, segmentIndex)];
+            if (originalScriptId && originalScriptId !== sourceId) {
+                urls.push(this.getDirectUrl(originalScriptId, lineId, segmentIndex));
+            }
+            return urls;
         }
 
         // No lineId = audio not available (old script without line IDs)
         console.warn(`[AudioQueue] No lineId for line index ${_lineIndex} — audio not available. Re-vocalize this script.`);
-        return null;
+        return [];
     }
 
     /**
@@ -60,9 +65,10 @@ export class AudioQueue {
         startingIndex: number,
         count: number,
         sourceId: string,
+        originalScriptId: string | undefined,
         showDirections: boolean
-    ): string[] {
-        const urls: string[] = [];
+    ): string[][] {
+        const urlsList: string[][] = [];
 
         for (let i = 0; i < count; i++) {
             const index = startingIndex + i;
@@ -77,18 +83,22 @@ export class AudioQueue {
                 // When directions are hidden, vocalize merges all dialogue into segment 0
                 const hasDialogue = segments.some(s => !s.isDirection && s.text.trim());
                 if (hasDialogue) {
-                    urls.push(this.getDirectUrl(sourceId, line.id, 0));
+                    const fallbacks = [this.getDirectUrl(sourceId, line.id, 0)];
+                    if (originalScriptId && originalScriptId !== sourceId) fallbacks.push(this.getDirectUrl(originalScriptId, line.id, 0));
+                    urlsList.push(fallbacks);
                 }
             } else {
                 // When directions are shown, each segment has its own file
                 for (let segIdx = 0; segIdx < segments.length; segIdx++) {
                     if (!segments[segIdx].text.trim()) continue;
-                    urls.push(this.getDirectUrl(sourceId, line.id, segIdx));
+                    const fallbacks = [this.getDirectUrl(sourceId, line.id, segIdx)];
+                    if (originalScriptId && originalScriptId !== sourceId) fallbacks.push(this.getDirectUrl(originalScriptId, line.id, segIdx));
+                    urlsList.push(fallbacks);
                 }
             }
         }
 
-        return urls;
+        return urlsList;
     }
 
     /**
@@ -100,11 +110,12 @@ export class AudioQueue {
         count: number,
         _sourceType: SourceType,
         sourceId: string,
+        originalScriptId: string | undefined,
         _troupeId: string | undefined,
         showDirections: boolean
     ) {
-        const urls = this.buildPreloadUrls(lines, startingIndex, count, sourceId, showDirections);
-        this.engine.preloadBuffers(urls).catch(console.error);
+        const urlsList = this.buildPreloadUrls(lines, startingIndex, count, sourceId, originalScriptId, showDirections);
+        this.engine.preloadBuffers(urlsList).catch(console.error);
     }
 
     /**
@@ -116,20 +127,21 @@ export class AudioQueue {
         count: number,
         _sourceType: SourceType,
         sourceId: string,
+        originalScriptId: string | undefined,
         _troupeId: string | undefined,
         showDirections: boolean,
         onProgress?: PreloadProgressCallback
     ): Promise<{ total: number; completed: number }> {
-        const urls = this.buildPreloadUrls(lines, startingIndex, count, sourceId, showDirections);
-        const total = urls.length;
+        const urlsList = this.buildPreloadUrls(lines, startingIndex, count, sourceId, originalScriptId, showDirections);
+        const total = urlsList.length;
 
         if (onProgress) onProgress(0, total);
         if (total === 0) return { total: 0, completed: 0 };
 
         let completed = 0;
-        const promises = urls.map(async (url) => {
+        const promises = urlsList.map(async (urls) => {
             try {
-                await this.engine.loadAudio(url);
+                await this.engine.loadAudio(urls);
             } finally {
                 completed++;
                 if (onProgress) onProgress(completed, total);

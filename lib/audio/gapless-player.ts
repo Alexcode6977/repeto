@@ -45,50 +45,57 @@ export class RehearsalAudioEngine {
     }
 
     /**
-     * Preload and Decode audio data with retry logic
+     * Preload and Decode audio data with retry logic and fallback URLs
      */
-    public async loadAudio(url: string, retryCount: number = 2): Promise<AudioBuffer | null> {
-        if (this.bufferCache.has(url)) return this.bufferCache.get(url)!;
+    public async loadAudio(urlOrUrls: string | string[], retryCount: number = 2): Promise<AudioBuffer | null> {
+        const urls = Array.isArray(urlOrUrls) ? urlOrUrls : [urlOrUrls];
 
-        for (let attempt = 0; attempt <= retryCount; attempt++) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+        for (const url of urls) {
+            if (this.bufferCache.has(url)) return this.bufferCache.get(url)!;
 
-                const arrayBuffer = await response.arrayBuffer();
-                if (!this.audioContext) return null;
-                if (arrayBuffer.byteLength === 0) {
-                    throw new Error("Empty audio buffer received");
-                }
+            for (let attempt = 0; attempt <= retryCount; attempt++) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        if (response.status === 404) throw new Error("404");
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
 
-                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-                this.bufferCache.set(url, audioBuffer);
-                return audioBuffer;
-            } catch (e) {
-                const isLastAttempt = attempt === retryCount;
-                if (isLastAttempt) {
-                    console.error(`[RehearsalAudioEngine] Load failed after ${retryCount + 1} attempts:`, e);
-                    return null;
-                } else {
-                    console.warn(`[RehearsalAudioEngine] Load attempt ${attempt + 1} failed, retrying...`, e);
-                    await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+                    const arrayBuffer = await response.arrayBuffer();
+                    if (!this.audioContext) return null;
+                    if (arrayBuffer.byteLength === 0) {
+                        throw new Error("Empty audio buffer received");
+                    }
+
+                    const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                    this.bufferCache.set(url, audioBuffer);
+                    return audioBuffer;
+                } catch (e) {
+                    if (e instanceof Error && e.message === "404") {
+                        break; // Stop retrying this URL instantly, move to next fallback
+                    }
+                    const isLastAttempt = attempt === retryCount;
+                    if (isLastAttempt) {
+                        console.error(`[RehearsalAudioEngine] Load failed for ${url} after ${retryCount + 1} attempts:`, e);
+                    } else {
+                        console.warn(`[RehearsalAudioEngine] Load attempt ${attempt + 1} for ${url} failed, retrying...`, e);
+                        await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
+                    }
                 }
             }
         }
         return null;
     }
 
-    public async preloadBuffers(urls: string[]): Promise<void> {
-        await Promise.all(urls.map(url => this.loadAudio(url)));
+    public async preloadBuffers(urlsList: (string | string[])[]): Promise<void> {
+        await Promise.all(urlsList.map(urls => this.loadAudio(urls)));
     }
 
     /**
      * Play a sequence of segments gaplessly.
      * @returns A promise that resolves when the ENTIRE sequence is finished (or aborts).
      */
-    public async playSegments(urls: string[], previousText: string = "", playbackRate: number = 1.0, signal?: AbortSignal): Promise<void> {
+    public async playSegments(segmentsUrls: (string | string[])[], previousText: string = "", playbackRate: number = 1.0, signal?: AbortSignal): Promise<void> {
         if (!this.audioContext) return;
         await this.resume();
 
@@ -127,11 +134,11 @@ export class RehearsalAudioEngine {
                 this.nextStartTime = this.audioContext!.currentTime + 0.05; // Fresh start
             }
 
-            for (let i = 0; i < urls.length; i++) {
+            for (let i = 0; i < segmentsUrls.length; i++) {
                 if (signal?.aborted) return; // Exit loop if aborted during load
 
-                const url = urls[i];
-                const buffer = await this.loadAudio(url);
+                const segmentUrls = segmentsUrls[i];
+                const buffer = await this.loadAudio(segmentUrls);
                 if (!buffer) continue;
 
                 if (signal?.aborted) return;

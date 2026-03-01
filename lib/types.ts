@@ -37,6 +37,7 @@ export interface ParsedScript {
     scenes: ScriptScene[];
     schema_version?: number;
     mappings?: ScriptMappings;
+    original_script_id?: string;
 }
 
 export interface ScriptMetadata {

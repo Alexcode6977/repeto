@@ -334,6 +334,7 @@ export function useRehearsal({
             count,
             sourceType,
             sourceId,
+            script.original_script_id,
             troupeId,
             showStageDirections
         );
@@ -357,6 +358,7 @@ export function useRehearsal({
             30,
             sourceType,
             sourceId,
+            script.original_script_id,
             troupeId,
             showStageDirections,
             onProgress
@@ -670,7 +672,7 @@ export function useRehearsal({
                         if (sourceId) {
                             // Extract valid URLs for all segments in the line
                             const segments = parseSegments(line.text);
-                            const urlsToPlay: string[] = [];
+                            const urlsToPlay: string[][] = [];
                             const resolvedLineChar = resolveLineCharacter(script, line.character);
 
                             for (let i = 0; i < segments.length; i++) {
@@ -678,19 +680,20 @@ export function useRehearsal({
                                 if (!segment.text.trim()) continue;
                                 if (!showStageDirections && segment.isDirection) continue;
 
-                                const url = audioQueueRef.current.getUrl(
+                                const fallbacks = audioQueueRef.current.getUrls(
                                     segment.text,
                                     segment.isDirection ? "didascalies" : resolvedLineChar,
                                     currentLineIndex,
                                     sourceType,
                                     sourceId,
+                                    script.original_script_id,
                                     troupeId,
                                     segment.isDirection,
                                     line.id,
                                     i
                                 );
 
-                                if (url) urlsToPlay.push(url);
+                                if (fallbacks && fallbacks.length > 0) urlsToPlay.push(fallbacks);
                             }
 
                             if (urlsToPlay.length > 0) {
