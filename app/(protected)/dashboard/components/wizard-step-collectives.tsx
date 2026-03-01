@@ -9,11 +9,25 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
-    ThirdCollectiveCandidate,
-    ThirdSceneWindow,
     isExplicitNamedCollectiveLabel,
     normalizeImportLabel
 } from "./import-wizard-types";
+
+export interface CollectiveCandidate {
+    id: string;
+    label: string;
+    scope: "global" | "scene";
+    sceneOrder?: number;
+    sceneOrders: number[];
+    count: number;
+}
+
+export interface SceneWindow {
+    order: number;
+    title: string;
+    start: number;
+    end: number;
+}
 
 // Types matching the state in import-wizard.tsx
 export interface CollectiveContextData {
@@ -28,13 +42,13 @@ export interface CollectiveContextData {
 }
 
 export interface WizardStepCollectivesProps {
-    candidates: ThirdCollectiveCandidate[];
+    candidates: CollectiveCandidate[];
     scopeById: Record<string, "global" | "scene">;
     setScopeById: React.Dispatch<React.SetStateAction<Record<string, "global" | "scene">>>;
     sceneOrderById: Record<string, number>;
     setSceneOrderById: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     membersById: Record<string, string[]>;
-    sceneWindows: ThirdSceneWindow[];
+    sceneWindows: SceneWindow[];
     canonicalCharacters: string[];
     contextCandidateId: string | null;
     setContextCandidateId: React.Dispatch<React.SetStateAction<string | null>>;

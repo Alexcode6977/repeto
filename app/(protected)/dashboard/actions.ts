@@ -2,7 +2,7 @@
 
 import { parseScript, ParserOptions, ParseResult } from "@/lib/parser";
 import { ParsedScript, ScriptMappings } from "@/lib/types";
-import { formatScriptAsCanonicalText, parseScriptV3 } from "@/lib/import-v3";
+
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
@@ -76,6 +76,32 @@ REGLES DE NORMALISATION
 CAS AMBIGU
 - Si tu hesites entre personnage et didascalie, privilegie didascalie ( ... ) plutot qu'un faux personnage.
 
+EXEMPLES
+
+Entree brute:
+ARNOLPHE. – Vous allez... Il la regarde. Non.
+Agnès
+Qu'est-ce ? 12
+
+Sortie attendue:
+[ARNOLPHE]
+Vous allez... (Il la regarde.) Non.
+
+[AGNÈS]
+Qu'est-ce ?
+
+Entree brute:
+SCENE III ELMIRE, TARTUFFE
+TARTUFFE, apercevant Elmire
+Que le Ciel a jamais par sa
+toute bonté,
+
+Sortie attendue:
+SCÈNE III
+
+[TARTUFFE]
+(Apercevant Elmire.) Que le Ciel à jamais par sa toute bonté,
+
 IMPORTANT
 - Retourner UNIQUEMENT le script nettoye final.
 - Ne retourner aucune explication, aucun commentaire, aucun markdown.`;
@@ -95,15 +121,15 @@ function parseModelList(value: string | undefined): string[] {
 }
 
 const AI_IMPORT_PROFILE = (process.env.OPENAI_IMPORT_PROFILE || "eco").toLowerCase();
-const AI_CLEANING_PRIMARY_MODEL = process.env.OPENAI_IMPORT_CLEANING_MODEL || (AI_IMPORT_PROFILE === "max" ? "gpt-5-pro" : "gpt-5-mini");
+const AI_CLEANING_PRIMARY_MODEL = process.env.OPENAI_IMPORT_CLEANING_MODEL || "gpt-5-pro";
 const AI_CLEANING_FALLBACK_MODELS = parseModelList(process.env.OPENAI_IMPORT_CLEANING_FALLBACK_MODELS);
 const AI_DIAGNOSTICS_PRIMARY_MODEL = process.env.OPENAI_IMPORT_DIAGNOSTICS_MODEL || (AI_IMPORT_PROFILE === "max" ? "gpt-5-pro" : "gpt-5-mini");
 const AI_DIAGNOSTICS_FALLBACK_MODELS = parseModelList(process.env.OPENAI_IMPORT_DIAGNOSTICS_FALLBACK_MODELS);
 
-const AI_CLEANING_MAX_INPUT_CHARS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_MAX_INPUT_CHARS, AI_IMPORT_PROFILE === "max" ? 110000 : 65000);
-const AI_CLEANING_MAX_OUTPUT_TOKENS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_MAX_OUTPUT_TOKENS, AI_IMPORT_PROFILE === "max" ? 16000 : 7000);
+const AI_CLEANING_MAX_INPUT_CHARS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_MAX_INPUT_CHARS, AI_IMPORT_PROFILE === "max" ? 110000 : 100000);
+const AI_CLEANING_MAX_OUTPUT_TOKENS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_MAX_OUTPUT_TOKENS, AI_IMPORT_PROFILE === "max" ? 16000 : 14000);
 const AI_DIAGNOSTICS_MAX_OUTPUT_TOKENS = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_MAX_OUTPUT_TOKENS, AI_IMPORT_PROFILE === "max" ? 7000 : 2200);
-const AI_CLEANING_TIMEOUT_MS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_TIMEOUT_MS, AI_IMPORT_PROFILE === "max" ? 240000 : 120000);
+const AI_CLEANING_TIMEOUT_MS = parsePositiveInt(process.env.OPENAI_IMPORT_CLEANING_TIMEOUT_MS, AI_IMPORT_PROFILE === "max" ? 240000 : 200000);
 const AI_DIAGNOSTICS_TIMEOUT_MS = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_TIMEOUT_MS, AI_IMPORT_PROFILE === "max" ? 180000 : 90000);
 
 const DIAGNOSTICS_MAX_LINES = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_MAX_LINES, AI_IMPORT_PROFILE === "max" ? 2200 : 1400);
@@ -164,23 +190,7 @@ export interface ImportValidationSubmission {
     voiceAssignments?: Array<{ characterName: string, voiceId: string, justification: string }>;
 }
 
-export interface ThirdImportSceneSummary {
-    sceneIndex: number;
-    title: string;
-    startLine: number;
-    endLine: number;
-    sampleDialogue: string[];
-}
 
-export interface ThirdImportPreparation {
-    parsedScript: ParsedScript;
-    formattedScriptText: string;
-    unresolvedLabels: string[];
-    rawSpeakerLabels: string[];
-    sceneSummaries: ThirdImportSceneSummary[];
-    /** Maps scene order (0-based) to PDF page number (1-based) */
-    scenePageMap: Record<number, number>;
-}
 
 function extractResponsesOutputText(response: unknown): string {
     const payload = response as { output_text?: unknown; output?: unknown };
@@ -1016,247 +1026,85 @@ IMPORTANT
 Ne renvoie que du JSON valide.`;
 }
 
-interface PdfExtractionResult {
-    text: string;
-    /** Maps text line number (0-based) to PDF page number (1-based) */
-    linePageMap: number[];
-}
 
-async function extractPdfTextForImportV3(buffer: Buffer): Promise<PdfExtractionResult> {
-    const pdf = require("pdf-parse/lib/pdf-parse.js");
-
-    const standardResult = await pdf(buffer);
-    const standardText = standardResult.text || "";
-    const hasPersoLines = /^PERSO\s+/im.test(standardText);
-    const hasCorruption = /[a-z][A-Z][a-z]/.test(standardText);
-
-    if (hasPersoLines && !hasCorruption) {
-        // For standard format, build a simple page map (all page 1)
-        const lineCount = standardText.split("\n").length;
-        return { text: standardText, linePageMap: Array(lineCount).fill(1) };
-    }
-
-    let allItems: { str: string; x: number; y: number; w: number; page: number }[] = [];
-    let currentPage = 0;
-
-    const render_page = (pageData: any) => {
-        currentPage++;
-        const thisPage = currentPage;
-        const render_options = {
-            normalizeWhitespace: false,
-            disableCombineTextItems: false
-        };
-        return pageData.getTextContent(render_options).then((textContent: any) => {
-            for (const item of textContent.items) {
-                const str = item.str;
-                const x = item.transform[4];
-                const y = item.transform[5];
-                const w = item.width;
-
-                if (str.trim().length === 0 && w < 2) continue;
-                allItems.push({ str, x, y, w, page: thisPage });
-            }
-            return "";
-        });
-    };
-
-    await pdf(buffer, { pagerender: render_page });
-
-    let cleanRawText = "";
-    const linePageMap: number[] = [];
-    let lastY = -1;
-    let lastX = -1;
-    let lastWidth = 0;
-    let currentLinePage = 1;
-
-    // First line
-    if (allItems.length > 0) {
-        currentLinePage = allItems[0].page;
-        linePageMap.push(currentLinePage);
-    }
-
-    for (const item of allItems) {
-        const isNewLine = lastY !== -1 && Math.abs(item.y - lastY) > 6;
-
-        if (isNewLine) {
-            cleanRawText += "\n";
-            currentLinePage = item.page;
-            linePageMap.push(currentLinePage);
-            lastX = -1;
-        } else if (lastX !== -1) {
-            const gap = item.x - (lastX + lastWidth);
-            if (gap > 2) {
-                cleanRawText += " ";
-            }
-        }
-
-        cleanRawText += item.str;
-
-        lastY = item.y;
-        lastX = item.x;
-        lastWidth = item.w;
-    }
-
-    return { text: cleanRawText, linePageMap };
-}
-
-function applyPdfTextRepairs(rawText: string): string {
-    let cleanRawText = rawText;
-
-    const ligatureMap: Record<string, string> = {
-        '\uFB00': 'ff', '\uFB01': 'fi', '\uFB02': 'fl', '\uFB03': 'ffi', '\uFB04': 'ffl',
-        '\uFB05': 'st', '\uFB06': 'st', '\u0132': 'IJ', '\u0133': 'ij',
-        '\u0152': 'OE', '\u0153': 'oe', '\u00C6': 'AE', '\u00E6': 'ae',
-    };
-
-    for (const [ligature, replacement] of Object.entries(ligatureMap)) {
-        cleanRawText = cleanRawText.replace(new RegExp(ligature, 'g'), replacement);
-    }
-
-    // OCR fraction characters misused as apostrophes (common in bad PDF encoding)
-    // e.g. "d¼ élégance" → "d'élégance", "1½ Amphitrite" → "l'Amphitrite"
-    const ocrFractionFixes: [RegExp, string][] = [
-        [/(\w)[¼½¾]\s*/g, "$1'"],  // Fraction chars used as apostrophe
-        [/1½\s*/g, "l'"],           // Specific: "1½" is OCR of "l'"
-        [/1¼\s*/g, "l'"],           // Specific: "1¼" is OCR of "l'"
-    ];
-    for (const [pattern, replacement] of ocrFractionFixes) {
-        cleanRawText = cleanRawText.replace(pattern, replacement);
-    }
-
-    // Normalize Unicode apostrophes and quotes
-    cleanRawText = cleanRawText.replace(/[''ʼ`´]/g, "'");
-    cleanRawText = cleanRawText.replace(/[«»""„]/g, '"');
-    cleanRawText = cleanRawText.replace(/…/g, '...');
-
-    // Clean invisible/whitespace characters
-    cleanRawText = cleanRawText.replace(/\u00A0/g, ' ');   // Non-breaking space
-    cleanRawText = cleanRawText.replace(/\u200B/g, '');     // Zero-width space
-    cleanRawText = cleanRawText.replace(/\u200C/g, '');     // Zero-width non-joiner
-    cleanRawText = cleanRawText.replace(/\u200D/g, '');     // Zero-width joiner
-    cleanRawText = cleanRawText.replace(/\uFEFF/g, '');     // BOM
-
-    const fontCorruptionFixes: [RegExp, string][] = [
-        [/aS([aeioulr])/g, 'aff$1'],
-        [/eS([aeiou])/g, 'eff$1'],
-        [/oS([aeiou])/g, 'off$1'],
-        [/iS([aeiou])/g, 'iff$1'],
-        [/uS([aeiou])/g, 'uff$1'],
-    ];
-
-    for (const [pattern, replacement] of fontCorruptionFixes) {
-        cleanRawText = cleanRawText.replace(pattern, replacement);
-    }
-
-    return cleanRawText;
-}
-
-function buildThirdImportSceneSummaries(script: ParsedScript): ThirdImportSceneSummary[] {
-    const scenes = [...(script.scenes || [])].sort((a, b) => a.index - b.index);
-    return scenes.map((scene, idx) => {
-        const startLine = scene.index;
-        const nextScene = scenes[idx + 1];
-        const endLine = nextScene ? nextScene.index : (script.lines?.length || 0);
-        const sampleDialogue = (script.lines || [])
-            .slice(startLine, endLine)
-            .filter((line) => line.type === "dialogue")
-            .slice(0, 3)
-            .map((line) => `${line.character}: ${line.text}`);
-
-        return {
-            sceneIndex: idx,
-            title: scene.title || `Scène ${idx + 1}`,
-            startLine,
-            endLine,
-            sampleDialogue,
-        };
-    });
-}
-
-export async function prepareThirdImportAction(
-    formData: FormData
-): Promise<ThirdImportPreparation | { error: string }> {
-    const file = formData.get("file") as File;
-    const validation = validatePdfFile(file ?? null);
-    if (!validation.ok) return { error: validation.error };
-
-    try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        if (!user) {
-            return { error: "Veuillez vous connecter pour importer un PDF." };
-        }
-
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const extraction = await extractPdfTextForImportV3(buffer);
-        const repairedText = applyPdfTextRepairs(extraction.text);
-        const parsed = parseScriptV3(repairedText);
-
-        const parsedScript: ParsedScript = {
-            ...parsed,
-            title: file.name.replace(/\.pdf$/i, ""),
-        };
-
-        // Build scene → PDF page mapping
-        // For each scene, find which PDF page its starting text line corresponds to
-        const scenePageMap: Record<number, number> = {};
-        const scenes = [...(parsedScript.scenes || [])].sort((a, b) => a.index - b.index);
-        const rawLines = repairedText.split("\n");
-
-        for (let sceneOrder = 0; sceneOrder < scenes.length; sceneOrder++) {
-            const scene = scenes[sceneOrder];
-            // Scene title text to search for in raw lines
-            const sceneTitle = (scene.title || "").trim();
-            let bestPage = 1;
-
-            if (sceneTitle) {
-                // Search raw lines near the scene boundary for the title text
-                const titleUpper = sceneTitle.toUpperCase();
-                for (let i = 0; i < rawLines.length; i++) {
-                    if (rawLines[i].toUpperCase().includes(titleUpper)) {
-                        bestPage = extraction.linePageMap[i] ?? 1;
-                        break;
-                    }
-                }
-            }
-
-            // Fallback: use the page of the scene's first parsed line
-            if (bestPage === 1 && scene.index > 0 && scene.index < rawLines.length) {
-                bestPage = extraction.linePageMap[Math.min(scene.index, extraction.linePageMap.length - 1)] ?? 1;
-            }
-
-            scenePageMap[sceneOrder] = bestPage;
-        }
-
-        return {
-            parsedScript,
-            formattedScriptText: formatScriptAsCanonicalText(parsedScript),
-            unresolvedLabels: parsed.unresolvedLabels || [],
-            rawSpeakerLabels: parsed.rawSpeakerLabels || [],
-            sceneSummaries: buildThirdImportSceneSummaries(parsedScript),
-            scenePageMap,
-        };
-    } catch (error: unknown) {
-        console.error("[Import V3] Error:", error);
-        return { error: getErrorMessage(error) || "Erreur lors de la préparation de l'import V3." };
-    }
-}
 
 /**
  * Clean and restructure a messy script using AI.
  * Returns canonical text expected by parseScript ([CHAR], dialogue, (didascalies), ACTE/SCENE)
  */
+/**
+ * Split text into chunks of approximately `maxChars` characters,
+ * breaking at paragraph boundaries (double newline) with overlap.
+ */
+function splitTextIntoChunks(text: string, maxChars: number, overlapChars: number = 500): string[] {
+    if (text.length <= maxChars) return [text];
+
+    const chunks: string[] = [];
+    let start = 0;
+
+    while (start < text.length) {
+        let end = Math.min(start + maxChars, text.length);
+
+        // Try to break at a paragraph boundary (double newline) near the end
+        if (end < text.length) {
+            const searchStart = Math.max(start + maxChars * 0.7, start); // Look in the last 30% of the chunk
+            const searchRegion = text.substring(searchStart, end);
+            const lastBreak = searchRegion.lastIndexOf("\n\n");
+            if (lastBreak !== -1) {
+                end = searchStart + lastBreak + 2; // Include the double newline
+            }
+        }
+
+        chunks.push(text.substring(start, end));
+
+        // Next chunk starts with overlap to avoid cutting mid-line
+        start = Math.max(start + 1, end - overlapChars);
+    }
+
+    console.log(`[AI Clean] Split into ${chunks.length} chunks: ${chunks.map(c => c.length).join(", ")} chars`);
+    return chunks;
+}
+
+/**
+ * Remove duplicate lines at chunk boundaries caused by overlap.
+ * Compares the last N lines of the previous result with the first N lines of the next.
+ */
+function mergeChunkResults(results: string[]): string {
+    if (results.length <= 1) return results[0] || "";
+
+    let merged = results[0];
+
+    for (let i = 1; i < results.length; i++) {
+        const prevLines = merged.split("\n");
+        const nextLines = results[i].split("\n");
+
+        // Find overlap: check if the last N lines of prev match the first N lines of next
+        const overlapWindow = Math.min(10, prevLines.length, nextLines.length);
+        let bestOverlap = 0;
+
+        for (let overlap = 1; overlap <= overlapWindow; overlap++) {
+            const prevTail = prevLines.slice(-overlap).map(l => l.trim()).join("\n");
+            const nextHead = nextLines.slice(0, overlap).map(l => l.trim()).join("\n");
+            if (prevTail === nextHead) {
+                bestOverlap = overlap;
+            }
+        }
+
+        // Skip overlapping lines from the next chunk
+        const uniqueNextLines = nextLines.slice(bestOverlap);
+        merged = merged + "\n" + uniqueNextLines.join("\n");
+    }
+
+    return merged;
+}
+
+// Maximum chars per chunk: ~40K chars ≈ ~10K tokens, well within model limits
+const AI_CHUNK_MAX_CHARS = 40000;
+const AI_CHUNK_OVERLAP_CHARS = 500;
+
 export async function cleanScriptWithAI(rawText: string): Promise<string | { error: string }> {
     try {
         console.log("[AI Clean] Starting AI cleaning, text length:", rawText.length);
-
-        let textToProcess = rawText;
-
-        if (rawText.length > AI_CLEANING_MAX_INPUT_CHARS) {
-            console.log("[AI Clean] Text too long, truncating from", rawText.length, "to", AI_CLEANING_MAX_INPUT_CHARS);
-            textToProcess = rawText.substring(0, AI_CLEANING_MAX_INPUT_CHARS);
-        }
 
         const openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
@@ -1268,45 +1116,68 @@ export async function cleanScriptWithAI(rawText: string): Promise<string | { err
             ...AI_CLEANING_FALLBACK_MODELS.filter((m) => m !== AI_CLEANING_PRIMARY_MODEL),
         ];
 
-        let lastError: unknown = null;
+        // Split text into manageable chunks
+        const chunks = splitTextIntoChunks(rawText, AI_CHUNK_MAX_CHARS, AI_CHUNK_OVERLAP_CHARS);
+        console.log(`[AI Clean] Processing ${chunks.length} chunk(s)`);
 
-        for (const model of modelsToTry) {
-            try {
-                console.log(`[AI Clean] Trying model: ${model}`);
-                const response = await openai.responses.create({
-                    model,
-                    input: [
-                        { role: "system", content: AI_CLEANING_PROMPT },
-                        { role: "user", content: textToProcess },
-                    ],
-                    reasoning: AI_IMPORT_PROFILE === "max"
-                        ? (model === "gpt-5-pro" && textToProcess.length > 100000 ? { effort: "high" } : { effort: "medium" })
-                        : { effort: "low" },
-                    max_output_tokens: AI_CLEANING_MAX_OUTPUT_TOKENS,
-                });
+        const chunkResults: string[] = [];
 
-                const cleanedText = extractResponsesOutputText(response);
-                if (cleanedText) {
-                    console.log("[AI Clean] Cleaning complete with model:", model, "output length:", cleanedText.length);
-                    return cleanedText;
+        for (let chunkIdx = 0; chunkIdx < chunks.length; chunkIdx++) {
+            const chunk = chunks[chunkIdx];
+            let lastError: unknown = null;
+            let chunkCleaned = false;
+
+            const chunkContext = chunks.length > 1
+                ? `\n\n[CONTEXTE: Ceci est la partie ${chunkIdx + 1}/${chunks.length} du script. Traite-la independamment.]`
+                : "";
+
+            for (const model of modelsToTry) {
+                try {
+                    console.log(`[AI Clean] Chunk ${chunkIdx + 1}/${chunks.length} — model: ${model} — ${chunk.length} chars`);
+                    const response = await openai.responses.create({
+                        model,
+                        input: [
+                            { role: "system", content: AI_CLEANING_PROMPT + chunkContext },
+                            { role: "user", content: chunk },
+                        ],
+                        reasoning: AI_IMPORT_PROFILE === "max"
+                            ? (model === "gpt-5-pro" && chunk.length > 100000 ? { effort: "high" } : { effort: "medium" })
+                            : { effort: "low" },
+                        max_output_tokens: AI_CLEANING_MAX_OUTPUT_TOKENS,
+                    });
+
+                    const cleanedText = extractResponsesOutputText(response);
+                    if (cleanedText) {
+                        console.log(`[AI Clean] Chunk ${chunkIdx + 1} done — ${cleanedText.length} chars output`);
+                        chunkResults.push(cleanedText);
+                        chunkCleaned = true;
+                        break;
+                    }
+
+                    lastError = new Error(`No output text returned by model ${model}`);
+                    console.warn("[AI Clean] Empty response from model:", model);
+                } catch (err: unknown) {
+                    lastError = err;
+                    console.warn(`[AI Clean] Model ${model} failed on chunk ${chunkIdx + 1}:`, getErrorMessage(err));
+                    if (isQuotaOrBillingError(err)) {
+                        break;
+                    }
                 }
+            }
 
-                lastError = new Error(`No output text returned by model ${model}`);
-                console.warn("[AI Clean] Empty response from model:", model);
-            } catch (err: unknown) {
-                lastError = err;
-                console.warn(`[AI Clean] Model ${model} failed:`, getErrorMessage(err));
-                if (isQuotaOrBillingError(err)) {
-                    break;
-                }
+            if (!chunkCleaned) {
+                throw lastError || new Error(`No model returned usable output for chunk ${chunkIdx + 1}`);
             }
         }
 
-        throw lastError || new Error("No model returned usable output");
+        // Merge chunk results, removing duplicate lines at boundaries
+        const mergedResult = mergeChunkResults(chunkResults);
+        console.log("[AI Clean] Final merged output:", mergedResult.length, "chars from", chunks.length, "chunks");
+        return mergedResult;
+
     } catch (error: unknown) {
         console.error("[AI Clean] Error:", error);
 
-        // Handle timeout specifically
         if (isTimeoutError(error)) {
             return { error: "Le nettoyage IA a pris trop de temps. Essayez avec un PDF plus court." };
         }

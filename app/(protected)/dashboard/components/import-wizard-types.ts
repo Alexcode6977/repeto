@@ -2,7 +2,6 @@ import { ParsedScript } from "@/lib/types";
 
 export type ValidationDecision = "accept" | "reject";
 export type ValidationStep = 1 | 2 | 3 | 4;
-export type ThirdImportStep = 1 | 2 | 3 | 4;
 export type ClassicImportStage = "read" | "detect" | "parse_pass_1" | "parse_pass_2" | "parse_pass_3" | "diagnostics";
 
 export interface CollectiveResolutionState {
@@ -10,22 +9,6 @@ export interface CollectiveResolutionState {
     scope: "global" | "scene";
     sceneIndex?: number;
     members: string[];
-}
-
-export interface ThirdCollectiveCandidate {
-    id: string;
-    label: string;
-    scope: "global" | "scene";
-    sceneOrder?: number;
-    sceneOrders: number[];
-    count: number;
-}
-
-export interface ThirdSceneWindow {
-    order: number;
-    title: string;
-    start: number;
-    end: number;
 }
 
 export const CLASSIC_IMPORT_STAGE_ORDER: ClassicImportStage[] = [

@@ -349,7 +349,7 @@ export function useRehearsal({
         return audioQueueRef.current.preloadWithProgress(
             script.lines,
             startIdx,
-            6,
+            30,
             sourceType,
             sourceId,
             troupeId,
@@ -491,7 +491,7 @@ export function useRehearsal({
         const nextIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, 1);
         if (nextIdx < script.lines.length) {
             setCurrentLineIndex(nextIdx);
-            preloadAroundIndex(nextIdx, 8);
+            preloadAroundIndex(nextIdx, 30);
             const nextLine = script.lines[nextIdx];
             setTimeout(() => {
                 manualSkipRef.current = false;
@@ -523,7 +523,7 @@ export function useRehearsal({
         const prevIdx = findNextRelevantIndex(stateRef.current.currentLineIndex, -1);
         if (prevIdx >= 0) {
             setCurrentLineIndex(prevIdx);
-            preloadAroundIndex(Math.max(0, prevIdx - 2), 8);
+            preloadAroundIndex(Math.max(0, prevIdx - 2), 30);
             const prevLine = script.lines[prevIdx];
             setTimeout(() => {
                 manualSkipRef.current = false;
@@ -602,7 +602,7 @@ export function useRehearsal({
             }
 
             // Sliding buffer around current line for smoother playback/navigation.
-            preloadAroundIndex(Math.max(0, currentLineIndex - 2), 8);
+            preloadAroundIndex(Math.max(0, currentLineIndex - 2), 30);
 
             if (status === "playing_other") {
                 // Check if we should skip this line in Cue/Check modes
@@ -664,7 +664,7 @@ export function useRehearsal({
                             if (ttsProvider === "google") {
                                 const sourceId = playId || scriptId;
                                 const audioUrl = sourceId
-                                    ? await audioQueueRef.current.getUrl(
+                                    ? audioQueueRef.current.getUrl(
                                         textToSpeak,
                                         isDirection ? "didascalies" : resolvedLineChar,
                                         currentLineIndex,
@@ -682,6 +682,7 @@ export function useRehearsal({
                                     audioSuccess = await playAudioFile(audioUrl);
                                 }
 
+                                // Fallback to browser TTS only (no live API call)
                                 if (!audioSuccess) {
                                     await speak(
                                         textToSpeak,
