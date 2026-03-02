@@ -1,0 +1,8 @@
+Generating audio with Google TTS...
+Audio generated, size: 6624
+Uploading to Supabase...
+Upload Success: {
+  path: 'test_script_id/test_line_0.mp3',
+  id: 'f49537ec-01e9-4d20-8b9b-d4090ea89bf6',
+  fullPath: 'audio_cache/test_script_id/test_line_0.mp3'
+}

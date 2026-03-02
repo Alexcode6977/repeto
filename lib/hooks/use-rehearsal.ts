@@ -34,6 +34,7 @@ interface UseRehearsalProps {
     skipCharacters?: string[]; // Characters to skip during rehearsal (e.g., ["DIDASCALIES"])
     playId?: string;
     scriptId?: string;
+    originalScriptId?: string;
     troupeId?: string;
     partnerCharacters?: string[];
     isPublicScript?: boolean;
@@ -57,6 +58,7 @@ export function useRehearsal({
     skipCharacters = [],
     playId,
     scriptId,
+    originalScriptId,
     troupeId,
     partnerCharacters = [],
     isPublicScript = false,
@@ -334,7 +336,7 @@ export function useRehearsal({
             count,
             sourceType,
             sourceId,
-            script.original_script_id,
+            originalScriptId,
             troupeId,
             showStageDirections
         );
@@ -358,7 +360,7 @@ export function useRehearsal({
             30,
             sourceType,
             sourceId,
-            script.original_script_id,
+            originalScriptId,
             troupeId,
             showStageDirections,
             onProgress
@@ -686,7 +688,7 @@ export function useRehearsal({
                                     currentLineIndex,
                                     sourceType,
                                     sourceId,
-                                    script.original_script_id,
+                                    originalScriptId,
                                     troupeId,
                                     segment.isDirection,
                                     line.id,

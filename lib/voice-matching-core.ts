@@ -71,7 +71,7 @@ Note scrupuleusement de 1 à 4 chaque personnage selon les 10 critères précis 
 - score_age: 1=Enfant, 2=Ado/Jeune, 3=Adulte Mûr, 4=Senior
 - score_tonalite: 1=Très Grave (Basse), 4=Très Aigu (Soprano)
 - score_comedien: 1=Moyen (rôle basique), 4=Excellent (rôle exigeant)
-- score_didascalie: 1=Mauvaise, 4=Excellente (voix off idéale, narrateur)
+- score_didascalie: 1=Moyenne, 4=Excellente (voix off idéale, narrateur)
 - score_projection: 1=Chuchoté, 2=Intime, 3=Direct (parlé haut), 4=Exclamatif (Théâtral)
 - score_vitesse: 1=Très Lente, 4=Trépidante
 - score_texture: 1=Lisse/Pure, 2=Satinée, 3=Voilée, 4=Granuleuse
@@ -231,22 +231,12 @@ function buildHeuristicProfile(characterName: string, stats: CharacterStats): Vo
     };
 }
 
-function parseJsonObject(payload: string): Record<string, unknown> | null {
-    const cleaned = (payload || "").trim();
-    if (!cleaned) return null;
+import { cleanAndParseJSON } from "@/lib/utils/json-parser";
 
+function parseJsonObject(payload: string): Record<string, unknown> | null {
     try {
-        return JSON.parse(cleaned) as Record<string, unknown>;
+        return cleanAndParseJSON<Record<string, unknown>>(payload);
     } catch {
-        const start = cleaned.indexOf("{");
-        const end = cleaned.lastIndexOf("}");
-        if (start >= 0 && end > start) {
-            try {
-                return JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
-            } catch {
-                return null;
-            }
-        }
         return null;
     }
 }
@@ -326,43 +316,62 @@ async function fetchAiProfiles(
     return profiles;
 }
 
-function computeCompatibility(scores: VoiceMatchingScores, voice: VoiceCatalogEntry): number {
-    const difference =
-        Math.abs(scores.score_genre - voice.score_genre) +
-        Math.abs(scores.score_age - voice.score_age) +
-        Math.abs(scores.score_tonalite - voice.score_tonalite) +
-        Math.abs(scores.score_comedien - voice.score_comedien) +
-        Math.abs(scores.score_didascalie - voice.score_didascalie) +
-        Math.abs(scores.score_projection - voice.score_projection) +
-        Math.abs(scores.score_vitesse - voice.score_vitesse) +
-        Math.abs(scores.score_texture - voice.score_texture) +
-        Math.abs(scores.score_temperature - voice.score_temperature) +
-        Math.abs(scores.score_energie - voice.score_energie);
+function computeCompatibility(scores: VoiceMatchingScores, voice: VoiceCatalogEntry, weights: VoiceMatchingScores): number {
+    const diff_genre = Math.abs(scores.score_genre - voice.score_genre) * weights.score_genre;
+    const diff_age = Math.abs(scores.score_age - voice.score_age) * weights.score_age;
+    const diff_tonalite = Math.abs(scores.score_tonalite - voice.score_tonalite) * weights.score_tonalite;
+    const diff_comedien = Math.abs(scores.score_comedien - voice.score_comedien) * weights.score_comedien;
+    const diff_didascalie = Math.abs(scores.score_didascalie - voice.score_didascalie) * weights.score_didascalie;
+    const diff_projection = Math.abs(scores.score_projection - voice.score_projection) * weights.score_projection;
+    const diff_vitesse = Math.abs(scores.score_vitesse - voice.score_vitesse) * weights.score_vitesse;
+    const diff_texture = Math.abs(scores.score_texture - voice.score_texture) * weights.score_texture;
+    const diff_temperature = Math.abs(scores.score_temperature - voice.score_temperature) * weights.score_temperature;
+    const diff_energie = Math.abs(scores.score_energie - voice.score_energie) * weights.score_energie;
 
-    // Formule: Score = 100 - ((Somme Ecarts / 30) * 100)
-    // 30 = max difference (3 pts difference * 10 categories)
-    const compatibility = 100 - ((difference / 30) * 100);
+    const totalDiff = diff_genre + diff_age + diff_tonalite + diff_comedien + diff_didascalie +
+        diff_projection + diff_vitesse + diff_texture + diff_temperature + diff_energie;
+
+    const totalWeight = weights.score_genre + weights.score_age + weights.score_tonalite + weights.score_comedien +
+        weights.score_didascalie + weights.score_projection + weights.score_vitesse + weights.score_texture +
+        weights.score_temperature + weights.score_energie;
+
+    // Formule: Score = 100 - ((Somme Ecarts pondérés / (Poids Total * 3)) * 100)
+    // 3 = max difference per category (4-1=3)
+    const maxPossibleDiff = totalWeight * 3;
+    const compatibility = 100 - ((totalDiff / maxPossibleDiff) * 100);
     return Math.max(0, Math.round(compatibility));
 }
 
 function selectVoiceForProfile(
     profile: VoiceMatchingProfile,
     catalog: VoiceCatalogEntry[],
-    usageByVoice: Map<string, number>
+    usageByVoice: Map<string, number>,
+    isNarrator: boolean,
+    isPrincipal: boolean,
+    weights: VoiceMatchingScores
 ): { voiceId: string; compatibility: number } {
     let bestVoiceId = DEFAULT_VOICE_ID;
     let bestCompatibility = -1;
     let bestAdjustedScore = -Infinity;
 
     for (const voice of catalog) {
-        // Apply rigid filters: if gender or age is very far off, we completely disregard the voice to avoid shocking assignments.
-        if (Math.abs(profile.scores.score_genre - voice.score_genre) > 2.0) continue;
+        // Gender is now strictly filtered upstream by buildAssignmentsFromProfiles
+        const compatibility = computeCompatibility(profile.scores, voice, weights);
 
-        const compatibility = computeCompatibility(profile.scores, voice);
+        // Target role bonus
+        let roleBonus = 0;
+        const targetRole = (voice.target_role || "").toLowerCase();
+        if (isNarrator && (targetRole.includes("didascalie") || targetRole.includes("note") || targetRole.includes("indication"))) {
+            roleBonus = 8;
+        } else if (isPrincipal && targetRole.includes("principal")) {
+            roleBonus = 8;
+        } else if (!isNarrator && !isPrincipal && (targetRole.includes("secondaire") || targetRole.includes("polyvalent"))) {
+            roleBonus = 8;
+        }
 
         // Prevent everyone having the exact same voice unnecessarily
         const usagePenalty = (usageByVoice.get(voice.voice_id) || 0) * 5;
-        const adjustedScore = compatibility - usagePenalty;
+        const adjustedScore = compatibility + roleBonus - usagePenalty;
 
         if (adjustedScore > bestAdjustedScore) {
             bestAdjustedScore = adjustedScore;
@@ -374,7 +383,7 @@ function selectVoiceForProfile(
     if (bestCompatibility < 0 && catalog.length > 0) {
         // Fallback without strict filters
         bestVoiceId = catalog[0].voice_id;
-        bestCompatibility = computeCompatibility(profile.scores, catalog[0]);
+        bestCompatibility = computeCompatibility(profile.scores, catalog[0], weights);
     }
 
     return { voiceId: bestVoiceId, compatibility: bestCompatibility };
@@ -383,13 +392,63 @@ function selectVoiceForProfile(
 function buildAssignmentsFromProfiles(
     profiles: VoiceMatchingProfile[],
     catalog: VoiceCatalogEntry[],
-    source: "ai" | "heuristic"
+    source: "ai" | "heuristic",
+    statsByCharacter: Map<string, CharacterStats>
 ): VoiceMatchingAssignment[] {
     const usageByVoice = new Map<string, number>();
     const assignments: VoiceMatchingAssignment[] = [];
 
+    // Determine word thresholds for 'principal' role
+    const wordCounts = Array.from(statsByCharacter.values()).map(s => s.words).sort((a, b) => b - a);
+    const top30PercentIndex = Math.max(0, Math.floor(wordCounts.length * 0.3) - 1);
+    const top30PercentThreshold = wordCounts.length > 0 ? wordCounts[top30PercentIndex] : 500;
+
     for (const profile of profiles) {
-        const { voiceId, compatibility } = selectVoiceForProfile(profile, catalog, usageByVoice);
+        const stats = statsByCharacter.get(profile.characterName) || createEmptyStats();
+
+        const isNarrator = profile.scores.score_didascalie >= 3.5 ||
+            /\b(DIDASCALIES?|NARRATEUR|NARRATION|VOIX OFF|CHOEUR|CHŒUR)\b/i.test(profile.characterName);
+        const isPrincipal = !isNarrator && (stats.words >= Math.min(500, top30PercentThreshold));
+
+        const weights: VoiceMatchingScores = {
+            score_genre: 0.0, // Genre is now a harsh filter, not a calculated weight
+            score_age: 1.5,
+            score_tonalite: 1.0,
+            score_comedien: isPrincipal ? 2.0 : (isNarrator ? 0.5 : 1.0),
+            score_didascalie: isNarrator ? 2.5 : 0.5,
+            score_projection: 1.0,
+            score_vitesse: 1.0,
+            score_texture: 1.0,
+            score_temperature: 1.0,
+            score_energie: 1.0,
+        };
+
+        if (isNarrator) {
+            weights.score_age = 1.0;
+        }
+
+        // STRICT GENDER FILTERING WITH EXCEPTION FOR BOYS
+        let targetGenderScore = profile.scores.score_genre;
+        const isYoungBoy = targetGenderScore <= 2.5 && profile.scores.score_age <= 1.5;
+
+        if (isYoungBoy) {
+            console.log(`[VoiceMatching] Boy exception triggered for ${profile.characterName}`);
+            targetGenderScore = 4; // Force search in female voices
+        }
+
+        // We filter the catalog strictly based on gender (<= 2.5 is Male, > 2.5 is Female)
+        let filteredCatalog = catalog.filter(voice => {
+            const isTargetFemale = targetGenderScore > 2.5;
+            const isVoiceFemale = voice.score_genre > 2.5;
+            return isTargetFemale === isVoiceFemale;
+        });
+
+        // Fallback to full catalog if something is horribly wrong (should not happen with standard catalog)
+        if (filteredCatalog.length === 0) {
+            filteredCatalog = catalog;
+        }
+
+        const { voiceId, compatibility } = selectVoiceForProfile(profile, filteredCatalog, usageByVoice, isNarrator, isPrincipal, weights);
         usageByVoice.set(voiceId, (usageByVoice.get(voiceId) || 0) + 1);
 
         const sourceLabel = source === "ai" ? "IA" : "Heuris.";
@@ -441,7 +500,7 @@ export async function generateVoiceAssignments(
 
             if (aiProfiles && aiProfiles.length > 0) {
                 return {
-                    assignments: buildAssignmentsFromProfiles(aiProfiles, catalog, "ai"),
+                    assignments: buildAssignmentsFromProfiles(aiProfiles, catalog, "ai", statsByCharacter),
                     source: "ai",
                 };
             }
@@ -451,7 +510,7 @@ export async function generateVoiceAssignments(
     }
 
     return {
-        assignments: buildAssignmentsFromProfiles(heuristicProfiles, catalog, "heuristic"),
+        assignments: buildAssignmentsFromProfiles(heuristicProfiles, catalog, "heuristic", statsByCharacter),
         source: "heuristic",
     };
 }

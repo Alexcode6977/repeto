@@ -954,21 +954,10 @@ function sanitizeAiDiagnostics(raw: AiDiagnosticsRaw, canonicalCharacters: strin
     };
 }
 
-function parseAiDiagnosticsJson(payload: string): AiDiagnosticsRaw {
-    const cleaned = payload.trim();
-    if (!cleaned) return {};
+import { cleanAndParseJSON } from "@/lib/utils/json-parser";
 
-    try {
-        return JSON.parse(cleaned) as AiDiagnosticsRaw;
-    } catch {
-        const firstBrace = cleaned.indexOf("{");
-        const lastBrace = cleaned.lastIndexOf("}");
-        if (firstBrace >= 0 && lastBrace > firstBrace) {
-            const sliced = cleaned.slice(firstBrace, lastBrace + 1);
-            return JSON.parse(sliced) as AiDiagnosticsRaw;
-        }
-        throw new Error("Diagnostics JSON invalide");
-    }
+function parseAiDiagnosticsJson(payload: string): AiDiagnosticsRaw {
+    return cleanAndParseJSON<AiDiagnosticsRaw>(payload);
 }
 
 function buildDiagnosticsInputScript(script: ParsedScript) {

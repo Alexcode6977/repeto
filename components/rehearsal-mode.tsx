@@ -299,6 +299,7 @@ export function RehearsalMode({
         skipCharacters: ignoredCharacters,
         playId,
         scriptId,
+        originalScriptId: script.original_script_id,
         troupeId,
         playbackRate: speedMultiplier,
         isPublicScript,

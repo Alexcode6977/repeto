@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "smoke:troupe": "node scripts/troupe-tests/run.mjs",
+    "test:troupe:happy": "node scripts/troupe-tests/run.mjs --scenario happy-path",
+    "test:troupe:join": "node scripts/troupe-tests/run.mjs --scenario join-requests",
+    "test:troupe:roles": "node scripts/troupe-tests/run.mjs --scenario role-matrix",
+    "test:troupe:session": "node scripts/troupe-tests/run.mjs --scenario session-flow",
+    "test:troupe:access": "node scripts/troupe-tests/run.mjs --scenario director-member-access",
+    "test:troupe:all": "node scripts/troupe-tests/run.mjs --scenario all"
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^8.0.0",

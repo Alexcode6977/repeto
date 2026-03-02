@@ -1,0 +1,23 @@
+Spoken lines found: 572
+Processing line 0 of type stage_direction
+  Segment 0: Generating Audio for "ON PURGE BÉBÉ" with voice: fr-FR-Journey-D
+  Success! Buffer length: 7936
+  Segment 1: Generating Audio for "Georges Feydeau" with voice: fr-FR-Journey-D
+  Success! Buffer length: 7296
+Processing line 1 of type stage_direction
+  Segment 0: Generating Audio for "Au lever du rideau. Follavoine, penché sur sa table de travail, la jambe gauche repliée sur son fauteuil de bureau, la croupe sur le bras du fauteuil, compulse son dictionnaire." with voice: fr-FR-Journey-D
+  Success! Buffer length: 54912
+Processing line 2 of type dialogue
+  Character: FOLLAVOINE, Voice assigned: Despina
+  Segment 0: Generating Audio for "son dictionnaire ouvert devant lui sur la table" with voice: fr-FR-Journey-D
+  Success! Buffer length: 15488
+  Segment 1: Generating Audio for "Voyons : « Iles Hébrides ?... Iles Hébrides ?... Iles Hébrides ?... »" with voice: fr-FR-Chirp3-HD-Despina
+  Success! Buffer length: 28032
+  Segment 2: Generating Audio for "On frappe à la porte" with voice: fr-FR-Journey-D
+  Success! Buffer length: 6656
+  Segment 3: Generating Audio for "Zut ! entrez !" with voice: fr-FR-Chirp3-HD-Despina
+  Success! Buffer length: 8832
+  Segment 4: Generating Audio for "À Rose qui paraît" with voice: fr-FR-Journey-D
+  Success! Buffer length: 6912
+  Segment 5: Generating Audio for "Quoi ? Qu'est-ce que vous voulez ?" with voice: fr-FR-Chirp3-HD-Despina
+  Success! Buffer length: 13056

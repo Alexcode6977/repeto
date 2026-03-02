@@ -119,13 +119,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: "Aucune ligne à vocaliser." });
         }
 
-        // --- Asynchronous generation block (using Next.js after() to prevent Vercel killing the process) ---
-        after(async () => {
-            try {
-                await processVocalization(scriptId, spokenLines, sourceType as SourceType);
-            } catch (err) {
-                console.error(`[VocalizeWorker] Critical error during background processing:`, err);
-            }
+        // --- Asynchronous generation block ---
+        // Fire and forget without `after` because Next.js local dev environment might kill it
+        processVocalization(scriptId, spokenLines, sourceType as SourceType).catch(err => {
+            console.error(`[VocalizeWorker] Critical error during background processing:`, err);
         });
 
         return NextResponse.json({ message: "Vocalisation lancée en tâche de fond.", totalLines });
