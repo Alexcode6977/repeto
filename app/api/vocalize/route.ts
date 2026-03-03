@@ -120,9 +120,12 @@ export async function POST(req: Request) {
         }
 
         // --- Asynchronous generation block ---
-        // Fire and forget without `after` because Next.js local dev environment might kill it
-        processVocalization(scriptId, spokenLines, sourceType as SourceType).catch(err => {
-            console.error(`[VocalizeWorker] Critical error during background processing:`, err);
+        // Utilisation de `after` de next/server pour garantir que la tâche tourne
+        // en arrière-plan sur Vercel après le renvoi de la réponse HTTP.
+        after(() => {
+            processVocalization(scriptId, spokenLines, sourceType as SourceType).catch(err => {
+                console.error(`[VocalizeWorker] Critical error during background processing:`, err);
+            });
         });
 
         return NextResponse.json({ message: "Vocalisation lancée en tâche de fond.", totalLines });
