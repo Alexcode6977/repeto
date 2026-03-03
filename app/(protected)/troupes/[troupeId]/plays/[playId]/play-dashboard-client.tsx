@@ -115,12 +115,22 @@ export function PlayDashboardClient({
         }
     };
 
+    // Sanitize script content to handle legacy or imported scripts missing arrays
+    const rawScript = (play?.script_content || {}) as Partial<ParsedScript>;
+    const safeScript: ParsedScript = {
+        title: rawScript.title || play?.title,
+        characters: rawScript.characters || [],
+        scenes: rawScript.scenes || [],
+        lines: rawScript.lines || [],
+        mappings: rawScript.mappings || { canonical_characters: [], aliases: {}, collectives: { global: [], by_scene: [] } },
+        original_script_id: rawScript.original_script_id
+    };
 
     // View Switching Logic
     if (rehearsalChars && viewMode === "listen") {
         return (
             <ListenModeTroupe
-                script={play.script_content as ParsedScript}
+                script={safeScript}
                 userCharacters={rehearsalChars}
                 onExit={() => setViewMode("dashboard")}
                 playId={play.id}
@@ -143,7 +153,7 @@ export function PlayDashboardClient({
 
         return (
             <RehearsalMode
-                script={play.script_content as ParsedScript}
+                script={safeScript}
                 userCharacters={rehearsalChars}
                 onExit={() => setViewMode("dashboard")}
                 initialSettings={sessionSettings}
@@ -159,7 +169,7 @@ export function PlayDashboardClient({
     if (rehearsalChars && viewMode === "reader") {
         return (
             <ScriptReader
-                script={play.script_content as ParsedScript}
+                script={safeScript}
                 userCharacters={rehearsalChars}
                 onExit={() => setViewMode("dashboard")}
                 settings={sessionSettings}
@@ -174,7 +184,7 @@ export function PlayDashboardClient({
     if (rehearsalChars && viewMode === "setup") {
         return (
             <ScriptSetup
-                script={play.script_content as ParsedScript}
+                script={safeScript}
                 character={rehearsalChars[0]}
                 onStart={(settings) => {
                     setSessionSettings(settings); // Settings are now correct
@@ -199,7 +209,7 @@ export function PlayDashboardClient({
                 </div>
 
                 <ScriptViewer
-                    script={play.script_content as ParsedScript}
+                    script={safeScript}
                     onConfirm={(chars, mode, ignored) => {
                         setRehearsalChars(chars);
                         if (ignored) setIgnoredChars(ignored);
@@ -219,7 +229,7 @@ export function PlayDashboardClient({
     }
 
     // --- DASHBOARD DATA ---
-    const script = play.script_content as ParsedScript;
+    const script = safeScript;
     const characterCount = play.play_characters?.length || 0;
     const sceneCount = play.play_scenes?.length || 0;
     const lineCount = script?.lines?.filter((l: any) => l.type === 'dialogue').length || 0;
@@ -378,10 +388,10 @@ export function PlayDashboardClient({
                                 <div className={cn(
                                     "w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold border-2 transition-all",
                                     isMe
-                                            ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(124,58,237,0.5)] scale-105"
-                                            : rehearsalChars?.includes(char.character_name)
-                                                ? "bg-foreground text-background border-foreground dark:bg-white dark:text-black dark:border-white"
-                                                : "bg-muted text-muted-foreground border-transparent"
+                                        ? "bg-primary text-white border-primary shadow-[0_0_15px_rgba(124,58,237,0.5)] scale-105"
+                                        : rehearsalChars?.includes(char.character_name)
+                                            ? "bg-foreground text-background border-foreground dark:bg-white dark:text-black dark:border-white"
+                                            : "bg-muted text-muted-foreground border-transparent"
                                 )}>
                                     {char.name.substring(0, 2).toUpperCase()}
                                 </div>

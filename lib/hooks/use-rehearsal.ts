@@ -411,7 +411,7 @@ export function useRehearsal({
                 // User lines OR lines just before user lines are relevant
                 const nextRelevantIdx = (() => {
                     let nextIdx = entryIdx + 1;
-                    while (nextIdx < script.lines.length && shouldSkipLine(script.lines[nextIdx].character)) {
+                    while (nextIdx < script.lines.length && script.lines[nextIdx] && shouldSkipLine(script.lines[nextIdx].character)) {
                         nextIdx++;
                     }
                     return nextIdx;
@@ -472,7 +472,7 @@ export function useRehearsal({
             } else if (currentMode === "cue") {
                 const nextRelevantIdx = (() => {
                     let nIdx = idx + 1;
-                    while (nIdx < script.lines.length && shouldSkipLine(script.lines[nIdx].character)) {
+                    while (nIdx < script.lines.length && script.lines[nIdx] && shouldSkipLine(script.lines[nIdx].character)) {
                         nIdx++;
                     }
                     return nIdx;
@@ -506,8 +506,7 @@ export function useRehearsal({
             // Transition instantanée ou presque pour supprimer la latence
             queueMicrotask(() => {
                 manualSkipRef.current = false;
-                // FIX: Pass new index
-                if (isUserLine(nextLine.character, nextIdx)) {
+                if (nextLine && isUserLine(nextLine.character, nextIdx)) {
                     setStatus("listening_user");
                     playBip();
                 } else {
@@ -539,8 +538,7 @@ export function useRehearsal({
             const prevLine = script.lines[prevIdx];
             queueMicrotask(() => {
                 manualSkipRef.current = false;
-                // FIX: Pass index
-                if (isUserLine(prevLine.character, prevIdx)) {
+                if (prevLine && isUserLine(prevLine.character, prevIdx)) {
                     setStatus("listening_user");
                     playBip();
                 } else {
@@ -577,8 +575,7 @@ export function useRehearsal({
         const line = script.lines[currentIdx];
         queueMicrotask(() => {
             manualSkipRef.current = false;
-            // FIX: Pass index
-            if (isUserLine(line.character, currentIdx)) {
+            if (line && isUserLine(line.character, currentIdx)) {
                 setStatus("listening_user");
                 playBip();
             } else {
@@ -631,7 +628,7 @@ export function useRehearsal({
                 } else if (currentMode === "cue") {
                     // FIX: Find next NON-SKIPPED line to check if it's a user line
                     let lookAheadIdx = currentLineIndex + 1;
-                    while (lookAheadIdx < script.lines.length && shouldSkipLine(script.lines[lookAheadIdx].character)) {
+                    while (lookAheadIdx < script.lines.length && script.lines[lookAheadIdx] && shouldSkipLine(script.lines[lookAheadIdx].character)) {
                         lookAheadIdx++;
                     }
                     const nextLine = script.lines[lookAheadIdx];
@@ -704,7 +701,7 @@ export function useRehearsal({
 
                                 // Find previous text for smart gap calculations, if we just came from another line
                                 const prevIdx = findNextRelevantIndex(currentLineIndex, -1);
-                                const prevText = prevIdx >= 0 ? script.lines[prevIdx].text : "";
+                                const prevText = (prevIdx >= 0 && script.lines[prevIdx]) ? script.lines[prevIdx].text : "";
 
                                 await engineRef.current.playSegments(
                                     urlsToPlay,

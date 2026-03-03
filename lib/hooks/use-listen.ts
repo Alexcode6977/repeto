@@ -203,6 +203,7 @@ export function useListen({
         const indices: number[] = [];
         for (let i = 0; i < script.lines.length; i++) {
             const line = script.lines[i];
+            if (!line) continue;
             if (shouldSkipLine(line.character)) continue;
 
             if (mode === "full") {
@@ -214,8 +215,8 @@ export function useListen({
                     indices.push(i);
                 } else {
                     let next = i + 1;
-                    while (next < script.lines.length && shouldSkipLine(script.lines[next].character)) next++;
-                    if (next < script.lines.length && isUserLine(script.lines[next].character, next)) indices.push(i);
+                    while (next < script.lines.length && script.lines[next] && shouldSkipLine(script.lines[next].character)) next++;
+                    if (next < script.lines.length && script.lines[next] && isUserLine(script.lines[next].character, next)) indices.push(i);
                 }
             }
         }
@@ -409,7 +410,7 @@ export function useListen({
                                 if (!isValid()) return;
 
                                 const prevIdx = findNextIndex(currentLineIndex, -1);
-                                const prevText = prevIdx !== null ? script.lines[prevIdx].text : "";
+                                const prevText = (prevIdx !== null && script.lines[prevIdx]) ? script.lines[prevIdx].text : "";
 
                                 await engineRef.current.playSegments(
                                     urlsToPlay,

@@ -57,7 +57,8 @@ export class RehearsalAudioEngine {
                 try {
                     const response = await fetch(url);
                     if (!response.ok) {
-                        if (response.status === 404) throw new Error("404");
+                        // Supabase Storage returns HTTP 400 for Not Found in some cases
+                        if (response.status === 404 || response.status === 400) throw new Error("404");
                         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                     }
 

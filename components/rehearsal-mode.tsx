@@ -136,7 +136,7 @@ export function RehearsalMode({
 
     // Initialize ignored characters - merge prop with default didascalies
     const ignoredCharacters = useMemo(() => {
-        const defaultIgnored = script.characters.filter(c =>
+        const defaultIgnored = (script.characters || []).filter(c =>
             c.toLowerCase().includes("didascalie")
         );
         return [...new Set([...defaultIgnored, ...initialIgnoredCharacters])];
@@ -211,7 +211,7 @@ export function RehearsalMode({
                         // Fallback: Generate local Google assignments
                         const VOICES = ["Aoede", "Charon", "Fenrir", "Puck", "Kore", "Leda"];
                         const localAssignments: Record<string, string> = {};
-                        script.characters.forEach((char, index) => {
+                        (script.characters || []).forEach((char, index) => {
                             localAssignments[char] = VOICES[index % VOICES.length];
                         });
                         setAiVoiceAssignments(localAssignments);
@@ -221,7 +221,7 @@ export function RehearsalMode({
                     const VOICES = ["Aoede", "Charon", "Fenrir", "Puck", "Kore", "Leda"];
                     const localAssignments: Record<string, string> = {};
 
-                    script.characters.forEach((char, index) => {
+                    (script.characters || []).forEach((char, index) => {
                         localAssignments[char] = VOICES[index % VOICES.length];
                     });
 

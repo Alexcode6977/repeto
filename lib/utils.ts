@@ -104,7 +104,7 @@ export function getSceneCharacters(script: ParsedScript): Map<number, Set<string
   if (sortedScenes.length === 0) {
     const chars = new Set<string>();
     script.lines.forEach((line, index) => {
-      if (line.type === 'dialogue' && line.character) {
+      if (line && line.type === 'dialogue' && line.character) {
         chars.add(resolveLineCharacter(script, line.character));
         const collectiveMembers = getCollectiveMembersForLine(script, index);
         collectiveMembers?.forEach((member) => chars.add(member));
@@ -124,7 +124,7 @@ export function getSceneCharacters(script: ParsedScript): Map<number, Set<string
     const charsInScene = new Set<string>();
     for (let j = startIdx; j < endIdx; j++) {
       const line = script.lines[j];
-      if (line.type === 'dialogue' && line.character) {
+      if (line && line.type === 'dialogue' && line.character) {
         charsInScene.add(resolveLineCharacter(script, line.character));
         const collectiveMembers = getCollectiveMembersForLine(script, j);
         collectiveMembers?.forEach((member) => charsInScene.add(member));
