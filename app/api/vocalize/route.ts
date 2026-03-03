@@ -122,8 +122,8 @@ export async function POST(req: Request) {
         // --- Asynchronous generation block ---
         // Utilisation de `after` de next/server pour garantir que la tâche tourne
         // en arrière-plan sur Vercel après le renvoi de la réponse HTTP.
-        after(() => {
-            processVocalization(scriptId, spokenLines, sourceType as SourceType).catch(err => {
+        after(async () => {
+            await processVocalization(scriptId, spokenLines, sourceType as SourceType).catch(err => {
                 console.error(`[VocalizeWorker] Critical error during background processing:`, err);
             });
         });
