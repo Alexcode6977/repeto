@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, X as CloseIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 
@@ -20,16 +20,19 @@ export function TroupeActions() {
             
             <Sheet>
                 <SheetTrigger asChild>
-                    <button className="flex-shrink-0 w-[42px] h-[38px] flex items-center justify-center bg-white border border-gray-200 rounded-xl text-gray-500 font-bold hover:bg-gray-50 transition-colors shadow-sm">
+                    <button className="flex-1 w-full h-[38px] flex items-center justify-center bg-white border border-gray-200 rounded-xl text-gray-500 font-bold hover:bg-gray-50 transition-colors shadow-none">
                         ?
                     </button>
                 </SheetTrigger>
                 <SheetContent side="bottom" className="rounded-t-[20px] max-h-[85vh] h-[85vh] bg-gray-50 p-0 flex flex-col outline-none sm:max-w-md sm:mx-auto shadow-2xl">
-                    <SheetHeader className="text-left bg-white px-6 pt-5 pb-4 border-b border-black/[0.04] sticky top-0 z-10 shrink-0">
+                    <SheetHeader className="text-left bg-white px-6 pt-5 pb-4 border-b border-black/[0.04] sticky top-0 z-10 shrink-0 relative">
                         <SheetTitle className="text-xl font-bold text-[#1a1a1a]">Découvrez les troupes</SheetTitle>
                         <SheetDescription className="text-sm text-gray-500 mt-1">
                             Tout ce que vous pouvez faire ensemble
                         </SheetDescription>
+                        <SheetClose className="absolute right-4 top-4 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                            <CloseIcon className="w-5 h-5 text-gray-400" />
+                        </SheetClose>
                     </SheetHeader>
                     
                     <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
