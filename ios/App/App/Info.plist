@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Souffleur</string>
+        <string>Repeto</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -62,5 +62,7 @@
 	<string>L'application a besoin de la reconnaissance vocale pour la fonction d'écoute active pendant les répétitions.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>L'application a besoin du microphone pour vous entendre dire vos répliques.</string>
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 </dict>
 </plist>

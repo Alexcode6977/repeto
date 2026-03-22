@@ -137,11 +137,18 @@
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
 
-    /* Preserve native scroll behavior without locking gestures/text */
+    /* Native App Feel: Prevent bounce and text selection */
     overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
-    user-select: text;
-    -webkit-user-select: text;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Re-enable text selection in inputs */
+  input, textarea {
+    user-select: auto;
+    -webkit-user-select: auto;
   }
 
   /* Enhanced cursor visibility for pointer devices (iPad with mouse, etc.) */

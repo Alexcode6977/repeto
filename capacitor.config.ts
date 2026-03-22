@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.souffleur.app',
-  appName: 'Souffleur',
+  appName: 'Repeto',
   webDir: 'public',
   server: {
     url: 'https://repeto-seven.vercel.app/',

@@ -7,6 +7,8 @@ import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, ArrowLeft, MessageSquare, Zap, Users, Check } from "lucide-react";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 import { cn, getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { filterScriptLines, parseSegments } from "@/lib/utils/stage-directions";
@@ -118,6 +120,19 @@ export function ListenMode({
     });
 
     const { requestWakeLock, releaseWakeLock } = useWakeLock();
+
+    // Handle App Background State
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return;
+        const listener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+            if (!isActive && status === "playing") {
+                pause();
+            }
+        });
+        return () => {
+            listener.then(l => l.remove());
+        };
+    }, [status, pause]);
     const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const containerRef = useRef<HTMLDivElement>(null);
     const isFirstScrollRef = useRef(true);

@@ -48,8 +48,8 @@ export default function RootLayout({
       <body className={`${outfit.className} bg-background text-foreground antialiased`}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          enableSystem
+          defaultTheme="light"
+          enableSystem={false}
           disableTransitionOnChange
         >
           <MobileStatusBar />

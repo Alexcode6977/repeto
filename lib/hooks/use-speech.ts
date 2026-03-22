@@ -391,9 +391,28 @@ export function useSpeech(): UseSpeechReturn {
                 const resetSilenceTimer = (hasSpeechStarted: boolean) => {
                     if (silenceTimeout) clearTimeout(silenceTimeout);
                     const delay = hasSpeechStarted ? END_SPEECH_SILENCE_DELAY : INITIAL_SILENCE_DELAY;
-                    silenceTimeout = setTimeout(() => {
-                        const result = (finalTranscript + " " + interimTranscript).trim();
-                        finalizeRecognition(result);
+                    silenceTimeout = setTimeout(async () => {
+                        if (!hasSpeechStarted && !cancelledRef.current) {
+                            // Auto-restart native recognition if no speech was detected to bypass OS timeout
+                            console.warn("[Speech] Initial silence timeout - AUTO RESTARTING native recognition");
+                            try { await SpeechRecognition.stop(); } catch(e) {}
+                            setTranscript("");
+                            try {
+                                await SpeechRecognition.start({
+                                    language: "fr-FR",
+                                    maxResults: 2,
+                                    prompt: "Lisez votre réplique",
+                                    partialResults: true,
+                                    popup: false
+                                });
+                                resetSilenceTimer(false);
+                            } catch(e) {
+                                finalizeRecognition("");
+                            }
+                        } else {
+                            const result = (finalTranscript + " " + interimTranscript).trim();
+                            finalizeRecognition(result);
+                        }
                     }, delay);
                 };
 
@@ -572,12 +591,26 @@ export function useSpeech(): UseSpeechReturn {
 
                 // Special handling for common errors
                 if (event.error === 'no-speech') {
-                    console.warn("[Speech] No speech detected (silence timeout)");
-                    if (activeRecognitionRef.current) {
-                        const r = activeRecognitionRef.current;
-                        activeRecognitionRef.current = null;
-                        r.resolve(finalTranscript.trim() || interimTranscript.trim() || "");
-                    }
+                    console.warn("[Speech] No speech detected (silence timeout) - AUTO RESTARTING");
+                    try { recognitionRef.current.stop(); } catch (e) { }
+                    setTimeout(() => {
+                        if (!cancelledRef.current) {
+                            try { 
+                                recognitionRef.current.start(); 
+                                resetSilenceTimer(false); 
+                            } catch(e) {
+                                if (activeRecognitionRef.current) {
+                                    const r = activeRecognitionRef.current;
+                                    activeRecognitionRef.current = null;
+                                    r.resolve("");
+                                }
+                            }
+                        } else if (activeRecognitionRef.current) {
+                            const r = activeRecognitionRef.current;
+                            activeRecognitionRef.current = null;
+                            r.resolve("");
+                        }
+                    }, 100);
                     return;
                 }
 

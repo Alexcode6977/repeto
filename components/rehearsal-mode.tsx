@@ -11,6 +11,8 @@ import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Loader2, X, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote } from "lucide-react";
+import { App as CapacitorApp } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
 import { cn, getCollectiveMembersForLine, getSceneCharacters, isUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { motion, AnimatePresence } from "framer-motion";
@@ -307,6 +309,19 @@ export function RehearsalMode({
     });
 
     const { requestWakeLock, releaseWakeLock, isActive: isWakeLockActive } = useWakeLock();
+
+    // Handle App Background State
+    useEffect(() => {
+        if (!Capacitor.isNativePlatform()) return;
+        const listener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+            if (!isActive && !isPaused && (status === "listening_user" || status === "playing_other")) {
+                togglePause();
+            }
+        });
+        return () => {
+            listener.then(l => l.remove());
+        };
+    }, [isPaused, status, togglePause]);
 
     const handleStart = async () => {
         if (isStarting || hasStarted || isLoadingStatus || !ttsProvider) return;
