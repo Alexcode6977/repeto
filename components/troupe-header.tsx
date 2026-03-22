@@ -42,7 +42,7 @@ export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHea
             {/* Right: Navigation (Mirrors Global Header) */}
             <div className="flex items-center gap-3">
                 <Link href="/troupes">
-                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer">
+                    <div className="hidden md:flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer">
                         <span className="text-xl">🎭</span>
                         <span className="text-sm font-medium text-foreground hidden md:inline-block">Troupes</span>
                     </div>

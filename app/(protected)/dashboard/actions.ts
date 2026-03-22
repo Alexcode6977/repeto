@@ -1,5 +1,7 @@
 "use server";
 
+import { validateResolvedMappings, normalizeCharacterLabel } from "@/lib/actions/validation-utils";
+
 import { parseScript, ParserOptions, ParseResult } from "@/lib/parser";
 import { ParsedScript, ScriptMappings } from "@/lib/types";
 
@@ -135,7 +137,7 @@ const AI_DIAGNOSTICS_TIMEOUT_MS = parsePositiveInt(process.env.OPENAI_IMPORT_DIA
 const DIAGNOSTICS_MAX_LINES = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_MAX_LINES, AI_IMPORT_PROFILE === "max" ? 2200 : 1400);
 const DIAGNOSTICS_MAX_LINE_TEXT = parsePositiveInt(process.env.OPENAI_IMPORT_DIAGNOSTICS_MAX_LINE_TEXT, AI_IMPORT_PROFILE === "max" ? 240 : 180);
 
-type ImportDecisionStatus = "accept" | "reject";
+export type ImportDecisionStatus = "accept" | "reject";
 
 export interface AliasSuggestion {
     id: string;
@@ -246,19 +248,6 @@ function getErrorMessage(error: unknown): string {
     return typeof candidate.message === "string" && candidate.message ? candidate.message : "Unknown error";
 }
 
-function normalizeCharacterLabel(value: string): string {
-    return (value || "")
-        .replace(/[’ʼ]/g, "'")
-        .toUpperCase()
-        .replace(/[.,:;]+$/g, "")
-        .replace(/^VOIX\s+DE\s+LA\s+/i, "")
-        .replace(/^VOIX\s+DU\s+/i, "")
-        .replace(/^VOIX\s+DES\s+/i, "")
-        .replace(/^VOIX\s+DE\s+/i, "")
-        .replace(/^VOIX\s+(?:[A-ZÀ-ÖØ-Þ]+\s+)*D['’ʼ]\s*/i, "")
-        .replace(/\s+/g, " ")
-        .trim();
-}
 
 function buildCanonicalCharacters(characters: string[]): string[] {
     const unique = new Set<string>();
@@ -1369,18 +1358,6 @@ export async function runImportDiagnosticsAction(
     }
 }
 
-function ensureAllBlockingDecisionsResolved(
-    diagnostics: ImportDiagnosticsResult,
-    decisions: Record<string, ImportDecisionStatus>
-): { ok: true } | { ok: false; error: string } {
-    for (const blocking of diagnostics.blockingDecisions) {
-        const decision = decisions[blocking.id];
-        if (decision !== "accept" && decision !== "reject") {
-            return { ok: false, error: `Decision manquante pour: ${blocking.label}` };
-        }
-    }
-    return { ok: true };
-}
 
 function detectAliasCycle(aliases: Record<string, string>): boolean {
     const visiting = new Set<string>();
@@ -1405,116 +1382,6 @@ function detectAliasCycle(aliases: Record<string, string>): boolean {
     return false;
 }
 
-function validateResolvedMappings(
-    diagnostics: ImportDiagnosticsResult,
-    decisions: Record<string, ImportDecisionStatus>,
-    mappings: ScriptMappings
-): { ok: true; sanitized: ScriptMappings } | { ok: false; error: string } {
-    const decisionsCheck = ensureAllBlockingDecisionsResolved(diagnostics, decisions);
-    if (!decisionsCheck.ok) return decisionsCheck;
-
-    const canonical = buildCanonicalCharacters(
-        mappings.canonical_characters && mappings.canonical_characters.length > 0
-            ? mappings.canonical_characters
-            : diagnostics.canonicalCharacters
-    );
-    const canonicalSet = new Set(canonical);
-
-    const aliases: Record<string, string> = {};
-    for (const [rawSource, rawTarget] of Object.entries(mappings.aliases || {})) {
-        const source = normalizeCharacterLabel(rawSource || "");
-        const target = normalizeCharacterLabel(rawTarget || "");
-        if (!source || !target) continue;
-
-        if (!canonicalSet.has(target)) {
-            return { ok: false, error: `Alias invalide: cible hors liste canonique (${source} -> ${target}).` };
-        }
-
-        // Front-end labels can differ while resolving to the same canonical form
-        // (e.g. "VOIX DE ANNETTE" -> "ANNETTE"). Ignore those no-op aliases.
-        if (source === target) {
-            continue;
-        }
-
-        aliases[source] = target;
-    }
-
-    if (detectAliasCycle(aliases)) {
-        return { ok: false, error: "Alias invalide: cycle detecte." };
-    }
-
-    const globalCollectives = (mappings.collectives?.global || [])
-        .map((item) => ({
-            label: normalizeCharacterLabel(item.label || ""),
-            members: Array.from(new Set((item.members || [])
-                .map((member) => normalizeCharacterLabel(member))
-                .filter((member) => canonicalSet.has(member)))),
-        }))
-        .filter((item) => item.label.length > 0);
-
-    for (const collective of globalCollectives) {
-        if (collective.members.length === 0) {
-            return { ok: false, error: `Collectif global invalide (membres vides): ${collective.label}` };
-        }
-    }
-
-    const bySceneCollectives = (mappings.collectives?.by_scene || [])
-        .map((item) => ({
-            scene_index: Math.max(0, Math.floor(Number(item.scene_index))),
-            label: normalizeCharacterLabel(item.label || ""),
-            members: Array.from(new Set((item.members || [])
-                .map((member) => normalizeCharacterLabel(member))
-                .filter((member) => canonicalSet.has(member)))),
-        }))
-        .filter((item) => item.label.length > 0);
-
-    for (const collective of bySceneCollectives) {
-        if (collective.members.length === 0) {
-            return { ok: false, error: `Collectif scene invalide (membres vides): Scene ${collective.scene_index} / ${collective.label}` };
-        }
-    }
-
-    // Ensure accepted alias suggestions are reflected in mappings
-    for (const suggestion of diagnostics.aliasSuggestions) {
-        const decision = decisions[suggestion.id];
-        if (decision === "accept") {
-            const mappedTarget = aliases[suggestion.source];
-            if (!mappedTarget) {
-                return { ok: false, error: `Alias accepte mais non applique: ${suggestion.source}` };
-            }
-        }
-    }
-
-    // Ensure accepted collective suggestions are reflected in mappings
-    for (const suggestion of diagnostics.collectiveSuggestions) {
-        const decision = decisions[suggestion.id];
-        if (decision !== "accept") continue;
-
-        if (suggestion.scope === "global") {
-            const found = globalCollectives.find((item) => item.label === suggestion.label);
-            if (!found) {
-                return { ok: false, error: `Collectif global accepte mais absent du mapping: ${suggestion.label}` };
-            }
-        } else {
-            const found = bySceneCollectives.find((item) => item.label === suggestion.label && item.scene_index === suggestion.sceneIndex);
-            if (!found) {
-                return { ok: false, error: `Collectif scene accepte mais absent du mapping: Scene ${suggestion.sceneIndex} / ${suggestion.label}` };
-            }
-        }
-    }
-
-    return {
-        ok: true,
-        sanitized: {
-            canonical_characters: canonical,
-            aliases,
-            collectives: {
-                global: globalCollectives,
-                by_scene: bySceneCollectives,
-            },
-        },
-    };
-}
 
 export async function saveScriptWithImportValidation(
     script: ParsedScript,
