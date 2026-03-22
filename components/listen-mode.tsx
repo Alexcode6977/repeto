@@ -381,10 +381,10 @@ export function ListenMode({
     }
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-background/98">
+        <div className="fixed inset-0 flex items-center justify-center z-[100] bg-background">
             <div className="absolute inset-0 bg-gradient-radial from-cyan-500/5 via-transparent to-transparent opacity-50" />
             <div className="w-full h-[100dvh] md:h-[85vh] md:max-w-3xl md:rounded-3xl md:border md:bg-background/40 md:backdrop-blur-sm flex flex-col overflow-hidden relative">
-                <div className="flex justify-between items-center p-4 md:p-6 z-10">
+                <div className="flex justify-between items-center p-4 md:p-6 pt-[max(env(safe-area-inset-top,1rem),1rem)] z-20">
                     <div className="flex items-center gap-3">
                         <div className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase border bg-cyan-500/10 text-cyan-400 border-cyan-500/30">
                             {currentRelevantIndex}/{totalRelevantLines} • {progress}%
@@ -396,10 +396,10 @@ export function ListenMode({
                         )}
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => status === "paused" ? resume() : pause()} className="p-2 text-muted-foreground hover:text-foreground">
-                            {status === "paused" ? <Play className="w-6 h-6 fill-current" /> : <Pause className="w-6 h-6" />}
+                        <button onClick={replay} className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider bg-transparent border border-muted-foreground/30 rounded-full text-muted-foreground hover:text-foreground transition-colors mr-1">
+                            Rejouer
                         </button>
-                        <button onClick={handleExit} className="p-2 text-muted-foreground hover:text-red-400"><X className="w-6 h-6" /></button>
+                        <button onClick={handleExit} className="p-2 text-muted-foreground hover:text-red-400 bg-muted/10 rounded-full transition-colors"><X className="w-6 h-6" /></button>
                     </div>
                 </div>
 
@@ -442,8 +442,8 @@ export function ListenMode({
                             <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" strokeWidth="4" />
                             <circle cx="50" cy="50" r="46" fill="none" stroke="#06b6d4" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${progress * 2.89} 289`} className="transition-all duration-500" />
                         </svg>
-                        <button onClick={replay} className={cn("relative w-24 h-24 rounded-full flex items-center justify-center transition-all border-4 shadow-2xl", status === "playing" ? "bg-cyan-500 border-cyan-400 scale-110" : "bg-muted border-border")}>
-                            {isLoadingAudio ? <Loader2 className="w-10 h-10 animate-spin text-white" /> : status === "playing" ? <div className="flex gap-1 items-center"><div className="w-1.5 h-8 bg-white rounded-full animate-bounce" /><div className="w-1.5 h-6 bg-white rounded-full animate-bounce [animation-delay:0.2s]" /></div> : <Play className="w-10 h-10 text-foreground ml-1" />}
+                        <button onClick={() => status === "paused" ? resume() : pause()} className={cn("relative w-24 h-24 rounded-full flex items-center justify-center transition-all border-4 shadow-2xl", status === "playing" ? "bg-cyan-500 border-cyan-400 scale-110" : "bg-muted border-border hover:bg-muted/80")}>
+                            {isLoadingAudio ? <Loader2 className="w-10 h-10 animate-spin text-white" /> : status === "playing" ? <Pause className="w-10 h-10 text-white fill-current" /> : <Play className="w-10 h-10 text-foreground ml-1 fill-current" />}
                         </button>
                     </div>
                     <button onClick={next} className="p-4 rounded-full bg-card border border-border hover:bg-muted"><SkipForward className="w-6 h-6" /></button>

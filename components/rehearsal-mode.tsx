@@ -919,13 +919,13 @@ export function RehearsalMode({
         };
 
         return (
-            <div className="w-full max-w-lg mx-auto py-8 animate-in fade-in slide-in-from-bottom-6 duration-700 min-h-[100dvh] flex items-center justify-center pt-safe">
+            <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
                 <Card className="bg-card/90 dark:bg-black/40 backdrop-blur-2xl border-border/60 dark:border-white/10 shadow-2xl overflow-hidden relative w-full">
                     {/* Background Gradient Blobs */}
                     <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-500/10 rounded-full blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-                    <div className="p-6 md:p-8 space-y-8 relative z-10 pt-8">
+                    <div className="p-6 md:p-8 space-y-8 relative z-10">
                         {/* Header */}
                         <div className="space-y-6">
                             <button
@@ -1178,26 +1178,15 @@ export function RehearsalMode({
                 <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
             </Portal>
 
-            {!showFeedbackModal && !showUpgradeModal && !sessionStatsForRecap && (
-                <button
-                    onClick={handleExit}
-                    aria-label="Quitter la répétition"
-                    className="md:hidden fixed right-4 z-[90] p-2.5 rounded-full bg-card/90 dark:bg-black/65 border border-border/70 dark:border-white/20 text-foreground dark:text-white hover:text-red-500 dark:hover:text-red-300 active:scale-95 transition-all backdrop-blur-sm shadow-xl"
-                    style={{ top: "calc(env(safe-area-inset-top, 0px) + 10px)" }}
-                >
-                    <X className="w-5 h-5" />
-                </button>
-            )}
-
             {/* Outer Responsive Wrapper with Dynamic Background */}
             <div className={cn(
                 "flex items-center justify-center transition-all duration-700",
                 isVisio
                     ? "relative w-full h-full"
-                    : "fixed inset-0 z-50",
+                    : "fixed inset-0 z-[100]",
                 isUserTurn
                     ? "bg-background/90"
-                    : "bg-background/98"
+                    : "bg-background"
             )}>
                 {/* Dynamic Background Glow based on turn */}
                 <div className={cn(
@@ -1230,7 +1219,7 @@ export function RehearsalMode({
                     )} />
 
                     {/* Enhanced Mini-Header with Progress */}
-                    <div className="flex-none flex justify-between items-center p-4 md:p-6 z-10">
+                    <div className="flex-none flex justify-between items-center p-4 md:p-6 pt-[max(env(safe-area-inset-top,1rem),1rem)] z-20">
                         <div className="flex items-center gap-3">
                             {/* Progress Badge */}
                             <div className={cn(
