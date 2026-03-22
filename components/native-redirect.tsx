@@ -21,7 +21,7 @@ export function NativeRedirect() {
                     const { data: { session } } = await supabase.auth.getSession();
 
                     if (session) {
-                        router.replace('/dashboard');
+                        router.replace('/favoris');
                     } else {
                         router.replace('/login');
                     }

@@ -24,7 +24,6 @@ import { DashboardHeader } from "./components/dashboard-header";
 
 import { ScriptGrid } from "./components/script-grid";
 import { ImportWizard } from "./components/import-wizard";
-import { StoriesFooter } from "./components/stories-footer";
 
 // Lazy load heavy components
 const RehearsalMode = dynamic(() => import("@/components/rehearsal-mode").then(mod => ({ default: mod.RehearsalMode })), {
@@ -373,15 +372,6 @@ export default function Home() {
           onError={setError}
         />
       </div>
-
-      {/* 3. STORIES FOOTER (Fixed, handled in component) */}
-      {layoutMode === "grid" && (
-        <StoriesFooter
-          scripts={scriptsList}
-          activeIndex={activeIndex}
-          onIndexChange={setActiveIndex}
-        />
-      )}
 
       {/* Modals */}
     </div>

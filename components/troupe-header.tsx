@@ -15,12 +15,13 @@ export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHea
             {/* Left: Identity (Adaptive) */}
             <div className="flex items-center gap-4 min-w-0">
 
-                {/* Mobile Identity: Repeto App Style */}
-                <Link href="/" className="flex items-center gap-3 md:hidden">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center shadow-lg shadow-primary/30">
-                        <span className="text-sm">✨</span>
-                    </div>
-                    <span className="text-lg font-bold tracking-tight text-foreground">Repeto</span>
+                {/* Mobile Identity: Repeto App Style (Mirrors GlobalHeader) */}
+                <Link
+                    href="/favoris"
+                    className="absolute left-1/2 -translate-x-1/2 font-bold tracking-tight text-[#7F77DD] hover:opacity-80 transition-opacity select-none md:hidden"
+                    style={{ fontFamily: 'var(--font-syne, sans-serif)', fontSize: 20, fontWeight: 800 }}
+                >
+                    Repeto
                 </Link>
 
                 {/* Desktop Identity: Troupe Style */}

@@ -66,28 +66,6 @@ export function DashboardHeader({
                         </div>
 
                         <div className="flex items-center gap-1">
-                            {/* Layout Toggle on Mobile */}
-                            <div className="bg-secondary/50 p-1 rounded-xl flex items-center gap-1 mr-1">
-                                <button
-                                    onClick={() => setLayoutMode("grid")}
-                                    className={cn(
-                                        "h-11 w-11 rounded-lg transition-all flex items-center justify-center",
-                                        layoutMode === "grid" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
-                                    )}
-                                >
-                                    <LayoutGrid className="w-4 h-4" />
-                                </button>
-                                <button
-                                    onClick={() => setLayoutMode("list")}
-                                    className={cn(
-                                        "h-11 w-11 rounded-lg transition-all flex items-center justify-center",
-                                        layoutMode === "list" ? "bg-background shadow-sm text-primary" : "text-muted-foreground"
-                                    )}
-                                >
-                                    <List className="w-4 h-4" />
-                                </button>
-                            </div>
-
                             <Button
                                 variant="ghost"
                                 size="icon"

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Outfit } from "next/font/google";
+import { Outfit, Syne, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { CustomCursor } from "@/components/custom-cursor";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -9,6 +9,20 @@ import { AuthHandler } from "@/components/auth-handler";
 const outfit = Outfit({
   subsets: ["latin"],
   display: 'swap',
+});
+
+const syne = Syne({
+  subsets: ["latin"],
+  display: 'swap',
+  variable: '--font-syne',
+  weight: ['400', '600', '700', '800'],
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  display: 'swap',
+  variable: '--font-dm-sans',
+  weight: ['400', '500', '600', '700'],
 });
 
 export const viewport: Viewport = {
@@ -45,7 +59,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
-      <body className={`${outfit.className} bg-background text-foreground antialiased`}>
+      <body className={`${outfit.className} ${syne.variable} ${dmSans.variable} bg-background text-foreground antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

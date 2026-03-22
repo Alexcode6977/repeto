@@ -2,65 +2,77 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { User, Shield } from "lucide-react";
-import { SingleMask, TripleMask } from "./icons/masks";
+import { Shield } from "lucide-react";
+import Image from "next/image";
 
 interface GlobalHeaderProps {
     displayName: string;
     isAdmin: boolean;
+    avatarUrl?: string | null;
+    initials?: string;
 }
 
-export function GlobalHeader({ displayName, isAdmin }: GlobalHeaderProps) {
+export function GlobalHeader({ displayName, isAdmin, avatarUrl, initials }: GlobalHeaderProps) {
     const pathname = usePathname();
 
-    // Hide global header on specific troupe routes to avoid double header
-    // Check if path starts with /troupes/ and has an ID following it
-    // e.g. /troupes/123... -> Hide
-    // /troupes -> Show (List view)
+    // Hide global header on specific troupe routes (TroupeHeader handles those)
     const isTroupeSpecificRoute = /^\/troupes\/[^/]+/.test(pathname);
 
     if (isTroupeSpecificRoute) {
         return null;
     }
 
-    return (
-        <header className="fixed top-0 left-0 right-0 w-full p-4 md:p-6 flex items-center justify-between z-[100] backdrop-blur-xl bg-background/60 border-b border-border/50 transition-all duration-300">
-            <Link href="/dashboard" className="flex items-center gap-2 group">
-                {/* Small Logo */}
-                <div className="w-10 h-10 rounded-xl bg-secondary/20 border border-border flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-                    <div className="w-6 h-6 rounded-full bg-primary blur-md absolute opacity-50" />
-                    <SingleMask className="w-6 h-6 relative z-10" />
-                </div>
-                <span className="text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">Repeto</span>
-            </Link>
+    const avatarInitials = initials || (displayName ? displayName.slice(0, 2).toUpperCase() : "?");
 
-            <div className="flex items-center gap-3">
-                <Link href="/troupes">
-                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer mr-2">
-                        <TripleMask className="w-6 h-6" />
-                        <span className="text-sm font-medium text-foreground hidden md:inline-block">Troupes</span>
-                    </div>
+    return (
+        <header
+            className="fixed top-0 left-0 right-0 w-full z-[100] bg-white border-b border-black/[0.06] transition-all duration-200"
+            style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+            <div className="relative flex items-center justify-between h-11 px-4">
+
+                {/* Left — Empty spacer pour centrer le titre */}
+                <div className="w-10 flex-shrink-0">
+                    {isAdmin && (
+                        <Link href="/admin" aria-label="Admin">
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors">
+                                <Shield className="w-4 h-4 text-red-400" />
+                            </div>
+                        </Link>
+                    )}
+                </div>
+
+                {/* Center — Logo Repeto */}
+                <Link
+                    href="/favoris"
+                    className="absolute left-1/2 -translate-x-1/2 font-bold tracking-tight text-[#7F77DD] hover:opacity-80 transition-opacity select-none"
+                    style={{ fontFamily: 'var(--font-syne, sans-serif)', fontSize: 20, fontWeight: 800 }}
+                >
+                    Repeto
                 </Link>
 
-
-                {/* Admin Button - Only visible for admin */}
-                {isAdmin && (
-                    <Link href="/admin">
-                        <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-2 px-0 md:px-4 py-0 md:py-2 rounded-full bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors cursor-pointer">
-                            <Shield className="w-4 h-4 text-red-400" />
-                            <span className="text-sm font-bold text-red-400 hidden md:inline-block">
-                                Admin
-                            </span>
-                        </div>
-                    </Link>
-                )}
-
-                <Link href="/profile">
-                    <div className="flex h-11 w-11 md:h-auto md:w-auto items-center justify-center md:justify-start gap-3 px-0 md:px-4 py-0 md:py-2 rounded-full bg-secondary/20 border border-border hover:bg-muted/70 dark:hover:bg-white/10 transition-colors cursor-pointer">
-                        <User className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-medium text-foreground hidden md:inline-block">
-                            {displayName}
-                        </span>
+                {/* Right — Avatar */}
+                <Link href="/profile" className="flex-shrink-0" aria-label="Profil">
+                    <div
+                        className="w-8 h-8 rounded-full overflow-hidden border-2 flex items-center justify-center text-xs font-semibold transition-transform hover:scale-105 active:scale-95"
+                        style={{
+                            backgroundColor: avatarUrl ? 'transparent' : '#EEEDFE',
+                            borderColor: '#CECBF6',
+                            color: '#7F77DD',
+                            fontFamily: 'var(--font-syne, sans-serif)',
+                        }}
+                    >
+                        {avatarUrl ? (
+                            <Image
+                                src={avatarUrl}
+                                alt={displayName}
+                                width={32}
+                                height={32}
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <span>{avatarInitials}</span>
+                        )}
                     </div>
                 </Link>
             </div>
