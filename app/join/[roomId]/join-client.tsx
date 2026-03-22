@@ -204,7 +204,7 @@ export function JoinClient({ roomId, playId, initialName }: JoinClientProps) {
 
     // Joined - show synced view
     return (
-        <div className="h-screen w-screen bg-background flex flex-col overflow-hidden">
+        <div className="h-[100dvh] w-screen bg-background flex flex-col overflow-hidden">
             {/* Header */}
             <div className="h-14 bg-background/90 backdrop-blur-md border-b border-border flex items-center justify-center px-4 shrink-0">
                 <div className="flex items-center gap-2 bg-emerald-500/10 text-emerald-500 px-4 py-1.5 rounded-full">

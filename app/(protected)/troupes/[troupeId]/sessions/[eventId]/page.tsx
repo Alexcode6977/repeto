@@ -82,7 +82,7 @@ export default async function SessionDetailsPage({
 
                 <div className="flex justify-between items-end">
                     <div>
-                        <h1 className="text-4xl font-black text-foreground tracking-tighter">
+                        <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tighter">
                             {status === 'preparation' ? `Préparation : ${sessionData.title}` :
                                 status === 'upcoming' ? `Séance à venir : ${sessionData.title}` :
                                     status === 'processing' ? `Débriefing : ${sessionData.title}` :

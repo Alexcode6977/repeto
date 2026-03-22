@@ -302,7 +302,7 @@ export function VisioRehearsalClient({ troupeId, play, userId, members }: VisioR
 
     // ========== REHEARSAL SCREEN ==========
     return (
-        <div className="h-screen w-screen bg-background flex flex-col overflow-hidden">
+        <div className="h-[100dvh] w-screen bg-background flex flex-col overflow-hidden">
             {/* TOP BAR */}
             <div className="h-14 bg-background/90 backdrop-blur-md border-b border-border flex items-center justify-between px-4 z-50 shrink-0">
                 <Button variant="ghost" size="sm" onClick={() => setStep("setup")} className="gap-2 text-muted-foreground hover:text-foreground">

@@ -132,7 +132,7 @@ export function WizardStepCasting({ characters, assignments, setAssignments, scr
 
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 min-h-[400px] space-y-6">
+            <div className="flex flex-col items-center justify-center py-10 md:py-20 min-h-[400px] space-y-6">
                 <div className="relative">
                     <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full" />
                     <Sparkles className="w-12 h-12 text-cyan-400 animate-pulse relative z-10" />

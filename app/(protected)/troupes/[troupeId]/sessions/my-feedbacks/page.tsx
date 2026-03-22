@@ -25,7 +25,7 @@ export default async function MyFeedbacksPage({
                     Retour aux séances
                 </Link>
                 <div className="relative">
-                    <h1 className="text-5xl font-extrabold tracking-tighter text-foreground mb-2">
+                    <h1 className="text-3xl md:text-5xl font-extrabold tracking-tighter text-foreground mb-2">
                         Mon Journal de Notes
                     </h1>
                     <p className="text-muted-foreground font-medium flex items-center gap-2">

@@ -54,7 +54,7 @@ export default async function RecordPage({
                     <Mic className="w-8 h-8 text-red-500" />
                 </div>
                 <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight text-foreground">
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground">
                         Studio d'Enregistrement
                     </h1>
                     <p className="text-muted-foreground font-medium">

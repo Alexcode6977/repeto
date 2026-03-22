@@ -23,7 +23,7 @@ export function SessionValidatedClient({ sessionData, feedbacks }: SessionValida
                     <CheckCircle2 className="w-3.5 h-3.5 mr-2" />
                     Séance Validée
                 </Badge>
-                <h1 className="text-4xl font-black text-foreground">{sessionData.title}</h1>
+                <h1 className="text-3xl md:text-4xl font-black text-foreground">{sessionData.title}</h1>
                 <p className="text-muted-foreground">{new Date(sessionData.start_time).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
 

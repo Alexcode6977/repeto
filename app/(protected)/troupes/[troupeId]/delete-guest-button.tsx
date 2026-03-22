@@ -40,10 +40,10 @@ export function DeleteGuestButton({ troupeId, guestId, guestName }: DeleteGuestB
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button
+                                <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all text-muted-foreground"
+                    className="h-8 w-8 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all text-muted-foreground"
                     disabled={isLoading}
                 >
                     <Trash2 className="h-4 w-4" />

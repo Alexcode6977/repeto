@@ -973,7 +973,7 @@ export function ImportWizard({
             {/* 1. PROGRESS MODAL (LEGACY / DEEP PARSING) */}
             {isImporting && !isAiImporting && !diagnosticsModalOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-popover border border-primary/20 p-8 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(124,58,237,0.3)] animate-in zoom-in-95 duration-200">
+                    <div className="bg-popover border border-primary/20 p-4 sm:p-6 md:p-8 rounded-3xl w-full max-w-md shadow-[0_0_50px_rgba(124,58,237,0.3)] animate-in zoom-in-95 duration-200">
                         <div className="text-center space-y-5">
                             <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto skeleton-shimmer">
                                 <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -1030,7 +1030,7 @@ export function ImportWizard({
             {/* 1bis. PROGRESS MODAL (AI IMPORT) */}
             {isAiImporting && (
                 <div className="fixed inset-0 z-[105] flex items-center justify-center bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-popover border border-emerald-500/30 p-8 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(16,185,129,0.25)] animate-in zoom-in-95 duration-200">
+                    <div className="bg-popover border border-emerald-500/30 p-4 sm:p-6 md:p-8 rounded-3xl w-full max-w-sm shadow-[0_0_50px_rgba(16,185,129,0.25)] animate-in zoom-in-95 duration-200">
                         <div className="text-center space-y-6">
                             <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto">
                                 <Sparkles className="w-8 h-8 text-emerald-400 animate-pulse" />
@@ -1116,10 +1116,10 @@ export function ImportWizard({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-4 gap-2 mb-5">
+                        <div className="flex overflow-x-auto md:grid md:grid-cols-4 gap-2 mb-5 pb-2 snap-x snap-mandatory">
                             <button
                                 type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 1 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                className={`rounded-lg border px-3 py-2 text-left shrink-0 min-w-[140px] md:min-w-0 md:shrink ${validationStep === 1 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
                                 onClick={() => setValidationStep(1)}
                             >
                                 <p className="text-xs font-semibold text-foreground">1. Alias</p>
@@ -1127,7 +1127,7 @@ export function ImportWizard({
                             </button>
                             <button
                                 type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 2 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                className={`rounded-lg border px-3 py-2 text-left shrink-0 min-w-[140px] md:min-w-0 md:shrink ${validationStep === 2 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
                                 onClick={() => setValidationStepSafely(2)}
                             >
                                 <p className="text-xs font-semibold text-foreground">2. Collectifs</p>
@@ -1135,7 +1135,7 @@ export function ImportWizard({
                             </button>
                             <button
                                 type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 3 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                className={`rounded-lg border px-3 py-2 text-left shrink-0 min-w-[140px] md:min-w-0 md:shrink ${validationStep === 3 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
                                 onClick={() => setValidationStepSafely(3)}
                             >
                                 <p className="text-xs font-semibold text-foreground">3. Scènes</p>
@@ -1143,7 +1143,7 @@ export function ImportWizard({
                             </button>
                             <button
                                 type="button"
-                                className={`rounded-lg border px-3 py-2 text-left ${validationStep === 4 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
+                                className={`rounded-lg border px-3 py-2 text-left shrink-0 min-w-[140px] md:min-w-0 md:shrink ${validationStep === 4 ? "border-primary/60 bg-primary/10" : "border-white/10 bg-white/5"}`}
                                 onClick={() => setValidationStepSafely(4)}
                             >
                                 <p className="text-xs font-semibold text-foreground">4. Voix IA</p>
@@ -1438,7 +1438,7 @@ export function ImportWizard({
             {/* 4. IMPORT CHOICE SCREEN */}
             {showImportGuide && importChoice === "choice" && (
                 <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-0 md:p-4" onClick={() => { setShowImportGuide(false); }}>
-                    <div className="bg-card border border-border rounded-t-3xl md:rounded-3xl p-6 md:p-8 w-full max-w-4xl shadow-2xl animate-in md:zoom-in-95 slide-in-from-bottom-5 md:slide-in-from-bottom-0 duration-300 relative max-h-[95dvh] md:max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-card border border-border rounded-t-3xl md:rounded-3xl p-6 md:p-4 sm:p-6 md:p-8 w-full max-w-4xl shadow-2xl animate-in md:zoom-in-95 slide-in-from-bottom-5 md:slide-in-from-bottom-0 duration-300 relative max-h-[95dvh] md:max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
                         <button onClick={() => { setShowImportGuide(false); }} className="absolute top-4 right-4 md:top-5 md:right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10 bg-white/50 backdrop-blur-md md:bg-transparent"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
 
                         <div className="text-center mb-8 md:mb-10 mt-2 md:mt-0">

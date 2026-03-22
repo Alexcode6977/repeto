@@ -252,7 +252,7 @@ export function WizardStepCollectives({
                     </table>
                 </div>
             ) : (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-muted-foreground">
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 sm:p-6 md:p-8 text-center text-muted-foreground">
                     <p className="text-sm">Aucun multi-personnage détecté.</p>
                 </div>
             )}

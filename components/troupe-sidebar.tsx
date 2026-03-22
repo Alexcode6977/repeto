@@ -62,7 +62,7 @@ export function TroupeSidebar({ troupeId, roles }: TroupeSidebarProps) {
 
 
     return (
-        <aside className="w-64 h-screen fixed left-0 top-0 border-r border-border/50 bg-background/60 backdrop-blur-2xl z-50 flex flex-col pt-24">
+        <aside className="w-64 h-[100dvh] fixed left-0 top-0 border-r border-border/50 bg-background/60 backdrop-blur-2xl z-50 flex flex-col pt-24">
             <div className="px-6 mb-8">
                 <Link
                     href="/troupes"

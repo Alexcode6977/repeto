@@ -125,7 +125,7 @@ export function SettingsMemberRow({ member, troupeId }: SettingsMemberRowProps) 
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                            className="text-muted-foreground hover:text-red-500 hover:bg-red-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all"
                             disabled={isLoading}
                         >
                             <Trash2 className="w-4 h-4" />

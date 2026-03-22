@@ -79,7 +79,7 @@ export function PrivateAnnotatorClient({ play, script, privateNotes }: PrivateAn
     };
 
     return (
-        <div className="flex flex-col h-screen bg-background overflow-hidden relative">
+        <div className="flex flex-col h-[100dvh] bg-background overflow-hidden relative">
             {/* TOP BAR */}
             <div className="h-14 shrink-0 border-b border-border/50 bg-background/50 backdrop-blur-md mobile-heavy-surface flex items-center justify-between gap-2 px-4 z-20">
                 <div className="flex items-center gap-4">
