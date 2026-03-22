@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Plus, Users } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TroupeActions } from "./components/troupe-actions";
 
 export default async function TroupesPage() {
     const troupes = await getUserTroupes();
@@ -12,31 +13,16 @@ export default async function TroupesPage() {
     return (
         <div className="max-w-7xl mx-auto px-6 pb-6 pt-24 md:px-12 md:pb-12 md:pt-32 space-y-12">
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative">
+            <div className="relative">
                 <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
 
-                <div className="relative">
-                    <h1 className="text-5xl font-extrabold tracking-tighter text-foreground mb-3">
+                <div className="relative mb-2">
+                    <h1 className="text-4xl md:text-5xl font-extrabold tracking-tighter text-foreground">
                         Mes <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-400">Troupes</span>
                     </h1>
-                    <p className="text-muted-foreground text-lg max-w-xl">
-                        Votre espace collaboratif pour gérer vos groupes, distribuez les rôles et préparer vos prochaines représentations.
-                    </p>
                 </div>
 
-                <div className="flex gap-3 relative shrink-0">
-                    <Link href="/troupes/join">
-                        <Button variant="ghost" className="rounded-full px-6 bg-muted border border-border hover:bg-muted/80 text-foreground transition-all uppercase text-xs font-bold tracking-widest">
-                            Rejoindre
-                        </Button>
-                    </Link>
-                    <Link href="/troupes/create">
-                        <Button className="rounded-full px-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] transition-all uppercase text-xs font-bold tracking-widest">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Créer une troupe
-                        </Button>
-                    </Link>
-                </div>
+                <TroupeActions />
             </div>
 
             {troupes.length === 0 ? (
@@ -54,39 +40,36 @@ export default async function TroupesPage() {
                     </Link>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="flex flex-col gap-2">
                     {troupes.map((troupe: any) => (
-                        <Link key={troupe.id} href={`/troupes/${troupe.id}`} className="group">
-                            <Card className="h-full bg-card border-border backdrop-blur-md overflow-hidden transition-all duration-300 group-hover:bg-muted/50 group-hover:-translate-y-1 group-hover:border-primary/30 group-hover:shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] rounded-3xl border">
-                                <CardHeader className="p-8 pb-4">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-purple-500/20 border border-border flex items-center justify-center text-2xl">
-                                            🎭
-                                        </div>
-                                        <Badge variant="outline" className="font-mono bg-muted border-border text-muted-foreground px-3 py-1 rounded-full text-[10px] uppercase tracking-widest">
-                                            {troupe.join_code}
-                                        </Badge>
-                                    </div>
-                                    <CardTitle className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors">
+                        <Link key={troupe.id} href={`/troupes/${troupe.id}`} className="group block">
+                            <div className="flex items-center p-3 gap-3 bg-white border border-black/[0.04] rounded-xl hover:bg-gray-50 transition-colors">
+                                {/* GAUCHE */}
+                                <div className="flex-shrink-0 w-9 h-9 rounded-[10px] bg-[#EEEDFE] flex items-center justify-center text-lg">
+                                    🎭
+                                </div>
+                                {/* CENTRE */}
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-xs font-bold text-[#1a1a1a] truncate">
                                         {troupe.name}
-                                    </CardTitle>
-                                    <CardDescription className="text-muted-foreground font-medium pt-1">
-                                        {troupe.my_roles?.includes('pending') ? '⏳ En attente de validation' :
+                                    </h3>
+                                    <p className="text-[9px] text-[#888] truncate mt-0.5">
+                                        {troupe.my_roles?.includes('pending') ? '⏳ En attente' :
                                             troupe.my_roles?.includes('admin') ? '👑 Administrateur' :
                                                 troupe.my_roles?.includes('metteur_en_scene') ? '🎬 Metteur en scène' :
                                                     troupe.my_roles?.includes('adjoint') ? '🔧 Adjoint' : '👥 Membre'}
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="px-8 pb-8 pt-0">
-                                    <div className="h-px w-full bg-border mb-6" />
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs text-muted-foreground font-medium">Accéder à l'espace</span>
-                                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-all">
-                                            <span className="text-sm">→</span>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                    </p>
+                                </div>
+                                {/* DROITE */}
+                                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                    <span className="font-mono text-[8px] tracking-wider text-[#666] bg-[#f5f4fa] px-1.5 py-0.5 rounded uppercase">
+                                        {troupe.join_code}
+                                    </span>
+                                    <span className="text-gray-400 group-hover:text-gray-600 transition-colors text-xs font-medium">
+                                        &gt;
+                                    </span>
+                                </div>
+                            </div>
                         </Link>
                     ))}
                 </div>

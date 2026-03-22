@@ -31,7 +31,7 @@ export function GlobalHeader({ displayName, isAdmin, avatarUrl, initials }: Glob
                 "fixed top-0 left-0 right-0 w-full z-[100] bg-white border-b border-black/[0.06] transition-all duration-200",
                 "h-11 md:h-16" // Mobile: 44px, Desktop: 64px
             )}
-            style={{ paddingTop: 'env(safe-area-inset-top)' }}
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
             <div className="relative flex items-center justify-between h-full px-4 md:px-8 max-w-7xl mx-auto">
 

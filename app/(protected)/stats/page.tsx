@@ -26,12 +26,7 @@ export default async function StatsPage({ searchParams }: PageProps) {
                  Let's stick to a clean layout similar to Dashboard but focused.
              */}
 
-            <div className="mb-8">
-                <Link href="/dashboard" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-6 group">
-                    <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-                    Retour à la page d'accueil
-                </Link>
-            </div>
+
 
             <StatsDashboard initialStats={stats} initialSelectedPlayId={playId} />
         </div>
