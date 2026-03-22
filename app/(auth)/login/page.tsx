@@ -1,9 +1,8 @@
 import { login } from "../actions";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
-import { AppleSignInButton } from "@/components/apple-sign-in-button";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 
 export default async function LoginPage({
@@ -14,30 +13,29 @@ export default async function LoginPage({
     const { message, error } = await searchParams;
 
     return (
-        <div className="dark min-h-[100dvh] w-full flex flex-col items-center justify-between bg-[#0a0a0f] text-foreground font-sans p-4 relative overflow-hidden">
+        <div className="h-[100dvh] w-full flex flex-col items-center justify-between bg-white text-gray-900 font-sans p-4 relative overflow-hidden">
 
-            {/* Background Gradient - Simplified for mobile */}
+            {/* Background Gradient - Simplified for mobile light theme */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-purple-900/20" />
-                <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] bg-primary/20 blur-[100px] rounded-full opacity-50" />
-                <div className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] bg-purple-600/20 blur-[100px] rounded-full opacity-50" />
+                <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] bg-primary/10 blur-[100px] rounded-full opacity-50" />
+                <div className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] bg-emerald-600/10 blur-[100px] rounded-full opacity-50" />
             </div>
 
             {/* HEADER SECTION (Top 20-25%) */}
-            <div className="w-full flex-none flex flex-col items-center justify-center pt-8 pb-4 relative z-10">
+            <div className="w-full flex-none flex flex-col items-center justify-center pt-6 pb-2 relative z-10">
                 <Link href="/" className="inline-flex items-center gap-3 mb-4 group justify-center">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center shadow-lg shadow-primary/30">
                         <Sparkles className="h-5 w-5 text-white" />
                     </div>
-                    <span className="text-xl font-bold text-white tracking-tight">Repeto</span>
+                    <span className="text-xl font-bold text-gray-900 tracking-tight">Repeto</span>
                 </Link>
-                <h1 className="text-2xl font-bold tracking-tight text-white text-center">
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 text-center">
                     Bon retour ! 🎭
                 </h1>
             </div>
 
             {/* FORM SECTION (Middle ~60%) */}
-            <div className="w-full max-w-sm flex-1 flex flex-col justify-center relative z-10 gap-6">
+            <div className="w-full max-w-sm flex-1 flex flex-col justify-center relative z-10 gap-5">
 
                 {/* Messages Area */}
                 {(message || error) && (
@@ -56,10 +54,10 @@ export default async function LoginPage({
 
                     <div className="relative pt-2">
                         <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-white/10" />
+                            <span className="w-full border-t border-gray-200" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-[#0a0a0f] px-2 text-muted-foreground">ou</span>
+                            <span className="bg-white px-2 text-muted-foreground">ou</span>
                         </div>
                     </div>
                 </div>
@@ -74,9 +72,9 @@ export default async function LoginPage({
                             name="email"
                             type="email"
                             required
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-base text-white 
-                                focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white/10
-                                placeholder:text-muted-foreground/50 font-medium transition-all"
+                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 
+                                focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-gray-50 hover:bg-gray-50
+                                placeholder:text-gray-400 font-medium transition-all shadow-sm"
                             placeholder="nom@exemple.com"
                         />
                     </div>
@@ -87,7 +85,7 @@ export default async function LoginPage({
                             </label>
                             <Link
                                 href="/forgot-password"
-                                className="text-xs text-muted-foreground/60 hover:text-white transition-colors"
+                                className="text-xs text-muted-foreground/60 hover:text-primary transition-colors"
                             >
                                 Oublié ?
                             </Link>
@@ -97,7 +95,7 @@ export default async function LoginPage({
                             name="password"
                             required
                             placeholder="••••••••"
-                            className="bg-white/5 border-white/10 rounded-xl px-4 py-3 text-base"
+                            className="bg-white border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 focus:bg-gray-50 hover:bg-gray-50 shadow-sm"
                         />
                     </div>
 
@@ -111,7 +109,7 @@ export default async function LoginPage({
             </div>
 
             {/* FOOTER SECTION (Bottom ~15%) */}
-            <div className="w-full flex-none pb-6 text-center z-10">
+            <div className="w-full flex-none pb-4 text-center z-10">
                 <div className="text-sm text-muted-foreground">
                     Pas encore de compte ?{" "}
                     <Link href="/signup" className="text-primary font-semibold hover:text-primary/80 transition-colors">

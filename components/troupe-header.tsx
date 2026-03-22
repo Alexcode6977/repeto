@@ -11,7 +11,11 @@ interface TroupeHeaderProps {
 
 export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHeaderProps) {
     return (
-        <header className="fixed top-0 left-0 z-[60] w-full h-20 border-b border-border/20 bg-background/60 backdrop-blur-2xl px-8 flex items-center justify-between transition-all duration-200">
+        <header 
+            className="fixed top-0 left-0 z-[60] w-full border-b border-border/20 bg-background/60 backdrop-blur-2xl transition-all duration-200"
+            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+           <div className="flex h-20 items-center justify-between px-8 w-full">
             {/* Left: Identity (Adaptive) */}
             <div className="flex items-center gap-4 min-w-0">
 
@@ -64,6 +68,7 @@ export function TroupeHeader({ troupeName, displayName, isAdminUser }: TroupeHea
                     </div>
                 </Link>
             </div>
+          </div>
         </header>
     );
 }

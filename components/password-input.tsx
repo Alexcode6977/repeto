@@ -16,10 +16,10 @@ export function PasswordInput({ className, ...props }: PasswordInputProps) {
             <input
                 type={showPassword ? "text" : "password"}
                 className={cn(
-                    "w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-lg text-white",
-                    "focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-black/60",
-                    "hover:border-white/20 hover:bg-black/50",
-                    "transition-all duration-200 placeholder:text-muted-foreground/50 font-medium pr-14",
+                    "w-full bg-white border border-gray-200 rounded-2xl px-6 py-4 text-lg text-gray-900 shadow-sm",
+                    "focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-gray-50",
+                    "hover:border-gray-300 hover:bg-gray-50",
+                    "transition-all duration-200 placeholder:text-gray-400 font-medium pr-14",
                     className
                 )}
                 {...props}
@@ -27,7 +27,7 @@ export function PasswordInput({ className, ...props }: PasswordInputProps) {
             <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-muted-foreground/50 hover:text-white transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-muted-foreground/50 hover:text-gray-900 transition-colors"
                 tabIndex={-1}
             >
                 {showPassword ? (

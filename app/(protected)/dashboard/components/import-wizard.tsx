@@ -8,17 +8,7 @@ import {
     X,
     BookOpen,
     Sparkles,
-    User,
-    Users,
-    ArrowRight,
-    ChevronLeft,
     ChevronRight,
-    Check,
-    AlertTriangle,
-    FileText,
-    Link,
-    Layers,
-    CheckCircle2,
 } from "lucide-react";
 import {
     detectCharactersAction,
@@ -34,14 +24,6 @@ import { WizardStepAlias } from "./wizard-step-alias";
 import { WizardStepCollectives } from "./wizard-step-collectives";
 import { WizardStepCasting, VoiceAssignment } from "./wizard-step-casting";
 import { CatalogBrowser } from "./catalog-browser";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-
 interface ImportWizardProps {
     showImportGuide: boolean;
     setShowImportGuide: (show: boolean) => void;
@@ -55,9 +37,7 @@ import {
     ValidationDecision, ValidationStep, ClassicImportStage,
     CollectiveResolutionState,
     CLASSIC_IMPORT_STAGE_ORDER, CLASSIC_IMPORT_STAGE_LABELS, THIRD_MULTI_TARGET,
-    normalizeImportLabel, foldForComparison, isCollectiveLabel, isSceneScopedCollectiveLabel,
-    splitCollectiveTokens, isExplicitNamedCollectiveLabel, levenshteinDistance, findBestAliasTarget,
-    formatSceneLineForReview, getSceneOrderForLine, clamp
+    normalizeImportLabel
 } from "./import-wizard-types";
 export function ImportWizard({
     showImportGuide,
@@ -1457,53 +1437,53 @@ export function ImportWizard({
 
             {/* 4. IMPORT CHOICE SCREEN */}
             {showImportGuide && importChoice === "choice" && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-4" onClick={() => { setShowImportGuide(false); }}>
-                    <div className="bg-card border border-border p-8 rounded-3xl w-full max-w-4xl shadow-2xl animate-in zoom-in-95 duration-200 relative" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => { setShowImportGuide(false); }} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10"><X className="w-5 h-5" /></button>
+                <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 p-0 md:p-4" onClick={() => { setShowImportGuide(false); }}>
+                    <div className="bg-card border border-border rounded-t-3xl md:rounded-3xl p-6 md:p-8 w-full max-w-4xl shadow-2xl animate-in md:zoom-in-95 slide-in-from-bottom-5 md:slide-in-from-bottom-0 duration-300 relative max-h-[95dvh] md:max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => { setShowImportGuide(false); }} className="absolute top-4 right-4 md:top-5 md:right-5 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-muted z-10 bg-white/50 backdrop-blur-md md:bg-transparent"><X className="w-5 h-5 md:w-6 md:h-6" /></button>
 
-                        <div className="text-center mb-10">
-                            <h2 className="text-3xl font-extrabold text-foreground tracking-tight">Importer une pièce</h2>
-                            <p className="text-muted-foreground mt-2 text-lg">Choisissez votre méthode d&apos;import</p>
+                        <div className="text-center mb-8 md:mb-10 mt-2 md:mt-0">
+                            <h2 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">Importer une pièce</h2>
+                            <p className="text-muted-foreground mt-2 text-base md:text-lg">Choisissez votre méthode d&apos;import</p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                             {/* 1. Catalog Import */}
                             <button
                                 onClick={() => setImportChoice("catalog")}
-                                className="cursor-pointer group relative flex flex-col h-full text-left"
+                                className="cursor-pointer group relative flex flex-row md:flex-col items-center md:items-stretch h-auto md:h-full text-left bg-card border border-border hover:border-amber-500/50 p-4 md:p-6 rounded-2xl md:rounded-3xl transition-all shadow-sm md:shadow-none hover:shadow-xl w-full active:scale-[0.98]"
                             >
-                                <div className="absolute inset-0 bg-amber-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-amber-500/50" />
-                                <div className="bg-card border border-border hover:border-amber-500/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl w-full">
-                                    <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-amber-500/20 transition-colors">
-                                        <BookOpen className="w-10 h-10 text-amber-500" />
-                                    </div>
-                                    <h3 className="font-bold text-xl text-foreground mb-3">Importer à partir du catalogue Repeto</h3>
-                                    <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
-                                        Choisissez une pièce de théâtre directement depuis notre catalogue.
-                                    </p>
-                                    <div className="w-full py-3 rounded-xl bg-amber-500/10 text-amber-600 font-bold group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                                        Parcourir le catalogue
-                                    </div>
+                                <div className="absolute inset-0 bg-amber-500/5 rounded-2xl md:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-transparent md:border-amber-500/50" />
+                                <div className="shrink-0 w-12 h-12 md:w-20 md:h-20 bg-amber-500/10 rounded-xl md:rounded-full flex items-center justify-center mr-4 md:mr-0 md:mb-6 group-hover:bg-amber-500/20 transition-colors z-10">
+                                    <BookOpen className="w-6 h-6 md:w-10 md:h-10 text-amber-500" />
                                 </div>
+                                <div className="flex-1 md:flex md:flex-col md:text-center z-10">
+                                    <h3 className="font-bold text-[15px] md:text-xl text-foreground md:mb-3">Dialogue & Catalogue</h3>
+                                    <p className="text-muted-foreground text-[12px] md:text-sm leading-snug md:leading-relaxed md:flex-grow">
+                                        Choisissez une pièce de théâtre depuis notre catalogue exclusif.
+                                    </p>
+                                </div>
+                                <div className="hidden md:flex w-full mt-6 py-3 rounded-xl bg-amber-500/10 text-amber-600 font-bold group-hover:bg-amber-500 group-hover:text-white transition-colors justify-center z-10">
+                                    Parcourir le catalogue
+                                </div>
+                                <ChevronRight className="md:hidden w-5 h-5 text-muted-foreground group-hover:text-amber-500 ml-2 shrink-0 z-10" />
                             </button>
 
                             {/* 2. Format Repeto Import (Classic) */}
-                            <label className="cursor-pointer group relative flex flex-col h-full">
-                                <div className="absolute inset-0 bg-primary/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-primary/50" />
-                                <div className="bg-card border border-border hover:border-primary/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl">
-                                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-primary/20 transition-colors">
-                                        <Upload className="w-10 h-10 text-primary" />
-                                    </div>
-                                    <h3 className="font-bold text-xl text-foreground mb-3">Importer votre texte au format Repeto</h3>
-                                    <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
-                                        Pour les PDF déjà bien formatés (standard Repeto).
-                                        <br />
-                                        <span className="font-mono text-xs opacity-70 mt-2 block">[NOM] + Réplique</span>
-                                    </p>
-                                    <div className="w-full py-3 rounded-xl bg-primary/10 text-primary font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                        Importer mon PDF
-                                    </div>
+                            <label className="cursor-pointer group relative flex flex-row md:flex-col items-center md:items-stretch h-auto md:h-full text-left bg-card border border-border hover:border-primary/50 p-4 md:p-6 rounded-2xl md:rounded-3xl transition-all shadow-sm md:shadow-none hover:shadow-xl w-full active:scale-[0.98]">
+                                <div className="absolute inset-0 bg-primary/5 rounded-2xl md:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-transparent md:border-primary/50" />
+                                <div className="shrink-0 w-12 h-12 md:w-20 md:h-20 bg-primary/10 rounded-xl md:rounded-full flex items-center justify-center mr-4 md:mr-0 md:mb-6 group-hover:bg-primary/20 transition-colors z-10">
+                                    <Upload className="w-6 h-6 md:w-10 md:h-10 text-primary" />
                                 </div>
+                                <div className="flex-1 md:flex md:flex-col md:text-center z-10">
+                                    <h3 className="font-bold text-[15px] md:text-xl text-foreground md:mb-3 flex items-center gap-2">Format Repeto <span className="md:hidden text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted">Standard</span></h3>
+                                    <p className="text-muted-foreground text-[12px] md:text-sm leading-snug md:leading-relaxed md:flex-grow">
+                                        Pour PDF formatés. <span className="hidden md:inline"><br/><span className="font-mono text-[11px] opacity-70 mt-1 block">[NOM] + Réplique</span></span>
+                                    </p>
+                                </div>
+                                <div className="hidden md:flex w-full mt-6 py-3 rounded-xl bg-primary/10 text-primary font-bold group-hover:bg-primary group-hover:text-primary-foreground transition-colors justify-center z-10">
+                                    Importer mon PDF
+                                </div>
+                                <ChevronRight className="md:hidden w-5 h-5 text-muted-foreground group-hover:text-primary ml-2 shrink-0 z-10" />
                                 <input
                                     type="file"
                                     accept=".pdf"
@@ -1513,22 +1493,22 @@ export function ImportWizard({
                             </label>
 
                             {/* 3. Assistant Repeto Import (AI) */}
-                            <label className="cursor-pointer group relative flex flex-col h-full">
-                                <div className="absolute inset-0 bg-emerald-500/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-emerald-500/50" />
-                                <div className="bg-card border border-border hover:border-emerald-500/50 p-6 rounded-2xl flex flex-col items-center text-center h-full transition-all group-hover:-translate-y-1 shadow-sm hover:shadow-xl">
-                                    <div className="w-20 h-20 bg-emerald-500/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-emerald-500/20 transition-colors">
-                                        <Sparkles className="w-10 h-10 text-emerald-500" />
-                                    </div>
-                                    <h3 className="font-bold text-xl text-foreground mb-3">Importer votre texte avec l&apos;assistant Repeto</h3>
-                                    <p className="text-muted-foreground text-sm leading-relaxed mb-6 flex-grow">
-                                        Pour les PDF bruts. Converti en <span className="font-semibold">standard Repeto</span>.
-                                        <br />
-                                        <span className="text-emerald-500 text-xs font-semibold mt-2 block">L&apos;assistant détecte et aide à gérer les répliques.</span>
-                                    </p>
-                                    <div className="w-full py-3 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                                        PDF + Assistant Repeto
-                                    </div>
+                            <label className="cursor-pointer group relative flex flex-row md:flex-col items-center md:items-stretch h-auto md:h-full text-left bg-card border border-border hover:border-emerald-500/50 p-4 md:p-6 rounded-2xl md:rounded-3xl transition-all shadow-sm md:shadow-none hover:shadow-xl w-full active:scale-[0.98]">
+                                <div className="absolute inset-0 bg-emerald-500/5 rounded-2xl md:rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity border-2 border-transparent md:border-emerald-500/50" />
+                                <div className="shrink-0 w-12 h-12 md:w-20 md:h-20 bg-emerald-500/10 rounded-xl md:rounded-full flex items-center justify-center mr-4 md:mr-0 md:mb-6 group-hover:bg-emerald-500/20 transition-colors z-10">
+                                    <Sparkles className="w-6 h-6 md:w-10 md:h-10 text-emerald-500" />
                                 </div>
+                                <div className="flex-1 md:flex md:flex-col md:text-center z-10">
+                                    <h3 className="font-bold text-[15px] md:text-xl text-foreground mb-0.5 md:mb-3">Assistant Repeto</h3>
+                                    <p className="text-muted-foreground text-[12px] md:text-sm leading-snug md:leading-relaxed md:flex-grow flex flex-col items-start md:items-center">
+                                        L&apos;IA orchestre vos PDF bruts.
+                                        <span className="text-emerald-500 font-semibold mt-1">Recommandé</span>
+                                    </p>
+                                </div>
+                                <div className="hidden md:flex w-full mt-6 py-3 rounded-xl bg-emerald-500/10 text-emerald-600 font-bold group-hover:bg-emerald-500 group-hover:text-white transition-colors justify-center z-10">
+                                    PDF + Assistant
+                                </div>
+                                <ChevronRight className="md:hidden w-5 h-5 text-muted-foreground group-hover:text-emerald-500 ml-2 shrink-0 z-10" />
                                 <input
                                     type="file"
                                     accept=".pdf"
