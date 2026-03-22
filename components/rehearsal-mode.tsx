@@ -10,7 +10,7 @@ import { getVoiceConfig, determineSourceType } from "@/lib/actions/voice-cache";
 import { ScriptSettings } from "./script-setup";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
-import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Loader2, X, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote } from "lucide-react";
+import { Mic, Play, SkipForward, SkipBack, AlertTriangle, Pause, Loader2, X, Lock, Check, ArrowLeft, ScanEye, Eye, EyeOff, MessageSquare, Zap, Users, StickyNote, Heart } from "lucide-react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { cn, getCollectiveMembersForLine, getSceneCharacters, isUserLine } from "@/lib/utils";
@@ -23,6 +23,7 @@ import { PRIVATE_NOTE_CHAR } from "./script-viewer";
 import { removeStageDirections, parseSegments } from "@/lib/utils/stage-directions";
 import { Progress } from "./ui/progress";
 import { createPortal } from "react-dom";
+import { type SoloFavoriteDraft, type SoloRehearsalFavoriteDraft, getRehearsalQuickStartStorageKey } from "@/lib/solo-favorites";
 
 // Upgrade / Signup Modal
 const UpgradeModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
@@ -99,6 +100,8 @@ interface RehearsalModeProps {
     autoStart?: boolean;
     privateNotes?: PrivateNote[];
     showStageDirections?: boolean; // Toggle for showing/hiding stage directions
+    initialConfig?: SoloRehearsalFavoriteDraft["preset"];
+    onSaveFavoriteDraft?: (draft: SoloFavoriteDraft) => Promise<void>;
 }
 
 export function RehearsalMode({
@@ -117,17 +120,20 @@ export function RehearsalMode({
     isVisio = false,
     autoStart = false,
     privateNotes = [],
-    showStageDirections = true
+    showStageDirections = true,
+    initialConfig,
+    onSaveFavoriteDraft
 }: RehearsalModeProps) {
+    const canSaveFavorite = Boolean(onSaveFavoriteDraft && scriptId && !playId && !troupeId && !eventId);
     // Tolerance: 3 positions (Strict=0.90, Modéré=0.80, Permissif=0.65)
-    const [toleranceLevel, setToleranceLevel] = useState<"strict" | "moderate" | "permissive">("moderate");
+    const [toleranceLevel, setToleranceLevel] = useState<"strict" | "moderate" | "permissive">(initialConfig?.toleranceLevel || "moderate");
     const threshold = toleranceLevel === "strict" ? 0.90 : toleranceLevel === "moderate" ? 0.80 : 0.65;
 
     // Playback Speed: 3 positions (Normal=1.0, Accéléré=1.25, Très rapide=1.5)
-    const [playbackSpeed, setPlaybackSpeed] = useState<"normal" | "fast" | "veryfast">("normal");
+    const [playbackSpeed, setPlaybackSpeed] = useState<"normal" | "fast" | "veryfast">(initialConfig?.playbackSpeed || "normal");
     const speedMultiplier = playbackSpeed === "normal" ? 1.0 : playbackSpeed === "fast" ? 1.25 : 1.5;
 
-    const [startLineIndex, setStartLineIndex] = useState(0);
+    const [startLineIndex, setStartLineIndex] = useState(initialConfig?.startLineIndex || 0);
     const [rehearsalMode, setRehearsalMode] = useState<"full" | "cue" | "check">(initialSettings?.mode || "full");
     const [hasStarted, setHasStarted] = useState(false);
     const [isStarting, setIsStarting] = useState(false);
@@ -153,6 +159,7 @@ export function RehearsalMode({
 
     // Line Visibility State
     const [lineVisibility, setLineVisibility] = useState<"visible" | "hint" | "hidden">(initialSettings?.visibility || "visible");
+    const [isSavingFavorite, setIsSavingFavorite] = useState(false);
 
     // Fetch User Capabilities on Mount (replaces getVoiceStatus)
     useEffect(() => {
@@ -247,6 +254,19 @@ export function RehearsalMode({
         }
     }, [initialSettings, hasStarted]);
 
+    useEffect(() => {
+        if (initialConfig && !hasStarted) {
+            setStartLineIndex(initialConfig.startLineIndex);
+            setToleranceLevel(initialConfig.toleranceLevel);
+            setPlaybackSpeed(initialConfig.playbackSpeed);
+        }
+    }, [initialConfig, hasStarted]);
+
+    const rehearsalStorageKey = useMemo(
+        () => getRehearsalQuickStartStorageKey(playId || scriptId || script.title || "rehearsal"),
+        [playId, scriptId, script.title]
+    );
+
     // Auto-start for Visio mode - skip the setup screen entirely
     useEffect(() => {
         // Ensure we have everything needed before auto-starting
@@ -261,12 +281,24 @@ export function RehearsalMode({
                     userCharacters,
                     ttsProvider
                 });
-                if (!ttsProvider) setTtsProvider(hasAiVoiceAccess ? "google" : "browser");
+                const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
+                if (typeof window !== "undefined") {
+                    localStorage.setItem(rehearsalStorageKey, JSON.stringify({
+                        rehearsalMode,
+                        ttsProvider: enforcedProvider,
+                        lineVisibility,
+                        startLineIndex,
+                        toleranceLevel,
+                        playbackSpeed,
+                        timestamp: Date.now()
+                    }));
+                }
+                if (!ttsProvider) setTtsProvider(enforcedProvider);
                 handleStart();
             }, 800);
             return () => clearTimeout(timer);
         }
-    }, [autoStart, hasStarted, isStarting, isLoadingStatus, script?.lines?.length, userCharacters, hasAiVoiceAccess, ttsProvider]);
+    }, [autoStart, hasStarted, isStarting, isLoadingStatus, script?.lines?.length, userCharacters, hasAiVoiceAccess, ttsProvider, rehearsalMode, lineVisibility, startLineIndex, toleranceLevel, playbackSpeed, rehearsalStorageKey]);
 
     // Google voice assignments per character
     const [aiVoiceAssignments, setAiVoiceAssignments] = useState<Record<string, string>>({});
@@ -864,12 +896,6 @@ export function RehearsalMode({
         return "..............."; // Visual placeholder
     };
 
-    // Quick Start Logic - MOVED OUTSIDE conditional to respect React hooks rules
-    const rehearsalStorageKey = useMemo(
-        () => `souffleur_rehearsal_settings_${playId || scriptId || scriptRuntimeId || script.title}`,
-        [playId, scriptId, scriptRuntimeId, script.title]
-    );
-
     const quickStartSettings = useMemo(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem(rehearsalStorageKey);
@@ -902,6 +928,39 @@ export function RehearsalMode({
 
     const isUserTurn = currentLine && isUserLineHelper(currentLine, currentLineIndex);
 
+    const buildFavoriteDraft = (): SoloFavoriteDraft | null => {
+        if (!scriptId || !userCharacters[0]) return null;
+
+        return {
+            scriptId,
+            characterName: userCharacters[0],
+            ignoredCharacters,
+            showStageDirections,
+            launchMode: "rehearsal",
+            preset: {
+                visibility: lineVisibility,
+                mode: rehearsalMode,
+                startLineIndex,
+                toleranceLevel,
+                playbackSpeed,
+            },
+        };
+    };
+
+    const handleSaveFavorite = async () => {
+        if (!onSaveFavoriteDraft || isSavingFavorite) return;
+
+        const draft = buildFavoriteDraft();
+        if (!draft) return;
+
+        try {
+            setIsSavingFavorite(true);
+            await onSaveFavoriteDraft(draft);
+        } finally {
+            setIsSavingFavorite(false);
+        }
+    };
+
     if (!hasStarted) {
         // Quick Start Logic - quickStartSettings is now defined above, outside this conditional
 
@@ -913,6 +972,8 @@ export function RehearsalMode({
                 setTtsProvider(enforcedProvider);
                 setLineVisibility(quickStartSettings.lineVisibility);
                 setStartLineIndex(quickStartSettings.startLineIndex || 0);
+                setToleranceLevel(quickStartSettings.toleranceLevel || "moderate");
+                setPlaybackSpeed(quickStartSettings.playbackSpeed || "normal");
                 await handleStart();
             }
         };
@@ -926,6 +987,8 @@ export function RehearsalMode({
                     ttsProvider: enforcedProvider,
                     lineVisibility,
                     startLineIndex,
+                    toleranceLevel,
+                    playbackSpeed,
                     timestamp: Date.now()
                 }));
             }
@@ -1148,7 +1211,31 @@ export function RehearsalMode({
                         </div>
 
                         {/* Action Button */}
-                        <div className="pt-4">
+                        <div className="pt-4 space-y-3">
+                            {canSaveFavorite && (
+                                <button
+                                    onClick={handleSaveFavorite}
+                                    disabled={isSavingFavorite}
+                                    className={cn(
+                                        "w-full group relative flex items-center justify-center gap-3 px-8 py-3 rounded-xl transition-all duration-300 border",
+                                        isSavingFavorite
+                                            ? "bg-violet-500/10 border-violet-500/20 text-violet-300 cursor-not-allowed"
+                                            : "bg-violet-500/5 border-violet-500/20 text-violet-500 hover:bg-violet-500/10"
+                                    )}
+                                >
+                                    {isSavingFavorite ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Enregistrement...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Heart className="w-4 h-4" />
+                                            Ajouter aux favoris
+                                        </>
+                                    )}
+                                </button>
+                            )}
                             <button
                                 onClick={handleStartWithSave}
                                 disabled={isStarting || isLoadingStatus || !ttsProvider}
@@ -1627,6 +1714,26 @@ export function RehearsalMode({
 
                                 {/* Actions */}
                                 <div className="p-5 pt-0 space-y-3">
+                                    {canSaveFavorite && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleSaveFavorite}
+                                            disabled={isSavingFavorite}
+                                            className="w-full border-violet-500/20 bg-violet-500/5 text-violet-600 hover:bg-violet-500/10 hover:text-violet-700"
+                                        >
+                                            {isSavingFavorite ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                    Enregistrement...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Heart className="w-4 h-4 mr-2" />
+                                                    Sauvegarder ce favori
+                                                </>
+                                            )}
+                                        </Button>
+                                    )}
                                     <Button
                                         onClick={() => {
                                             setSessionStatsForRecap(null);

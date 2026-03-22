@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   getScripts,
   deleteScript,
@@ -15,7 +16,15 @@ import { ScriptSetup, ScriptSettings } from "@/components/script-setup";
 import { createClient } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
 import { getScriptsWithVoiceConfig } from "@/lib/actions/voice-cache";
+import { launchSoloFavorite, saveSoloFavorite } from "@/lib/actions/solo-favorites";
 import { Loader2, AlertCircle } from "lucide-react"; // Using lucide direct import where possible, Button is usually component
+import {
+  type SoloFavoriteDraft,
+  type SoloListenFavoriteDraft,
+  type SoloRehearsalFavoriteDraft,
+  getQuickStartStorageValueFromFavorite
+} from "@/lib/solo-favorites";
+import { toast } from "sonner";
 // Fix: Button should be from ui/button (Step 1 correction)
 // Actually DashboardHeader handles the UI. I only need Button/AlertCircle for the Error/Back UI in "ScriptView" mode.
 // Let's import proper UI components.
@@ -39,6 +48,10 @@ const ListenMode = dynamic(() => import("@/components/listen-mode").then(mod => 
 });
 
 export default function Home() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const favoriteIdToLaunch = searchParams.get("favorite");
+
   const [userName, setUserName] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
@@ -73,6 +86,11 @@ export default function Home() {
   const [ignoredCharacters, setIgnoredCharacters] = useState<string[]>([]);
   const [showStageDirections, setShowStageDirections] = useState(true); // Stage directions toggle state
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [listenInitialConfig, setListenInitialConfig] = useState<SoloListenFavoriteDraft["preset"] | null>(null);
+  const [rehearsalInitialConfig, setRehearsalInitialConfig] = useState<SoloRehearsalFavoriteDraft["preset"] | null>(null);
+  const [shouldAutoStartSession, setShouldAutoStartSession] = useState(false);
+  const [isLaunchingFavorite, setIsLaunchingFavorite] = useState(false);
+  const [handledFavoriteId, setHandledFavoriteId] = useState<string | null>(null);
 
   // Dashboard Layout Mode (Grid vs List)
   const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
@@ -146,11 +164,63 @@ export default function Home() {
     return () => clearInterval(intervalId);
   }, [scriptsList]);
 
+  const resetFavoriteLaunchState = () => {
+    setListenInitialConfig(null);
+    setRehearsalInitialConfig(null);
+    setShouldAutoStartSession(false);
+  };
+
+  const persistFavoriteQuickStart = (draft: SoloFavoriteDraft) => {
+    if (typeof window === "undefined") return;
+
+    const quickStart = getQuickStartStorageValueFromFavorite(draft);
+    if (!quickStart) return;
+
+    localStorage.setItem(quickStart.storageKey, JSON.stringify(quickStart.payload));
+  };
+
+  const handleSaveFavoriteDraft = async (draft: SoloFavoriteDraft) => {
+    try {
+      const result = await saveSoloFavorite(draft);
+      persistFavoriteQuickStart(draft);
+
+      if (result.status === "created") {
+        toast.success("Favori ajouté.");
+      } else {
+        toast("Déjà enregistré.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Impossible d'enregistrer ce favori.";
+      toast.error(message);
+      throw err;
+    }
+  };
+
+  const handleSaveReaderFavorite = async (settings: ScriptSettings) => {
+    if (!selectedScriptMeta?.id || !rehearsalChar) {
+      toast.error("Impossible d'enregistrer ce favori.");
+      return;
+    }
+
+    await handleSaveFavoriteDraft({
+      scriptId: selectedScriptMeta.id,
+      characterName: rehearsalChar,
+      ignoredCharacters,
+      showStageDirections,
+      launchMode: "reader",
+      preset: {
+        visibility: settings.visibility,
+        mode: settings.mode,
+      },
+    });
+  };
+
   // --- SCRIPT ACTIONS (Passed to Grid) ---
 
   const openScriptViewer = async (scriptId: string, isPublic: boolean) => {
     setIsLoadingDetail(true);
     setError(null);
+    resetFavoriteLaunchState();
     try {
       const fullScript = await getScriptById(scriptId);
       if (fullScript) {
@@ -160,7 +230,7 @@ export default function Home() {
       } else {
         setError("Impossible de charger le script.");
       }
-    } catch (err) {
+    } catch {
       setError("Erreur lors du chargement du script.");
     } finally {
       setIsLoadingDetail(false);
@@ -175,7 +245,7 @@ export default function Home() {
     try {
       await renameScriptAction(id, newTitle);
       setScriptsList(prev => prev.map(s => s.id === id ? { ...s, title: newTitle } : s));
-    } catch (err) {
+    } catch {
       setError("Impossible de renommer le script.");
     }
   };
@@ -187,7 +257,7 @@ export default function Home() {
       if (script && selectedScriptMeta?.id === id) {
         setScript(null);
       }
-    } catch (err) {
+    } catch {
       setError("Impossible de supprimer le script (Droits insuffisants ?)");
     }
   };
@@ -202,7 +272,7 @@ export default function Home() {
     try {
       await togglePublicStatus(s.id, s.is_public);
       await refreshScripts();
-    } catch (err) {
+    } catch {
       setError("Impossible de modifier le statut publique.");
       setScriptsList(previousState);
     }
@@ -214,6 +284,7 @@ export default function Home() {
     setRehearsalChar(character);
     setIgnoredCharacters(ignored || []);
     setShowStageDirections(showDirections !== undefined ? showDirections : true); // Update stage directions preference
+    resetFavoriteLaunchState();
     if (mode === 'rehearsal') setViewMode("rehearsal");
     else if (mode === 'listen') setViewMode("listen");
     else setViewMode("setup");
@@ -221,16 +292,105 @@ export default function Home() {
 
   const handleStartSession = (settings: ScriptSettings) => {
     setSessionSettings(settings);
+    resetFavoriteLaunchState();
     setViewMode("reader");
   };
 
   const handleExitView = () => {
     setRehearsalChar(null);
+    resetFavoriteLaunchState();
     setViewMode("viewer");
   };
 
+  useEffect(() => {
+    if (!favoriteIdToLaunch || favoriteIdToLaunch === handledFavoriteId || isLaunchingFavorite) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const launchFavoriteSession = async () => {
+      setIsLaunchingFavorite(true);
+      setError(null);
+
+      try {
+        const payload = await launchSoloFavorite(favoriteIdToLaunch);
+        if (cancelled) return;
+
+        setScript(payload.script as unknown as ParsedScript);
+        setSelectedScriptMeta({
+          id: payload.script.id,
+          isPublic: Boolean(payload.script.is_public),
+        });
+        setRehearsalChar(payload.favorite.characterName);
+        setIgnoredCharacters(payload.favorite.ignoredCharacters);
+        setShowStageDirections(payload.favorite.showStageDirections);
+        persistFavoriteQuickStart(payload.favorite);
+
+        if (payload.favorite.launchMode === "reader") {
+          setSessionSettings({
+            visibility: payload.favorite.preset.visibility,
+            mode: payload.favorite.preset.mode,
+          });
+          setListenInitialConfig(null);
+          setRehearsalInitialConfig(null);
+          setShouldAutoStartSession(false);
+          setViewMode("reader");
+        } else if (payload.favorite.launchMode === "listen") {
+          setListenInitialConfig(payload.favorite.preset);
+          setRehearsalInitialConfig(null);
+          setShouldAutoStartSession(true);
+          setViewMode("listen");
+        } else {
+          setSessionSettings({
+            visibility: payload.favorite.preset.visibility,
+            mode: payload.favorite.preset.mode,
+          });
+          setRehearsalInitialConfig(payload.favorite.preset);
+          setListenInitialConfig(null);
+          setShouldAutoStartSession(true);
+          setViewMode("rehearsal");
+        }
+
+        setHandledFavoriteId(favoriteIdToLaunch);
+        router.replace("/dashboard");
+      } catch (err) {
+        if (cancelled) return;
+
+        const message = err instanceof Error ? err.message : "Impossible de relancer ce favori.";
+        toast.error(message);
+        setHandledFavoriteId(favoriteIdToLaunch);
+        router.replace("/favoris");
+      } finally {
+        if (!cancelled) {
+          setIsLaunchingFavorite(false);
+        }
+      }
+    };
+
+    launchFavoriteSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [favoriteIdToLaunch, handledFavoriteId, isLaunchingFavorite, router]);
+
+  useEffect(() => {
+    if (!favoriteIdToLaunch && handledFavoriteId) {
+      setHandledFavoriteId(null);
+    }
+  }, [favoriteIdToLaunch, handledFavoriteId]);
+
   // --- RENDER VIEWS ---
   // Using conditional rendering instead of early returns to avoid React hooks order issues
+
+  if (favoriteIdToLaunch && isLaunchingFavorite && !script) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // Listen Mode
   if (script && viewMode === "listen") {
@@ -243,6 +403,9 @@ export default function Home() {
         isPublicScript={selectedScriptMeta?.isPublic}
         skipCharacters={ignoredCharacters}
         showStageDirections={showStageDirections}
+        initialConfig={listenInitialConfig || undefined}
+        autoStart={shouldAutoStartSession}
+        onSaveFavoriteDraft={handleSaveFavoriteDraft}
       />
     );
   }
@@ -259,6 +422,9 @@ export default function Home() {
         isPublicScript={selectedScriptMeta?.isPublic}
         initialIgnoredCharacters={ignoredCharacters}
         showStageDirections={showStageDirections}
+        initialConfig={rehearsalInitialConfig || undefined}
+        autoStart={shouldAutoStartSession}
+        onSaveFavoriteDraft={handleSaveFavoriteDraft}
       />
     );
   }
@@ -286,6 +452,7 @@ export default function Home() {
         character={rehearsalChar}
         onStart={handleStartSession}
         onBack={() => setViewMode("viewer")}
+        onSaveFavorite={handleSaveReaderFavorite}
       />
     );
   }
@@ -307,7 +474,10 @@ export default function Home() {
           <ScriptViewerSingle
             script={script}
             onConfirm={handleConfirmSelection}
-            onBack={() => setScript(null)}
+            onBack={() => {
+              resetFavoriteLaunchState();
+              setScript(null);
+            }}
           />
         )}
       </div>

@@ -6,12 +6,13 @@ import { useListen, type ListenMode } from "@/lib/hooks/use-listen";
 import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
-import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, ArrowLeft, MessageSquare, Zap, Users, Check } from "lucide-react";
+import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, ArrowLeft, MessageSquare, Zap, Users, Check, Heart } from "lucide-react";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { cn, getCollectiveMembersForLine, getSceneCharacters, getSceneStartIndexForLine, isUserLine as checkIsUserLine } from "@/lib/utils";
 import { Card } from "./ui/card";
 import { filterScriptLines, parseSegments } from "@/lib/utils/stage-directions";
+import { type SoloFavoriteDraft, getListenQuickStartStorageKey } from "@/lib/solo-favorites";
 
 interface ListenModeProps {
     script: ParsedScript;
@@ -23,6 +24,14 @@ interface ListenModeProps {
     troupeId?: string;
     skipCharacters?: string[];
     showStageDirections?: boolean;
+    initialConfig?: {
+        listenMode: ListenMode;
+        startLineIndex: number;
+        announceCharacter: boolean;
+        playbackSpeed: "normal" | "fast" | "veryfast";
+    };
+    autoStart?: boolean;
+    onSaveFavoriteDraft?: (draft: SoloFavoriteDraft) => Promise<void>;
 }
 
 export function ListenMode({
@@ -34,21 +43,27 @@ export function ListenMode({
     isPublicScript = false,
     troupeId,
     skipCharacters = [],
-    showStageDirections = true
+    showStageDirections = true,
+    initialConfig,
+    autoStart = false,
+    onSaveFavoriteDraft
 }: ListenModeProps) {
     const hasUserCharacters = userCharacters.length > 0;
+    const canSaveFavorite = Boolean(onSaveFavoriteDraft && scriptId && !playId && !troupeId);
 
     // Configuration state
-    const [listenMode, setListenMode] = useState<ListenMode>("full");
+    const [listenMode, setListenMode] = useState<ListenMode>(initialConfig?.listenMode || "full");
     const [ttsProvider, setTtsProvider] = useState<TTSProvider>("browser");
-    const [announceCharacter, setAnnounceCharacter] = useState(false);
-    const [startLineIndex, setStartLineIndex] = useState(0);
+    const [announceCharacter, setAnnounceCharacter] = useState(initialConfig?.announceCharacter || false);
+    const [startLineIndex, setStartLineIndex] = useState(initialConfig?.startLineIndex || 0);
     const [hasStarted, setHasStarted] = useState(false);
     const [hasAiVoiceAccess, setHasAiVoiceAccess] = useState(false);
     const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(true);
+    const [isSavingFavorite, setIsSavingFavorite] = useState(false);
+    const [showCompletionSheet, setShowCompletionSheet] = useState(false);
 
     // Playback Speed: 3 positions (Normal=1.0, Accéléré=1.25, Très rapide=1.5)
-    const [playbackSpeed, setPlaybackSpeed] = useState<"normal" | "fast" | "veryfast">("normal");
+    const [playbackSpeed, setPlaybackSpeed] = useState<"normal" | "fast" | "veryfast">(initialConfig?.playbackSpeed || "normal");
     const speedMultiplier = playbackSpeed === "normal" ? 1.0 : playbackSpeed === "fast" ? 1.25 : 1.5;
     type ScriptLineWithOriginalIndex = typeof script.lines[number] & { originalIndex: number };
 
@@ -57,13 +72,18 @@ export function ListenMode({
         [skipCharacters]
     );
 
+    const quickStartStorageKey = useMemo(
+        () => getListenQuickStartStorageKey(playId || scriptId || script.title || "listen"),
+        [playId, scriptId, script.title]
+    );
+
     const quickStartSettings = useMemo(() => {
         if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem(`souffleur_listen_settings_${playId || scriptId}`);
+            const saved = localStorage.getItem(quickStartStorageKey);
             return saved ? JSON.parse(saved) : null;
         }
         return null;
-    }, [playId, scriptId]);
+    }, [quickStartStorageKey]);
 
     const sceneCharactersMap = useMemo(() => getSceneCharacters(script), [script]);
 
@@ -89,6 +109,15 @@ export function ListenMode({
         };
         fetchCapabilities();
     }, [troupeId]);
+
+    useEffect(() => {
+        if (initialConfig && !hasStarted) {
+            setListenMode(initialConfig.listenMode);
+            setAnnounceCharacter(initialConfig.announceCharacter);
+            setStartLineIndex(initialConfig.startLineIndex);
+            setPlaybackSpeed(initialConfig.playbackSpeed);
+        }
+    }, [initialConfig, hasStarted]);
 
     const {
         currentLineIndex,
@@ -158,16 +187,54 @@ export function ListenMode({
 
     useEffect(() => {
         if (status === "finished" && hasStarted) {
+            stop();
             releaseWakeLock();
-            onExit();
+
+            if (canSaveFavorite) {
+                setShowCompletionSheet(true);
+            } else {
+                onExit();
+            }
         }
-    }, [status, hasStarted, onExit, releaseWakeLock]);
+    }, [status, hasStarted, onExit, releaseWakeLock, canSaveFavorite, stop]);
 
     const handleStart = async () => {
         if (isLoadingCapabilities) return;
         setHasStarted(true);
         requestWakeLock();
         start();
+    };
+
+    const buildFavoriteDraft = (): SoloFavoriteDraft | null => {
+        if (!scriptId || !userCharacters[0]) return null;
+
+        return {
+            scriptId,
+            characterName: userCharacters[0],
+            ignoredCharacters: effectiveSkipCharacters,
+            showStageDirections,
+            launchMode: "listen",
+            preset: {
+                listenMode,
+                startLineIndex,
+                announceCharacter,
+                playbackSpeed,
+            },
+        };
+    };
+
+    const handleSaveFavorite = async () => {
+        if (!onSaveFavoriteDraft || isSavingFavorite) return;
+
+        const draft = buildFavoriteDraft();
+        if (!draft) return;
+
+        try {
+            setIsSavingFavorite(true);
+            await onSaveFavoriteDraft(draft);
+        } finally {
+            setIsSavingFavorite(false);
+        }
     };
 
     const startQuick = () => {
@@ -177,6 +244,7 @@ export function ListenMode({
             setTtsProvider(enforcedProvider);
             setAnnounceCharacter(quickStartSettings.announceCharacter);
             setStartLineIndex(quickStartSettings.startLineIndex || 0);
+            setPlaybackSpeed(quickStartSettings.playbackSpeed || "normal");
             handleStart();
         }
     };
@@ -184,11 +252,12 @@ export function ListenMode({
     const handleStartWithSave = () => {
         const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
         if (typeof window !== 'undefined') {
-            localStorage.setItem(`souffleur_listen_settings_${playId || scriptId}`, JSON.stringify({
+            localStorage.setItem(quickStartStorageKey, JSON.stringify({
                 listenMode,
                 ttsProvider: enforcedProvider,
                 announceCharacter,
                 startLineIndex,
+                playbackSpeed,
                 timestamp: Date.now()
             }));
         }
@@ -199,8 +268,42 @@ export function ListenMode({
     const handleExit = () => {
         stop();
         releaseWakeLock();
+
+        if (canSaveFavorite && hasStarted && currentRelevantIndex > 0) {
+            setShowCompletionSheet(true);
+            return;
+        }
+
         onExit();
     };
+
+    useEffect(() => {
+        if (!autoStart || hasStarted || isLoadingCapabilities) {
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            const enforcedProvider: TTSProvider = hasAiVoiceAccess ? "google" : "browser";
+
+            if (typeof window !== "undefined") {
+                localStorage.setItem(quickStartStorageKey, JSON.stringify({
+                    listenMode,
+                    ttsProvider: enforcedProvider,
+                    announceCharacter,
+                    startLineIndex,
+                    playbackSpeed,
+                    timestamp: Date.now()
+                }));
+            }
+
+            setTtsProvider(enforcedProvider);
+            setHasStarted(true);
+            requestWakeLock();
+            start();
+        }, 250);
+
+        return () => clearTimeout(timer);
+    }, [autoStart, hasStarted, isLoadingCapabilities, hasAiVoiceAccess, quickStartStorageKey, listenMode, announceCharacter, startLineIndex, playbackSpeed, requestWakeLock, start]);
 
     const currentScene = script.scenes?.find((scene, idx) => {
         const nextScene = script.scenes?.[idx + 1];
@@ -377,18 +480,45 @@ export function ListenMode({
                             </div>
                         </div>
 
-                        <button
-                            onClick={handleStartWithSave}
-                            disabled={isLoadingCapabilities}
-                            className={cn(
-                                "w-full group py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg flex items-center justify-center gap-3 transition-all",
-                                isLoadingCapabilities
-                                    ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-                                    : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white"
+                        <div className="space-y-3">
+                            {canSaveFavorite && (
+                                <button
+                                    onClick={handleSaveFavorite}
+                                    disabled={isSavingFavorite}
+                                    className={cn(
+                                        "w-full group py-3 rounded-xl font-bold tracking-wider border flex items-center justify-center gap-3 transition-all",
+                                        isSavingFavorite
+                                            ? "bg-teal-500/10 border-teal-500/20 text-teal-300 cursor-not-allowed"
+                                            : "bg-teal-500/5 border-teal-500/20 text-teal-500 hover:bg-teal-500/10"
+                                    )}
+                                >
+                                    {isSavingFavorite ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Enregistrement...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Heart className="w-4 h-4" />
+                                            Ajouter aux favoris
+                                        </>
+                                    )}
+                                </button>
                             )}
-                        >
-                            <span>Lancer l&apos;écoute</span> <Headphones className="w-5 h-5" />
-                        </button>
+
+                            <button
+                                onClick={handleStartWithSave}
+                                disabled={isLoadingCapabilities}
+                                className={cn(
+                                    "w-full group py-4 rounded-xl font-bold uppercase tracking-wider shadow-lg flex items-center justify-center gap-3 transition-all",
+                                    isLoadingCapabilities
+                                        ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+                                        : "bg-gradient-to-r from-teal-500 to-cyan-600 text-white"
+                                )}
+                            >
+                                <span>Lancer l&apos;écoute</span> <Headphones className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
                 </Card>
             </div>
@@ -464,6 +594,59 @@ export function ListenMode({
                     <button onClick={next} className="p-4 rounded-full bg-card border border-border hover:bg-muted"><SkipForward className="w-6 h-6" /></button>
                 </div>
             </div>
+
+            {showCompletionSheet && (
+                <div className="fixed inset-0 z-[120] flex items-center justify-center bg-background/90 backdrop-blur-sm p-4">
+                    <div className="w-full max-w-sm rounded-3xl border border-border bg-card p-6 shadow-2xl">
+                        <div className="space-y-2 text-center">
+                            <div className="w-14 h-14 mx-auto rounded-full bg-cyan-500/15 flex items-center justify-center">
+                                <Headphones className="w-7 h-7 text-cyan-500" />
+                            </div>
+                            <h3 className="text-xl font-bold text-foreground">Écoute terminée</h3>
+                            <p className="text-sm text-muted-foreground">
+                                Sauvegarde cette configuration pour la relancer en un tap depuis Favoris.
+                            </p>
+                        </div>
+
+                        <div className="mt-6 space-y-3">
+                            {canSaveFavorite && (
+                                <button
+                                    onClick={handleSaveFavorite}
+                                    disabled={isSavingFavorite}
+                                    className={cn(
+                                        "w-full rounded-xl py-3 font-semibold transition-all flex items-center justify-center gap-2",
+                                        isSavingFavorite
+                                            ? "bg-cyan-500/10 text-cyan-300 cursor-not-allowed"
+                                            : "bg-cyan-500 text-white hover:bg-cyan-600"
+                                    )}
+                                >
+                                    {isSavingFavorite ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Enregistrement...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Heart className="w-4 h-4" />
+                                            Sauvegarder ce favori
+                                        </>
+                                    )}
+                                </button>
+                            )}
+
+                            <button
+                                onClick={() => {
+                                    setShowCompletionSheet(false);
+                                    onExit();
+                                }}
+                                className="w-full rounded-xl py-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                Terminer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -13,7 +13,9 @@ import {
     Users,
     MessageSquare,
     Zap,
-    Check
+    Check,
+    Heart,
+    Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +24,7 @@ interface ScriptSetupProps {
     character: string;
     onStart: (settings: ScriptSettings) => void;
     onBack: () => void;
+    onSaveFavorite?: (settings: ScriptSettings) => Promise<void>;
 }
 
 export interface ScriptSettings {
@@ -29,11 +32,23 @@ export interface ScriptSettings {
     mode: "full" | "cue" | "check";
 }
 
-export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupProps) {
+export function ScriptSetup({ character, onStart, onBack, onSaveFavorite }: ScriptSetupProps) {
     const [settings, setSettings] = useState<ScriptSettings>({
         visibility: "visible",
         mode: "full",
     });
+    const [isSavingFavorite, setIsSavingFavorite] = useState(false);
+
+    const handleSaveFavorite = async () => {
+        if (!onSaveFavorite || isSavingFavorite) return;
+
+        try {
+            setIsSavingFavorite(true);
+            await onSaveFavorite(settings);
+        } finally {
+            setIsSavingFavorite(false);
+        }
+    };
 
     return (
         <div className="w-full max-w-lg mx-auto pt-24 md:pt-32 pb-20 animate-in fade-in slide-in-from-bottom-6 duration-700">
@@ -83,7 +98,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                                     return (
                                         <button
                                             key={v.id}
-                                            onClick={() => setSettings(prev => ({ ...prev, visibility: v.id as any }))}
+                                            onClick={() => setSettings(prev => ({ ...prev, visibility: v.id as ScriptSettings["visibility"] }))}
                                             className={cn(
                                                 "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-2",
                                                 isActive
@@ -129,7 +144,7 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                                     return (
                                         <button
                                             key={m.id}
-                                            onClick={() => setSettings(prev => ({ ...prev, mode: m.id as any }))}
+                                            onClick={() => setSettings(prev => ({ ...prev, mode: m.id as ScriptSettings["mode"] }))}
                                             className={cn(
                                                 "relative p-3 rounded-xl text-left transition-all duration-300 border flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-2",
                                                 isActive
@@ -160,12 +175,33 @@ export function ScriptSetup({ script, character, onStart, onBack }: ScriptSetupP
                     </div>
 
                     {/* Action Button */}
-                    <div className="pt-4">
+                    <div className="pt-4 space-y-3">
+                        {onSaveFavorite && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleSaveFavorite}
+                                disabled={isSavingFavorite}
+                                className="w-full h-12 rounded-xl border-violet-500/20 bg-violet-500/5 text-violet-600 hover:bg-violet-500/10 hover:text-violet-700"
+                            >
+                                {isSavingFavorite ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Enregistrement...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Heart className="w-4 h-4 mr-2" />
+                                        Ajouter aux favoris
+                                    </>
+                                )}
+                            </Button>
+                        )}
                         <button
                             onClick={() => onStart(settings)}
                             className="w-full group relative flex items-center justify-center gap-3 px-8 py-4 rounded-xl transition-all duration-300 shadow-lg bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:shadow-purple-500/25 hover:scale-[1.02] active:scale-[0.98]"
                         >
-                            <span className="font-bold text-sm tracking-wider uppercase">C'est parti</span>
+                            <span className="font-bold text-sm tracking-wider uppercase">C&apos;est parti</span>
                             <Play className="w-5 h-5 fill-current group-hover:translate-x-1 transition-transform" />
                         </button>
                     </div>
