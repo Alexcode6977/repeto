@@ -7,13 +7,45 @@ import {
     BookOpen,
     Heart,
     Activity,
-    Users
+    Users,
+    type LucideIcon
 } from "lucide-react";
-import { useHaptic } from "@/lib/hooks/use-haptic";
+import { type MobileNavItem, useMobileTabNavigation } from "@/lib/hooks/use-mobile-tab-navigation";
 
 export function SoloNavbar() {
     const pathname = usePathname();
-    const { trigger } = useHaptic();
+    const navItems: Array<MobileNavItem & { icon: LucideIcon }> = [
+        {
+            label: "Mes textes",
+            href: "/dashboard",
+            icon: BookOpen,
+            match: (currentPath) => currentPath.startsWith('/mes-textes') || currentPath === "/dashboard",
+            restoreKey: "/dashboard",
+            restoreOn: (currentPath) => currentPath === "/dashboard" || currentPath === "/mes-textes",
+        },
+        {
+            label: "Favoris",
+            href: "/favoris",
+            icon: Heart,
+            match: (currentPath) => currentPath === "/favoris" || currentPath === "/",
+            restoreOn: (currentPath) => currentPath === "/favoris" || currentPath === "/",
+        },
+        {
+            label: "Stats",
+            href: "/stats",
+            icon: Activity,
+            match: (currentPath) => currentPath.startsWith('/stats'),
+            restoreOn: (currentPath) => currentPath === "/stats",
+        },
+        {
+            label: "Troupes",
+            href: "/troupes",
+            icon: Users,
+            match: (currentPath) => currentPath === "/troupes",
+            restoreOn: (currentPath) => currentPath === "/troupes",
+        }
+    ];
+    const { getLinkProps, isItemActive } = useMobileTabNavigation(navItems);
 
     // 1. Hide on active session routes
     if (pathname.includes('/active')) {
@@ -26,44 +58,16 @@ export function SoloNavbar() {
         return null;
     }
 
-    const navItems = [
-        {
-            label: "Mes textes",
-            href: "/mes-textes",
-            icon: BookOpen,
-            active: pathname.startsWith('/mes-textes') || pathname === "/dashboard"
-        },
-        {
-            label: "Favoris",
-            href: "/favoris",
-            icon: Heart,
-            active: pathname === "/favoris" || pathname === "/"
-        },
-        {
-            label: "Stats",
-            href: "/stats",
-            icon: Activity,
-            active: pathname.startsWith('/stats')
-        },
-        {
-            label: "Troupes",
-            href: "/troupes",
-            icon: Users,
-            active: pathname === "/troupes"
-        }
-    ];
-
     return (
         <div className="fixed bottom-0 left-0 right-0 h-auto pb-[env(safe-area-inset-bottom,20px)] pt-3 bg-white border-t border-black/[0.06] z-[100] flex items-center justify-around px-4 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.02)] transition-all duration-300">
             {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = item.active;
+                const isActive = isItemActive(item);
 
                 return (
                     <Link
                         key={item.href}
-                        href={item.href}
-                        onClick={() => trigger('light')}
+                        {...getLinkProps(item)}
                         className={cn(
                             "flex flex-col items-center justify-center gap-[6px] flex-1 h-full min-h-[50px] transition-all duration-300 group play-click-target",
                             isActive ? "text-[#7F77DD]" : "text-[#C8C8C8] hover:text-[#7F77DD]/70"

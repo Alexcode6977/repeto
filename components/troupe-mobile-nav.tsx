@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
     LayoutDashboard,
     Calendar,
     BookOpen,
     Users,
-    ClipboardList
+    ClipboardList,
+    type LucideIcon
 } from "lucide-react";
-import { useHaptic } from "@/lib/hooks/use-haptic";
+import { type MobileNavItem, useMobileTabNavigation } from "@/lib/hooks/use-mobile-tab-navigation";
 
 import {
     canManageTroupe,
@@ -25,18 +25,16 @@ interface TroupeMobileNavProps {
 }
 
 export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
-    const pathname = usePathname();
-    const { trigger } = useHaptic();
-
     // Build items based on permission check
-    const navItems = [];
+    const navItems: Array<MobileNavItem & { icon: LucideIcon }> = [];
 
     // 1. Calendar (All)
     navItems.push({
         label: "Calendrier",
         href: `/troupes/${troupeId}/calendar`,
         icon: Calendar,
-        active: pathname.startsWith(`/troupes/${troupeId}/calendar`)
+        match: (currentPath) => currentPath.startsWith(`/troupes/${troupeId}/calendar`),
+        restoreOn: (currentPath) => currentPath === `/troupes/${troupeId}/calendar`,
     });
 
     // 2. Pièces (Member or MES)
@@ -45,7 +43,8 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
             label: "Pièces",
             href: `/troupes/${troupeId}/plays`,
             icon: BookOpen,
-            active: pathname.startsWith(`/troupes/${troupeId}/plays`)
+            match: (currentPath) => currentPath.startsWith(`/troupes/${troupeId}/plays`),
+            restoreOn: (currentPath) => currentPath === `/troupes/${troupeId}/plays`,
         });
     }
 
@@ -55,7 +54,8 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
             label: "Séances",
             href: `/troupes/${troupeId}/sessions`,
             icon: ClipboardList,
-            active: pathname.startsWith(`/troupes/${troupeId}/sessions`)
+            match: (currentPath) => currentPath.startsWith(`/troupes/${troupeId}/sessions`),
+            restoreOn: (currentPath) => currentPath === `/troupes/${troupeId}/sessions`,
         });
     } else if (canViewSessions(roles)) {
         // Artistic members see only Live.
@@ -63,7 +63,8 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
             label: "Séance Live",
             href: `/troupes/${troupeId}/sessions/live`,
             icon: Users,
-            active: pathname.includes('/live')
+            match: (currentPath) => currentPath.includes('/live'),
+            restoreOn: (currentPath) => currentPath === `/troupes/${troupeId}/sessions/live`,
         });
     }
 
@@ -73,33 +74,35 @@ export function TroupeMobileNav({ troupeId, roles }: TroupeMobileNavProps) {
             label: "Organisation",
             href: `/troupes/${troupeId}`,
             icon: LayoutDashboard,
-            active: pathname === `/troupes/${troupeId}` || pathname === `/troupes/${troupeId}/dashboard`
+            match: (currentPath) => currentPath === `/troupes/${troupeId}` || currentPath === `/troupes/${troupeId}/dashboard`,
+            restoreKey: `/troupes/${troupeId}`,
+            restoreOn: (currentPath) => currentPath === `/troupes/${troupeId}` || currentPath === `/troupes/${troupeId}/dashboard`,
         });
     }
+    const { getLinkProps, isItemActive } = useMobileTabNavigation(navItems);
 
     return (
         <div className="fixed bottom-0 left-0 right-0 h-auto pb-[env(safe-area-inset-bottom,20px)] pt-3 bg-card/95 dark:bg-[#0a0a0f]/95 backdrop-blur-xl border-t border-border/60 dark:border-white/10 z-[100] flex items-center justify-around px-4 md:hidden shadow-2xl">
             {navItems.map((item) => (
                 <Link
                     key={item.href}
-                    href={item.href}
-                    onClick={() => trigger('light')}
+                    {...getLinkProps(item)}
                     className={cn(
                         "flex flex-col items-center justify-center gap-1 flex-1 h-full min-h-[50px] transition-all duration-300 group play-click-target",
-                        item.active
+                        isItemActive(item)
                             ? "text-primary"
                             : "text-muted-foreground hover:text-foreground dark:hover:text-white"
                     )}
                 >
                     <div className={cn(
                         "p-1 rounded-xl transition-all duration-300 relative",
-                        item.active ? "bg-primary/10" : "bg-transparent group-hover:bg-muted/60 dark:group-hover:bg-white/5"
+                        isItemActive(item) ? "bg-primary/10" : "bg-transparent group-hover:bg-muted/60 dark:group-hover:bg-white/5"
                     )}>
                         <item.icon className={cn(
                             "w-5 h-5 transition-transform duration-300",
-                            item.active ? "scale-110" : "scale-100"
+                            isItemActive(item) ? "scale-110" : "scale-100"
                         )} />
-                        {item.active && (
+                        {isItemActive(item) && (
                             <span className="absolute inset-0 bg-primary/20 blur-lg rounded-full" />
                         )}
                     </div>
