@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { ScriptSettings } from "@/components/script-setup";
@@ -21,6 +21,7 @@ import {
     saveDashboardFavorite,
     toggleDashboardScriptPublicStatus,
 } from "@/lib/features/dashboard/dashboard-gateway";
+import { useAppVisibility } from "@/lib/hooks/use-app-visibility";
 import {
     type SoloFavoriteDraft,
     type SoloListenFavoriteDraft,
@@ -50,6 +51,7 @@ export function useDashboardScreen() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const favoriteIdToLaunch = searchParams.get("favorite");
+    const isAppVisible = useAppVisibility();
 
     const [userName, setUserName] = useState("");
     const [userId, setUserId] = useState("");
@@ -82,12 +84,29 @@ export function useDashboardScreen() {
     const [handledFavoriteId, setHandledFavoriteId] = useState<string | null>(null);
 
     const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
+    const deferredSearchQuery = useDeferredValue(searchQuery);
 
     const resetFavoriteLaunchState = useCallback(() => {
         setListenInitialConfig(null);
         setRehearsalInitialConfig(null);
         setShouldAutoStartSession(false);
     }, []);
+
+    const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
+    const filteredScriptsList = scriptsList.filter((script) => {
+        const matchesSearch = !normalizedSearchQuery || script.title.toLowerCase().includes(normalizedSearchQuery);
+        return script.is_owner && matchesSearch;
+    });
+
+    useEffect(() => {
+        setActiveIndex((currentIndex) => {
+            if (filteredScriptsList.length === 0) {
+                return 0;
+            }
+
+            return Math.min(currentIndex, filteredScriptsList.length - 1);
+        });
+    }, [filteredScriptsList.length]);
 
     const refreshScripts = useCallback(async () => {
         try {
@@ -141,7 +160,7 @@ export function useDashboardScreen() {
                 currentScript.vocalization_status === "processing"
         );
 
-        if (!hasVocalizingScripts) {
+        if (!hasVocalizingScripts || !isAppVisible) {
             return;
         }
 
@@ -152,7 +171,7 @@ export function useDashboardScreen() {
         return () => {
             window.clearInterval(intervalId);
         };
-    }, [refreshScripts, scriptsList]);
+    }, [isAppVisible, refreshScripts, scriptsList]);
 
     const handleSaveFavoriteDraft = useCallback(async (draft: SoloFavoriteDraft) => {
         try {
@@ -422,10 +441,12 @@ export function useDashboardScreen() {
             userEmail,
             userTier,
             scriptsList,
+            filteredScriptsList,
             isLoading,
             error,
             showImportGuide,
             searchQuery,
+            isSearchPending: searchQuery !== deferredSearchQuery,
             showMobileSearch,
             viewMode,
             script,

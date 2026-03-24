@@ -6,6 +6,7 @@ export function DashboardHeaderMobile({
     userName,
     searchQuery,
     setSearchQuery,
+    isSearchPending,
     showMobileSearch,
     setShowMobileSearch,
     onImportClick,
@@ -16,7 +17,11 @@ export function DashboardHeaderMobile({
             {showMobileSearch ? (
                 <div className="flex-1 flex items-center gap-3 animate-in fade-in slide-in-from-right-4 duration-300 w-full absolute inset-0 bg-background z-20 px-1">
                     <div className="relative flex-1 group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        {isSearchPending ? (
+                            <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-spin" />
+                        ) : (
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        )}
                         <input
                             autoFocus
                             type="text"

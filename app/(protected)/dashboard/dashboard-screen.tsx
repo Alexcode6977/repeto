@@ -1,17 +1,29 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { ImportWizard } from "@/app/(protected)/dashboard/components/import-wizard";
 import { ScriptViewerSingle } from "@/components/script-viewer-single";
 import { ScriptSetup } from "@/components/script-setup";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import {
+    loadListenModeComponent,
+    loadRehearsalModeComponent,
+    loadScriptReaderComponent,
+    preloadDashboardSoloModes,
+} from "@/lib/features/dashboard/solo-mode-loaders";
 import { useDashboardScreen } from "@/lib/features/dashboard/use-dashboard-screen";
 import { DashboardScreenDesktop } from "@/app/(protected)/dashboard/dashboard-screen.desktop";
 import { DashboardScreenMobile } from "@/app/(protected)/dashboard/dashboard-screen.mobile";
 
+type IdleBrowserWindow = Window & typeof globalThis & {
+    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+    cancelIdleCallback?: (handle: number) => void;
+};
+
 const RehearsalMode = dynamic(
-    () => import("@/components/rehearsal-mode").then((mod) => ({ default: mod.RehearsalMode })),
+    () => loadRehearsalModeComponent().then((Component) => ({ default: Component })),
     {
         loading: () => (
             <div className="min-h-screen flex items-center justify-center">
@@ -22,7 +34,7 @@ const RehearsalMode = dynamic(
 );
 
 const ScriptReader = dynamic(
-    () => import("@/components/script-reader").then((mod) => ({ default: mod.ScriptReader })),
+    () => loadScriptReaderComponent().then((Component) => ({ default: Component })),
     {
         loading: () => (
             <div className="min-h-screen flex items-center justify-center">
@@ -33,7 +45,7 @@ const ScriptReader = dynamic(
 );
 
 const ListenMode = dynamic(
-    () => import("@/components/listen-mode").then((mod) => ({ default: mod.ListenMode })),
+    () => loadListenModeComponent().then((Component) => ({ default: Component })),
     {
         loading: () => (
             <div className="min-h-screen flex items-center justify-center">
@@ -46,6 +58,7 @@ const ListenMode = dynamic(
 export function DashboardScreen() {
     const dashboard = useDashboardScreen();
     const isDesktop = useMediaQuery("(min-width: 768px)");
+    const hasPreloadedModesRef = useRef(false);
     const {
         state,
         setError,
@@ -70,6 +83,38 @@ export function DashboardScreen() {
         layoutMode,
         isFavoriteLaunchLoading,
     } = dashboard;
+
+    useEffect(() => {
+        if (hasPreloadedModesRef.current || state.isLoading) {
+            return;
+        }
+
+        hasPreloadedModesRef.current = true;
+
+        if (typeof window === "undefined") {
+            return;
+        }
+
+        const browserWindow = window as IdleBrowserWindow;
+
+        if (typeof browserWindow.requestIdleCallback === "function") {
+            const idleId = browserWindow.requestIdleCallback(() => {
+                preloadDashboardSoloModes();
+            }, { timeout: 1200 });
+
+            return () => {
+                browserWindow.cancelIdleCallback?.(idleId);
+            };
+        }
+
+        const timeoutId = globalThis.setTimeout(() => {
+            preloadDashboardSoloModes();
+        }, 250);
+
+        return () => {
+            globalThis.clearTimeout(timeoutId);
+        };
+    }, [state.isLoading]);
 
     if (isFavoriteLaunchLoading) {
         return (
@@ -170,13 +215,14 @@ export function DashboardScreen() {
         userName: state.userName,
         searchQuery: state.searchQuery,
         setSearchQuery,
+        isSearchPending: state.isSearchPending,
         showMobileSearch: state.showMobileSearch,
         setShowMobileSearch,
         onImportClick: () => setShowImportGuide(true),
         isPending: false,
         layoutMode,
         setLayoutMode,
-        scripts: state.scriptsList,
+        scripts: state.filteredScriptsList,
         isLoading: state.isLoading,
         userEmail: state.userEmail,
         onLoad: handleLoadScript,

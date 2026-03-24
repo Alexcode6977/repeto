@@ -26,6 +26,7 @@ export interface DashboardHeaderProps {
     userName: string;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
+    isSearchPending: boolean;
     showMobileSearch: boolean;
     setShowMobileSearch: (show: boolean) => void;
     onImportClick: () => void;
@@ -37,7 +38,6 @@ export interface DashboardHeaderProps {
 export interface DashboardGridProps {
     scripts: ScriptMetadata[];
     isLoading: boolean;
-    searchQuery: string;
     userEmail: string | null;
     onLoad: (script: ScriptMetadata) => void;
     onRename: (id: string, newTitle: string) => Promise<void>;
@@ -66,10 +66,12 @@ export interface DashboardScreenState {
     userEmail: string | null;
     userTier: DashboardUserTier;
     scriptsList: ScriptMetadata[];
+    filteredScriptsList: ScriptMetadata[];
     isLoading: boolean;
     error: string | null;
     showImportGuide: boolean;
     searchQuery: string;
+    isSearchPending: boolean;
     showMobileSearch: boolean;
     viewMode: DashboardViewMode;
     script: ParsedScript | null;

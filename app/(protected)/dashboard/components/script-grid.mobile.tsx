@@ -39,15 +39,19 @@ export function ScriptGridMobile({
     const [realIndex, setRealIndex] = useState(0);
 
     const originalLength = scripts.length;
-    const mobileScripts = originalLength > 0
+    const shouldLoopCarousel = originalLength > 1;
+    const mobileScripts = shouldLoopCarousel
         ? [...scripts, ...scripts, ...scripts]
-        : [];
+        : scripts;
 
     useEffect(() => {
         if (originalLength > 0) {
-            setRealIndex(activeIndex + originalLength);
+            setRealIndex(shouldLoopCarousel ? activeIndex + originalLength : activeIndex);
+            return;
         }
-    }, [activeIndex, originalLength]);
+
+        setRealIndex(0);
+    }, [activeIndex, originalLength, shouldLoopCarousel]);
 
     useEffect(() => {
         if (!containerRef.current || mobileScripts.length === 0) {
@@ -70,7 +74,7 @@ export function ScriptGridMobile({
         const itemLeft = targetChild.offsetLeft;
         const itemWidth = targetChild.offsetWidth;
         const scrollLeft = itemLeft - (containerWidth / 2) + (itemWidth / 2);
-        const behavior = isTeleporting.current ? "auto" : "smooth";
+        const behavior = shouldLoopCarousel && isTeleporting.current ? "auto" : "smooth";
 
         container.scrollTo({
             left: scrollLeft,
@@ -81,10 +85,15 @@ export function ScriptGridMobile({
             isProgrammaticScroll.current = false;
             isTeleporting.current = false;
         }, 500);
-    }, [mobileScripts.length, realIndex]);
+    }, [mobileScripts.length, realIndex, shouldLoopCarousel]);
 
     const handleScroll = () => {
-        if (isProgrammaticScroll.current || !containerRef.current || originalLength === 0) {
+        if (
+            isProgrammaticScroll.current ||
+            !containerRef.current ||
+            originalLength === 0 ||
+            !shouldLoopCarousel
+        ) {
             return;
         }
 
@@ -141,7 +150,7 @@ export function ScriptGridMobile({
                             key={uniqueKey}
                             className={cn(
                                 "flex-none w-[70vw] snap-center transition-all duration-300 ease-out mx-2",
-                                isCurrentlyCentered
+                                !shouldLoopCarousel || isCurrentlyCentered
                                     ? "scale-100 opacity-100 z-10"
                                     : "scale-90 opacity-40 z-0 grayscale-[0.5]"
                             )}

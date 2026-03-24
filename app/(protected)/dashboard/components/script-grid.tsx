@@ -16,7 +16,6 @@ interface ResponsiveScriptGridProps extends DashboardGridProps {
 export function ScriptGrid({
     scripts,
     isLoading,
-    searchQuery,
     userEmail,
     onLoad,
     onRename,
@@ -32,19 +31,13 @@ export function ScriptGrid({
     const isDesktop = useMediaQuery("(min-width: 768px)");
     const [statsScript, setStatsScript] = useState<ScriptMetadata | null>(null);
 
-    const normSearch = searchQuery.trim().toLowerCase();
-    const filteredScripts = scripts.filter((s) => {
-        const matchesSearch = !normSearch || s.title.toLowerCase().includes(normSearch);
-        return s.is_owner && matchesSearch;
-    });
-
     const variant = forceVariant || (isDesktop ? "desktop" : "mobile");
 
     return (
         <>
             {variant === "desktop" ? (
                 <ScriptGridDesktop
-                    scripts={filteredScripts}
+                    scripts={scripts}
                     isLoading={isLoading}
                     userEmail={userEmail}
                     onLoad={onLoad}
@@ -58,7 +51,7 @@ export function ScriptGrid({
                 />
             ) : (
                 <ScriptGridMobile
-                    scripts={filteredScripts}
+                    scripts={scripts}
                     isLoading={isLoading}
                     userEmail={userEmail}
                     onLoad={onLoad}

@@ -7,6 +7,7 @@ export function DashboardHeaderDesktop({
     userName,
     searchQuery,
     setSearchQuery,
+    isSearchPending,
     onImportClick,
     isPending,
     layoutMode,
@@ -51,7 +52,11 @@ export function DashboardHeaderDesktop({
                 </div>
 
                 <div className="relative w-80 group transition-all duration-300 focus-within:w-96">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-hover:text-primary group-focus-within:text-primary transition-colors" />
+                    {isSearchPending ? (
+                        <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary animate-spin" />
+                    ) : (
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-hover:text-primary group-focus-within:text-primary transition-colors" />
+                    )}
                     <input
                         type="text"
                         placeholder="Rechercher un script..."
