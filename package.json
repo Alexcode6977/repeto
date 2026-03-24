@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:ui-shells": "node scripts/check-no-mixed-shells.mjs",
     "smoke:troupe": "node scripts/troupe-tests/run.mjs",
     "test:troupe:happy": "node scripts/troupe-tests/run.mjs --scenario happy-path",
     "test:troupe:join": "node scripts/troupe-tests/run.mjs --scenario join-requests",

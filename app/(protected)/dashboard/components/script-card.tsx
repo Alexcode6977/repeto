@@ -3,10 +3,8 @@
 import { useState } from "react";
 import { ScriptMetadata } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { FileText, Play, Trash2, Globe, Lock, Edit3, Loader2, Settings2, MoreHorizontal, Download, Pencil, BarChart2, Volume2 } from "lucide-react";
+import { FileText, Trash2, Globe, Lock, Edit3, Loader2, MoreHorizontal, Pencil, BarChart2, Volume2 } from "lucide-react";
 import { DownloadButton } from "@/components/offline/download-button";
-import { cancelVocalization } from "../actions";
-import Link from "next/link";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -24,6 +22,7 @@ interface ScriptCardProps {
     onRename: (id: string, newTitle: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
     onTogglePublic: (script: ScriptMetadata) => Promise<void>;
+    onCancelVocalization?: (scriptId: string) => Promise<void>;
     isAdmin?: boolean;
     onRenameSubmit?: (e: React.FormEvent, id: string) => void;
     renamingScriptId?: string | null;
@@ -40,6 +39,7 @@ export function ScriptCard({
     onRename,
     onDelete,
     onTogglePublic,
+    onCancelVocalization,
     onShowStats,
 }: ScriptCardProps) {
     const isAdminUser = isPlatformAdminEmail(userEmail);
@@ -83,12 +83,12 @@ export function ScriptCard({
 
     const handleCancelVocalization = async (e: React.MouseEvent) => {
         e.stopPropagation();
+        if (!onCancelVocalization) {
+            return;
+        }
         setIsCancelling(true);
         try {
-            const res = await cancelVocalization(script.id);
-            if (!res.success) {
-                console.error("Failed to cancel vocalization", res.error);
-            }
+            await onCancelVocalization(script.id);
         } finally {
             setIsCancelling(false);
         }
@@ -154,7 +154,7 @@ export function ScriptCard({
                             size="sm"
                             className="w-full mt-2 h-7 text-xs"
                             onClick={handleCancelVocalization}
-                            disabled={isCancelling}
+                            disabled={isCancelling || !onCancelVocalization}
                         >
                             {isCancelling ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
                             Arrêter

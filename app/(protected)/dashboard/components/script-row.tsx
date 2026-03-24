@@ -36,6 +36,25 @@ export const ScriptRow = memo(function ScriptRow({
     onShowStats,
 }: ScriptRowProps) {
     const isAdminUser = isPlatformAdminEmail(userEmail);
+
+    const handleRename = () => {
+        if (!s.is_owner) {
+            return;
+        }
+
+        const nextTitle = window.prompt("Nouveau titre du script", s.title);
+        if (!nextTitle) {
+            return;
+        }
+
+        const trimmedTitle = nextTitle.trim();
+        if (!trimmedTitle || trimmedTitle === s.title) {
+            return;
+        }
+
+        void onRename(s.id, trimmedTitle);
+    };
+
     return (
         <div
             onClick={() => onLoad(s)}
@@ -71,7 +90,7 @@ export const ScriptRow = memo(function ScriptRow({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                        <DropdownMenuItem onClick={() => onRename(s.id, s.title)} disabled={!s.is_owner}>
+                        <DropdownMenuItem onClick={handleRename} disabled={!s.is_owner}>
                             Renommer
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onShowStats?.(s)}>

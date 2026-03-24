@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
     BookOpen,
@@ -13,7 +12,6 @@ import {
 import { type MobileNavItem, useMobileTabNavigation } from "@/lib/hooks/use-mobile-tab-navigation";
 
 export function SoloNavbar() {
-    const pathname = usePathname();
     const navItems: Array<MobileNavItem & { icon: LucideIcon }> = [
         {
             label: "Mes textes",
@@ -46,17 +44,6 @@ export function SoloNavbar() {
         }
     ];
     const { getLinkProps, isItemActive } = useMobileTabNavigation(navItems);
-
-    // 1. Hide on active session routes
-    if (pathname.includes('/active')) {
-        return null;
-    }
-
-    // 2. Hide on specific troupe sub-routes (e.g. /troupes/[id]/members)
-    // but NOT on /troupes/join or /troupes itself
-    if (/^\/troupes\/[^/]+\//.test(pathname)) {
-        return null;
-    }
 
     return (
         <div className="fixed bottom-0 left-0 right-0 h-auto pb-[env(safe-area-inset-bottom,20px)] pt-3 bg-white border-t border-black/[0.06] z-[100] flex items-center justify-around px-4 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.02)] transition-all duration-300">
