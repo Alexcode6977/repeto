@@ -3,59 +3,18 @@
 import { canManageSessions } from '@/lib/utils/roles';
 
 import { createClient } from '@/lib/supabase/server';
+import {
+    createSessionFeedback,
+    deleteLiveRawNoteRecord,
+    getLiveSessionDetails,
+    listLiveRawNotes,
+    publishPendingSessionFeedbacks,
+    saveLiveRawNoteRecord,
+    saveSessionPlanRecord,
+    updateLiveRawNoteRecord,
+    updateLiveSessionStatus,
+} from '@/lib/server/live-session-service';
 import { revalidatePath } from 'next/cache';
-
-type SessionActionClient = Awaited<ReturnType<typeof createClient>>;
-
-async function resolveSessionManagerScopeByEventId(supabase: SessionActionClient, eventId: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-
-    const { data: event } = await supabase
-        .from('events')
-        .select('troupe_id')
-        .eq('id', eventId)
-        .single();
-
-    if (!event?.troupe_id) return null;
-
-    const { data: membership } = await supabase
-        .from('troupe_members')
-        .select('roles')
-        .eq('troupe_id', event.troupe_id)
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-    if (!canManageSessions(membership?.roles)) return null;
-
-    return {
-        userId: user.id,
-        troupeId: event.troupe_id as string,
-        roles: membership?.roles || [],
-    };
-}
-
-async function requireSessionManagerByEventId(supabase: SessionActionClient, eventId: string) {
-    const scope = await resolveSessionManagerScopeByEventId(supabase, eventId);
-    if (!scope) {
-        throw new Error('Forbidden');
-    }
-    return scope;
-}
-
-async function requireSessionManagerByRawNoteId(supabase: SessionActionClient, noteId: string) {
-    const { data: note } = await supabase
-        .from('session_raw_notes')
-        .select('event_id')
-        .eq('id', noteId)
-        .single();
-
-    if (!note?.event_id) {
-        throw new Error('Note introuvable');
-    }
-
-    return requireSessionManagerByEventId(supabase, note.event_id);
-}
 
 /**
  * Fetch all rehearsal events for a troupe with their planning status.
@@ -124,78 +83,7 @@ export async function getTroupeSessions(troupeId: string) {
  */
 export async function getSessionDetails(eventId: string) {
     const supabase = await createClient();
-
-    // 1. Fetch Event
-    const { data: event, error: eventError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .single();
-
-    if (eventError || !event) {
-        console.error('Error fetching event:', eventError);
-        return null;
-    }
-
-    // 2. Fetch all plays for this troupe
-    const { data: allPlays, error: playsError } = await supabase
-        .from('plays')
-        .select(`
-            id,
-            title,
-            script_content,
-            play_characters(*),
-            play_scenes(
-                *,
-                scene_characters(character_id)
-            )
-        `)
-        .eq('troupe_id', event.troupe_id);
-
-    if (playsError) {
-        console.error('Error fetching troupe plays:', playsError);
-        return null;
-    }
-
-    // 3. Fetch attendance and plan
-    const { data: complementaryData, error: compError } = await supabase
-        .from('events')
-        .select(`
-            event_attendance(
-                *,
-                profiles(first_name, email),
-                troupe_guests(id, name)
-            ),
-            session_plans(*)
-        `)
-        .eq('id', eventId)
-        .single();
-
-    if (compError) {
-        console.error('Error fetching complementary details:', compError);
-        return null;
-    }
-
-
-    // 4. Calculate line counts (Server-side instead of RPC)
-    const playsWithStats = allPlays.map((p: any) => {
-        try {
-            const lineCounts = calculateLineStats(p);
-            return {
-                ...p,
-                lineStats: lineCounts
-            };
-        } catch (e) {
-            console.error(`Error calculating stats for play ${p.title}:`, e);
-            return { ...p, lineStats: [] };
-        }
-    });
-
-    return {
-        ...event,
-        ...complementaryData,
-        plays: playsWithStats
-    };
+    return getLiveSessionDetails(supabase, eventId);
 }
 
 
@@ -214,57 +102,19 @@ export async function saveSessionPlan(
     title?: string
 ) {
     const supabase = await createClient();
-    await requireSessionManagerByEventId(supabase, eventId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    // Deduplicate scenes (Keep for backward compatibility / indexing)
-    const uniqueScenesMap = new Map();
-    selectedScenes.forEach((scene: any) => {
-        const id = typeof scene === 'string' ? scene : scene.id;
-        if (!uniqueScenesMap.has(id)) {
-            uniqueScenesMap.set(id, scene);
-        }
-    });
-    const uniqueScenes = Array.from(uniqueScenesMap.values());
-
-    const updateData: any = {
-        event_id: eventId,
-        selected_scenes: uniqueScenes,
-        general_notes: notes,
-        status: status,
-        updated_at: new Date().toISOString()
-    };
-
-    if (planStructure) {
-        updateData.plan_structure = planStructure;
-    }
-
-    if (status === 'upcoming') {
-        updateData.published_at = new Date().toISOString();
-    }
-
-    // Update Session Plan
-    const { error: planError } = await supabase
-        .from('session_plans')
-        .upsert(updateData);
-
-    if (planError) {
-        console.error('Error saving session plan:', planError);
-        throw new Error('Failed to save session plan');
-    }
-
-    // Update Event Title if provided
-    if (title) {
-        const { error: eventError } = await supabase
-            .from('events')
-            .update({ title: title })
-            .eq('id', eventId);
-
-        if (eventError) {
-            console.error('Error updating event title:', eventError);
-            // Don't throw here to avoid blocking plan save, but maybe we should?
-            // Let's log it. User will see old title but plan saved.
-        }
-    }
+    await saveSessionPlanRecord(
+        supabase,
+        user.id,
+        eventId,
+        selectedScenes,
+        notes,
+        status,
+        planStructure,
+        title
+    );
 
     revalidatePath(`/troupes`);
 }
@@ -274,21 +124,10 @@ export async function saveSessionPlan(
  */
 export async function updateSessionStatus(eventId: string, status: 'preparation' | 'upcoming' | 'processing' | 'validated') {
     const supabase = await createClient();
-    await requireSessionManagerByEventId(supabase, eventId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    const { error } = await supabase
-        .from('session_plans')
-        .update({
-            status: status,
-            updated_at: new Date().toISOString(),
-            ...(status === 'upcoming' ? { published_at: new Date().toISOString() } : {})
-        })
-        .eq('event_id', eventId);
-
-    if (error) {
-        console.error("Error updating session status:", error);
-        throw new Error('Failed to update session status');
-    }
+    await updateLiveSessionStatus(supabase, user.id, eventId, status);
 
     revalidatePath(`/troupes`);
 }
@@ -305,23 +144,19 @@ export async function saveRawNote(
     context?: any
 ) {
     const supabase = await createClient();
-    await requireSessionManagerByEventId(supabase, eventId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    const { error } = await supabase
-        .from('session_raw_notes')
-        .insert({
-            event_id: eventId,
-            play_id: playId,
-            scene_index: sceneIndex,
-            line_index: lineIndex,
-            text: text,
-            context: context
-        });
-
-    if (error) {
-        console.error('Error saving raw note:', error);
-        throw new Error('Failed to save raw note');
-    }
+    await saveLiveRawNoteRecord(
+        supabase,
+        user.id,
+        eventId,
+        playId,
+        sceneIndex,
+        text,
+        lineIndex,
+        context
+    );
 }
 
 /**
@@ -329,48 +164,24 @@ export async function saveRawNote(
  */
 export async function getRawNotes(eventId: string) {
     const supabase = await createClient();
-    const scope = await resolveSessionManagerScopeByEventId(supabase, eventId);
-    if (!scope) return [];
-
-    const { data, error } = await supabase
-        .from('session_raw_notes')
-        .select('*')
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching raw notes:', error);
-        return [];
-    }
-    return data;
+    const { data: { user } } = await supabase.auth.getUser();
+    return listLiveRawNotes(supabase, eventId, user?.id);
 }
 
 export async function updateRawNote(noteId: string, text: string) {
     const supabase = await createClient();
-    await requireSessionManagerByRawNoteId(supabase, noteId);
-    const { error } = await supabase
-        .from('session_raw_notes')
-        .update({ text })
-        .eq('id', noteId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    if (error) {
-        console.error('Error updating raw note:', error);
-        throw new Error('Failed to update raw note');
-    }
+    await updateLiveRawNoteRecord(supabase, user.id, noteId, text);
 }
 
 export async function deleteRawNote(noteId: string) {
     const supabase = await createClient();
-    await requireSessionManagerByRawNoteId(supabase, noteId);
-    const { error } = await supabase
-        .from('session_raw_notes')
-        .delete()
-        .eq('id', noteId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    if (error) {
-        console.error('Error deleting raw note:', error);
-        throw new Error('Failed to delete raw note');
-    }
+    await deleteLiveRawNoteRecord(supabase, user.id, noteId);
 }
 
 
@@ -386,23 +197,20 @@ export async function submitSessionFeedback(
     status: 'pending' | 'published' = 'published'
 ) {
     const supabase = await createClient();
-    await requireSessionManagerByEventId(supabase, eventId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    const { error } = await supabase
-        .from('rehearsal_feedbacks')
-        .insert({
-            event_id: eventId,
-            character_id: characterId,
-            actor_id: actorId,
-            guest_id: guestId,
-            text,
-            status
-        });
+    await createSessionFeedback(
+        supabase,
+        user.id,
+        eventId,
+        characterId,
+        text,
+        actorId,
+        guestId,
+        status
+    );
 
-    if (error) {
-        console.error('Error submiting feedback:', error);
-        throw new Error('Failed to submit feedback');
-    }
     revalidatePath(`/troupes`);
 }
 
@@ -411,18 +219,11 @@ export async function submitSessionFeedback(
  */
 export async function publishSessionFeedbacks(eventId: string) {
     const supabase = await createClient();
-    await requireSessionManagerByEventId(supabase, eventId);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Unauthorized');
 
-    const { error } = await supabase
-        .from('rehearsal_feedbacks')
-        .update({ status: 'published' })
-        .eq('event_id', eventId)
-        .eq('status', 'pending');
+    await publishPendingSessionFeedbacks(supabase, user.id, eventId);
 
-    if (error) {
-        console.error('Error publishing feedbacks:', error);
-        throw new Error('Failed to publish feedbacks');
-    }
     revalidatePath(`/troupes`);
 }
 
@@ -601,88 +402,4 @@ export async function getUserPreparationDetails(sessionId: string) {
 
     console.log("RPC Data received:", data.length, "groups");
     return data;
-}
-
-/**
- * Helper: Normalize name for matching
- */
-function normalizeName(name: string): string {
-    return name
-        .toUpperCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^A-Z0-9 ]/g, "")
-        .trim();
-}
-
-/**
- * Helper: Calculate Line Stats from Script Content
- * Alternative to the missing 'get_line_counts' RPC
- */
-function calculateLineStats(play: any) {
-    if (!play.script_content || !play.play_scenes || !play.play_characters) {
-        return [];
-    }
-
-    const script = play.script_content;
-    const lines = script.lines || [];
-    const dbScenes = play.play_scenes; // Assumed sorted/complete
-    const dbCharacters = play.play_characters;
-
-    // 1. Prepare Maps
-    const charMap = new Map<string, string>(); // Normalized Name -> UUID
-    dbCharacters.forEach((c: any) => {
-        charMap.set(normalizeName(c.name), c.id);
-    });
-
-    // 2. Prepare Scenes (Match by order or title)
-    // We assume dbScenes are in correct order (order_index) or creation order
-    const sortedDbScenes = [...dbScenes].sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0));
-
-    // We need to match script scenes to DB scenes.
-    // The script lines flow linearly. We'll track the "current" DB scene index.
-    let currentDbSceneIndex = -1;
-    let currentSceneId: string | null = null;
-
-    // Stats: Key = "sceneId|charId" -> count
-    const statsMap = new Map<string, number>();
-
-    lines.forEach((line: any) => {
-        if (line.type === 'scene_heading') {
-            // Advance scene
-            currentDbSceneIndex++;
-            if (currentDbSceneIndex < sortedDbScenes.length) {
-                currentSceneId = sortedDbScenes[currentDbSceneIndex].id;
-            } else {
-                currentSceneId = null; // Out of bounds of known scenes
-            }
-        } else if (line.type === 'dialogue') {
-            if (currentSceneId) {
-                const normChar = normalizeName(line.character);
-                const charId = charMap.get(normChar);
-
-                // Try fuzzy match or partial if not strict?
-                // For now, strict normalized match. 
-                // Parsing usually produces consistent names.
-
-                if (charId) {
-                    const key = `${currentSceneId}|${charId}`;
-                    statsMap.set(key, (statsMap.get(key) || 0) + 1);
-                }
-            }
-        }
-    });
-
-    // 3. Format result
-    const result: any[] = [];
-    statsMap.forEach((count, key) => {
-        const [scene_id, character_id] = key.split('|');
-        result.push({
-            scene_id,
-            character_id,
-            line_count: count
-        });
-    });
-
-    return result;
 }

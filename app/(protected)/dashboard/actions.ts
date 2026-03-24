@@ -7,9 +7,16 @@ import { ParsedScript, ScriptMappings } from "@/lib/types";
 
 
 import { createClient } from "@/lib/supabase/server";
+import {
+    deleteOwnedScript,
+    getAccessibleScriptById,
+    getDashboardUserTier,
+    listOwnedScripts,
+    renameOwnedScript,
+    toggleScriptPublicStatus,
+} from "@/lib/server/dashboard-service";
 import { revalidatePath } from "next/cache";
 import OpenAI from "openai";
-import { isPlatformAdminEmail } from "@/lib/auth/platform-admin";
 import { getEffectiveTier } from "@/lib/subscription";
 import { COLLECTIVE_ROLES } from "@/lib/constants";
 import { generateVoiceAssignments } from "@/lib/voice-matching-core";
@@ -256,14 +263,6 @@ function buildCanonicalCharacters(characters: string[]): string[] {
         if (normalized) unique.add(normalized);
     }
     return Array.from(unique).sort((a, b) => a.localeCompare(b, "fr"));
-}
-
-function resolveCanonicalCharactersFromScript(script: Partial<ParsedScript> | null | undefined): string[] {
-    const fromMappings = script?.mappings?.canonical_characters;
-    if (Array.isArray(fromMappings) && fromMappings.length > 0) {
-        return buildCanonicalCharacters(fromMappings);
-    }
-    return buildCanonicalCharacters(script?.characters || []);
 }
 
 function normalizeConfidence(value: unknown, fallback = 0.5): number {
@@ -1478,8 +1477,7 @@ export async function getUserTierAction(): Promise<"free" | "solo_pro" | "troupe
 
     if (!user) return "free";
 
-    const { getEffectiveTier } = await import("@/lib/subscription");
-    return await getEffectiveTier(user.id);
+    return getDashboardUserTier(user.id);
 }
 
 export async function saveScript(script: ParsedScript) {
@@ -1548,28 +1546,7 @@ export async function renameScriptAction(scriptId: string, newTitle: string) {
 
     if (!user) throw new Error("Unauthorized");
 
-    // Check ownership
-    const { data: existingScript } = await supabase
-        .from("scripts")
-        .select("user_id")
-        .eq("id", scriptId)
-        .single();
-
-    if (!existingScript || existingScript.user_id !== user.id) {
-        throw new Error("Unauthorized: You can only rename your own scripts");
-    }
-
-    const { error } = await supabase
-        .from("scripts")
-        .update({
-            title: newTitle,
-        })
-        .eq("id", scriptId);
-
-    if (error) {
-        console.error("Error renaming script:", error);
-        throw new Error("Failed to rename script");
-    }
+    await renameOwnedScript(supabase, user.id, scriptId, newTitle);
 
     revalidatePath("/dashboard");
 }
@@ -1580,58 +1557,16 @@ export async function getScripts() {
 
     if (!user) return [];
 
-    // Fetch only user's own scripts (catalog is separate)
-    const { data, error } = await supabase
-        .from("scripts")
-        .select("id, title, content, created_at, user_id, is_public, vocalization_status, vocalization_progress")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-    if (error) {
-        console.error("Error fetching scripts:", error);
-        return [];
-    }
-
-    return data.map((row) => {
-        const content = row.content as ParsedScript | undefined;
-
-        // Legacy scripts have 'pending' status due to DB default but no progress.
-        // We consider them 'completed' if they were created before the vocalization feature (e.g. before Feb 24, 2026)
-        // or if they have exactly 0 progress but are older than a day.
-        const isLegacy = new Date(row.created_at) < new Date('2026-02-24T00:00:00Z');
-        let finalStatus = row.vocalization_status;
-        if (isLegacy && row.vocalization_status === 'pending' && row.vocalization_progress === 0) {
-            finalStatus = 'completed';
-        }
-
-        return {
-            id: row.id,
-            title: row.title,
-            created_at: row.created_at,
-            characterCount: resolveCanonicalCharactersFromScript(content).length,
-            lineCount: content?.lines?.length || 0,
-            is_public: row.is_public || false,
-            is_owner: true, // Always true since we only fetch user's scripts
-            vocalization_status: finalStatus,
-            vocalization_progress: isLegacy ? 100 : row.vocalization_progress
-        };
-    });
+    return listOwnedScripts(supabase, user.id);
 }
 
 export async function togglePublicStatus(scriptId: string, currentStatus: boolean) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user || !isPlatformAdminEmail(user.email)) {
-        throw new Error("Unauthorized: Only Admin can manage library.");
-    }
+    if (!user) throw new Error("Unauthorized");
 
-    const { error } = await supabase
-        .from("scripts")
-        .update({ is_public: !currentStatus })
-        .eq("id", scriptId);
-
-    if (error) throw new Error("Failed to update public status");
+    await toggleScriptPublicStatus(supabase, user.email, scriptId, currentStatus);
 
     revalidatePath("/dashboard");
 }
@@ -1642,33 +1577,7 @@ export async function getScriptById(id: string) {
 
     if (!user) throw new Error("Unauthorized");
 
-    // Allow access if owner OR if public
-    const { data, error } = await supabase
-        .from("scripts")
-        .select("id, title, content, created_at, user_id, is_public")
-        .eq("id", id)
-        .single();
-
-    if (error || !data) {
-        return null;
-    }
-
-    // Security Check: Must be owner OR script must be public
-    if (data.user_id !== user.id && !data.is_public) {
-        throw new Error("Unauthorized access to this script.");
-    }
-
-    const content = data.content as ParsedScript;
-    const canonicalCharacters = resolveCanonicalCharactersFromScript(content);
-
-    return {
-        id: data.id,
-        title: data.title,
-        ...content,
-        characters: canonicalCharacters,
-        created_at: data.created_at,
-        is_public: data.is_public
-    };
+    return getAccessibleScriptById(supabase, user.id, id);
 }
 
 export async function deleteScript(id: string) {
@@ -1677,23 +1586,7 @@ export async function deleteScript(id: string) {
 
     if (!user) throw new Error("Unauthorized");
 
-    // Check if script is public before deleting
-    const { data: script } = await supabase.from("scripts").select("is_public, user_id").eq("id", id).single();
-
-    if (script?.is_public && !isPlatformAdminEmail(user.email)) {
-        throw new Error("Cannot delete a public library script.");
-    }
-
-    const { error } = await supabase
-        .from("scripts")
-        .delete()
-        .eq("id", id)
-        .eq("user_id", user.id); // Standard users can only delete their own. Admin usually owns the public ones anyway.
-
-    if (error) {
-        console.error("Error deleting script:", error);
-        throw new Error("Failed to delete script");
-    }
+    await deleteOwnedScript(supabase, user.id, user.email, id);
 
     revalidatePath("/dashboard");
     revalidatePath("/profile");
