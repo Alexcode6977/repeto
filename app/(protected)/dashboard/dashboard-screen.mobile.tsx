@@ -5,7 +5,7 @@ import { ScriptGrid } from "@/app/(protected)/dashboard/components/script-grid";
 
 export function DashboardScreenMobile(props: DashboardHomeRendererProps) {
     return (
-        <div className="max-w-7xl mx-auto min-h-screen relative pt-24 pb-40">
+        <div className="max-w-7xl mx-auto relative pt-24 pb-4 overflow-x-hidden">
             <div className="px-6 mb-6">
                 <DashboardHeader {...props} forceVariant="mobile" />
             </div>

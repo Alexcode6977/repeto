@@ -29,14 +29,20 @@ export function MobileAppPrimer() {
 
         hasPrimedRef.current = true;
 
-        const timeoutId = window.setTimeout(() => {
+        let frameId = 0;
+
+        const primeRoutes = () => {
             MOBILE_PRIME_ROUTES.forEach((href) => {
                 void router.prefetch(href);
             });
-        }, 180);
+        };
+
+        frameId = window.requestAnimationFrame(() => {
+            primeRoutes();
+        });
 
         return () => {
-            window.clearTimeout(timeoutId);
+            window.cancelAnimationFrame(frameId);
         };
     }, [router]);
 

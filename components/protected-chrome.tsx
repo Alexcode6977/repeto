@@ -14,7 +14,7 @@ interface ProtectedChromeProps {
     initials?: string;
 }
 
-const SOLO_MAIN_CLASS_NAME = "flex-1 w-full relative pb-[env(safe-area-inset-bottom,20px)] md:pb-0 mb-16 md:mb-0";
+const SOLO_MAIN_CLASS_NAME = "flex-1 w-full relative overflow-x-hidden pb-[calc(env(safe-area-inset-bottom,20px)+5rem)] md:pb-0";
 const PLAIN_MAIN_CLASS_NAME = "flex-1 w-full relative";
 
 export function ProtectedChrome({

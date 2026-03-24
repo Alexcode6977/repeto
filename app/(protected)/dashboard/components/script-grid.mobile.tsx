@@ -131,7 +131,7 @@ export function ScriptGridMobile({
         <div
             ref={containerRef}
             onScroll={handleScroll}
-            className="flex overflow-x-auto snap-x snap-mandatory pb-8 -mx-6 px-[calc(50%-35vw)] no-scrollbar gap-0"
+            className="flex overflow-x-auto snap-x snap-mandatory pb-4 -mx-6 px-[calc(50%-35vw)] no-scrollbar gap-0 touch-pan-x"
         >
             {isLoading ? (
                 [1, 2, 3].map((index) => (

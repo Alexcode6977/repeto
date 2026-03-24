@@ -38,6 +38,7 @@ type IdleBrowserWindow = Window & typeof globalThis & {
 };
 
 const FAVORITES_PREFETCH_LIMIT = 3;
+const HOT_TAB_ROUTES = ["/dashboard", "/stats", "/troupes"];
 
 function formatLastUsed(lastUsedAt?: string | null) {
     if (!lastUsedAt) return "Jamais lancée";
@@ -63,7 +64,7 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
     }, [router]);
 
     useEffect(() => {
-        if (favorites.length === 0 || hasWarmedInitialLaunchRef.current) {
+        if (hasWarmedInitialLaunchRef.current) {
             return;
         }
 
@@ -75,7 +76,9 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
 
         const browserWindow = window as IdleBrowserWindow;
         const warmInitialLaunches = () => {
-            void router.prefetch("/dashboard");
+            HOT_TAB_ROUTES.forEach((href) => {
+                void router.prefetch(href);
+            });
             preloadDashboardSoloModes();
 
             favorites.slice(0, FAVORITES_PREFETCH_LIMIT).forEach((favorite) => {
