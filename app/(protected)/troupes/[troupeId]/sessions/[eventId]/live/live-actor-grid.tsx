@@ -4,20 +4,33 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Mic, Send, X, Sparkles, MessageSquare, StickyNote } from 'lucide-react';
+import { Send, X, MessageSquare, StickyNote } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { submitSessionFeedback, saveRawNote } from '@/lib/actions/session';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import type {
+    LiveSessionScene,
+    SaveLiveRawNoteInput,
+    SubmitLiveSessionFeedbackInput,
+} from '@/lib/features/live-session/types';
 
 interface LiveActorGridProps {
     actorsInScene: any[];
-    sessionData: any;
-    currentScene: any;
-    globalSceneIndex: number; // For injecting director notes
+    sessionId: string;
+    currentScene: LiveSessionScene | null;
+    globalSceneIndex: number;
     isReadOnly?: boolean;
+    onSaveRawNote: (input: SaveLiveRawNoteInput) => Promise<void>;
+    onSubmitFeedback: (input: SubmitLiveSessionFeedbackInput) => Promise<void>;
 }
 
-export function LiveActorGrid({ actorsInScene, sessionData, currentScene, globalSceneIndex, isReadOnly }: LiveActorGridProps) {
+export function LiveActorGrid({
+    actorsInScene,
+    sessionId,
+    currentScene,
+    globalSceneIndex,
+    isReadOnly,
+    onSaveRawNote,
+    onSubmitFeedback,
+}: LiveActorGridProps) {
     const [selectedActorId, setSelectedActorId] = useState<string | null>(null);
     const [interactionType, setInteractionType] = useState<'feedback' | 'direction' | null>(null);
     const [feedbackText, setFeedbackText] = useState("");
@@ -26,7 +39,6 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
     // Helper to find character ID for the selected actor in this scene
     const getTargetCharacter = (actorId: string) => {
         if (!currentScene) return null;
-        // Find play character matching actor
         return currentScene.playCharacters?.find((pc: any) =>
             (pc.actor_id === actorId || pc.guest_id === actorId) &&
             currentScene.scene_characters.some((sc: any) => sc.character_id === pc.id)
@@ -41,19 +53,24 @@ export function LiveActorGrid({ actorsInScene, sessionData, currentScene, global
             const starChar = getTargetCharacter(selectedActorId);
 
             if (interactionType === 'feedback') {
-                // Ephemeral Feedback (Session Stats)
                 if (starChar) {
-                    await submitSessionFeedback(sessionData.id, starChar.id, feedbackText, selectedActorId);
+                    await onSubmitFeedback({
+                        eventId: sessionId,
+                        characterId: starChar.id,
+                        text: feedbackText,
+                        actorId: selectedActorId,
+                    });
                 }
             } else {
-                // Persistent Raw Note (Direction) - Formerly saved to script, now saved as Raw Note
                 const prefix = starChar ? `[${starChar.name}] ` : "";
-                await saveRawNote(
-                    sessionData.id,
-                    currentScene.playId,
-                    globalSceneIndex,
-                    prefix + feedbackText
-                );
+                if (currentScene) {
+                    await onSaveRawNote({
+                        eventId: sessionId,
+                        playId: currentScene.playId,
+                        sceneIndex: globalSceneIndex,
+                        text: prefix + feedbackText,
+                    });
+                }
             }
 
             setFeedbackText("");

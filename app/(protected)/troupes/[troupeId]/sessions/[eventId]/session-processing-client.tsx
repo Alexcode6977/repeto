@@ -5,12 +5,12 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, ArrowLeft } from "lucide-react";
 import { updateSessionStatus, deleteRawNote, submitSessionFeedback, publishSessionFeedbacks } from "@/lib/actions/session";
 import { useRouter } from "next/navigation";
-import { SessionPlanStructure } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { NoteProcessingCard } from "./components/note-processing-card";
 import { LiveScriptViewer } from "./live/live-script-viewer"; // Import generic viewer
 import Link from "next/link";
 import { injectDirectorNote } from "@/lib/actions/director";
+import { buildLiveSessionScenes } from "@/lib/features/live-session/build-live-session-view-model";
 
 interface SessionProcessingClientProps {
     sessionData: any;
@@ -25,14 +25,7 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
     const [selectedSceneIdx, setSelectedSceneIdx] = useState<number>(0);
     const [highlightedLineIndex, setHighlightedLineIndex] = useState<number | undefined>(undefined);
 
-    // Extract scenes from new structure or legacy flat list
-    const plan = sessionData.session_plans?.[0] || sessionData.session_plans;
-    const structure = plan?.plan_structure as SessionPlanStructure | undefined;
-
-    // Flatten segments into a linear list of scenes for the sidebar (matching the "Live" linear flow)
-    const flatScenes = structure
-        ? structure.segments.flatMap(seg => seg.scenes.map(s => ({ ...s, playId: seg.playId, playTitle: seg.playTitle })))
-        : (plan?.selected_scenes || []);
+    const flatScenes = buildLiveSessionScenes(sessionData);
 
     const handleValidateSession = async () => {
         setIsSubmitting(true);
@@ -66,7 +59,17 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
     };
 
     const currentScene = flatScenes[selectedSceneIdx];
-    const currentSceneCharacters = currentScene ? getSceneCharacters(currentScene.id) : [];
+    const currentSceneCharacters = currentScene?.id ? getSceneCharacters(currentScene.id) : [];
+    const currentPlay = currentScene
+        ? (sessionData.plays || []).find((play: any) => play.id === currentScene.playId) || null
+        : null;
+    const currentSceneScriptIndex = currentScene && currentPlay?.script_content
+        ? (
+            currentScene.order_index
+            ?? currentScene.index
+            ?? currentPlay.script_content.scenes.findIndex((scene: any) => scene.title === currentScene.title)
+        )
+        : -1;
 
     // Handlers
     const handleDeleteNote = (id: string) => {
@@ -196,9 +199,11 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
                 {/* LEFT: SCRIPT (50%) - HIDDEN ON MOBILE */}
                 <div className="hidden md:flex flex-1 min-w-0 border-r border-border/10 bg-black/20 relative">
                     <LiveScriptViewer
-                        sessionData={sessionData}
-                        currentSceneIdx={selectedSceneIdx}
-                        scenes={flatScenes}
+                        forceVariant="desktop"
+                        sessionId={sessionData.id}
+                        currentScene={currentScene}
+                        play={currentPlay}
+                        globalSceneIndex={currentSceneScriptIndex}
                         isReadOnly={true}
                         highlightedLineIndex={highlightedLineIndex}
                     />

@@ -1,29 +1,41 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { getRawNotes } from "@/lib/actions/session";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Clock } from "lucide-react";
+import { getLiveSessionRawNotes } from "@/lib/features/live-session/live-session-gateway";
+import type { LiveSessionRawNote } from "@/lib/features/live-session/types";
 
 interface LiveNotesListProps {
     eventId: string;
+    refreshKey?: number;
 }
 
-export function LiveNotesList({ eventId }: LiveNotesListProps) {
-    const [notes, setNotes] = useState<any[]>([]);
-
-    const fetchNotes = async () => {
-        const data = await getRawNotes(eventId);
-        setNotes(data || []);
-    };
+export function LiveNotesList({ eventId, refreshKey = 0 }: LiveNotesListProps) {
+    const [notes, setNotes] = useState<LiveSessionRawNote[]>([]);
 
     useEffect(() => {
-        fetchNotes();
-        // Poll every 5 seconds for now (simple real-time substitute)
-        const interval = setInterval(fetchNotes, 5000);
-        return () => clearInterval(interval);
-    }, [eventId]);
+        let isActive = true;
+
+        const fetchNotes = async () => {
+            const data = await getLiveSessionRawNotes(eventId);
+            if (isActive) {
+                setNotes(data || []);
+            }
+        };
+
+        void fetchNotes();
+
+        const intervalId = window.setInterval(() => {
+            void fetchNotes();
+        }, 5000);
+
+        return () => {
+            isActive = false;
+            window.clearInterval(intervalId);
+        };
+    }, [eventId, refreshKey]);
 
     return (
         <div className="h-full flex flex-col bg-muted/10">
@@ -52,18 +64,18 @@ export function LiveNotesList({ eventId }: LiveNotesListProps) {
                                     </span>
                                 </div>
 
-                                {note.context && (
+                                {note.context ? (
                                     <div className="bg-muted/50 rounded-lg p-2 mb-2 text-xs border border-border/50">
-                                        {note.context.characterName && (
+                                        {note.context.characterName ? (
                                             <span className="font-bold uppercase tracking-wider text-primary block mb-0.5 text-[10px]">
                                                 {note.context.characterName}
                                             </span>
-                                        )}
+                                        ) : null}
                                         <p className="italic text-muted-foreground font-serif leading-snug line-clamp-2">
-                                            "{note.context.lineText}"
+                                            &quot;{note.context.lineText}&quot;
                                         </p>
                                     </div>
-                                )}
+                                ) : null}
                                 <p className="text-sm font-medium text-foreground leading-relaxed">
                                     {note.text}
                                 </p>
