@@ -14,6 +14,7 @@ export function AuthHandler() {
         let listenerCleanup: (() => Promise<void>) | null = null;
 
         void registerNativeAuthListener((destination) => {
+            void router.prefetch(destination);
             router.replace(destination);
             router.refresh();
         }).then((listener) => {

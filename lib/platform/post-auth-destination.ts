@@ -28,6 +28,17 @@ export function resolvePostAuthDestination({
     return safePostAuthPath(requestedNext, defaultDestination);
 }
 
+export function buildLoginPath({
+    requestedNext,
+    isNativeShell = false,
+}: {
+    requestedNext?: string | null;
+    isNativeShell?: boolean;
+} = {}) {
+    const next = resolvePostAuthDestination({ requestedNext, isNativeShell });
+    return `${DEFAULT_LOGIN_DESTINATION}?next=${encodeURIComponent(next)}`;
+}
+
 export function buildAuthCallbackUrl(
     origin: string,
     {

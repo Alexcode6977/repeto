@@ -1,44 +1,49 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { isNativePlatform } from "@/lib/platform/device";
 import {
-    DEFAULT_LOGIN_DESTINATION,
+    buildLoginPath,
     DEFAULT_NATIVE_POST_AUTH_DESTINATION,
 } from "@/lib/platform/post-auth-destination";
 import { resolveNativeStartupDestination } from "@/lib/platform/auth";
 
 export function NativeRedirect() {
     const router = useRouter();
-    const [isNative, setIsNative] = useState(false);
+    const nativeShell = isNativePlatform();
 
     useEffect(() => {
-        if (!isNativePlatform()) return;
+        if (!nativeShell) return;
 
-        setIsNative(true);
+        let cancelled = false;
 
         void resolveNativeStartupDestination().then((destination) => {
-            if (!destination) {
+            if (!destination || cancelled) {
                 return;
             }
 
-            if (destination === DEFAULT_LOGIN_DESTINATION) {
-                router.replace(`/login?next=${encodeURIComponent(DEFAULT_NATIVE_POST_AUTH_DESTINATION)}`);
-                return;
-            }
+            const nextHref = destination === DEFAULT_NATIVE_POST_AUTH_DESTINATION
+                ? destination
+                : buildLoginPath({
+                    requestedNext: DEFAULT_NATIVE_POST_AUTH_DESTINATION,
+                    isNativeShell: true,
+                });
 
-            router.replace(destination);
+            void router.prefetch(nextHref);
+            router.replace(nextHref);
         });
-    }, [router]);
 
-    if (!isNative) return null;
+        return () => {
+            cancelled = true;
+        };
+    }, [nativeShell, router]);
 
-    // Full screen overlay for native app to hide landing page
+    if (!nativeShell) return null;
+
     return (
         <div className="fixed inset-0 z-[9999] bg-[#050508] flex flex-col items-center justify-center text-white">
             <div className="animate-pulse flex flex-col items-center gap-4">
-                {/* Using a simple SVG or icon if available, or just text */}
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"

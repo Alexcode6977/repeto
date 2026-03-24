@@ -4,6 +4,7 @@ import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 const config: CapacitorConfig = {
   appId: 'com.souffleur.app',
   appName: 'Repeto',
+  appendUserAgent: 'RepetoNative/1',
   webDir: 'public',
   server: {
     url: 'https://repeto-seven.vercel.app/',
@@ -20,7 +21,7 @@ const config: CapacitorConfig = {
       resizeOnFullScreen: true,
     },
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 900,
       launchAutoHide: true,
       backgroundColor: "#050508",
       androidScaleType: "CENTER_CROP",

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Outfit, Syne, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { CustomCursor } from "@/components/custom-cursor";
+import { MobileAppPrimer } from "@/components/mobile-app-primer";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 import { AuthHandler } from "@/components/auth-handler";
@@ -68,6 +69,7 @@ export default function RootLayout({
         >
           <MobileStatusBar />
           <AuthHandler />
+          <MobileAppPrimer />
           <CustomCursor />
           {children}
           <Toaster />

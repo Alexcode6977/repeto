@@ -1,5 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isNativeAppUserAgent } from "@/lib/platform/native-user-agent";
+import {
+    DEFAULT_LOGIN_DESTINATION,
+    DEFAULT_NATIVE_POST_AUTH_DESTINATION,
+    resolvePostAuthDestination,
+    safePostAuthPath,
+} from "@/lib/platform/post-auth-destination";
 
 const PUBLIC_PATH_PREFIXES = ["/login", "/signup", "/auth", "/demo", "/pricing", "/join", "/forgot-password", "/reset-password"];
 
@@ -62,17 +69,37 @@ export async function updateSession(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     const pathname = request.nextUrl.pathname;
+    const isNativeRequest = isNativeAppUserAgent(
+        request.headers.get("user-agent") || request.headers.get("x-cap-user-agent")
+    );
 
-    if (!user && !isPublicPath(pathname)) {
-        // no user, potentially respond by redirecting the user to the login page
+    if (pathname === "/" && isNativeRequest) {
         const url = request.nextUrl.clone();
-        url.pathname = "/login";
+        url.pathname = DEFAULT_NATIVE_POST_AUTH_DESTINATION;
+        url.search = "";
         return NextResponse.redirect(url);
     }
 
-    // If user is logged in but tries to access login or signup page, redirect to Dashboard
+    if (!user && !isPublicPath(pathname)) {
+        const url = request.nextUrl.clone();
+        const requestedNext = safePostAuthPath(
+            `${pathname}${request.nextUrl.search}`,
+            resolvePostAuthDestination({ isNativeShell: isNativeRequest })
+        );
+
+        url.pathname = DEFAULT_LOGIN_DESTINATION;
+        url.search = "";
+        url.searchParams.set("next", requestedNext);
+        return NextResponse.redirect(url);
+    }
+
     if (user && (pathname.startsWith("/login") || pathname.startsWith("/signup"))) {
-        return NextResponse.redirect(new URL("/dashboard", request.url));
+        const destination = resolvePostAuthDestination({
+            requestedNext: request.nextUrl.searchParams.get("next"),
+            isNativeShell: isNativeRequest,
+        });
+
+        return NextResponse.redirect(new URL(destination, request.url));
     }
 
     return response;
