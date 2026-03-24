@@ -75,10 +75,10 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
     if (scenes.length === 0) return <div className="p-8 text-center text-muted-foreground">Aucune scène au programme.</div>;
 
     return (
-        <div className="flex flex-col h-[calc(100vh-theme(spacing.20))] bg-background overflow-hidden relative">
+        <div className="flex flex-col h-[calc(100dvh-theme(spacing.20))] pb-[4.5rem] md:pb-0 bg-background overflow-hidden relative">
 
             {/* A. SCENE NAVIGATION BAR */}
-            <div className="h-14 shrink-0 border-b border-border/50 bg-background/50 backdrop-blur-md overflow-x-auto overflow-y-hidden no-scrollbar flex items-center px-4 gap-2 z-20">
+            <div className="h-12 md:h-14 shrink-0 border-b border-border/50 bg-background/50 backdrop-blur-md overflow-x-auto overflow-y-hidden no-scrollbar flex items-center px-4 gap-2 z-20">
                 {scenes.map((scene: any, idx: number) => {
                     const isActive = idx === currentSceneIdx;
                     return (
@@ -99,11 +99,11 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
                 })}
             </div>
 
-            {/* B. SPLIT VIEW MAIN CONTENT */}
+            {/* B. MAIN CONTENT */}
             <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
 
-                {/* LEFT: SCRIPT (75%) */}
-                <div className="flex-1 md:flex-[0.75] min-w-0 border-r border-border/10 bg-black/20">
+                {/* SCRIPT (100% mobile, 75% desktop) */}
+                <div className="flex-1 md:flex-[0.75] min-w-0 border-r border-border/10">
                     <LiveScriptViewer
                         sessionData={sessionData}
                         currentSceneIdx={currentSceneIdx}
@@ -112,16 +112,13 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
                     />
                 </div>
 
-                {/* RIGHT: ACTORS/NOTES (25%) */}
-                <div className="flex-1 md:flex-[0.25] min-w-0 bg-background flex flex-col border-l border-border/10">
-
-                    {/* Header */}
+                {/* NOTES PANEL (desktop only) */}
+                <div className="hidden md:flex md:flex-[0.25] min-w-0 bg-background flex-col border-l border-border/10">
                     <div className="flex items-center border-b border-border/50 bg-muted/20 px-4 h-12">
                         <span className="text-[10px] uppercase font-black tracking-widest text-primary flex items-center gap-2">
                             Flux de Notes
                         </span>
                     </div>
-
                     <div className="flex-1 overflow-hidden relative">
                         {isReadOnly ? (
                             <div className="h-full flex items-center justify-center p-6 text-center text-sm text-muted-foreground">
@@ -136,39 +133,41 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
             </div>
 
             {/* C. BOTTOM NAVIGATION CONTROLS */}
-            <div className="h-20 shrink-0 bg-background/80 backdrop-blur-xl border-t border-border flex items-center justify-between px-6 pb-4">
+            <div className="h-14 md:h-20 shrink-0 bg-background/90 backdrop-blur-xl border-t border-border flex items-center justify-between px-5 md:px-6">
                 <Button
                     variant="outline"
                     size="icon"
                     onClick={() => handleSceneChange('prev')}
                     disabled={currentSceneIdx === 0}
-                    className="h-12 w-12 rounded-full border-muted-foreground/20 hover:bg-muted"
+                    className="h-10 w-10 md:h-12 md:w-12 rounded-full border-muted-foreground/20 hover:bg-muted"
                 >
-                    <ChevronLeft className="w-6 h-6" />
+                    <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
                 </Button>
 
                 <div className="flex flex-col items-center">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 mb-1">Scène</span>
-                    <span className="text-xl font-bold font-mono">
+                    <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50">Scène</span>
+                    <span className="text-lg md:text-xl font-bold font-mono">
                         {currentSceneIdx + 1}<span className="text-muted-foreground/40 text-sm">/{scenes.length}</span>
                     </span>
                 </div>
 
                 <Button
-                    size={currentSceneIdx === scenes.length - 1 ? "lg" : "icon"}
                     onClick={() => handleSceneChange('next')}
                     disabled={isReadOnly && currentSceneIdx === scenes.length - 1}
                     className={cn(
-                        "rounded-full transition-all shadow-lg",
+                        "rounded-full transition-all shadow-lg h-10 md:h-12",
                         currentSceneIdx === scenes.length - 1
-                            ? "h-12 px-6 bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "h-12 w-12 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
+                            ? "px-5 md:px-6 bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "px-5 md:w-12 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
                     )}
                 >
                     {currentSceneIdx === scenes.length - 1 ? (
-                        <span className="flex items-center gap-2 font-bold">Terminer <CheckCircle2 className="w-4 h-4" /></span>
+                        <span className="flex items-center gap-2 font-bold text-sm">Terminer <CheckCircle2 className="w-4 h-4" /></span>
                     ) : (
-                        <ChevronRight className="w-6 h-6" />
+                        <span className="flex items-center gap-2 font-bold text-sm">
+                            <span className="md:hidden">Suivant</span>
+                            <ChevronRight className="w-5 h-5" />
+                        </span>
                     )}
                 </Button>
             </div>

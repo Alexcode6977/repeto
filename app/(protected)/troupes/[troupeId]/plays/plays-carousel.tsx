@@ -81,16 +81,16 @@ export function PlaysCarousel({ plays, troupeId, isAdmin, onAddPlay }: PlaysCaro
             })}
 
             {isAdmin && (
-                <div className="flex-none w-[70vw] mx-2 aspect-[3/4] snap-center">
+                <div className="flex-none w-[50vw] mx-2 aspect-square snap-center">
                     <button
                         onClick={() => { trigger('medium'); onAddPlay?.(); }}
                         className="block w-full h-full cursor-pointer"
                     >
-                        <div className="w-full h-full rounded-2xl border-2 border-dashed border-white/10 hover:border-primary/50 bg-white/5 hover:bg-primary/5 flex flex-col items-center justify-center gap-2 transition-all duration-300 text-muted-foreground hover:text-primary">
-                            <div className="w-12 h-12 rounded-full bg-secondary/30 flex items-center justify-center">
-                                <Plus className="w-6 h-6" />
+                        <div className="w-full h-full rounded-2xl border-2 border-dashed border-border/40 hover:border-primary/50 bg-muted/20 hover:bg-primary/5 flex flex-col items-center justify-center gap-3 transition-all duration-300 text-muted-foreground hover:text-primary">
+                            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Plus className="w-7 h-7" />
                             </div>
-                            <span className="font-bold uppercase tracking-widest text-[10px]">Ajouter</span>
+                            <span className="font-bold uppercase tracking-widest text-[10px]">Ajouter une pièce</span>
                         </div>
                     </button>
                 </div>

@@ -159,7 +159,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
 
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-32">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Header / Composition Area */}
             <div className="lg:col-span-12 space-y-6">
                 <div>
@@ -257,8 +257,8 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
             </div>
 
             {/* Footer Actions */}
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-background/80 backdrop-blur-lg border-t border-border z-50">
-                <div className="container max-w-7xl mx-auto flex items-center justify-between">
+            <div className="lg:col-span-12 mt-8 p-4 md:p-6 bg-muted/30 rounded-2xl border border-border">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="hidden md:block">
                         <p className="font-bold text-sm">
                             {segments.length} segments • {segments.reduce((acc, s) => acc + s.scenes.length, 0)} scènes
@@ -268,24 +268,22 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-4 w-full md:w-auto">
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                         <Button
                             variant="secondary"
-                            size="lg"
                             onClick={() => handleSave('preparation')}
                             disabled={isSaving}
-                            className="flex-1 md:flex-none font-bold"
+                            className="flex-1 md:flex-none font-bold rounded-full h-12"
                         >
                             <Save className="w-4 h-4 mr-2" />
-                            Sauvegarder Brouillon
+                            Sauvegarder
                         </Button>
 
                         <Button
-                            size="lg"
                             onClick={() => handleSave('upcoming')}
                             disabled={isSaving}
                             className={cn(
-                                "flex-1 md:flex-none font-bold min-w-[200px]",
+                                "flex-1 md:flex-none font-bold rounded-full h-12",
                                 status === 'upcoming' ? "bg-green-600 hover:bg-green-700" : ""
                             )}
                         >
@@ -295,7 +293,7 @@ export function SessionPlannerClient({ sessionData, troupeId, members, guests }:
                                     Mettre à jour
                                 </>
                             ) : (
-                                "Publier la Séance"
+                                "Publier"
                             )}
                         </Button>
                     </div>

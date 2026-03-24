@@ -137,10 +137,10 @@ export function CatalogBrowser({ troupeId, onClose, onImportComplete, onError }:
                             return (
                                 <div
                                     key={script.id}
-                                    className="flex items-center justify-between gap-4 p-4 bg-muted/30 border border-border rounded-2xl hover:bg-muted/50 transition-colors"
+                                    className="flex flex-col gap-3 p-4 bg-muted/30 border border-border rounded-2xl hover:bg-muted/50 transition-colors"
                                 >
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-foreground truncate">
+                                    <div>
+                                        <h3 className="font-bold text-foreground text-base leading-tight">
                                             {script.title}
                                         </h3>
                                         <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
@@ -154,7 +154,7 @@ export function CatalogBrowser({ troupeId, onClose, onImportComplete, onError }:
                                     <Button
                                         onClick={() => handleImport(script)}
                                         disabled={isImporting || isImported}
-                                        className={`shrink-0 rounded-xl ${isImported
+                                        className={`w-full rounded-xl ${isImported
                                             ? "bg-green-500/20 text-green-400 border-green-500/30"
                                             : ""
                                             }`}

@@ -33,7 +33,7 @@ export function TroupePlaysClient({
 
     return (
         <div className="space-y-12">
-            <div className="flex flex-col gap-2 relative z-10">
+            <div className="flex flex-col gap-2 relative z-10 overflow-hidden">
                 <div className="absolute -top-24 -left-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none" />
                 <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-foreground leading-none">
                     Bibliothèque

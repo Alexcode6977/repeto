@@ -130,7 +130,7 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
                     <div className="w-10 h-1 rounded-full bg-foreground/20 dark:bg-white/20" />
                 </div>
 
-                <div className="flex flex-col flex-1 min-h-0 px-5 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-4 md:px-8 md:pb-8 md:pt-7">
+                <div className="flex flex-col flex-1 min-h-0 px-5 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-4 md:px-8 md:pb-8 md:pt-7">
                     <DialogHeader className="mb-5 space-y-2 shrink-0">
                         <DialogTitle className="text-2xl font-black tracking-tight text-foreground dark:text-white md:text-center">
                             Nouvel événement
