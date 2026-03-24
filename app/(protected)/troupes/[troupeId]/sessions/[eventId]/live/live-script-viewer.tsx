@@ -171,8 +171,14 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
         if (isListening) recognitionRef.current?.stop();
     };
 
-    // Detect mobile
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    // Detect mobile safely
+    const [isMobile, setIsMobile] = useState(false);
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth < 768);
+        checkMobile(); // Check right away on mount
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
 
     const openNoteFor = (type: 'scene' | 'line', lineIndex?: number, character?: string, text?: string) => {
         if (isReadOnly) return;

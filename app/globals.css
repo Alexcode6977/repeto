@@ -129,6 +129,10 @@
     @apply border-border;
   }
 
+  html, body {
+    overscroll-behavior: none;
+  }
+  
   body {
     @apply bg-background text-foreground antialiased;
     background: var(--body-gradient);
@@ -138,7 +142,6 @@
     padding-bottom: env(safe-area-inset-bottom);
 
     /* Native App Feel: Prevent bounce and text selection */
-    overscroll-behavior-y: none;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     -webkit-user-select: none;

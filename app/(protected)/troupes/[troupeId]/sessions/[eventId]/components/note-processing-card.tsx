@@ -221,14 +221,14 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
             </Card>
 
             <Dialog open={!!actionType} onOpenChange={(o) => !o && setActionType(null)}>
-                <DialogContent>
-                    <DialogHeader>
+                <DialogContent className="max-h-[85vh] flex flex-col p-6">
+                    <DialogHeader className="shrink-0">
                         <DialogTitle>
                             {actionType === 'feedback' ? 'Envoyer un Feedback' : 'Donner une Indication'}
                         </DialogTitle>
                     </DialogHeader>
 
-                    <div className="py-4">
+                    <div className="flex-1 overflow-y-auto py-4 -mx-6 px-6 relative">
                         <p className="text-sm text-muted-foreground mb-4">
                             Sélectionnez les personnages concernés par cette note :
                         </p>
@@ -254,7 +254,7 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
                         )}
                     </div>
 
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
                         <Button variant="ghost" onClick={() => setActionType(null)}>Annuler</Button>
                         <Button onClick={handleConfirmAction} disabled={selectedTargets.length === 0}>
                             Confirmer
