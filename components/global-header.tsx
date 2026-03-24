@@ -16,9 +16,9 @@ interface GlobalHeaderProps {
 export function GlobalHeader({ displayName, isAdmin, avatarUrl, initials }: GlobalHeaderProps) {
     const pathname = usePathname();
 
-    // Hide global header on specific troupe sub-routes (TroupeHeader handles those)
-    // but NOT on /troupes/join or /troupes itself
-    const isTroupeSpecificRoute = /^\/troupes\/[^/]+\//.test(pathname);
+    // Hide global header on troupe-specific routes (TroupeHeader handles those)
+    // but NOT on /troupes, /troupes/join or /troupes/create
+    const isTroupeSpecificRoute = /^\/troupes\/(?!join|create)[^/]+/.test(pathname);
 
     if (isTroupeSpecificRoute) {
         return null;

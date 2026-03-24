@@ -1567,6 +1567,7 @@ export function TroupeImportWizard({
             {/* 5. CATALOG BROWSER */}
             {showImportGuide && importChoice === "catalog" && (
                 <CatalogBrowser
+                    troupeId={troupeId}
                     onClose={() => { setImportChoice("choice"); }}
                     onImportComplete={async () => {
                         await onImportComplete();

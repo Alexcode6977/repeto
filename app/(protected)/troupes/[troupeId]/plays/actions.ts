@@ -6,6 +6,8 @@ import { validateResolvedMappings, normalizeCharacterLabel } from "@/lib/actions
 import { generateVoiceAssignments } from "@/lib/voice-matching-core";
 import { upsertVoiceAssignmentsBatch } from "@/lib/actions/voice-cache";
 import { createPlay } from "@/lib/actions/play";
+import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 
 export async function saveTroupeScriptWithImportValidation(
     troupeId: string,
@@ -90,5 +92,45 @@ export async function saveTroupeScriptWithImportValidation(
     } catch (error) {
         console.error("[Troupe Import Validation] Unexpected error saving script:", error);
         return { error: "Erreur inattendue de sauvegarde." };
+    }
+}
+
+export async function importCatalogToTroupe(
+    troupeId: string,
+    sourceScriptId: string
+): Promise<{ success: boolean; error?: string }> {
+    const supabase = await createClient();
+
+    // Fetch the public catalogue script with its full content
+    const { data: sourceScript, error: fetchError } = await supabase
+        .from("scripts")
+        .select("title, content")
+        .eq("id", sourceScriptId)
+        .eq("is_public", true)
+        .single();
+
+    if (fetchError || !sourceScript) {
+        return { success: false, error: "Script non trouvé dans le catalogue" };
+    }
+
+    const rawContent = sourceScript.content as ParsedScript;
+    if (!rawContent || !rawContent.lines) {
+        return { success: false, error: "Le script du catalogue est vide ou invalide" };
+    }
+
+    // Ensure required fields have safe defaults for createPlay
+    const parsedScript: ParsedScript = {
+        ...rawContent,
+        lines: rawContent.lines.filter(Boolean),
+        scenes: rawContent.scenes?.length ? rawContent.scenes : [{ index: 0, title: sourceScript.title }],
+        characters: rawContent.characters || [],
+    };
+
+    try {
+        await createPlay(troupeId, sourceScript.title, parsedScript);
+        revalidatePath(`/troupes/${troupeId}/plays`);
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message || "Erreur lors de l'import" };
     }
 }

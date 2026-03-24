@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { getCatalogScripts, importFromCatalog, CatalogScript } from "@/app/(protected)/dashboard/actions";
+import { getCatalogScripts, CatalogScript } from "@/app/(protected)/dashboard/actions";
+import { importCatalogToTroupe } from "../actions";
 import { Search, Loader2, Download, ArrowLeft, Users, FileText, Check } from "lucide-react";
 
 interface CatalogBrowserProps {
+    troupeId: string;
     onClose: () => void;
     onImportComplete: () => Promise<void>;
     onError: (msg: string) => void;
 }
 
-export function CatalogBrowser({ onClose, onImportComplete, onError }: CatalogBrowserProps) {
+export function CatalogBrowser({ troupeId, onClose, onImportComplete, onError }: CatalogBrowserProps) {
     const [scripts, setScripts] = useState<CatalogScript[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -38,7 +40,7 @@ export function CatalogBrowser({ onClose, onImportComplete, onError }: CatalogBr
     const handleImport = async (script: CatalogScript) => {
         setImportingId(script.id);
         try {
-            const result = await importFromCatalog(script.id);
+            const result = await importCatalogToTroupe(troupeId, script.id);
             if (result.success) {
                 setImportedIds(prev => [...prev, script.id]);
                 await onImportComplete();
@@ -168,7 +170,7 @@ export function CatalogBrowser({ onClose, onImportComplete, onError }: CatalogBr
                                         ) : (
                                             <>
                                                 <Download className="w-4 h-4 mr-2" />
-                                                Ajouter à ma bibliothèque
+                                                Ajouter à la troupe
                                             </>
                                         )}
                                     </Button>

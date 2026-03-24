@@ -53,7 +53,7 @@ export function TroupePlaysClient({
                         </Button>
                     </div>
                 )}
-                <PlaysCarousel plays={plays} troupeId={troupeId} isAdmin={canManage} />
+                <PlaysCarousel plays={plays} troupeId={troupeId} isAdmin={canManage} onAddPlay={() => setShowImportWizard(true)} />
             </div>
 
             {/* Desktop View: Grid */}
