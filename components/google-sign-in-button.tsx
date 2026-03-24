@@ -3,8 +3,16 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { isNativePlatform } from "@/lib/platform/device";
+import { buildAuthCallbackUrl } from "@/lib/platform/post-auth-destination";
 
-export function GoogleSignInButton({ label = "Continuer avec Google" }: { label?: string }) {
+export function GoogleSignInButton({
+    label = "Continuer avec Google",
+    requestedNext,
+}: {
+    label?: string;
+    requestedNext?: string | null;
+}) {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleLogin = async () => {
@@ -15,10 +23,16 @@ export function GoogleSignInButton({ label = "Continuer avec Google" }: { label?
                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
 
+            const searchParams = new URLSearchParams(window.location.search);
+            const next = requestedNext || searchParams.get("next");
+
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: "google",
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
+                    redirectTo: buildAuthCallbackUrl(window.location.origin, {
+                        requestedNext: next,
+                        isNativeShell: isNativePlatform(),
+                    }),
                     queryParams: {
                         access_type: "offline",
                         prompt: "consent",

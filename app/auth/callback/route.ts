@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { resolvePostAuthDestination } from "@/lib/platform/post-auth-destination";
 
 const EMAIL_OTP_TYPES: EmailOtpType[] = [
     "signup",
@@ -17,14 +18,6 @@ function isEmailOtpType(value: string | null): value is EmailOtpType {
     }
 
     return EMAIL_OTP_TYPES.includes(value as EmailOtpType);
-}
-
-function safeNextPath(next: string | null, fallback: string): string {
-    if (!next || !next.startsWith("/")) {
-        return fallback;
-    }
-
-    return next;
 }
 
 export async function GET(request: Request) {
@@ -58,7 +51,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(resetUrl.toString());
     }
 
-    const next = safeNextPath(requestedNext, "/dashboard");
+    const next = resolvePostAuthDestination({ requestedNext });
     const errorRedirectPath = "/login";
 
     // Handle errors returned from the provider/supabase directly

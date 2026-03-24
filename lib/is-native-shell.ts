@@ -1,9 +1,5 @@
-import { Capacitor } from "@capacitor/core";
+import { isNativePlatform } from "@/lib/platform/device";
 
 export function isNativeShell() {
-    if (typeof window === "undefined") {
-        return false;
-    }
-
-    return Capacitor.isNativePlatform();
+    return isNativePlatform();
 }

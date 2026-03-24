@@ -7,9 +7,9 @@ import { AppleSignInButton } from "@/components/apple-sign-in-button";
 export default async function SignupPage({
     searchParams,
 }: {
-    searchParams: Promise<{ message?: string; error?: string }>;
+    searchParams: Promise<{ message?: string; error?: string; next?: string }>;
 }) {
-    const { message, error } = await searchParams;
+    const { message, error, next } = await searchParams;
 
     return (
         <div className="min-h-[100dvh] w-full flex flex-col items-center justify-start bg-background text-foreground font-sans p-4 relative overflow-y-auto">
@@ -38,7 +38,7 @@ export default async function SignupPage({
                 {/* FORM SECTION */}
                 <div className="w-full flex flex-col gap-4">
                     <div className="space-y-3">
-                        <GoogleSignInButton label="S'inscrire avec Google" />
+                        <GoogleSignInButton label="S'inscrire avec Google" requestedNext={next} />
 
                         <div className="relative pt-2 pb-1">
                             <div className="absolute inset-0 flex items-center">
@@ -50,7 +50,7 @@ export default async function SignupPage({
                         </div>
                     </div>
 
-                    <SignupForm message={message} error={error} />
+                    <SignupForm message={message} error={error} requestedNext={next} />
                 </div>
 
                 <div className="flex-1" />
@@ -59,7 +59,10 @@ export default async function SignupPage({
                 <div className="w-full flex-none py-6 text-center">
                     <div className="text-sm text-muted-foreground">
                         Déjà un compte ?{" "}
-                        <Link href="/login" className="text-primary font-semibold hover:text-primary/80 transition-colors">
+                        <Link
+                            href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"}
+                            className="text-primary font-semibold hover:text-primary/80 transition-colors"
+                        >
                             Se connecter
                         </Link>
                     </div>

@@ -2,37 +2,34 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Capacitor } from '@capacitor/core';
-import { createClient } from '@/lib/supabase/client';
-import { Users } from 'lucide-react';
+import { isNativePlatform } from "@/lib/platform/device";
+import {
+    DEFAULT_LOGIN_DESTINATION,
+    DEFAULT_NATIVE_POST_AUTH_DESTINATION,
+} from "@/lib/platform/post-auth-destination";
+import { resolveNativeStartupDestination } from "@/lib/platform/auth";
 
 export function NativeRedirect() {
     const router = useRouter();
     const [isNative, setIsNative] = useState(false);
 
     useEffect(() => {
-        // Run only on client
-        if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
-            setIsNative(true);
+        if (!isNativePlatform()) return;
 
-            const checkSession = async () => {
-                try {
-                    const supabase = createClient();
-                    const { data: { session } } = await supabase.auth.getSession();
+        setIsNative(true);
 
-                    if (session) {
-                        router.replace('/favoris');
-                    } else {
-                        router.replace('/login');
-                    }
-                } catch (error) {
-                    console.error("Error checking native session:", error);
-                    router.replace('/login');
-                }
-            };
+        void resolveNativeStartupDestination().then((destination) => {
+            if (!destination) {
+                return;
+            }
 
-            checkSession();
-        }
+            if (destination === DEFAULT_LOGIN_DESTINATION) {
+                router.replace(`/login?next=${encodeURIComponent(DEFAULT_NATIVE_POST_AUTH_DESTINATION)}`);
+                return;
+            }
+
+            router.replace(destination);
+        });
     }, [router]);
 
     if (!isNative) return null;

@@ -1,4 +1,5 @@
 import { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'com.souffleur.app',
@@ -14,8 +15,8 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
     },
     Keyboard: {
-      resize: 'none',
-      style: 'DARK',
+      resize: KeyboardResize.None,
+      style: KeyboardStyle.Dark,
       resizeOnFullScreen: true,
     },
     SplashScreen: {

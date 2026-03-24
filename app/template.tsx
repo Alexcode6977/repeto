@@ -2,15 +2,15 @@
 
 import { motion } from "framer-motion";
 import { usePathname } from "next/navigation";
-import { isNativeShell } from "@/lib/is-native-shell";
+import { shouldAnimateRouteTransitions } from "@/lib/platform/navigation";
 
 export default function Template({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
-    const nativeShell = isNativeShell();
+    const animateTransitions = shouldAnimateRouteTransitions();
 
     // Do not animate highly interactive pages to avoid repaint cost if not needed,
     // or keep it subtle. For now, we apply to all.
-    if (nativeShell) {
+    if (!animateTransitions) {
         return (
             <div className="flex-1 flex flex-col w-full">
                 {children}

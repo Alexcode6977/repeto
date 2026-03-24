@@ -5,6 +5,10 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getBaseUrlFromHost } from "@/lib/server/url";
+import {
+    buildAuthCallbackUrl,
+    resolvePostAuthDestination,
+} from "@/lib/platform/post-auth-destination";
 
 export async function signInWithGoogle() {
     const supabase = await createClient();
@@ -16,7 +20,7 @@ export async function signInWithGoogle() {
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-            redirectTo: `${origin}/auth/callback`,
+            redirectTo: buildAuthCallbackUrl(origin),
             queryParams: {
                 access_type: "offline",
                 prompt: "consent",
@@ -44,7 +48,7 @@ export async function signInWithApple() {
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "apple",
         options: {
-            redirectTo: `${origin}/auth/callback`,
+            redirectTo: buildAuthCallbackUrl(origin),
         },
     });
 
@@ -61,6 +65,7 @@ export async function signInWithApple() {
 
 export async function login(formData: FormData) {
     const supabase = await createClient();
+    const requestedNext = formData.get("next");
 
     const data = {
         email: formData.get("email") as string,
@@ -74,7 +79,9 @@ export async function login(formData: FormData) {
     }
 
     revalidatePath("/", "layout");
-    redirect("/dashboard");
+    redirect(resolvePostAuthDestination({
+        requestedNext: typeof requestedNext === "string" ? requestedNext : null,
+    }));
 }
 
 export async function signup(formData: FormData) {
@@ -83,6 +90,7 @@ export async function signup(formData: FormData) {
     const origin = getBaseUrlFromHost(
         headersList.get("x-forwarded-host") || headersList.get("host")
     );
+    const requestedNext = formData.get("next");
 
     const firstName = formData.get("firstName") as string;
     const password = formData.get("password") as string;
@@ -100,7 +108,9 @@ export async function signup(formData: FormData) {
     const { data: signUpData, error } = await supabase.auth.signUp({
         ...data,
         options: {
-            emailRedirectTo: `${origin}/auth/callback`,
+            emailRedirectTo: buildAuthCallbackUrl(origin, {
+                requestedNext: typeof requestedNext === "string" ? requestedNext : null,
+            }),
             data: {
                 first_name: firstName, // Store in user metadata as well
             },

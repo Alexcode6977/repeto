@@ -1,27 +1,39 @@
-import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
-import { Capacitor } from '@capacitor/core';
+'use client';
+
 import { useCallback } from 'react';
+import { ImpactStyle, NotificationType } from '@capacitor/haptics';
+import {
+    triggerImpact,
+    triggerNotification,
+    triggerWebVibration,
+} from "@/lib/platform/device";
+
+const IMPACT_FALLBACKS: Record<ImpactStyle, number | number[]> = {
+    [ImpactStyle.Heavy]: 20,
+    [ImpactStyle.Light]: 5,
+    [ImpactStyle.Medium]: 10,
+};
+
+const NOTIFICATION_FALLBACKS: Record<NotificationType, number | number[]> = {
+    [NotificationType.Error]: [50, 100, 50, 100],
+    [NotificationType.Success]: [10, 30, 10, 30],
+    [NotificationType.Warning]: [30, 50, 10],
+};
 
 export function useHaptics() {
-    const isNative = Capacitor.isNativePlatform();
-
     const impact = useCallback(async (style: ImpactStyle = ImpactStyle.Medium) => {
-        if (!isNative) return;
-        try {
-            await Haptics.impact({ style });
-        } catch (e) {
-            // fail silently
+        const didUseNativeImpact = await triggerImpact(style);
+        if (!didUseNativeImpact) {
+            triggerWebVibration(IMPACT_FALLBACKS[style]);
         }
-    }, [isNative]);
+    }, []);
 
     const notification = useCallback(async (type: NotificationType = NotificationType.Success) => {
-        if (!isNative) return;
-        try {
-            await Haptics.notification({ type });
-        } catch (e) {
-            // fail silently
+        const didUseNativeNotification = await triggerNotification(type);
+        if (!didUseNativeNotification) {
+            triggerWebVibration(NOTIFICATION_FALLBACKS[type]);
         }
-    }, [isNative]);
+    }, []);
 
     const success = useCallback(() => notification(NotificationType.Success), [notification]);
     const error = useCallback(() => notification(NotificationType.Error), [notification]);
@@ -29,6 +41,12 @@ export function useHaptics() {
     const light = useCallback(() => impact(ImpactStyle.Light), [impact]);
     const medium = useCallback(() => impact(ImpactStyle.Medium), [impact]);
     const heavy = useCallback(() => impact(ImpactStyle.Heavy), [impact]);
+    const selection = useCallback(async () => {
+        const didUseNativeImpact = await triggerImpact(ImpactStyle.Light);
+        if (!didUseNativeImpact) {
+            triggerWebVibration(2);
+        }
+    }, []);
 
     return {
         impact,
@@ -38,6 +56,7 @@ export function useHaptics() {
         warning,
         light,
         medium,
-        heavy
+        heavy,
+        selection,
     };
 }

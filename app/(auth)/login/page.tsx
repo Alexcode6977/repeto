@@ -4,13 +4,14 @@ import Link from "next/link";
 import { PasswordInput } from "@/components/password-input";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
+import { PostAuthDestinationInput } from "@/components/post-auth-destination-input";
 
 export default async function LoginPage({
     searchParams,
 }: {
-    searchParams: Promise<{ message?: string; error?: string }>;
+    searchParams: Promise<{ message?: string; error?: string; next?: string }>;
 }) {
-    const { message, error } = await searchParams;
+    const { message, error, next } = await searchParams;
 
     return (
         <div className="min-h-[100dvh] w-full flex flex-col items-center justify-start bg-background text-foreground font-sans p-4 relative overflow-y-auto">
@@ -51,7 +52,7 @@ export default async function LoginPage({
                     )}
 
                     <div className="space-y-3">
-                        <GoogleSignInButton label="Se connecter avec Google" />
+                        <GoogleSignInButton label="Se connecter avec Google" requestedNext={next} />
                         
                         <div className="relative pt-2 pb-1">
                             <div className="absolute inset-0 flex items-center">
@@ -64,6 +65,7 @@ export default async function LoginPage({
                     </div>
 
                     <form className="space-y-3 w-full">
+                        <PostAuthDestinationInput requestedNext={next} />
                         <div>
                             <input
                                 id="email"
@@ -107,7 +109,10 @@ export default async function LoginPage({
                 <div className="w-full flex-none py-6 text-center">
                     <div className="text-sm text-muted-foreground">
                         Pas encore de compte ?{" "}
-                        <Link href="/signup" className="text-primary font-semibold hover:text-primary/80 transition-colors">
+                        <Link
+                            href={next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
+                            className="text-primary font-semibold hover:text-primary/80 transition-colors"
+                        >
                             Créer un compte
                         </Link>
                     </div>

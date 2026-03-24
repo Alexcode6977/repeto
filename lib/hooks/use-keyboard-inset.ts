@@ -1,31 +1,29 @@
+"use client";
+
 import { useEffect } from "react";
+import {
+    observeKeyboardInset,
+    setKeyboardOffset,
+} from "@/lib/platform/device";
 
 export function useKeyboardInset(active = true) {
     useEffect(() => {
-        if (!active || typeof window === "undefined") return;
+        if (!active) return;
 
-        const root = document.documentElement;
-        const visualViewport = window.visualViewport;
+        let cleanup: (() => Promise<void>) | null = null;
 
-        if (!visualViewport) return;
-
-        const updateInset = () => {
-            const offset = Math.max(
-                0,
-                window.innerHeight - visualViewport.height - visualViewport.offsetTop
-            );
-            root.style.setProperty("--keyboard-offset", `${offset}px`);
-        };
-
-        updateInset();
-
-        visualViewport.addEventListener("resize", updateInset);
-        visualViewport.addEventListener("scroll", updateInset);
+        void observeKeyboardInset((offset) => {
+            setKeyboardOffset(offset);
+        }).then((listener) => {
+            cleanup = listener.remove;
+        });
 
         return () => {
-            visualViewport.removeEventListener("resize", updateInset);
-            visualViewport.removeEventListener("scroll", updateInset);
-            root.style.setProperty("--keyboard-offset", "0px");
+            if (cleanup) {
+                void cleanup();
+            } else {
+                setKeyboardOffset(0);
+            }
         };
     }, [active]);
 }

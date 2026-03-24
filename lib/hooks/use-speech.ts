@@ -1,8 +1,18 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Emotion, segmentText, isVoiceCommand, applyPhoneticCorrections } from "../speech-utils";
 import { calculateSimilarity } from "../similarity";
-import { SpeechRecognition } from "@capacitor-community/speech-recognition";
-import { Capacitor } from "@capacitor/core";
+import {
+    addNativePartialResultsListener,
+    clearNativeSpeechListeners,
+    ensureNativeSpeechPermissions,
+    getWebSpeechRecognitionConstructor,
+    isNativeSpeechRecognitionAvailable,
+    isSpeechRecognitionSupported,
+    playSpeechTone,
+    startNativeSpeechRecognition,
+    stopNativeSpeechRecognition,
+    warmSpeechAudioOutput,
+} from "@/lib/platform/speech";
 
 // Types for Web Speech API which might be missing in some environments
 interface Window {
@@ -107,7 +117,7 @@ export function useSpeech(): UseSpeechReturn {
 
             // Initialize Recognition
             const initializeWebRecognition = () => {
-                const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                const SpeechRecognitionAPI = getWebSpeechRecognitionConstructor();
                 if (SpeechRecognitionAPI) {
                     recognitionRef.current = new SpeechRecognitionAPI();
                     recognitionRef.current.continuous = false; // We manage restarts manually if needed
@@ -116,14 +126,8 @@ export function useSpeech(): UseSpeechReturn {
                 }
             };
 
-            if (Capacitor.isNativePlatform()) {
-                // Check Capacitor Speech Recognition permissions early
-                SpeechRecognition.checkPermissions().then(({ speechRecognition }) => {
-                    if (speechRecognition !== 'granted') {
-                        SpeechRecognition.requestPermissions();
-                    }
-                }).catch(console.error);
-                // We will use the plugin directly in `listen`
+            if (isNativeSpeechRecognitionAvailable()) {
+                void ensureNativeSpeechPermissions();
             } else {
                 initializeWebRecognition();
             }
@@ -139,6 +143,8 @@ export function useSpeech(): UseSpeechReturn {
                     // ignore
                 }
             }
+            void stopNativeSpeechRecognition();
+            clearNativeSpeechListeners();
         };
     }, []);
 
@@ -342,7 +348,7 @@ export function useSpeech(): UseSpeechReturn {
 
     const listen = useCallback((estimatedDurationMs?: number, expectedText?: string, playTitle?: string, similarityThreshold: number = 0.95): Promise<string> => {
         return new Promise(async (resolve, reject) => {
-            if (Capacitor.isNativePlatform()) {
+            if (isNativeSpeechRecognitionAvailable()) {
                 // Handle Native Capacitor Speech Recognition
 
                 // STOP any existing Web Recognition completely
@@ -354,7 +360,7 @@ export function useSpeech(): UseSpeechReturn {
                 if (activeRecognitionRef.current) {
                     const old = activeRecognitionRef.current;
                     activeRecognitionRef.current = null;
-                    try { await SpeechRecognition.stop(); } catch (e) { }
+                    await stopNativeSpeechRecognition();
                     old.reject("Interrupted");
                 }
 
@@ -378,8 +384,8 @@ export function useSpeech(): UseSpeechReturn {
 
                 const finalizeRecognition = async (result: string) => {
                     if (silenceTimeout) clearTimeout(silenceTimeout);
-                    try { await SpeechRecognition.stop(); } catch (e) { }
-                    SpeechRecognition.removeAllListeners();
+                    await stopNativeSpeechRecognition();
+                    clearNativeSpeechListeners();
                     setState("idle");
                     if (activeRecognitionRef.current) {
                         const r = activeRecognitionRef.current;
@@ -395,16 +401,10 @@ export function useSpeech(): UseSpeechReturn {
                         if (!hasSpeechStarted && !cancelledRef.current) {
                             // Auto-restart native recognition if no speech was detected to bypass OS timeout
                             console.warn("[Speech] Initial silence timeout - AUTO RESTARTING native recognition");
-                            try { await SpeechRecognition.stop(); } catch(e) {}
+                            await stopNativeSpeechRecognition();
                             setTranscript("");
                             try {
-                                await SpeechRecognition.start({
-                                    language: "fr-FR",
-                                    maxResults: 2,
-                                    prompt: "Lisez votre réplique",
-                                    partialResults: true,
-                                    popup: false
-                                });
+                                await startNativeSpeechRecognition();
                                 resetSilenceTimer(false);
                             } catch(e) {
                                 finalizeRecognition("");
@@ -417,9 +417,9 @@ export function useSpeech(): UseSpeechReturn {
                 };
 
                 // Register listeners BEFORE starting
-                SpeechRecognition.removeAllListeners(); // clear previous
+                clearNativeSpeechListeners();
 
-                SpeechRecognition.addListener('partialResults', (data: any) => {
+                addNativePartialResultsListener((data: any) => {
                     // In Capacitor plugin, matches are an array. Usually the first is best
                     const transcripts = data.matches || [];
                     if (transcripts.length > 0) {
@@ -447,14 +447,7 @@ export function useSpeech(): UseSpeechReturn {
 
                 try {
                     cancelledRef.current = false;
-                    // Start Capacitor Speech Recog
-                    await SpeechRecognition.start({
-                        language: "fr-FR",
-                        maxResults: 2,
-                        prompt: "Lisez votre réplique",
-                        partialResults: true,
-                        popup: false // We use our own UI
-                    });
+                    await startNativeSpeechRecognition();
                     resetSilenceTimer(false);
                 } catch (e) {
                     console.error("Capacitor Speech Recog error:", e);
@@ -728,11 +721,9 @@ export function useSpeech(): UseSpeechReturn {
         cancelledRef.current = true;  // Signal to stop the loop
 
         // Stop Capacitor Native Speech Recognition
-        if (Capacitor.isNativePlatform()) {
-            try {
-                SpeechRecognition.stop();
-                SpeechRecognition.removeAllListeners();
-            } catch (e) { }
+        if (isNativeSpeechRecognitionAvailable()) {
+            void stopNativeSpeechRecognition();
+            clearNativeSpeechListeners();
         }
 
         // Cancel TTS
@@ -764,36 +755,7 @@ export function useSpeech(): UseSpeechReturn {
     // Safari requires SpeechRecognition to be started within a user gesture handler (click).
     const initializeAudio = useCallback(async (forceOutput = false, skipWarmup = false) => {
         try {
-            // EXPERIMENTAL: Force Audio Output (CarPlay / iPad fix)
-            // iOS often switches to "Phone Receiver" when mic is active if no audio is playing.
-            // We play a silent oscillator AND a silent Audio element to force the "Media" audio session.
-            if (forceOutput || true) { // Always warm up on iPad/Mobile
-                // Audio warmup: Activating silent oscillator & dummy media
-
-                // 1. Silent Oscillator (Low Level)
-                const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-                if (AudioContextClass) {
-                    const ctx = new AudioContextClass();
-                    const osc = ctx.createOscillator();
-                    const gain = ctx.createGain();
-
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(20, ctx.currentTime);
-                    gain.gain.setValueAtTime(0.001, ctx.currentTime);
-
-                    osc.connect(gain);
-                    gain.connect(ctx.destination);
-                    osc.start();
-                    (window as any).__keepAliveAudio = { ctx, osc, gain };
-                }
-
-                // 2. Dummy Audio Element (High Level - needed for OpenAI / External voices)
-                // This unlocks the "Media" route on iPad/iOS
-                const dummyAudio = new Audio();
-                dummyAudio.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-                dummyAudio.play().catch(() => { });
-                (window as any).__dummyAudio = dummyAudio;
-            }
+            await warmSpeechAudioOutput(true);
 
             // 1. Get Mic Permission
             // Check if mediaDevices API is available (Safari mobile compatibility)
@@ -834,28 +796,7 @@ export function useSpeech(): UseSpeechReturn {
 
     // Expose reliable tone player using the warmed up context
     const playTone = useCallback(() => {
-        try {
-            // Try to use the persisted context from warmup first (Best for iOS)
-            const warmedCtx = (window as any).__keepAliveAudio?.ctx;
-            const AudioContextClass = (window as any).AudioContext || (window as any).webkitAudioContext;
-            const ctx = warmedCtx || (AudioContextClass ? new AudioContextClass() : null);
-
-            if (ctx) {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
-                gain.gain.setValueAtTime(0, ctx.currentTime);
-                gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
-                gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.2);
-            }
-        } catch (e) {
-            console.warn("[Speech] Failed to play tone", e);
-        }
+        playSpeechTone();
     }, []);
 
     return useMemo(() => ({
@@ -871,6 +812,6 @@ export function useSpeech(): UseSpeechReturn {
         state,
         initializeAudio,
         playTone, // NEW: Expose this
-        isSupported: typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+        isSupported: isSpeechRecognitionSupported()
     }), [state, transcript, listen, stop, speak, voices, initializeAudio, playTone]);
 }

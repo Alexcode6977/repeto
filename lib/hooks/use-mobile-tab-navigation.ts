@@ -2,9 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition, type MouseEvent } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useHaptic } from "@/lib/hooks/use-haptic";
 import { useHaptics } from "@/lib/hooks/use-haptics";
-import { isNativeShell } from "@/lib/is-native-shell";
+import { isNativePlatform } from "@/lib/platform/device";
+import {
+    primePlatformRoutes,
+    scheduleNavigationStateReset,
+    warmPlatformRoute,
+} from "@/lib/platform/navigation";
 
 const SCROLL_STORAGE_PREFIX = "mobile-tab-scroll";
 
@@ -31,9 +35,8 @@ function getScrollStorageKey(item: MobileNavItem) {
 export function useMobileTabNavigation(items: MobileNavItem[]) {
     const pathname = usePathname();
     const router = useRouter();
-    const nativeShell = isNativeShell();
-    const { trigger } = useHaptic();
-    const { light } = useHaptics();
+    const nativeShell = isNativePlatform();
+    const { selection } = useHaptics();
     const prefetchedHrefs = useRef(new Set<string>());
     const [pendingHref, setPendingHref] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
@@ -46,14 +49,7 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
             return;
         }
 
-        for (const item of items) {
-            if (prefetchedHrefs.current.has(item.href)) {
-                continue;
-            }
-
-            prefetchedHrefs.current.add(item.href);
-            void router.prefetch(item.href);
-        }
+        primePlatformRoutes(router, items.map((item) => item.href), prefetchedHrefs.current);
     }, [items, nativeShell, router]);
 
     useEffect(() => {
@@ -61,12 +57,12 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
             return;
         }
 
-        const frame = window.requestAnimationFrame(() => {
+        const cancelFrame = scheduleNavigationStateReset(() => {
             setPendingHref(null);
         });
 
         return () => {
-            window.cancelAnimationFrame(frame);
+            cancelFrame();
         };
     }, [isPending, pendingHref, pathname]);
 
@@ -125,21 +121,11 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
     }, [currentItem, pathname]);
 
     function warmRoute(href: string) {
-        if (prefetchedHrefs.current.has(href)) {
-            return;
-        }
-
-        prefetchedHrefs.current.add(href);
-        void router.prefetch(href);
+        warmPlatformRoute(router, href, prefetchedHrefs.current);
     }
 
     function triggerNavigationFeedback() {
-        if (nativeShell) {
-            void light();
-            return;
-        }
-
-        trigger("light");
+        void selection();
     }
 
     function isCurrentRoot(item: MobileNavItem) {

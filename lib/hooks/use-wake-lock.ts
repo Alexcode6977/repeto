@@ -1,72 +1,79 @@
+'use client';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { KeepAwake } from '@capacitor-community/keep-awake';
+import {
+    addPlatformAppStateChangeListener,
+    isNativePlatform,
+    releasePlatformWakeLock,
+    requestPlatformWakeLock,
+} from "@/lib/platform/device";
 
 export function useWakeLock() {
-    const wakeLockRef = useRef<any>(null);
+    const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+    const shouldRestoreRef = useRef(false);
     const [isActive, setIsActive] = useState(false);
 
     const requestWakeLock = useCallback(async () => {
-        // Native (Capacitor)
-        if (Capacitor.isNativePlatform()) {
-            try {
-                await KeepAwake.keepAwake();
-                setIsActive(true);
-                return;
-            } catch (err) {
-                console.error('[WakeLock Native] Failed', err);
-            }
-        }
-
-        // Web Fallback
-        if (!('wakeLock' in navigator)) {
-            console.warn('[WakeLock] Screen Wake Lock API not supported');
-            return;
-        }
-
         try {
-            wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+            shouldRestoreRef.current = true;
+            wakeLockRef.current = await requestPlatformWakeLock();
             setIsActive(true);
 
-            wakeLockRef.current.addEventListener('release', () => {
+            wakeLockRef.current?.addEventListener('release', () => {
                 setIsActive(false);
             });
-        } catch (err: any) {
-            console.error(`[WakeLock] ${err.name}, ${err.message}`);
+        } catch (error: any) {
+            console.error(`[WakeLock] ${error.name}, ${error.message}`);
         }
     }, []);
 
     const releaseWakeLock = useCallback(async () => {
-        // Native (Capacitor)
-        if (Capacitor.isNativePlatform()) {
-            try {
-                await KeepAwake.allowSleep();
-                setIsActive(false);
-            } catch (err) {
-                console.error('[WakeLock Native] Failed to release', err);
-            }
-            return;
-        }
-
-        // Web Fallback
-        if (wakeLockRef.current) {
-            await wakeLockRef.current.release();
+        try {
+            shouldRestoreRef.current = false;
+            await releasePlatformWakeLock(wakeLockRef.current);
             wakeLockRef.current = null;
+            setIsActive(false);
+        } catch (error) {
+            console.error('[WakeLock] Failed to release', error);
         }
     }, []);
 
-    // Re-request wake lock when page becomes visible again (Web only)
     useEffect(() => {
-        if (Capacitor.isNativePlatform()) return;
-
         const handleVisibilityChange = async () => {
-            if (wakeLockRef.current !== null && document.visibilityState === 'visible') {
+            if (!isNativePlatform() && shouldRestoreRef.current && document.visibilityState === 'visible') {
                 await requestWakeLock();
             }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [requestWakeLock]);
+
+    useEffect(() => {
+        let cleanup: (() => Promise<void>) | null = null;
+
+        void addPlatformAppStateChangeListener(async ({ isActive: appIsActive }) => {
+            if (!isNativePlatform()) {
+                return;
+            }
+
+            if (appIsActive && shouldRestoreRef.current) {
+                await requestWakeLock();
+                return;
+            }
+
+            if (!appIsActive) {
+                setIsActive(false);
+            }
+        }).then((listener) => {
+            cleanup = listener.remove;
+        });
+
+        return () => {
+            if (cleanup) {
+                void cleanup();
+            }
+        };
     }, [requestWakeLock]);
 
     return { requestWakeLock, releaseWakeLock, isActive };

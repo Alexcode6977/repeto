@@ -5,13 +5,15 @@ import { PasswordInput } from "@/components/password-input";
 import { AuthSubmitButton } from "@/components/auth-submit-button";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
+import { PostAuthDestinationInput } from "@/components/post-auth-destination-input";
 
 interface SignupFormProps {
     message?: string;
     error?: string;
+    requestedNext?: string | null;
 }
 
-export function SignupForm({ message: initialMessage, error: initialError }: SignupFormProps) {
+export function SignupForm({ message: initialMessage, error: initialError, requestedNext }: SignupFormProps) {
     const [clientError, setClientError] = useState<string | null>(null);
 
     const handleSubmit = async (formData: FormData) => {
@@ -45,6 +47,7 @@ export function SignupForm({ message: initialMessage, error: initialError }: Sig
             )}
 
             <form action={handleSubmit} className="space-y-3 w-full">
+                <PostAuthDestinationInput requestedNext={requestedNext} />
                 <div>
                     <input
                         id="firstName"
