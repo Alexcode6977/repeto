@@ -100,10 +100,10 @@ export function LiveSessionClient({ sessionData, scenes, isReadOnly }: LiveClien
             </div>
 
             {/* B. MAIN CONTENT */}
-            <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
+            <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row min-h-0">
 
                 {/* SCRIPT (100% mobile, 75% desktop) */}
-                <div className="flex-1 md:flex-[0.75] min-w-0 border-r border-border/10">
+                <div className="flex-1 md:flex-[0.75] min-w-0 min-h-0 border-r border-border/10 flex flex-col">
                     <LiveScriptViewer
                         sessionData={sessionData}
                         currentSceneIdx={currentSceneIdx}

@@ -41,8 +41,14 @@ export default async function SessionDetailsPage({
     let feedbacks: any[] = [];
 
     if (status === 'processing') {
-        rawNotes = await getRawNotes(eventId);
+        const rawNotes = await getRawNotes(eventId);
+        return (
+            <div className="h-[calc(100dvh-5rem)] md:h-[calc(100vh-6rem)] -mx-4 -my-4 md:mx-0 md:my-0 overflow-hidden bg-background">
+                <SessionProcessingClient sessionData={sessionData} troupeId={troupeId} rawNotes={rawNotes || []} />
+            </div>
+        );
     }
+
     if (status === 'validated') {
         feedbacks = await getMyFeedbacks(eventId);
     }
@@ -51,8 +57,6 @@ export default async function SessionDetailsPage({
         switch (status) {
             case 'upcoming':
                 return <SessionReadOnlyClient sessionData={sessionData} troupeId={troupeId} isDirector={canManage} members={members} guests={guests} />;
-            case 'processing':
-                return <SessionProcessingClient sessionData={sessionData} troupeId={troupeId} rawNotes={rawNotes || []} />;
             case 'validated':
                 return <SessionValidatedClient sessionData={sessionData} feedbacks={feedbacks || []} />;
             case 'preparation':

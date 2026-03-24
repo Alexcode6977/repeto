@@ -142,7 +142,7 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
 
 
     return (
-        <div className="flex flex-col h-[calc(100vh-theme(spacing.20))] bg-background overflow-hidden relative">
+        <div className="flex flex-col h-full bg-background overflow-hidden relative">
 
             {/* Header / Nav */}
             <div className="h-14 shrink-0 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-4 z-20">
@@ -193,8 +193,8 @@ export function SessionProcessingClient({ sessionData, troupeId, rawNotes }: Ses
 
             {/* Split View Content */}
             <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row">
-                {/* LEFT: SCRIPT (50%) */}
-                <div className="flex-1 md:flex-1 min-w-0 border-r border-border/10 bg-black/20 relative">
+                {/* LEFT: SCRIPT (50%) - HIDDEN ON MOBILE */}
+                <div className="hidden md:flex flex-1 min-w-0 border-r border-border/10 bg-black/20 relative">
                     <LiveScriptViewer
                         sessionData={sessionData}
                         currentSceneIdx={selectedSceneIdx}

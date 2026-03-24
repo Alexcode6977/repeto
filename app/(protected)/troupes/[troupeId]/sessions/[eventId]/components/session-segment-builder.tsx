@@ -53,7 +53,12 @@ export function SessionSegmentBuilder({ segment, play, attendance, onUpdate, onD
             newScenes = currentScenes.filter((s: any) => s.id !== sceneId);
         } else {
             const sceneToAdd = scenes.find((s: any) => s.id === sceneId);
-            newScenes = [...currentScenes, { id: sceneToAdd.id, title: sceneToAdd.title, index: sceneToAdd.index }];
+            newScenes = [...currentScenes, { 
+                id: sceneToAdd.id, 
+                title: sceneToAdd.title, 
+                order_index: sceneToAdd.order_index ?? sceneToAdd.index,
+                index: sceneToAdd.order_index ?? sceneToAdd.index 
+            }];
         }
 
         onUpdate({ ...segment, scenes: newScenes });

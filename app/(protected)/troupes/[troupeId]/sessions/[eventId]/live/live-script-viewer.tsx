@@ -32,8 +32,13 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
 
     const sceneLines = useMemo(() => {
         if (!script || !currentScene) return [];
-        const scriptSceneIdx = script.scenes.findIndex(s => s.title === currentScene.title);
-        if (scriptSceneIdx === -1) return [];
+        
+        let scriptSceneIdx = currentScene.order_index ?? currentScene.index;
+        if (scriptSceneIdx === undefined || scriptSceneIdx === null) {
+            scriptSceneIdx = script.scenes.findIndex(s => s.title === currentScene.title);
+        }
+
+        if (scriptSceneIdx === -1 || !script.scenes[scriptSceneIdx]) return [];
 
         const startLine = script.scenes[scriptSceneIdx].index;
         const nextScene = script.scenes[scriptSceneIdx + 1];
@@ -117,7 +122,11 @@ export function LiveScriptViewer({ sessionData, currentSceneIdx, scenes, isReadO
 
     const globalSceneIndex = useMemo(() => {
         if (!script || !currentScene) return -1;
-        return script.scenes.findIndex(s => s.title === currentScene.title);
+        let idx = currentScene.order_index ?? currentScene.index;
+        if (idx === undefined || idx === null) {
+            idx = script.scenes.findIndex(s => s.title === currentScene.title);
+        }
+        return idx;
     }, [script, currentScene]);
 
     const handleInjectNote = async () => {

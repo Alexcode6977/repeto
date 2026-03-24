@@ -111,7 +111,7 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
                 <div className="p-4 flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
                         <div className="flex justify-between items-start mb-2">
-                            <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                            <div suppressHydrationWarning className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                                 {new Date(note.created_at).toLocaleTimeString()}
                             </div>
                             {!isEditing && (
@@ -172,12 +172,12 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
                     </div>
 
                     {!isEditing && (
-                        <div className="flex md:flex-col flex-row gap-2 md:opacity-50 md:group-hover:opacity-100 transition-opacity">
-                            <Button size="sm" variant="outline" onClick={() => handleOpenAction('feedback')} className="justify-start gap-2 h-8 text-xs w-full md:w-auto">
-                                <MessageSquare className="w-3 h-3" /> Feedback
+                        <div className="grid grid-cols-2 md:flex md:flex-col gap-2 md:opacity-50 md:group-hover:opacity-100 transition-opacity mt-4 md:mt-0">
+                            <Button size="sm" variant="outline" onClick={() => handleOpenAction('feedback')} className="justify-center md:justify-start gap-2 h-9 md:h-8 text-xs w-full md:w-auto">
+                                <MessageSquare className="w-3.5 h-3.5 md:w-3 md:h-3" /> Feedback
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleOpenAction('indication')} className="justify-start gap-2 h-8 text-xs w-full md:w-auto">
-                                <StickyNote className="w-3 h-3" /> Indication
+                            <Button size="sm" variant="outline" onClick={() => handleOpenAction('indication')} className="justify-center md:justify-start gap-2 h-9 md:h-8 text-xs w-full md:w-auto">
+                                <StickyNote className="w-3.5 h-3.5 md:w-3 md:h-3" /> Indication
                             </Button>
 
                             <Separator className="hidden md:block my-1" />
@@ -185,7 +185,7 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                className="justify-start gap-2 h-8 text-xs w-full md:w-auto text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                                className="justify-center md:justify-start gap-2 h-9 md:h-8 text-xs w-full md:w-auto text-blue-500 hover:text-blue-600 hover:bg-blue-50 bg-blue-50/50 md:bg-transparent"
                                 onClick={async () => {
                                     setIsProcessing(true);
                                     try {
@@ -209,11 +209,11 @@ export function NoteProcessingCard({ note, sceneCharacters, onDelete, onUpdate, 
                                     }
                                 }}
                             >
-                                <Lock className="w-3 h-3" /> Carder (Note Perso)
+                                <Lock className="w-3.5 h-3.5 md:w-3 md:h-3" /> Garder (Perso)
                             </Button>
 
-                            <Button size="sm" variant="ghost" onClick={handleDelete} className="justify-start gap-2 h-8 text-xs w-full md:w-auto text-red-500 hover:text-red-600 hover:bg-red-50">
-                                <Trash2 className="w-3 h-3" /> Supprimer
+                            <Button size="sm" variant="ghost" onClick={handleDelete} className="justify-center md:justify-start gap-2 h-9 md:h-8 text-xs w-full md:w-auto text-red-500 hover:text-red-600 hover:bg-red-50 bg-red-50/50 md:bg-transparent">
+                                <Trash2 className="w-3.5 h-3.5 md:w-3 md:h-3" /> Supprimer
                             </Button>
                         </div>
                     )}
