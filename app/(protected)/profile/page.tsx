@@ -3,16 +3,20 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { LogOut, Clock, FileText, User as UserIcon, Calendar, Star, MessageSquare, ChevronDown, ChevronUp, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle, Download, BarChart2 } from "lucide-react";
+import { LogOut, Calendar, ChevronDown, Edit2, Check, X, Loader2, Crown, Trash2, AlertTriangle, BarChart2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { deleteAccount, getInvoices, Invoice, syncAndGetProfileSubscription } from "./actions";
-import { getFeedbackHistory, getFeedbackStats, FeedbackEntry } from "../dashboard/feedback-actions";
-import { cn } from "@/lib/utils";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { deleteAccount, syncAndGetProfileSubscription } from "./actions";
 import { SubscriptionCard } from "@/components/subscription-card";
 import { SubscriptionTier } from "@/lib/subscription";
 import { AvatarSelector } from "@/components/avatar-selector";
+
+const TIER_LABELS: Record<string, string> = {
+    free: "Gratuit",
+    solo_pro: "Solo Pro",
+    troupe: "Troupe",
+    troupe_xl: "Troupe XL",
+};
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -23,14 +27,10 @@ export default function ProfilePage() {
     const [editedName, setEditedName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-    const [feedbackHistory, setFeedbackHistory] = useState<FeedbackEntry[]>([]);
-    const [stats, setStats] = useState({ totalSessions: 0, averageRating: 0, totalDuration: 0 });
-    const [expandedFeedback, setExpandedFeedback] = useState<string | null>(null);
-    const [invoices, setInvoices] = useState<Invoice[]>([]);
 
     // Subscription state
-    const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>('free');
-    const [subscriptionStatus, setSubscriptionStatus] = useState<string>('inactive');
+    const [subscriptionTier, setSubscriptionTier] = useState<SubscriptionTier>("free");
+    const [subscriptionStatus, setSubscriptionStatus] = useState<string>("inactive");
     const [subscriptionEndDate, setSubscriptionEndDate] = useState<string | null>(null);
     const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState<boolean>(false);
     const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
@@ -42,11 +42,9 @@ export default function ProfilePage() {
     const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
     useEffect(() => {
-        // Check for success query param from Stripe checkout
-        if (searchParams.get('success') === 'true') {
+        if (searchParams.get("success") === "true") {
             setShowSuccessMessage(true);
-            // Clear the URL params
-            window.history.replaceState({}, '', '/profile');
+            window.history.replaceState({}, "", "/profile");
             setTimeout(() => setShowSuccessMessage(false), 5000);
         }
     }, [searchParams]);
@@ -61,33 +59,16 @@ export default function ProfilePage() {
                 const snapshot = await syncAndGetProfileSubscription();
                 if (snapshot) {
                     if (snapshot.firstName) setFirstName(snapshot.firstName);
-                    setSubscriptionTier(snapshot.subscriptionTier || 'free');
-                    setSubscriptionStatus(snapshot.subscriptionStatus || 'inactive');
+                    setSubscriptionTier(snapshot.subscriptionTier || "free");
+                    setSubscriptionStatus(snapshot.subscriptionStatus || "inactive");
                     setSubscriptionEndDate(snapshot.subscriptionEndDate || null);
                     setAvatarUrl(snapshot.avatarUrl || null);
                     setStripeCustomerId(snapshot.stripeCustomerId || null);
                     setCancelAtPeriodEnd(snapshot.cancelAtPeriodEnd || false);
                 }
             }
-
-            // Load feedback data
-            const [history, statsData] = await Promise.all([
-                getFeedbackHistory(),
-                getFeedbackStats(),
-            ]);
-            setFeedbackHistory(history);
-            setStats(statsData);
         };
         loadData();
-    }, []);
-
-    // Load Invoices separately to not block UI
-    useEffect(() => {
-        const loadInvoices = async () => {
-            const data = await getInvoices();
-            setInvoices(data);
-        };
-        loadInvoices();
     }, []);
 
     const handleLogout = async () => {
@@ -127,22 +108,7 @@ export default function ProfilePage() {
         }
     };
 
-    const formatDuration = (seconds: number) => {
-        const hours = Math.floor(seconds / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-        if (hours > 0) return `${hours}h ${mins}m`;
-        return `${mins}m`;
-    };
-
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString("fr-FR", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-        });
-    };
-
-    const displayName = firstName || user?.email?.split('@')[0] || "Artiste";
+    const displayName = firstName || user?.email?.split("@")[0] || "Artiste";
 
     return (
         <div className="w-full max-w-4xl mx-auto pt-24 md:pt-32 space-y-6 md:space-y-8 px-4 md:px-0 animate-in fade-in slide-in-from-bottom-4 pb-20">
@@ -220,9 +186,20 @@ export default function ProfilePage() {
                 </Button>
             </div>
 
-            {/* Stats Section - Only for Premium/Troupe */}
+            {/* Personal Info — shown first on mobile */}
+            <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-card border border-border space-y-4">
+                <h3 className="text-lg md:text-xl font-semibold text-foreground">Informations Personnelles</h3>
+                <div className="space-y-2">
+                    <label className="text-xs text-muted-foreground uppercase font-semibold">Email</label>
+                    <div className="p-4 rounded-xl bg-muted border border-border text-foreground">
+                        {user?.email || "Chargement..."}
+                    </div>
+                </div>
+            </div>
+
+            {/* Stats Section — desktop only (mobile has bottom nav tab) */}
             {(subscriptionTier === "solo_pro" || subscriptionTier === "troupe" || subscriptionTier === "troupe_xl") && (
-                <div className="space-y-4">
+                <div className="hidden md:block space-y-4">
                     <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                         <BarChart2 className="w-5 h-5 text-primary" />
                         Mes Statistiques
@@ -256,171 +233,35 @@ export default function ProfilePage() {
                     <Crown className="w-5 h-5 text-primary" />
                     Mon Abonnement
                 </h2>
-                <SubscriptionCard
-                    tier={subscriptionTier}
-                    status={subscriptionStatus}
-                    endDate={subscriptionEndDate}
-                    cancelAtPeriodEnd={cancelAtPeriodEnd}
-                    hasStripeCustomer={!!stripeCustomerId}
-                    trialStartDate={user?.created_at}
-                />
-            </div>
 
-            {/* Invoices History */}
-            {invoices.length > 0 && (
-                <div className="space-y-4">
-                    <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                        <FileText className="w-5 h-5 text-primary" />
-                        Historique de facturation
-                    </h2>
-                    <div className="rounded-2xl border border-border bg-card overflow-hidden">
-                        <div className="divide-y divide-border">
-                            {invoices.map((invoice) => (
-                                <div key={invoice.id} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
-                                            <FileText className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-foreground text-sm">
-                                                {new Date(invoice.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
-                                                {invoice.number} • {(invoice.amount / 100).toLocaleString('fr-FR', { style: 'currency', currency: invoice.currency })}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    {invoice.pdf && (
-                                        <a
-                                            href={invoice.pdf}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2.5 rounded-xl bg-muted/50 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-all group"
-                                            title="Télécharger la facture"
-                                        >
-                                            <Download className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                                        </a>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-
-
-            {/* Feedback History */}
-            <div className="space-y-4">
-                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                    Mes Retours Beta
-                </h2>
-
-                {feedbackHistory.length === 0 ? (
-                    <div className="p-8 rounded-2xl bg-card border border-border text-center">
-                        <p className="text-muted-foreground">Aucun retour pour le moment.</p>
-                        <p className="text-muted-foreground/60 text-sm mt-2">Vos retours apparaîtront ici après chaque répétition.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        {feedbackHistory.map((feedback) => (
-                            <div
-                                key={feedback.id}
-                                className="p-4 rounded-2xl bg-card border border-border hover:border-primary/20 transition-all"
-                            >
-                                {/* Header Row */}
-                                <div
-                                    className="flex items-center justify-between cursor-pointer"
-                                    onClick={() => setExpandedFeedback(expandedFeedback === feedback.id ? null : feedback.id)}
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex gap-0.5">
-                                            {[1, 2, 3, 4, 5].map((star) => (
-                                                <Star
-                                                    key={star}
-                                                    className={cn(
-                                                        "w-4 h-4",
-                                                        star <= feedback.rating
-                                                            ? "fill-yellow-500 text-yellow-500"
-                                                            : "text-muted-foreground/30"
-                                                    )}
-                                                />
-                                            ))}
-                                        </div>
-                                        <div>
-                                            <p className="text-foreground font-bold">{feedback.script_title}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {feedback.character_name} • {formatDate(feedback.created_at)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    {expandedFeedback === feedback.id ? (
-                                        <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                                    ) : (
-                                        <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                                    )}
-                                </div>
-
-                                {/* Expanded Content */}
-                                {expandedFeedback === feedback.id && (
-                                    <div className="mt-4 pt-4 border-t border-border space-y-4 animate-in slide-in-from-top-2">
-                                        {feedback.what_worked && (
-                                            <div className="p-3 rounded-xl bg-green-500/5 border border-green-500/10">
-                                                <p className="text-[10px] text-green-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                                                    <Check className="w-3 h-3" /> Points forts
-                                                </p>
-                                                <p className="text-sm text-foreground/80 leading-relaxed italic">"{feedback.what_worked}"</p>
-                                            </div>
-                                        )}
-                                        {feedback.what_didnt_work && (
-                                            <div className="p-3 rounded-xl bg-red-500/5 border border-red-500/10">
-                                                <p className="text-[10px] text-red-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                                                    <X className="w-3 h-3" /> Difficultés
-                                                </p>
-                                                <p className="text-sm text-foreground/80 leading-relaxed italic">"{feedback.what_didnt_work}"</p>
-                                            </div>
-                                        )}
-                                        {feedback.improvement_ideas && (
-                                            <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10">
-                                                <p className="text-[10px] text-blue-500 font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                                                    <Star className="w-3 h-3" /> Pistes pour la suite
-                                                </p>
-                                                <p className="text-sm text-foreground/80 leading-relaxed italic">"{feedback.improvement_ideas}"</p>
-                                            </div>
-                                        )}
-                                        <p className="text-[10px] text-muted-foreground/60 font-bold uppercase tracking-wider text-right">
-                                            Durée de session: {formatDuration(feedback.duration_seconds)}
-                                        </p>
-                                    </div>
-                                )}
+                {/* Mobile: compact card linking to subscription page */}
+                <Link href="/profile/subscription" className="md:hidden block">
+                    <div className="p-4 rounded-2xl bg-card border border-border hover:border-primary/30 active:scale-[0.98] transition-all flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${subscriptionTier === "free" ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"}`}>
+                                <Crown className="w-5 h-5" />
                             </div>
-                        ))}
+                            <div>
+                                <p className="font-semibold text-foreground text-sm">
+                                    {TIER_LABELS[subscriptionTier] ?? subscriptionTier}
+                                </p>
+                                <p className="text-xs text-muted-foreground">Gérer mon abonnement</p>
+                            </div>
+                        </div>
+                        <ChevronDown className="w-5 h-5 text-muted-foreground -rotate-90" />
                     </div>
-                )}
-            </div>
+                </Link>
 
-            {/* Settings */}
-            <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-card border border-border space-y-4 md:space-y-6">
-                <h3 className="text-lg md:text-xl font-semibold text-foreground">Préférences</h3>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-foreground font-medium">Thème de l'application</p>
-                        <p className="text-sm text-muted-foreground">Choisissez entre le mode clair et sombre</p>
-                    </div>
-                    <ThemeSwitcher />
-                </div>
-            </div>
-
-            {/* Personal Info */}
-            <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-card border border-border space-y-4 md:space-y-6">
-                <h3 className="text-lg md:text-xl font-semibold text-foreground">Informations Personnelles</h3>
-                <div className="space-y-2">
-                    <label className="text-xs text-muted-foreground uppercase font-semibold">Email</label>
-                    <div className="p-4 rounded-xl bg-muted border border-border text-foreground">
-                        {user?.email || "Chargement..."}
-                    </div>
+                {/* Desktop: full subscription card */}
+                <div className="hidden md:block">
+                    <SubscriptionCard
+                        tier={subscriptionTier}
+                        status={subscriptionStatus}
+                        endDate={subscriptionEndDate}
+                        cancelAtPeriodEnd={cancelAtPeriodEnd}
+                        hasStripeCustomer={!!stripeCustomerId}
+                        trialStartDate={user?.created_at}
+                    />
                 </div>
             </div>
 

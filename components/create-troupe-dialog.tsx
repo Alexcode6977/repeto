@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +12,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, Users, Sparkles } from "lucide-react";
+import { Loader2, Users, Sparkles, Check, X } from "lucide-react";
 import { createTroupe } from "@/lib/actions/troupe";
+import { cn } from "@/lib/utils";
 
 interface CreateTroupeDialogProps {
     open: boolean;
@@ -28,6 +28,14 @@ export function CreateTroupeDialog({ open, onOpenChange }: CreateTroupeDialogPro
     const [troupeName, setTroupeName] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isDesktop, setIsDesktop] = useState(false);
+
+    useEffect(() => {
+        setIsDesktop(window.innerWidth >= 768);
+        const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     const handleReset = () => {
         setStep(1);
@@ -38,16 +46,8 @@ export function CreateTroupeDialog({ open, onOpenChange }: CreateTroupeDialogPro
     };
 
     const handleClose = (open: boolean) => {
-        if (!open && !loading) {
-            handleReset();
-        }
+        if (!open && !loading) handleReset();
         onOpenChange(open);
-    };
-
-    const handleNext = () => {
-        if (step === 1) {
-            setStep(2);
-        }
     };
 
     const handleCreate = async () => {
@@ -55,166 +55,256 @@ export function CreateTroupeDialog({ open, onOpenChange }: CreateTroupeDialogPro
             setError("Veuillez entrer un nom de troupe");
             return;
         }
-
         setLoading(true);
         setError(null);
-
         try {
             const hasMore = hasMoreThan12 === "yes";
             const troupeId = await createTroupe(troupeName, hasMore);
-
-            // Success - navigate first, then close dialog
             router.push(`/troupes/${troupeId}`);
             router.refresh();
-
-            // Small delay to ensure navigation starts before closing dialog
             setTimeout(() => {
                 handleReset();
                 onOpenChange(false);
             }, 100);
         } catch (err: any) {
-            console.error("Error creating troupe:", err);
             setError(err.message || "Erreur lors de la création de la troupe");
             setLoading(false);
         }
     };
 
+    const selectedPlan = hasMoreThan12 === "yes"
+        ? { label: "Troupe XL", price: "30€/mois" }
+        : { label: "Troupe", price: "20€/mois" };
+
+    const StepContent = () => (
+        <>
+            {step === 1 ? (
+                <div className="space-y-5">
+                    <div className="flex justify-center">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-violet-500/15 text-violet-600 border border-violet-500/20">
+                            <Sparkles className="w-3 h-3" />
+                            Essai gratuit d'1 mois — sans carte bancaire
+                        </span>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2">
+                        <div className="w-6 h-1.5 rounded-full bg-primary" />
+                        <div className="w-6 h-1.5 rounded-full bg-border" />
+                    </div>
+
+                    <p className="text-sm font-semibold text-foreground text-center">
+                        Combien de membres dans votre troupe ?
+                    </p>
+
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => setHasMoreThan12("no")}
+                            className={cn(
+                                "w-full p-4 rounded-2xl border-2 text-left transition-all active:scale-[0.98]",
+                                hasMoreThan12 === "no"
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border bg-card"
+                            )}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                        "w-9 h-9 rounded-xl flex items-center justify-center transition-colors",
+                                        hasMoreThan12 === "no" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                                    )}>
+                                        <Users className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-foreground text-sm">12 membres ou moins</p>
+                                        <p className="text-xs text-muted-foreground">Offre Troupe standard</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                        <p className="font-bold text-foreground text-base">20€</p>
+                                        <p className="text-[10px] text-muted-foreground">/mois</p>
+                                    </div>
+                                    <div className={cn(
+                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                                        hasMoreThan12 === "no" ? "border-primary bg-primary" : "border-border"
+                                    )}>
+                                        {hasMoreThan12 === "no" && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+
+                        <button
+                            onClick={() => setHasMoreThan12("yes")}
+                            className={cn(
+                                "w-full p-4 rounded-2xl border-2 text-left transition-all active:scale-[0.98]",
+                                hasMoreThan12 === "yes"
+                                    ? "border-primary bg-primary/5"
+                                    : "border-border bg-card"
+                            )}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                        "w-9 h-9 rounded-xl flex items-center justify-center transition-colors",
+                                        hasMoreThan12 === "yes" ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                                    )}>
+                                        <Users className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-foreground text-sm">Plus de 12 membres</p>
+                                        <p className="text-xs text-muted-foreground">Offre Troupe XL</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-right">
+                                        <p className="font-bold text-foreground text-base">30€</p>
+                                        <p className="text-[10px] text-muted-foreground">/mois</p>
+                                    </div>
+                                    <div className={cn(
+                                        "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                                        hasMoreThan12 === "yes" ? "border-primary bg-primary" : "border-border"
+                                    )}>
+                                        {hasMoreThan12 === "yes" && <Check className="w-3 h-3 text-white" />}
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <Button onClick={() => setStep(2)} size="lg" className="w-full">
+                        Continuer
+                    </Button>
+                </div>
+            ) : (
+                <div className="space-y-5">
+                    <div className="flex justify-center">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                            <Check className="w-3 h-3" />
+                            {selectedPlan.label} · {selectedPlan.price}
+                        </span>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2">
+                        <div className="w-6 h-1.5 rounded-full bg-primary/30" />
+                        <div className="w-6 h-1.5 rounded-full bg-primary" />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="name" className="text-sm font-semibold">
+                            Nom de la troupe
+                        </Label>
+                        <Input
+                            id="name"
+                            placeholder="ex: Troupe du Théâtre Municipal"
+                            value={troupeName}
+                            onChange={(e) => setTroupeName(e.target.value)}
+                            disabled={loading}
+                            autoFocus
+                            className="text-base h-12 rounded-xl"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && !loading) handleCreate();
+                            }}
+                        />
+                    </div>
+
+                    {error && (
+                        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm flex items-center gap-2">
+                            <X className="w-4 h-4 shrink-0" />
+                            {error}
+                        </div>
+                    )}
+
+                    <div className="p-3.5 rounded-xl bg-violet-500/8 border border-violet-500/15 flex items-start gap-3">
+                        <Sparkles className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            <span className="font-semibold text-foreground">30 jours gratuits.</span> Aucune carte bancaire requise. Annulable à tout moment.
+                        </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setStep(1)}
+                            disabled={loading}
+                            className="rounded-xl"
+                        >
+                            Retour
+                        </Button>
+                        <Button
+                            onClick={handleCreate}
+                            disabled={loading || !troupeName.trim()}
+                            className="flex-1 rounded-xl"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Création...
+                                </>
+                            ) : (
+                                "Créer ma troupe"
+                            )}
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+
     return (
-        <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                        {step === 1 ? (
-                            <>
-                                <Users className="w-6 h-6 text-primary" />
-                                Créer une troupe
-                            </>
-                        ) : (
-                            <>
-                                <Sparkles className="w-6 h-6 text-primary" />
-                                Nommez votre troupe
-                            </>
-                        )}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {step === 1
-                            ? "Démarrez avec un essai gratuit d'1 mois"
-                            : "Choisissez un nom qui représente votre groupe"}
-                    </DialogDescription>
-                </DialogHeader>
-
-                {/* Step 1: Member count question */}
-                {step === 1 && (
-                    <div className="space-y-6 py-4">
-                        <div className="space-y-4">
-                            <Label className="text-base font-semibold">
-                                Votre troupe compte-t-elle plus de 12 membres ?
-                            </Label>
-                            <RadioGroup value={hasMoreThan12} onValueChange={setHasMoreThan12}>
-                                <div className="flex items-center space-x-3 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
-                                    <RadioGroupItem value="no" id="no" />
-                                    <Label
-                                        htmlFor="no"
-                                        className="flex-1 cursor-pointer font-normal"
-                                    >
-                                        <div className="font-semibold">Non, 12 membres ou moins</div>
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            Offre Troupe • 20€/mois après l'essai
-                                        </div>
-                                    </Label>
-                                </div>
-
-                                <div className="flex items-center space-x-3 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
-                                    <RadioGroupItem value="yes" id="yes" />
-                                    <Label
-                                        htmlFor="yes"
-                                        className="flex-1 cursor-pointer font-normal"
-                                    >
-                                        <div className="font-semibold">Oui, plus de 12 membres</div>
-                                        <div className="text-xs text-muted-foreground mt-1">
-                                            Offre Troupe XL • 30€/mois après l'essai
-                                        </div>
-                                    </Label>
-                                </div>
-                            </RadioGroup>
-                        </div>
-
-                        <div className="flex justify-end pt-4">
-                            <Button onClick={handleNext} size="lg" className="w-full sm:w-auto">
-                                Continuer
-                            </Button>
-                        </div>
-                    </div>
-                )}
-
-                {/* Step 2: Troupe name */}
-                {step === 2 && (
-                    <div className="space-y-6 py-4">
-                        <div className="space-y-3">
-                            <Label htmlFor="name" className="text-base font-semibold">
-                                Nom de la troupe
-                            </Label>
-                            <Input
-                                id="name"
-                                placeholder="ex: Troupe du Théâtre Municipal"
-                                value={troupeName}
-                                onChange={(e) => setTroupeName(e.target.value)}
-                                disabled={loading}
-                                autoFocus
-                                className="text-base"
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !loading) {
-                                        handleCreate();
-                                    }
-                                }}
-                            />
-                        </div>
-
-                        {error && (
-                            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                                {error}
+        <>
+            {/* Mobile: bottom sheet */}
+            {open && (
+                <div className="md:hidden fixed inset-x-0 bottom-0 top-16 z-50 flex items-end">
+                    <div
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        onClick={() => !loading && handleClose(false)}
+                    />
+                    <div className="relative w-full bg-background rounded-t-3xl px-5 pt-3 pb-8 animate-in slide-in-from-bottom-4 duration-300 max-h-[90vh] overflow-y-auto">
+                        <div className="w-10 h-1 bg-border rounded-full mx-auto mb-5" />
+                        <div className="flex items-center justify-between mb-5">
+                            <div className="flex items-center gap-2">
+                                {step === 1
+                                    ? <Users className="w-5 h-5 text-primary" />
+                                    : <Sparkles className="w-5 h-5 text-primary" />
+                                }
+                                <h2 className="text-xl font-bold text-foreground">
+                                    {step === 1 ? "Créer une troupe" : "Nommez votre troupe"}
+                                </h2>
                             </div>
-                        )}
-
-                        <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                            <div className="flex items-start gap-3">
-                                <Sparkles className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                                <div className="space-y-1">
-                                    <p className="text-sm font-semibold">Essai gratuit d'1 mois</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Profitez de toutes les fonctionnalités pendant 30 jours. Aucune carte bancaire requise.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3 pt-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => setStep(1)}
-                                disabled={loading}
-                                className="w-full sm:w-auto"
+                            <button
+                                onClick={() => !loading && handleClose(false)}
+                                className="p-2 rounded-full bg-muted text-muted-foreground"
                             >
-                                Retour
-                            </Button>
-                            <Button
-                                onClick={handleCreate}
-                                disabled={loading || !troupeName.trim()}
-                                className="flex-1"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Création...
-                                    </>
-                                ) : (
-                                    "Créer ma troupe"
-                                )}
-                            </Button>
+                                <X className="w-4 h-4" />
+                            </button>
                         </div>
+                        <StepContent />
                     </div>
-                )}
-            </DialogContent>
-        </Dialog>
+                </div>
+            )}
+
+            {/* Desktop: dialog */}
+            {isDesktop && <Dialog open={open} onOpenChange={handleClose}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                            {step === 1
+                                ? <><Users className="w-6 h-6 text-primary" />Créer une troupe</>
+                                : <><Sparkles className="w-6 h-6 text-primary" />Nommez votre troupe</>
+                            }
+                        </DialogTitle>
+                        <DialogDescription>
+                            {step === 1
+                                ? "Démarrez avec un essai gratuit d'1 mois"
+                                : "Choisissez un nom qui représente votre groupe"}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-2">
+                        <StepContent />
+                    </div>
+                </DialogContent>
+            </Dialog>}
+        </>
     );
 }

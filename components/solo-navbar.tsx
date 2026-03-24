@@ -52,9 +52,9 @@ export function SoloNavbar() {
         return null;
     }
 
-    // 2. Hide on specific troupe routes
-    // (handled by NavbarSwitch or by this explicit check to prevent layout shifts)
-    if (/^\/troupes\/[^/]+/.test(pathname)) {
+    // 2. Hide on specific troupe sub-routes (e.g. /troupes/[id]/members)
+    // but NOT on /troupes/join or /troupes itself
+    if (/^\/troupes\/[^/]+\//.test(pathname)) {
         return null;
     }
 
