@@ -3,31 +3,22 @@
 import { X, Clock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AttendanceToggle } from "./attendance-toggle";
-
-interface EventAttendance {
-    user_id: string;
-    status: string;
-}
-
-interface CalendarEvent {
-    id: string;
-    title: string;
-    event_type: string;
-    start_time: string;
-    end_time?: string | null;
-    event_attendance?: EventAttendance[];
-}
+import type {
+    TroupeCalendarEvent,
+    UpdateCalendarAttendanceInput,
+} from "@/lib/features/troupe-calendar/types";
 
 interface DayViewModalProps {
     isOpen: boolean;
     onClose: () => void;
     date: Date | null;
-    events: CalendarEvent[];
+    events: TroupeCalendarEvent[];
     userId: string;
-    onEventClick: (event: CalendarEvent) => void;
+    onEventClick: (event: TroupeCalendarEvent) => void;
+    onUpdateAttendance: (input: UpdateCalendarAttendanceInput) => Promise<void>;
 }
 
-export function DayViewModal({ isOpen, onClose, date, events, userId, onEventClick }: DayViewModalProps) {
+export function DayViewModal({ isOpen, onClose, date, events, userId, onEventClick, onUpdateAttendance }: DayViewModalProps) {
     if (!isOpen || !date) return null;
     if (events.length === 0) return null;
 
@@ -121,8 +112,11 @@ export function DayViewModal({ isOpen, onClose, date, events, userId, onEventCli
                                 {/* Quick Attendance Actions */}
                                 <div className="flex gap-2 pt-2 border-t border-border/50">
                                     <AttendanceToggle
-                                        eventId={event.id}
                                         currentStatus={myAttendance}
+                                        onUpdate={(status) => onUpdateAttendance({
+                                            eventId: event.id,
+                                            status,
+                                        })}
                                     />
                                 </div>
                             </div>

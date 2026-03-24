@@ -3,20 +3,25 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Check, X, HelpCircle, Loader2, ExternalLink } from "lucide-react";
+import { Check, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { updateAttendance } from "@/lib/actions/calendar";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
+import type {
+    TroupeCalendarEvent,
+    TroupeCalendarMember,
+    UpdateCalendarAttendanceInput,
+} from "@/lib/features/troupe-calendar/types";
 
 interface EventDetailsModalProps {
-    event: any;
-    members: any[];
+    event: TroupeCalendarEvent | null;
+    members: TroupeCalendarMember[];
     isOpen: boolean;
     onClose: () => void;
     isAdmin: boolean;
     canViewSessionPages: boolean;
     currentUserId: string;
+    onUpdateAttendance: (input: UpdateCalendarAttendanceInput) => Promise<void>;
 }
 
 export function EventDetailsModal({
@@ -26,38 +31,33 @@ export function EventDetailsModal({
     onClose,
     isAdmin,
     canViewSessionPages,
-    currentUserId
+    currentUserId,
+    onUpdateAttendance,
 }: EventDetailsModalProps) {
-    // Merge members with their attendance status
-    const [attendances, setAttendances] = useState<Record<string, string>>({});
     const [updating, setUpdating] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (event && isOpen) {
-            const initial: Record<string, string> = {};
-            event.event_attendance?.forEach((a: any) => {
-                const id = a.user_id || a.guest_id;
-                if (id) initial[id] = a.status;
-            });
-            setAttendances(initial);
-        }
-    }, [event, isOpen]);
 
     if (!event) return null;
 
-    const handleStatusUpdate = async (member: any, status: 'present' | 'absent') => {
+    const attendances = (event.event_attendance || []).reduce<Record<string, string>>((accumulator, attendance) => {
+        const id = attendance.user_id || attendance.guest_id;
+        if (id) {
+            accumulator[id] = attendance.status;
+        }
+        return accumulator;
+    }, {});
+
+    const handleStatusUpdate = async (member: TroupeCalendarMember, status: 'present' | 'absent') => {
         const id = member.user_id || member.guest_id;
         if (!id) return;
 
         setUpdating(id);
         try {
-            await updateAttendance(
-                event.id,
+            await onUpdateAttendance({
+                eventId: event.id,
                 status,
-                member.isGuest ? undefined : member.user_id,
-                member.isGuest ? member.guest_id : undefined
-            );
-            setAttendances(prev => ({ ...prev, [id]: status }));
+                targetUserId: member.isGuest ? undefined : member.user_id,
+                targetGuestId: member.isGuest ? member.guest_id : undefined,
+            });
         } catch (e) {
             console.error(e);
         } finally {
@@ -72,7 +72,7 @@ export function EventDetailsModal({
                     <DialogTitle className="text-xl flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             {event.title}
-                            {event.type === 'rehearsal' && <Badge variant="outline">Répétition</Badge>}
+                            {event.event_type === 'rehearsal' && <Badge variant="outline">Répétition</Badge>}
                         </div>
                         {canViewSessionPages && (
                             <Link href={`/troupes/${event.troupe_id}/sessions/${event.id}`}>
@@ -91,15 +91,19 @@ export function EventDetailsModal({
                     <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Présences ({Object.values(attendances).filter(s => s === 'present').length}/{members.length})</h3>
 
                     <div className="space-y-2">
-                        {members.map(member => {
+                        {members.map((member, memberIndex) => {
                             const id = member.user_id || member.guest_id;
+                            if (!id) {
+                                return null;
+                            }
+
                             const status = attendances[id] || 'unknown';
                             const isPresent = status === 'present';
                             const isAbsent = status === 'absent';
                             const isUpdating = updating === id;
 
                             return (
-                                <div key={id} className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-transparent hover:border-secondary/50 transition-all">
+                                <div key={`${id}-${memberIndex}`} className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-transparent hover:border-secondary/50 transition-all">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-10 w-10">
                                             <AvatarFallback className={isPresent ? "bg-green-600 text-foreground" : ""}>
@@ -120,8 +124,8 @@ export function EventDetailsModal({
                                     <div className="flex gap-1">
                                         {(isAdmin || (currentUserId && member.user_id === currentUserId)) && (
                                             <>
-                                                <button
-                                                    onClick={() => handleStatusUpdate(member, 'present')}
+                                                    <button
+                                                    onClick={() => void handleStatusUpdate(member, 'present')}
                                                     disabled={isUpdating}
                                                     className={cn(
                                                         "h-9 w-9 rounded-full flex items-center justify-center transition-all border",
@@ -131,7 +135,7 @@ export function EventDetailsModal({
                                                     <Check className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleStatusUpdate(member, 'absent')}
+                                                    onClick={() => void handleStatusUpdate(member, 'absent')}
                                                     disabled={isUpdating}
                                                     className={cn(
                                                         "h-9 w-9 rounded-full flex items-center justify-center transition-all border",

@@ -96,6 +96,7 @@ export async function createEvent(
     }
 
     revalidatePath(`/troupes/${troupeId}/calendar`);
+    revalidatePath(`/troupes/${troupeId}`);
 }
 
 export async function updateAttendance(
@@ -159,4 +160,5 @@ export async function updateAttendance(
     }
 
     revalidatePath('/troupes');
+    revalidatePath(`/troupes/${event.troupe_id}/calendar`);
 }

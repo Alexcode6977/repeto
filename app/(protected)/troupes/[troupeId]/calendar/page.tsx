@@ -1,9 +1,9 @@
 import { getTroupeEvents } from "@/lib/actions/calendar";
 import { getTroupeDetails, getTroupeMembers, getTroupeGuests } from "@/lib/actions/troupe";
 import { createClient } from "@/lib/supabase/server";
-import { CalendarUpcomingList } from "./calendar-upcoming-list";
 import { CalendarClient } from "./calendar-client";
 import { canManageCalendar, canViewSessions } from "@/lib/utils/roles";
+import { buildTroupeCalendarViewModel } from "@/lib/features/troupe-calendar/build-calendar-view-model";
 
 export default async function CalendarPage({
     params,
@@ -34,47 +34,24 @@ export default async function CalendarPage({
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Combine members and guests
-    const allMembers = [
-        ...members.map((m: any) => ({ ...m, user_id: m.id || m.user_id })),
-        ...guests.map((g: any) => ({
-            id: g.id,
-            guest_id: g.id,
-            first_name: g.name,
-            email: g.email || "Invité",
-            isGuest: true
-        }))
-    ];
-
     const canManage = canManageCalendar(troupe.my_roles);
     const canViewSessionPages = canViewSessions(troupe.my_roles);
-
-    // Group events by date
-    const eventsByDate: Record<number, any[]> = {};
-    events.forEach(e => {
-        const day = new Date(e.start_time).getDate();
-        if (!eventsByDate[day]) eventsByDate[day] = [];
-        eventsByDate[day].push(e);
+    const initialViewModel = buildTroupeCalendarViewModel({
+        troupeId,
+        currentMonth,
+        currentYear,
+        currentUserId: user?.id || "",
+        events,
+        members,
+        guests,
+        isAdmin: canManage,
+        canViewSessionPages,
     });
 
     return (
         <div className="space-y-6">
             <CalendarClient
-                currentMonth={currentMonth}
-                currentYear={currentYear}
-                eventsByDate={eventsByDate}
-                userId={user?.id || ''}
-                members={allMembers}
-                isAdmin={canManage}
-                canViewSessionPages={canViewSessionPages}
-                troupeId={troupeId}
-            />
-
-            {/* Upcoming Events List - Both mobile agenda and desktop cards */}
-            <CalendarUpcomingList
-                events={events}
-                userId={user?.id || ''}
-                canViewSessionPages={canViewSessionPages}
+                initialViewModel={initialViewModel}
             />
         </div>
     );

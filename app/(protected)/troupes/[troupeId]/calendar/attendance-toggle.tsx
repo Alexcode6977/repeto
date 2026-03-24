@@ -1,30 +1,34 @@
 'use client';
 
-import { updateAttendance } from "@/lib/actions/calendar";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, HelpCircle, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import type { CalendarAttendanceStatus } from "@/lib/features/troupe-calendar/types";
 
 interface AttendanceToggleProps {
-    eventId: string;
-    currentStatus: string;
+    currentStatus: CalendarAttendanceStatus;
+    onUpdate: (status: 'present' | 'absent') => Promise<void>;
     compact?: boolean;
 }
 
-export function AttendanceToggle({ eventId, currentStatus, compact = false }: AttendanceToggleProps) {
+export function AttendanceToggle({ currentStatus, onUpdate, compact = false }: AttendanceToggleProps) {
     const [status, setStatus] = useState(currentStatus);
     const [isLoading, setIsLoading] = useState(false);
 
+    useEffect(() => {
+        setStatus(currentStatus);
+    }, [currentStatus]);
+
     const handleUpdate = async (newStatus: 'present' | 'absent') => {
+        const previousStatus = status;
         setIsLoading(true);
         try {
-            // Optimistic update
             setStatus(newStatus);
-            await updateAttendance(eventId, newStatus);
+            await onUpdate(newStatus);
         } catch (error) {
             console.error(error);
-            setStatus(currentStatus); // Revert
+            setStatus(previousStatus);
         } finally {
             setIsLoading(false);
         }
@@ -36,7 +40,7 @@ export function AttendanceToggle({ eventId, currentStatus, compact = false }: At
             <button
                 onClick={(e) => {
                     e.preventDefault(); // Prevent card navigation if inside Link
-                    handleUpdate(status === 'present' ? 'absent' : 'present');
+                    void handleUpdate(status === 'present' ? 'absent' : 'present');
                 }}
                 disabled={isLoading}
                 className={cn(
@@ -61,7 +65,7 @@ export function AttendanceToggle({ eventId, currentStatus, compact = false }: At
                 variant={status === 'present' ? 'default' : 'ghost'}
                 size="sm"
                 className={cn("h-7 px-3", status === 'present' && "bg-green-600 hover:bg-green-700")}
-                onClick={() => handleUpdate('present')}
+                onClick={() => void handleUpdate('present')}
                 disabled={isLoading}
             >
                 Présent
@@ -70,7 +74,7 @@ export function AttendanceToggle({ eventId, currentStatus, compact = false }: At
                 variant={status === 'absent' ? 'destructive' : 'ghost'}
                 size="sm"
                 className="h-7 px-3"
-                onClick={() => handleUpdate('absent')}
+                onClick={() => void handleUpdate('absent')}
                 disabled={isLoading}
             >
                 Absent

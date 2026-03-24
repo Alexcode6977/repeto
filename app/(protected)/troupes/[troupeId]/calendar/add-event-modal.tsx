@@ -1,6 +1,5 @@
 'use client';
 
-import { createEvent } from "@/lib/actions/calendar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,12 +12,13 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { CreateCalendarEventInput } from "@/lib/features/troupe-calendar/types";
 
 interface AddEventModalProps {
-    troupeId: string;
     isOpen?: boolean;
     onOpenChange?: (open: boolean) => void;
     defaultDate?: Date | null;
+    onCreateEvent: (input: CreateCalendarEventInput) => Promise<void>;
 }
 
 const toInputDate = (value: Date) => {
@@ -28,7 +28,7 @@ const toInputDate = (value: Date) => {
     return `${yyyy}-${mm}-${dd}`;
 };
 
-export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: AddEventModalProps) {
+export function AddEventModal({ isOpen, onOpenChange, defaultDate, onCreateEvent }: AddEventModalProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
@@ -89,15 +89,13 @@ export function AddEventModal({ troupeId, isOpen, onOpenChange, defaultDate }: A
         setIsLoading(true);
 
         try {
-            await createEvent(
-                troupeId,
+            await onCreateEvent({
                 title,
                 start,
                 end,
-                "rehearsal",
-                undefined,
-                recurrence
-            );
+                type: "rehearsal",
+                recurrence,
+            });
             setOpen(false);
         } catch (error) {
             console.error(error);

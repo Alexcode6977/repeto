@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Clock, MapPin, Users, ChevronRight, Calendar, Check, X } from "lucide-react";
+import { Clock, Users, Calendar, Check, X } from "lucide-react";
 import { AttendanceToggle } from "./attendance-toggle";
+import type {
+    TroupeCalendarEvent,
+    UpdateCalendarAttendanceInput,
+} from "@/lib/features/troupe-calendar/types";
 
 interface MobileAgendaViewProps {
-    events: any[];
+    events: TroupeCalendarEvent[];
     userId: string;
-    onEventClick: (event: any) => void;
+    onEventClick: (event: TroupeCalendarEvent) => void;
+    onUpdateAttendance: (input: UpdateCalendarAttendanceInput) => Promise<void>;
 }
 
 // Event type colors and labels
@@ -20,16 +22,16 @@ const EVENT_TYPES: Record<string, { color: string; label: string; bgColor: strin
     other: { color: "text-yellow-500", label: "Événement", bgColor: "bg-yellow-500/10" }
 };
 
-export function MobileAgendaView({ events, userId, onEventClick }: MobileAgendaViewProps) {
+export function MobileAgendaView({ events, userId, onEventClick, onUpdateAttendance }: MobileAgendaViewProps) {
     const now = new Date();
 
     // Group events by date
-    const groupedEvents: Record<string, any[]> = {};
+    const groupedEvents: Record<string, TroupeCalendarEvent[]> = {};
 
     events
         .filter(e => new Date(e.start_time) >= now)
         .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-        .forEach(event => {
+        .forEach((event) => {
             const dateKey = new Date(event.start_time).toLocaleDateString('fr-FR', {
                 weekday: 'long',
                 day: 'numeric',
@@ -74,9 +76,9 @@ export function MobileAgendaView({ events, userId, onEventClick }: MobileAgendaV
                     {/* Events for this date */}
                     {groupedEvents[dateKey].map((event) => {
                         const eventType = EVENT_TYPES[event.event_type] || EVENT_TYPES.other;
-                        const confirmedCount = event.event_attendance?.filter((a: any) => a.status === 'present').length || 0;
+                        const confirmedCount = event.event_attendance?.filter((attendance) => attendance.status === 'present').length || 0;
                         const totalInvited = event.event_attendance?.length || 0;
-                        const myAttendance = event.event_attendance?.find((a: any) => a.user_id === userId)?.status || 'unknown';
+                        const myAttendance = event.event_attendance?.find((attendance) => attendance.user_id === userId)?.status || 'unknown';
 
                         return (
                             <div
@@ -146,7 +148,13 @@ export function MobileAgendaView({ events, userId, onEventClick }: MobileAgendaV
                                 {/* Quick Action - Only if not answered */}
                                 {myAttendance === 'unknown' && (
                                     <div className="mt-3 pt-3 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
-                                        <AttendanceToggle eventId={event.id} currentStatus={myAttendance} />
+                                        <AttendanceToggle
+                                            currentStatus={myAttendance}
+                                            onUpdate={(status) => onUpdateAttendance({
+                                                eventId: event.id,
+                                                status,
+                                            })}
+                                        />
                                     </div>
                                 )}
                             </div>
