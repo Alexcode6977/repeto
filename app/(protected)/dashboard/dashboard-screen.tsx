@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { ImportWizard } from "@/app/(protected)/dashboard/components/import-wizard";
@@ -16,6 +17,16 @@ import {
 import { useDashboardScreen } from "@/lib/features/dashboard/use-dashboard-screen";
 import { DashboardScreenDesktop } from "@/app/(protected)/dashboard/dashboard-screen.desktop";
 import { DashboardScreenMobile } from "@/app/(protected)/dashboard/dashboard-screen.mobile";
+import {
+    markDashboardHomeShellReady,
+    markSoloFavoriteDashboardShellReady,
+    markSoloFavoriteModeReady,
+} from "@/lib/mobile-flow-metrics";
+import {
+    DashboardMobileFlowOverlay,
+    DashboardSoloModeLoadingScreen,
+} from "@/app/(protected)/dashboard/components/mobile-flow-overlay";
+import type { MobileFlowTransitionState } from "@/lib/mobile-flow-transition";
 
 type IdleBrowserWindow = Window & typeof globalThis & {
     requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
@@ -25,35 +36,38 @@ type IdleBrowserWindow = Window & typeof globalThis & {
 const RehearsalMode = dynamic(
     () => loadRehearsalModeComponent().then((Component) => ({ default: Component })),
     {
-        loading: () => (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        ),
+        loading: () => <DashboardSoloModeLoadingScreen />,
     }
 );
 
 const ScriptReader = dynamic(
     () => loadScriptReaderComponent().then((Component) => ({ default: Component })),
     {
-        loading: () => (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        ),
+        loading: () => <DashboardSoloModeLoadingScreen />,
     }
 );
 
 const ListenMode = dynamic(
     () => loadListenModeComponent().then((Component) => ({ default: Component })),
     {
-        loading: () => (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        ),
+        loading: () => <DashboardSoloModeLoadingScreen />,
     }
 );
+
+function SoloModeReadyBoundary({
+    children,
+    onReady,
+}: {
+    children: ReactNode;
+    onReady: () => void;
+}) {
+    useEffect(() => {
+        markSoloFavoriteModeReady();
+        onReady();
+    }, [onReady]);
+
+    return <>{children}</>;
+}
 
 export function DashboardScreen() {
     const dashboard = useDashboardScreen();
@@ -61,6 +75,7 @@ export function DashboardScreen() {
     const hasPreloadedModesRef = useRef(false);
     const {
         state,
+        favoriteIdToLaunch,
         setError,
         setShowImportGuide,
         setSearchQuery,
@@ -80,9 +95,11 @@ export function DashboardScreen() {
         handleSaveFavoriteDraft,
         handleSaveReaderFavorite,
         handleBackToViewer,
+        completeMobileFlowTransition,
         layoutMode,
-        isFavoriteLaunchLoading,
     } = dashboard;
+    const hasMarkedDashboardHomeShellRef = useRef(false);
+    const hasMarkedFavoriteDashboardShellRef = useRef(false);
 
     useEffect(() => {
         if (hasPreloadedModesRef.current || state.isLoading) {
@@ -116,60 +133,80 @@ export function DashboardScreen() {
         };
     }, [state.isLoading]);
 
-    if (isFavoriteLaunchLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-primary" />
-            </div>
-        );
-    }
+    useEffect(() => {
+        if (isDesktop || state.isLoading || state.viewMode !== "viewer" || state.script) {
+            return;
+        }
+
+        if (!hasMarkedDashboardHomeShellRef.current) {
+            markDashboardHomeShellReady();
+            hasMarkedDashboardHomeShellRef.current = true;
+        }
+
+        if (favoriteIdToLaunch && !hasMarkedFavoriteDashboardShellRef.current) {
+            markSoloFavoriteDashboardShellReady();
+            hasMarkedFavoriteDashboardShellRef.current = true;
+        }
+    }, [favoriteIdToLaunch, isDesktop, state.isLoading, state.script, state.viewMode]);
+
+    useEffect(() => {
+        if (!favoriteIdToLaunch) {
+            hasMarkedFavoriteDashboardShellRef.current = false;
+        }
+    }, [favoriteIdToLaunch]);
 
     if (state.script && state.viewMode === "listen") {
         return (
-            <ListenMode
-                script={state.script}
-                userCharacters={state.rehearsalChar ? [state.rehearsalChar] : []}
-                onExit={handleExitView}
-                scriptId={state.selectedScriptMeta?.id}
-                isPublicScript={state.selectedScriptMeta?.isPublic}
-                skipCharacters={state.ignoredCharacters}
-                showStageDirections={state.showStageDirections}
-                initialConfig={state.favoriteConfig.listen || undefined}
-                autoStart={state.favoriteConfig.autoStart}
-                onSaveFavoriteDraft={handleSaveFavoriteDraft}
-            />
+            <SoloModeReadyBoundary onReady={completeMobileFlowTransition}>
+                <ListenMode
+                    script={state.script}
+                    userCharacters={state.rehearsalChar ? [state.rehearsalChar] : []}
+                    onExit={handleExitView}
+                    scriptId={state.selectedScriptMeta?.id}
+                    isPublicScript={state.selectedScriptMeta?.isPublic}
+                    skipCharacters={state.ignoredCharacters}
+                    showStageDirections={state.showStageDirections}
+                    initialConfig={state.favoriteConfig.listen || undefined}
+                    autoStart={state.favoriteConfig.autoStart}
+                    onSaveFavoriteDraft={handleSaveFavoriteDraft}
+                />
+            </SoloModeReadyBoundary>
         );
     }
 
     if (state.rehearsalChar && state.script && state.viewMode === "rehearsal") {
         return (
-            <RehearsalMode
-                script={state.script}
-                userCharacters={[state.rehearsalChar]}
-                onExit={handleExitView}
-                initialSettings={state.sessionSettings}
-                scriptId={state.selectedScriptMeta?.id}
-                isPublicScript={state.selectedScriptMeta?.isPublic}
-                initialIgnoredCharacters={state.ignoredCharacters}
-                showStageDirections={state.showStageDirections}
-                initialConfig={state.favoriteConfig.rehearsal || undefined}
-                autoStart={state.favoriteConfig.autoStart}
-                onSaveFavoriteDraft={handleSaveFavoriteDraft}
-            />
+            <SoloModeReadyBoundary onReady={completeMobileFlowTransition}>
+                <RehearsalMode
+                    script={state.script}
+                    userCharacters={[state.rehearsalChar]}
+                    onExit={handleExitView}
+                    initialSettings={state.sessionSettings}
+                    scriptId={state.selectedScriptMeta?.id}
+                    isPublicScript={state.selectedScriptMeta?.isPublic}
+                    initialIgnoredCharacters={state.ignoredCharacters}
+                    showStageDirections={state.showStageDirections}
+                    initialConfig={state.favoriteConfig.rehearsal || undefined}
+                    autoStart={state.favoriteConfig.autoStart}
+                    onSaveFavoriteDraft={handleSaveFavoriteDraft}
+                />
+            </SoloModeReadyBoundary>
         );
     }
 
     if (state.rehearsalChar && state.script && state.viewMode === "reader") {
         return (
-            <ScriptReader
-                script={state.script}
-                userCharacters={[state.rehearsalChar]}
-                onExit={handleExitView}
-                settings={state.sessionSettings}
-                userId={state.userId}
-                skipCharacters={state.ignoredCharacters}
-                showStageDirections={state.showStageDirections}
-            />
+            <SoloModeReadyBoundary onReady={completeMobileFlowTransition}>
+                <ScriptReader
+                    script={state.script}
+                    userCharacters={[state.rehearsalChar]}
+                    onExit={handleExitView}
+                    settings={state.sessionSettings}
+                    userId={state.userId}
+                    skipCharacters={state.ignoredCharacters}
+                    showStageDirections={state.showStageDirections}
+                />
+            </SoloModeReadyBoundary>
         );
     }
 
@@ -236,10 +273,19 @@ export function DashboardScreen() {
     };
 
     const HomeRenderer = isDesktop ? DashboardScreenDesktop : DashboardScreenMobile;
+    const shouldShowMobileFlowOverlay = !isDesktop
+        && state.mobileFlowTransition !== "idle"
+        && state.mobileFlowTransition !== "ready"
+        && (!state.script || state.viewMode === "viewer");
 
     return (
         <>
             <HomeRenderer {...homeProps} />
+            {shouldShowMobileFlowOverlay ? (
+                <DashboardMobileFlowOverlay
+                    phase={state.mobileFlowTransition as Exclude<MobileFlowTransitionState, "idle" | "ready">}
+                />
+            ) : null}
 
             <ImportWizard
                 showImportGuide={state.showImportGuide}

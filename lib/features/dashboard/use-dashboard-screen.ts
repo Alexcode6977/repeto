@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useDeferredValue, useEffect, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { ScriptSettings } from "@/components/script-setup";
 import type { ParsedScript, ScriptMetadata } from "@/lib/types";
+import type { MobileFlowTransitionState } from "@/lib/mobile-flow-transition";
 import type {
     DashboardSelectedScriptMeta,
     DashboardUserTier,
@@ -28,6 +29,12 @@ import {
     type SoloRehearsalFavoriteDraft,
     getQuickStartStorageValueFromFavorite,
 } from "@/lib/solo-favorites";
+import {
+    beginMobileFlowSession,
+    clearMobileFlowSession,
+    readMobileFlowSession,
+    updateMobileFlowSessionPhase,
+} from "@/lib/mobile-flow-transition";
 
 const DEFAULT_SESSION_SETTINGS: ScriptSettings = {
     visibility: "visible",
@@ -82,15 +89,50 @@ export function useDashboardScreen() {
     const [shouldAutoStartSession, setShouldAutoStartSession] = useState(false);
     const [isLaunchingFavorite, setIsLaunchingFavorite] = useState(false);
     const [handledFavoriteId, setHandledFavoriteId] = useState<string | null>(null);
+    const [mobileFlowTransition, setMobileFlowTransition] = useState<MobileFlowTransitionState>("idle");
 
     const [layoutMode, setLayoutMode] = useState<"grid" | "list">("grid");
     const deferredSearchQuery = useDeferredValue(searchQuery);
+    const mobileFlowResetTimeoutRef = useRef<number | null>(null);
 
     const resetFavoriteLaunchState = useCallback(() => {
         setListenInitialConfig(null);
         setRehearsalInitialConfig(null);
         setShouldAutoStartSession(false);
     }, []);
+
+    const syncMobileFlowTransition = useCallback((phase: MobileFlowTransitionState) => {
+        setMobileFlowTransition(phase);
+
+        if (phase === "idle") {
+            clearMobileFlowSession("solo-favorite-launch");
+            return;
+        }
+
+        const existingSession = readMobileFlowSession("solo-favorite-launch");
+        if (!existingSession) {
+            beginMobileFlowSession({
+                name: "solo-favorite-launch",
+                phase,
+                favoriteId: favoriteIdToLaunch || undefined,
+            });
+            return;
+        }
+
+        updateMobileFlowSessionPhase("solo-favorite-launch", phase);
+    }, [favoriteIdToLaunch]);
+
+    const completeMobileFlowTransition = useCallback(() => {
+        if (mobileFlowResetTimeoutRef.current) {
+            window.clearTimeout(mobileFlowResetTimeoutRef.current);
+        }
+
+        syncMobileFlowTransition("ready");
+        mobileFlowResetTimeoutRef.current = window.setTimeout(() => {
+            syncMobileFlowTransition("idle");
+            mobileFlowResetTimeoutRef.current = null;
+        }, 220);
+    }, [syncMobileFlowTransition]);
 
     const normalizedSearchQuery = deferredSearchQuery.trim().toLowerCase();
     const filteredScriptsList = scriptsList.filter((script) => {
@@ -152,6 +194,14 @@ export function useDashboardScreen() {
             cancelled = true;
         };
     }, [refreshScripts]);
+
+    useEffect(() => {
+        return () => {
+            if (mobileFlowResetTimeoutRef.current) {
+                window.clearTimeout(mobileFlowResetTimeoutRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         const hasVocalizingScripts = scriptsList.some(
@@ -349,6 +399,26 @@ export function useDashboardScreen() {
     }, [resetFavoriteLaunchState]);
 
     useEffect(() => {
+        const existingSession = readMobileFlowSession("solo-favorite-launch");
+        if (existingSession) {
+            setMobileFlowTransition(existingSession.phase);
+            return;
+        }
+
+        if (!favoriteIdToLaunch) {
+            setMobileFlowTransition("idle");
+            return;
+        }
+
+        beginMobileFlowSession({
+            name: "solo-favorite-launch",
+            phase: "navigating",
+            favoriteId: favoriteIdToLaunch,
+        });
+        setMobileFlowTransition("navigating");
+    }, [favoriteIdToLaunch]);
+
+    useEffect(() => {
         if (!favoriteIdToLaunch || favoriteIdToLaunch === handledFavoriteId || isLaunchingFavorite) {
             return;
         }
@@ -358,6 +428,7 @@ export function useDashboardScreen() {
         const launchFavoriteSession = async () => {
             setIsLaunchingFavorite(true);
             setError(null);
+            syncMobileFlowTransition("mounting");
 
             try {
                 const payload = await launchDashboardFavorite(favoriteIdToLaunch);
@@ -413,6 +484,7 @@ export function useDashboardScreen() {
                     : "Impossible de relancer ce favori.";
                 toast.error(message);
                 setHandledFavoriteId(favoriteIdToLaunch);
+                syncMobileFlowTransition("idle");
                 router.replace("/favoris");
             } finally {
                 if (!cancelled) {
@@ -426,7 +498,7 @@ export function useDashboardScreen() {
         return () => {
             cancelled = true;
         };
-    }, [favoriteIdToLaunch, handledFavoriteId, isLaunchingFavorite, router]);
+    }, [favoriteIdToLaunch, handledFavoriteId, isLaunchingFavorite, router, syncMobileFlowTransition]);
 
     useEffect(() => {
         if (!favoriteIdToLaunch && handledFavoriteId) {
@@ -463,6 +535,7 @@ export function useDashboardScreen() {
                 autoStart: shouldAutoStartSession,
             },
             isLaunchingFavorite,
+            mobileFlowTransition,
         },
         favoriteIdToLaunch,
         setError,
@@ -484,7 +557,7 @@ export function useDashboardScreen() {
         handleSaveFavoriteDraft,
         handleSaveReaderFavorite,
         handleBackToViewer: () => setViewMode("viewer"),
+        completeMobileFlowTransition,
         layoutMode,
-        isFavoriteLaunchLoading: Boolean(favoriteIdToLaunch && isLaunchingFavorite && !script),
     };
 }

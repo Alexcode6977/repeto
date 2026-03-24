@@ -15,6 +15,11 @@ import {
     preloadDashboardSoloModes,
 } from "@/lib/features/dashboard/solo-mode-loaders";
 import {
+    beginMobileFlowSession,
+    updateMobileFlowSessionPhase,
+} from "@/lib/mobile-flow-transition";
+import { startSoloFavoriteLaunchMetrics } from "@/lib/mobile-flow-metrics";
+import {
     type SoloFavoriteSummary,
     getSoloFavoriteActionLabel,
     getSoloFavoriteChips,
@@ -104,7 +109,15 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
 
         setPendingLaunchId(favorite.id);
         trigger("medium");
+        beginMobileFlowSession({
+            name: "solo-favorite-launch",
+            phase: "warming",
+            favoriteId: favorite.id,
+            launchMode: favorite.launchMode,
+        });
+        startSoloFavoriteLaunchMetrics();
         warmFavoriteLaunch(favorite);
+        updateMobileFlowSessionPhase("solo-favorite-launch", "navigating");
 
         startLaunchTransition(() => {
             router.push(`/dashboard?favorite=${favorite.id}`);

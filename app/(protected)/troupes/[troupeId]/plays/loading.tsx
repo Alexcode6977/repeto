@@ -10,29 +10,11 @@ export default function PlaysLoading() {
                 <Skeleton className="h-5 w-96 max-w-full" />
             </div>
 
-            {/* Mobile: Horizontal Carousel Skeleton */}
-            <div className="md:hidden">
-                <div className="flex gap-4 overflow-hidden -mx-4 px-4">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className="shrink-0 w-[200px] aspect-[2/3] bg-card rounded-2xl overflow-hidden"
-                        >
-                            <div className="h-full flex flex-col justify-end p-4">
-                                <Skeleton className="h-6 w-3/4 mb-2" />
-                                <Skeleton className="h-4 w-1/2" />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Desktop: Grid Skeleton */}
-            <div className="hidden md:grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+            <div className="flex overflow-x-auto gap-4 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-3 xl:grid-cols-4 md:overflow-visible md:gap-6 xl:gap-8">
                 {Array.from({ length: 4 }).map((_, i) => (
                     <div
                         key={i}
-                        className="aspect-[2/3] bg-card rounded-2xl overflow-hidden border border-white/5"
+                        className="shrink-0 w-[200px] md:w-auto aspect-[2/3] bg-card rounded-2xl overflow-hidden border border-white/5"
                     >
                         <div className="h-full flex flex-col justify-end p-6 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
                             <Skeleton className="h-5 w-20 mb-3 rounded-full" />

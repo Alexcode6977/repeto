@@ -45,8 +45,7 @@ export function AddGuestModal({ troupeId }: { troupeId: string }) {
                 <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="shrink-0">
                         <UserPlus className="h-4 w-4 md:mr-2" />
-                        <span className="hidden md:inline">Ajouter un membre provisoire</span>
-                        <span className="md:hidden">Ajouter</span>
+                        <span>Ajouter un membre</span>
                     </Button>
                 </DialogTrigger>
                 <DialogContent>

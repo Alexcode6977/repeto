@@ -7,23 +7,9 @@ const FILE_EXTENSION_PATTERN = /\.(tsx|jsx)$/;
 const MIXED_TREE_MARKERS = ["md:hidden", "hidden md:"];
 
 const ALLOWLIST = new Set([
-    "app/(protected)/dashboard/components/dashboard-header.tsx",
     "app/(protected)/dashboard/components/import-wizard.tsx",
     "app/(protected)/dashboard/components/script-card.tsx",
-    "app/(protected)/dashboard/components/script-grid.tsx",
-    "app/(protected)/profile/page.tsx",
-    "app/(protected)/troupes/[troupeId]/add-guest-modal.tsx",
-    "app/(protected)/troupes/[troupeId]/calendar/calendar-upcoming-list.tsx",
-    "app/(protected)/troupes/[troupeId]/calendar/calendar-view.tsx",
     "app/(protected)/troupes/[troupeId]/plays/components/troupe-import-wizard.tsx",
-    "app/(protected)/troupes/[troupeId]/plays/loading.tsx",
-    "app/(protected)/troupes/[troupeId]/plays/troupe-plays-client.tsx",
-    "app/(protected)/troupes/[troupeId]/sessions/[eventId]/live/live-client.tsx",
-    "app/(protected)/troupes/[troupeId]/sessions/[eventId]/live/live-script-viewer.tsx",
-    "app/page.tsx",
-    "components/casting-studio.tsx",
-    "components/global-header.tsx",
-    "components/troupe-header.tsx",
 ]);
 
 async function walk(directory) {

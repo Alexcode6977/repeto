@@ -1,4 +1,5 @@
 import type { ScriptSettings } from "@/components/script-setup";
+import type { MobileFlowTransitionState } from "@/lib/mobile-flow-transition";
 import type { ScriptMetadata, ParsedScript } from "@/lib/types";
 import type {
     SoloFavoriteDraft,
@@ -84,6 +85,7 @@ export interface DashboardScreenState {
     isLoadingDetail: boolean;
     favoriteConfig: DashboardFavoriteConfigState;
     isLaunchingFavorite: boolean;
+    mobileFlowTransition: MobileFlowTransitionState;
 }
 
 export type SaveFavoriteDraftHandler = (draft: SoloFavoriteDraft) => Promise<void>;

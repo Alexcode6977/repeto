@@ -523,3 +523,27 @@ Au prochain chantier, on lance la Phase 1 avec ce scope exact:
 - brancher le script dans `package.json`
 
 Si la Phase 1 est propre, on enchaine directement sur le dashboard.
+
+## 11. Convention repo active
+
+La convention a appliquer sur toute UI touchee est:
+
+- `gateway` ou `service` pour les acces donnees et effets de bord
+- `use-<feature>-screen` pour l'etat partage et les transitions
+- `<feature>-screen.tsx` comme wrapper neutre
+- `<feature>-screen.mobile.tsx` et `<feature>-screen.desktop.tsx` des qu'il y a divergence structurelle
+- les renderers restent purs: pas de fetch metier, pas de server action directe, pas de `Capacitor.*`, pas de `window.innerWidth`
+
+Exceptions autorisees:
+
+- micro-variantes de densite, typo, label ou spacing inline
+- composants feuille explicitement documentes par le garde-fou mixed-shell
+
+Checklist PR UI obligatoire:
+
+- impact mobile verifie
+- impact desktop verifie
+- impact gateway ou service verifie si logique touchee
+- preuve visuelle des deux surfaces si renderer touche
+- `node scripts/check-no-mixed-shells.mjs`
+- `npm run build`
