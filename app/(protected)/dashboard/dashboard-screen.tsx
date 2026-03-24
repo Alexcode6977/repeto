@@ -8,6 +8,7 @@ import { ImportWizard } from "@/app/(protected)/dashboard/components/import-wiza
 import { ScriptViewerSingle } from "@/components/script-viewer-single";
 import { ScriptSetup } from "@/components/script-setup";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
 import {
     loadListenModeComponent,
     loadRehearsalModeComponent,
@@ -100,6 +101,11 @@ export function DashboardScreen() {
     } = dashboard;
     const hasMarkedDashboardHomeShellRef = useRef(false);
     const hasMarkedFavoriteDashboardShellRef = useRef(false);
+    const shouldLockDashboardHomeScroll = !isDesktop
+        && state.viewMode === "viewer"
+        && !state.script;
+
+    useBodyScrollLock(shouldLockDashboardHomeScroll);
 
     useEffect(() => {
         if (hasPreloadedModesRef.current || state.isLoading) {

@@ -43,6 +43,7 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
     const nativeShell = isNativePlatform();
     const { selection } = useHaptics();
     const prefetchedHrefs = useRef(new Set<string>());
+    const previewResetTimeoutRef = useRef<number | null>(null);
     const [pendingHref, setPendingHref] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
@@ -84,6 +85,14 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
             cancelFrame();
         };
     }, [currentItem, nativeShell, pathname]);
+
+    useEffect(() => {
+        return () => {
+            if (previewResetTimeoutRef.current !== null && typeof window !== "undefined") {
+                window.clearTimeout(previewResetTimeoutRef.current);
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (typeof window === "undefined" || !currentItem || !shouldRestoreScroll(currentItem, pathname)) {
@@ -143,6 +152,28 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
         warmPlatformRoute(router, href, prefetchedHrefs.current);
     }
 
+    function clearPreviewResetTimeout() {
+        if (previewResetTimeoutRef.current === null || typeof window === "undefined") {
+            return;
+        }
+
+        window.clearTimeout(previewResetTimeoutRef.current);
+        previewResetTimeoutRef.current = null;
+    }
+
+    function previewRoute(href: string) {
+        if (!nativeShell || typeof window === "undefined") {
+            return;
+        }
+
+        beginMobileTabTransition(href as MobileTabHref);
+        clearPreviewResetTimeout();
+        previewResetTimeoutRef.current = window.setTimeout(() => {
+            completeMobileTabTransition(href);
+            previewResetTimeoutRef.current = null;
+        }, 1200);
+    }
+
     function triggerNavigationFeedback() {
         void selection();
     }
@@ -156,6 +187,7 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
     }
 
     function navigateTo(item: MobileNavItem) {
+        clearPreviewResetTimeout();
         setPendingHref(item.href);
         beginMobileTabTransition(item.href as MobileTabHref);
 
@@ -167,6 +199,12 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
     function getLinkProps(item: MobileNavItem) {
         const handleTouchStart = () => {
             warmRoute(item.href);
+
+            if (isCurrentRoot(item)) {
+                return;
+            }
+
+            previewRoute(item.href);
         };
 
         const handleFocus = () => {
@@ -186,6 +224,7 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
 
             if (isCurrentRoot(item)) {
                 event.preventDefault();
+                clearPreviewResetTimeout();
                 setPendingHref(null);
                 completeMobileTabTransition(item.href);
                 return;
