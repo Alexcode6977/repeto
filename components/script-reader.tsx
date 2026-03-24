@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo } from "react";
 import { ParsedScript } from "@/lib/types";
+import { useVirtualListWindow } from "@/lib/hooks/use-virtual-list-window";
 import { Button } from "./ui/button";
 import { ArrowLeft, Highlighter, Layout, Download } from "lucide-react";
 import { cn, getCollectiveMembersForLine, getSceneCharacters, isUserLine } from "@/lib/utils";
@@ -25,13 +26,22 @@ interface ScriptReaderProps {
 }
 
 export function ScriptReader({ script, userCharacters, onExit, settings, skipCharacters = [], privateNotes = [], showStageDirections = true }: ScriptReaderProps) {
-    const scrollRef = useRef<HTMLDivElement>(null);
-    const lineRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+    type ScriptLineWithOriginalIndex = typeof script.lines[number] & { originalIndex: number };
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const [highlightStyle, setHighlightStyle] = useState<"box" | "text">("box");
 
     // Check if private notes are enabled
     const showPrivateNotes = userCharacters.includes(PRIVATE_NOTE_CHAR);
+    const privateNotesByLineIndex = useMemo(() => {
+        const map = new Map<number, any>();
+
+        privateNotes.forEach((note) => {
+            map.set(note.line_index, note);
+        });
+
+        return map;
+    }, [privateNotes]);
 
     // Pre-calculate per-scene characters for correct "TOUS" handling
     // We only need to do this once when script changes
@@ -150,7 +160,21 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
             }
             return false;
         });
-    }, [script.lines, settings.mode, userCharacters, skipCharacters, showStageDirections, sceneCharactersMap]);
+    }, [script.lines, settings.mode, userCharacters, skipCharacters, showStageDirections, sceneCharactersMap]) as ScriptLineWithOriginalIndex[];
+    const shouldVirtualizeReader = filteredLines.length > 140;
+    const readerWindow = useVirtualListWindow({
+        itemCount: filteredLines.length,
+        estimateSize: 136,
+        overscan: 12,
+        strategy: "scroll",
+        containerRef,
+        enabled: shouldVirtualizeReader,
+        initialViewportItems: 10,
+    });
+    const visibleLines = useMemo(
+        () => filteredLines.slice(readerWindow.startIndex, readerWindow.endIndex),
+        [filteredLines, readerWindow.endIndex, readerWindow.startIndex]
+    );
 
     return (
         <div className="fixed inset-0 z-[100] flex flex-col bg-background text-foreground font-sans overflow-hidden">
@@ -218,25 +242,31 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
             </div>
 
             {/* Script Content */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto">
+            <div ref={containerRef} className="flex-1 overflow-y-auto">
                 <div className="flex">
                     <div className="hidden md:block w-24 flex-shrink-0 bg-background/40 border-r border-border sticky left-0" />
                     <div className="flex-1 p-4 md:p-8">
-                        <div className="max-w-3xl mx-auto space-y-4 pb-32">
-                            {filteredLines.map((line, idx) => {
-                                const sceneInfo = getCurrentSceneInfo((line as any).originalIndex);
+                        <div
+                            className="max-w-3xl mx-auto space-y-4"
+                            style={{
+                                paddingTop: readerWindow.topPadding,
+                                paddingBottom: readerWindow.bottomPadding + 128,
+                            }}
+                        >
+                            {visibleLines.map((line) => {
+                                const sceneInfo = getCurrentSceneInfo(line.originalIndex);
                                 const activeChars = sceneInfo ? sceneCharactersMap.get(sceneInfo.startIndex) : undefined;
-                                const collectiveMembers = getCollectiveMembersForLine(script, (line as any).originalIndex);
+                                const collectiveMembers = getCollectiveMembersForLine(script, line.originalIndex);
                                 const isUser = isUserLine(script, line.character, userCharacters, activeChars, collectiveMembers);
 
                                 const lineNumber = userLineNumbers.get(line.id);
                                 // The map keys are ORIGINAL indexes (from scenes array), so we need to find if this line starts a scene
-                                const sceneTitle = sceneInfoMap.get((line as any).originalIndex)?.title;
+                                const sceneTitle = sceneInfoMap.get(line.originalIndex)?.title;
 
                                 // Private Note Logic
 
                                 const note = showPrivateNotes && privateNotes.length > 0
-                                    ? privateNotes.find(n => n.line_index === (line as any).originalIndex)
+                                    ? privateNotesByLineIndex.get(line.originalIndex)
                                     : null;
 
                                 const isIndication = line.character === "INDICATIONS";
@@ -260,9 +290,6 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                         )}
 
                                         <div
-                                            ref={(el) => {
-                                                if (el) lineRefs.current.set(line.id, el);
-                                            }}
                                             className={cn(
                                                 "relative p-4 rounded-xl transition-all duration-200 flex gap-4",
                                                 isUser && highlightStyle === "box"
@@ -272,7 +299,7 @@ export function ScriptReader({ script, userCharacters, onExit, settings, skipCha
                                         >
                                             <div className="hidden md:flex flex-col items-center w-12 flex-shrink-0 pt-1">
                                                 <span className="text-[9px] text-muted-foreground font-mono">
-                                                    {getCurrentSceneInfo((line as any).originalIndex)?.title?.split(' ').slice(0, 2).join(' ')}
+                                                    {getCurrentSceneInfo(line.originalIndex)?.title?.split(' ').slice(0, 2).join(' ')}
                                                 </span>
                                             </div>
 

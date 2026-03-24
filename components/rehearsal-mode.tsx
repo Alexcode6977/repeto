@@ -5,6 +5,7 @@ import { ScriptLine, ParsedScript } from "@/lib/types";
 import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { usePauseOnAppBackground } from "@/lib/hooks/use-pause-on-app-background";
 import { useRehearsal } from "@/lib/hooks/use-rehearsal";
+import { useVirtualListWindow } from "@/lib/hooks/use-virtual-list-window";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities, validateAndStartRehearsal } from "@/app/actions/rehearsal";
 import { getVoiceConfig, determineSourceType } from "@/lib/actions/voice-cache";
@@ -567,15 +568,26 @@ export function RehearsalMode({
 
     // Next line preview
     const nextLine = script.lines[currentLineIndex + 1];
+    const privateNotesByLineIndex = useMemo(() => {
+        const map = new Map<number, PrivateNote>();
 
-    // Virtualized script window to keep scrolling smooth on long scripts.
-    const VIRTUAL_CONTEXT = 70;
-    const VIRTUAL_ROW_ESTIMATE = 176; // Approximate average line card height.
-    const virtualStart = Math.max(0, currentLineIndex - VIRTUAL_CONTEXT);
-    const virtualEnd = Math.min(script.lines.length, currentLineIndex + VIRTUAL_CONTEXT + 1);
-    const visibleLines = script.lines.slice(virtualStart, virtualEnd);
-    const topSpacerHeight = virtualStart * VIRTUAL_ROW_ESTIMATE;
-    const bottomSpacerHeight = Math.max(0, (script.lines.length - virtualEnd) * VIRTUAL_ROW_ESTIMATE);
+        privateNotes?.forEach((note) => {
+            map.set(note.line_index, note);
+        });
+
+        return map;
+    }, [privateNotes]);
+    const rehearsalWindow = useVirtualListWindow({
+        itemCount: script.lines.length,
+        estimateSize: 176,
+        overscan: 32,
+        strategy: "active",
+        activeIndex: currentLineIndex,
+    });
+    const visibleLines = useMemo(
+        () => script.lines.slice(rehearsalWindow.startIndex, rehearsalWindow.endIndex),
+        [rehearsalWindow.endIndex, rehearsalWindow.startIndex, script.lines]
+    );
     const scriptRuntimeId = (script as { id?: string }).id;
 
     const getSessionContext = (): {
@@ -1358,14 +1370,20 @@ export function RehearsalMode({
                     <div
                         ref={containerRef}
                         className={cn(
-                            "flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar md:scrollbar-thin transition-opacity duration-300",
+                            "flex-1 overflow-y-auto px-4 py-8 scroll-smooth no-scrollbar md:scrollbar-thin transition-opacity duration-300",
                             hasInitialScrollCompleted ? "opacity-100" : "opacity-0"
                         )}
                         id="script-container"
                     >
-                        {topSpacerHeight > 0 && <div style={{ height: `${topSpacerHeight}px` }} />}
+                        <div
+                            className="space-y-6"
+                            style={{
+                                paddingTop: rehearsalWindow.topPadding,
+                                paddingBottom: rehearsalWindow.bottomPadding + 192,
+                            }}
+                        >
                         {visibleLines.map((line, localIndex) => {
-                            const index = virtualStart + localIndex;
+                            const index = rehearsalWindow.startIndex + localIndex;
                             const isActive = index === currentLineIndex;
                             const isUser = isUserLineHelper(line, index);
 
@@ -1390,7 +1408,7 @@ export function RehearsalMode({
                                 >
                                     {/* Private Note Display */}
                                     {userCharacters.includes(PRIVATE_NOTE_CHAR) && (() => {
-                                        const note = privateNotes?.find(n => n.line_index === index);
+                                        const note = privateNotesByLineIndex.get(index);
                                         if (!note) return null;
                                         return (
                                             <div className={cn(
@@ -1470,9 +1488,7 @@ export function RehearsalMode({
                                 </div>
                             );
                         })}
-                        {bottomSpacerHeight > 0 && <div style={{ height: `${bottomSpacerHeight}px` }} />}
-                        {/* Bottom Spacer for scrolling */}
-                        <div className="h-48" />
+                        </div>
                     </div>
 
                     {/* Next Line Preview - Faded miniature */}

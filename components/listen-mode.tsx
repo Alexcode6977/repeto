@@ -5,6 +5,7 @@ import { ParsedScript } from "@/lib/types";
 import { useListen, type ListenMode } from "@/lib/hooks/use-listen";
 import { type TTSProvider } from "@/lib/hooks/use-ai-tts";
 import { usePauseOnAppBackground } from "@/lib/hooks/use-pause-on-app-background";
+import { useVirtualListWindow } from "@/lib/hooks/use-virtual-list-window";
 import { useWakeLock } from "@/lib/hooks/use-wake-lock";
 import { getUserCapabilities } from "@/app/actions/rehearsal";
 import { Play, Pause, SkipForward, SkipBack, X, Loader2, Sparkles, Headphones, ArrowLeft, MessageSquare, Zap, Users, Check, Heart } from "lucide-react";
@@ -155,24 +156,6 @@ export function ListenMode({
     const [hasInitialScrollCompleted, setHasInitialScrollCompleted] = useState(false);
 
     useEffect(() => {
-        if (hasStarted && lineRefs.current.has(currentLineIndex)) {
-            const activeEl = lineRefs.current.get(currentLineIndex);
-            if (activeEl) {
-                if (isFirstScrollRef.current) {
-                    requestAnimationFrame(() => {
-                        activeEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
-                        setHasInitialScrollCompleted(true);
-                    });
-                    isFirstScrollRef.current = false;
-                } else {
-                    activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
-                    setHasInitialScrollCompleted(true);
-                }
-            }
-        }
-    }, [currentLineIndex, hasStarted]);
-
-    useEffect(() => {
         if (status === "finished" && hasStarted) {
             stop();
             releaseWakeLock();
@@ -315,6 +298,66 @@ export function ListenMode({
             ) as ScriptLineWithOriginalIndex[],
         [script, showStageDirections]
     );
+    const activeFilteredIndex = useMemo(() => {
+        if (filteredLines.length === 0) {
+            return -1;
+        }
+
+        let closestIndex = 0;
+
+        for (let index = 0; index < filteredLines.length; index += 1) {
+            const line = filteredLines[index];
+
+            if (line.originalIndex >= currentLineIndex) {
+                return index;
+            }
+
+            closestIndex = index;
+        }
+
+        return closestIndex;
+    }, [currentLineIndex, filteredLines]);
+    const shouldVirtualizeListen = filteredLines.length > 120;
+    const listenWindow = useVirtualListWindow({
+        itemCount: filteredLines.length,
+        estimateSize: 168,
+        overscan: 24,
+        strategy: "active",
+        activeIndex: activeFilteredIndex,
+        enabled: shouldVirtualizeListen,
+    });
+    const visibleLines = useMemo(
+        () => filteredLines.slice(listenWindow.startIndex, listenWindow.endIndex),
+        [filteredLines, listenWindow.endIndex, listenWindow.startIndex]
+    );
+
+    useEffect(() => {
+        if (!hasStarted) {
+            return;
+        }
+
+        const activeLine =
+            activeFilteredIndex >= 0 ? filteredLines[activeFilteredIndex] : null;
+        const activeEl = activeLine
+            ? lineRefs.current.get(activeLine.originalIndex)
+            : null;
+
+        if (!activeEl) {
+            return;
+        }
+
+        if (isFirstScrollRef.current) {
+            requestAnimationFrame(() => {
+                activeEl.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
+                setHasInitialScrollCompleted(true);
+            });
+            isFirstScrollRef.current = false;
+            return;
+        }
+
+        activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHasInitialScrollCompleted(true);
+    }, [activeFilteredIndex, filteredLines, hasStarted]);
 
     if (!hasStarted) {
         return (
@@ -535,13 +578,26 @@ export function ListenMode({
                     </div>
                 </div>
 
-                <div ref={containerRef} className={cn("flex-1 overflow-y-auto px-4 py-8 space-y-6 scroll-smooth no-scrollbar transition-opacity duration-300", hasInitialScrollCompleted ? "opacity-100" : "opacity-0")}>
-                    {filteredLines.map((line) => {
+                <div ref={containerRef} className={cn("flex-1 overflow-y-auto px-4 py-8 scroll-smooth no-scrollbar transition-opacity duration-300", hasInitialScrollCompleted ? "opacity-100" : "opacity-0")}>
+                    <div
+                        className="space-y-6"
+                        style={{
+                            paddingTop: listenWindow.topPadding,
+                            paddingBottom: listenWindow.bottomPadding + 192,
+                        }}
+                    >
+                    {visibleLines.map((line) => {
                         const originalIndex = line.originalIndex;
                         const isActive = originalIndex === currentLineIndex;
                         const isUser = isUserLine(line.character, originalIndex);
                         return (
-                            <div key={line.id} ref={(el) => { if (el) lineRefs.current.set(originalIndex, el); }} className={cn("transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4", isActive ? "bg-muted/30 dark:bg-white/10 scale-105 border border-border opacity-100 shadow-xl" : "opacity-40 scale-95")}>
+                            <div key={line.id} ref={(el) => {
+                                if (el) {
+                                    lineRefs.current.set(originalIndex, el);
+                                } else {
+                                    lineRefs.current.delete(originalIndex);
+                                }
+                            }} className={cn("transition-all duration-500 max-w-2xl mx-auto rounded-2xl p-4", isActive ? "bg-muted/30 dark:bg-white/10 scale-105 border border-border opacity-100 shadow-xl" : "opacity-40 scale-95")}>
                                 {line.character !== "INDICATIONS" && <p className={cn("text-xs font-bold uppercase tracking-widest mb-3", isActive ? "text-foreground" : "text-muted-foreground")}>{line.character}</p>}
                                 <p className={cn("leading-relaxed font-serif", isActive ? "text-xl md:text-3xl text-foreground" : "text-base md:text-lg text-muted-foreground")}>
                                     {isActive && status === "playing" && <span className="inline-block w-2 h-2 rounded-full bg-cyan-500 animate-pulse mr-3" />}
@@ -564,7 +620,7 @@ export function ListenMode({
                             </div>
                         );
                     })}
-                    <div className="h-48" />
+                    </div>
                 </div>
 
                 <div className="pb-8 md:pb-12 pt-4 px-6 md:px-8 flex items-center justify-between relative z-30">
