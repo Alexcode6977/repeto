@@ -9,6 +9,11 @@ import {
     scheduleNavigationStateReset,
     warmPlatformRoute,
 } from "@/lib/platform/navigation";
+import {
+    beginMobileTabTransition,
+    completeMobileTabTransition,
+    type MobileTabHref,
+} from "@/lib/mobile-tab-transition";
 
 const SCROLL_STORAGE_PREFIX = "mobile-tab-scroll";
 
@@ -65,6 +70,20 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
             cancelFrame();
         };
     }, [isPending, pendingHref, pathname]);
+
+    useEffect(() => {
+        if (!nativeShell || !currentItem) {
+            return;
+        }
+
+        const cancelFrame = scheduleNavigationStateReset(() => {
+            completeMobileTabTransition(currentItem.href);
+        });
+
+        return () => {
+            cancelFrame();
+        };
+    }, [currentItem, nativeShell, pathname]);
 
     useEffect(() => {
         if (typeof window === "undefined" || !currentItem || !shouldRestoreScroll(currentItem, pathname)) {
@@ -138,6 +157,7 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
 
     function navigateTo(item: MobileNavItem) {
         setPendingHref(item.href);
+        beginMobileTabTransition(item.href as MobileTabHref);
 
         startTransition(() => {
             router.push(item.href, { scroll: false });
@@ -167,6 +187,7 @@ export function useMobileTabNavigation(items: MobileNavItem[]) {
             if (isCurrentRoot(item)) {
                 event.preventDefault();
                 setPendingHref(null);
+                completeMobileTabTransition(item.href);
                 return;
             }
 

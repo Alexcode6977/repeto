@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { GlobalHeader } from "@/components/global-header";
+import { MobileTabTransitionOverlay } from "@/components/mobile-tab-transition-overlay";
 import { SoloNavbar } from "@/components/solo-navbar";
 import { getProtectedSurface } from "@/lib/routes/protected-surface";
 
@@ -45,6 +46,7 @@ export function ProtectedChrome({
             ) : null}
 
             <main className={mainClassName}>{children}</main>
+            {surface === "solo" ? <MobileTabTransitionOverlay /> : null}
 
             {surface === "solo" ? <SoloNavbar /> : null}
         </>
