@@ -1,3 +1,5 @@
+import type { SoloFavoriteLaunchMode } from "@/lib/solo-favorites";
+
 export async function loadRehearsalModeComponent() {
     const mod = await import("@/components/rehearsal-mode");
     return mod.RehearsalMode;
@@ -17,4 +19,18 @@ export function preloadDashboardSoloModes() {
     void loadRehearsalModeComponent();
     void loadScriptReaderComponent();
     void loadListenModeComponent();
+}
+
+export function preloadDashboardSoloMode(mode: SoloFavoriteLaunchMode) {
+    if (mode === "listen") {
+        void loadListenModeComponent();
+        return;
+    }
+
+    if (mode === "reader") {
+        void loadScriptReaderComponent();
+        return;
+    }
+
+    void loadRehearsalModeComponent();
 }

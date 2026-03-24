@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
@@ -10,6 +10,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { deleteSoloFavorite } from "@/lib/actions/solo-favorites";
+import {
+    preloadDashboardSoloMode,
+    preloadDashboardSoloModes,
+} from "@/lib/features/dashboard/solo-mode-loaders";
 import {
     type SoloFavoriteSummary,
     getSoloFavoriteActionLabel,
@@ -22,6 +26,13 @@ import { useHaptic } from "@/lib/hooks/use-haptic";
 interface FavoritesClientProps {
     initialFavorites: SoloFavoriteSummary[];
 }
+
+type IdleBrowserWindow = Window & typeof globalThis & {
+    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+    cancelIdleCallback?: (handle: number) => void;
+};
+
+const FAVORITES_PREFETCH_LIMIT = 3;
 
 function formatLastUsed(lastUsedAt?: string | null) {
     if (!lastUsedAt) return "Jamais lancée";
@@ -38,12 +49,69 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
     const [favorites, setFavorites] = useState(initialFavorites);
     const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
     const [pendingLaunchId, setPendingLaunchId] = useState<string | null>(null);
+    const [isLaunchTransitionPending, startLaunchTransition] = useTransition();
+    const hasWarmedInitialLaunchRef = useRef(false);
 
-    const handleLaunch = (favorite: SoloFavoriteSummary) => {
+    const warmFavoriteLaunch = useCallback((favorite: Pick<SoloFavoriteSummary, "id" | "launchMode">) => {
+        void router.prefetch(`/dashboard?favorite=${favorite.id}`);
+        preloadDashboardSoloMode(favorite.launchMode);
+    }, [router]);
+
+    useEffect(() => {
+        if (favorites.length === 0 || hasWarmedInitialLaunchRef.current) {
+            return;
+        }
+
+        hasWarmedInitialLaunchRef.current = true;
+
+        if (typeof window === "undefined") {
+            return;
+        }
+
+        const browserWindow = window as IdleBrowserWindow;
+        const warmInitialLaunches = () => {
+            void router.prefetch("/dashboard");
+            preloadDashboardSoloModes();
+
+            favorites.slice(0, FAVORITES_PREFETCH_LIMIT).forEach((favorite) => {
+                warmFavoriteLaunch(favorite);
+            });
+        };
+
+        if (typeof browserWindow.requestIdleCallback === "function") {
+            const idleId = browserWindow.requestIdleCallback(() => {
+                warmInitialLaunches();
+            }, { timeout: 1500 });
+
+            return () => {
+                browserWindow.cancelIdleCallback?.(idleId);
+            };
+        }
+
+        const timeoutId = globalThis.setTimeout(() => {
+            warmInitialLaunches();
+        }, 250);
+
+        return () => {
+            globalThis.clearTimeout(timeoutId);
+        };
+    }, [favorites, router, warmFavoriteLaunch]);
+
+    const handleLaunch = useCallback((favorite: SoloFavoriteSummary) => {
+        if (pendingLaunchId) {
+            return;
+        }
+
         setPendingLaunchId(favorite.id);
         trigger("medium");
-        router.push(`/dashboard?favorite=${favorite.id}`);
-    };
+        warmFavoriteLaunch(favorite);
+
+        startLaunchTransition(() => {
+            router.push(`/dashboard?favorite=${favorite.id}`);
+        });
+    }, [pendingLaunchId, router, startLaunchTransition, trigger, warmFavoriteLaunch]);
+
+    const isAnyLaunchPending = pendingLaunchId !== null || isLaunchTransitionPending;
 
     const handleDelete = async (favoriteId: string) => {
         try {
@@ -119,6 +187,11 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
                 {favorites.map((favorite) => {
                     const isDeleting = pendingDeleteId === favorite.id;
                     const isLaunching = pendingLaunchId === favorite.id;
+                    const warmLaunchProps = {
+                        onTouchStart: () => warmFavoriteLaunch(favorite),
+                        onMouseEnter: () => warmFavoriteLaunch(favorite),
+                        onFocus: () => warmFavoriteLaunch(favorite),
+                    };
 
                     return (
                         <Card
@@ -159,7 +232,7 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        disabled={isDeleting}
+                                        disabled={isDeleting || isAnyLaunchPending}
                                         className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 -mr-2 -mt-2 shrink-0"
                                         onClick={() => handleDelete(favorite.id)}
                                     >
@@ -189,7 +262,7 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
 
                                     <Button
                                         size="sm"
-                                        disabled={isLaunching}
+                                        disabled={isAnyLaunchPending}
                                         className={cn(
                                             "h-9 px-4 rounded-xl font-bold shadow-sm transition-all hover:scale-105 active:scale-95",
                                             favorite.launchMode === "rehearsal"
@@ -197,8 +270,9 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps) {
                                                 : favorite.launchMode === "listen"
                                                     ? "bg-teal-600 hover:bg-teal-700 text-white shadow-teal-600/20"
                                                     : "bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20"
-                                        )}
+                                                )}
                                         onClick={() => handleLaunch(favorite)}
+                                        {...warmLaunchProps}
                                     >
                                         {isLaunching ? (
                                             <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
