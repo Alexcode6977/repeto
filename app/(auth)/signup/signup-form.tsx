@@ -31,13 +31,13 @@ export function SignupForm({ message: initialMessage, error: initialError }: Sig
     const displayError = clientError || initialError;
 
     return (
-        <div className="w-full max-w-sm flex-1 flex flex-col justify-center relative z-10 gap-4">
-
+        <div className="w-full max-w-sm flex flex-col justify-center relative z-10 gap-3">
+            
             {/* Messages Area */}
             {(initialMessage || displayError) && (
                 <div className={initialMessage && !displayError ?
                     "p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium text-center" :
-                    "p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-red-400 text-sm font-medium text-center"
+                    "p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-red-500 text-sm font-medium text-center"
                 }>
                     {initialMessage && !displayError && <Sparkles className="w-4 h-4 inline-block mr-2 mb-0.5" />}
                     {displayError || initialMessage}
@@ -45,69 +45,52 @@ export function SignupForm({ message: initialMessage, error: initialError }: Sig
             )}
 
             <form action={handleSubmit} className="space-y-3 w-full">
-                <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="firstName">
-                        Prénom
-                    </label>
+                <div>
                     <input
                         id="firstName"
                         name="firstName"
                         type="text"
                         required
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-base text-white 
-                            focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white/10
-                            placeholder:text-muted-foreground/50 font-medium transition-all"
-                        placeholder="Jean"
+                        className="w-full bg-muted/50 border border-input rounded-xl px-4 py-2.5 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-background placeholder:text-muted-foreground transition-all shadow-sm"
+                        placeholder="Prénom (ex: Jean)"
                     />
                 </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
-                        Email
-                    </label>
+                <div>
                     <input
                         id="email"
                         name="email"
                         type="email"
                         required
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-base text-white 
-                            focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-white/10
-                            placeholder:text-muted-foreground/50 font-medium transition-all"
-                        placeholder="nom@exemple.com"
+                        className="w-full bg-muted/50 border border-input rounded-xl px-4 py-2.5 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-background placeholder:text-muted-foreground transition-all shadow-sm"
+                        placeholder="Email (nom@exemple.com)"
                     />
                 </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
-                        Mot de passe
-                    </label>
+                <div>
                     <PasswordInput
                         id="password"
                         name="password"
                         required
                         minLength={6}
-                        placeholder="••••••••"
-                        className="bg-white/5 border-white/10 rounded-xl px-4 py-3 text-base"
+                        placeholder="Mot de passe"
+                        className="bg-muted/50 border-input rounded-xl px-4 py-2.5 text-base text-foreground focus:bg-background shadow-sm"
                     />
-                    <p className="text-[10px] text-muted-foreground pl-1">
-                        Min. 6 caractères.
-                    </p>
                 </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="confirmPassword">
-                        Confirmer le mot de passe
-                    </label>
+                <div>
                     <PasswordInput
                         id="confirmPassword"
                         name="confirmPassword"
                         required
                         minLength={6}
-                        placeholder="••••••••"
-                        className="bg-white/5 border-white/10 rounded-xl px-4 py-3 text-base"
+                        placeholder="Confirmer le mot de passe"
+                        className="bg-muted/50 border-input rounded-xl px-4 py-2.5 text-base text-foreground focus:bg-background shadow-sm"
                     />
                 </div>
 
-                <AuthSubmitButton
-                    text="Créer mon compte"
-                />
+                <div className="pt-2">
+                    <AuthSubmitButton
+                        text="Créer mon compte"
+                    />
+                </div>
             </form>
         </div>
     );

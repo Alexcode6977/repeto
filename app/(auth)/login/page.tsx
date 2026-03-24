@@ -13,111 +13,106 @@ export default async function LoginPage({
     const { message, error } = await searchParams;
 
     return (
-        <div className="h-[100dvh] w-full flex flex-col items-center justify-between bg-white text-gray-900 font-sans p-4 relative overflow-hidden">
-
+        <div className="min-h-[100dvh] w-full flex flex-col items-center justify-start bg-background text-foreground font-sans p-4 relative overflow-y-auto">
+            
             {/* Background Gradient - Simplified for mobile light theme */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="fixed inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-emerald-900/5" />
                 <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] bg-primary/10 blur-[100px] rounded-full opacity-50" />
                 <div className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] bg-emerald-600/10 blur-[100px] rounded-full opacity-50" />
             </div>
 
-            {/* HEADER SECTION (Top 20-25%) */}
-            <div className="w-full flex-none flex flex-col items-center justify-center pt-6 pb-2 relative z-10">
-                <Link href="/" className="inline-flex items-center gap-3 mb-4 group justify-center">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center shadow-lg shadow-primary/30">
-                        <Sparkles className="h-5 w-5 text-white" />
-                    </div>
-                    <span className="text-xl font-bold text-gray-900 tracking-tight">Repeto</span>
-                </Link>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900 text-center">
-                    Bon retour ! 🎭
-                </h1>
-            </div>
-
-            {/* FORM SECTION (Middle ~60%) */}
-            <div className="w-full max-w-sm flex-1 flex flex-col justify-center relative z-10 gap-5">
-
-                {/* Messages Area */}
-                {(message || error) && (
-                    <div className={message ?
-                        "p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium text-center" :
-                        "p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-red-400 text-sm font-medium text-center"
-                    }>
-                        {message && <Sparkles className="w-4 h-4 inline-block mr-2 mb-0.5" />}
-                        {message || error}
-                    </div>
-                )}
-
-                <div className="space-y-3">
-                    <GoogleSignInButton label="Se connecter avec Google" />
-                    {/* <AppleSignInButton label="Se connecter avec Apple" /> */}
-
-                    <div className="relative pt-2">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-gray-200" />
+            <div className="w-full max-w-sm flex-1 flex flex-col justify-start relative z-10">
+                {/* HEADER SECTION */}
+                <div className="w-full flex-none flex flex-col items-center justify-center pt-10 pb-6">
+                    <Link href="/" className="inline-flex items-center gap-3 mb-2 group justify-center">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center shadow-lg shadow-primary/30">
+                            <Sparkles className="h-5 w-5 text-white" />
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white px-2 text-muted-foreground">ou</span>
-                        </div>
-                    </div>
-                </div>
-
-                <form className="space-y-4 w-full">
-                    <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="email">
-                            Email
-                        </label>
-                        <input
-                            id="email"
-                            name="email"
-                            type="email"
-                            required
-                            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 
-                                focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-gray-50 hover:bg-gray-50
-                                placeholder:text-gray-400 font-medium transition-all shadow-sm"
-                            placeholder="nom@exemple.com"
-                        />
-                    </div>
-                    <div className="space-y-1.5">
-                        <div className="flex justify-between items-center">
-                            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1" htmlFor="password">
-                                Mot de passe
-                            </label>
-                            <Link
-                                href="/forgot-password"
-                                className="text-xs text-muted-foreground/60 hover:text-primary transition-colors"
-                            >
-                                Oublié ?
-                            </Link>
-                        </div>
-                        <PasswordInput
-                            id="password"
-                            name="password"
-                            required
-                            placeholder="••••••••"
-                            className="bg-white border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 focus:bg-gray-50 hover:bg-gray-50 shadow-sm"
-                        />
-                    </div>
-
-                    {/* Action Button embedded in form flow or purely sticky? 
-                        Keeping it here for now but ensuring it's easily reachable */}
-                    <AuthSubmitButton
-                        formAction={login}
-                        text="Se connecter"
-                    />
-                </form>
-            </div>
-
-            {/* FOOTER SECTION (Bottom ~15%) */}
-            <div className="w-full flex-none pb-4 text-center z-10">
-                <div className="text-sm text-muted-foreground">
-                    Pas encore de compte ?{" "}
-                    <Link href="/signup" className="text-primary font-semibold hover:text-primary/80 transition-colors">
-                        Créer un compte
+                        <span className="text-xl font-bold text-foreground tracking-tight">Repeto</span>
                     </Link>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground text-center">
+                        Bon retour ! 🎭
+                    </h1>
+                </div>
+
+                {/* FORM SECTION */}
+                <div className="w-full flex flex-col gap-4">
+                    
+                    {/* Messages Area */}
+                    {(message || error) && (
+                        <div className={message ?
+                            "p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium text-center" :
+                            "p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-red-500 text-sm font-medium text-center"
+                        }>
+                            {message && <Sparkles className="w-4 h-4 inline-block mr-2 mb-0.5" />}
+                            {message || error}
+                        </div>
+                    )}
+
+                    <div className="space-y-3">
+                        <GoogleSignInButton label="Se connecter avec Google" />
+                        
+                        <div className="relative pt-2 pb-1">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t border-border" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background px-2 text-muted-foreground">ou</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form className="space-y-3 w-full">
+                        <div>
+                            <input
+                                id="email"
+                                name="email"
+                                type="email"
+                                required
+                                className="w-full bg-muted/50 border border-input rounded-xl px-4 py-2.5 text-base text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary focus:bg-background placeholder:text-muted-foreground transition-all shadow-sm"
+                                placeholder="Email (nom@exemple.com)"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <PasswordInput
+                                id="password"
+                                name="password"
+                                required
+                                placeholder="Mot de passe"
+                                className="bg-muted/50 border-input rounded-xl px-4 py-2.5 text-base text-foreground focus:bg-background shadow-sm"
+                            />
+                            <div className="flex justify-end items-center px-1">
+                                <Link
+                                    href="/forgot-password"
+                                    className="text-xs text-muted-foreground hover:text-primary transition-colors font-medium"
+                                >
+                                    Mot de passe oublié ?
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="pt-2">
+                            <AuthSubmitButton
+                                formAction={login}
+                                text="Se connecter"
+                            />
+                        </div>
+                    </form>
+                </div>
+
+                <div className="flex-1" /> {/* Spacer */}
+
+                {/* FOOTER SECTION */}
+                <div className="w-full flex-none py-6 text-center">
+                    <div className="text-sm text-muted-foreground">
+                        Pas encore de compte ?{" "}
+                        <Link href="/signup" className="text-primary font-semibold hover:text-primary/80 transition-colors">
+                            Créer un compte
+                        </Link>
+                    </div>
                 </div>
             </div>
-
         </div>
     );
 }
